@@ -1,6 +1,6 @@
 SUBDIRS = cdc db-wrapper
 
-proc_headers =
+proc_headers = \
 	$(addprefix processors/, \
 	objecttx-common.h)
 
@@ -24,4 +24,5 @@ noinst_HEADERS = \
 	seaf-db.h \
 	merge-new.h \
 	block-tx-utils.h \
+	sync-repo-common.h \
 	$(proc_headers)
