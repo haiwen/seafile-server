@@ -59,6 +59,7 @@ CONF_NO_STRIP           = 'nostrip'
 CONF_ENABLE_S3          = 's3'
 CONF_YES                = 'yes'
 CONF_JOBS               = 'jobs'
+CONF_MYSQL_CONFIG       = 'mysql_config'
 
 ####################
 ### Common helper functions
@@ -203,8 +204,11 @@ class Ccnet(Project):
     name = 'ccnet'
     def __init__(self):
         Project.__init__(self)
+        configure_command = './configure --prefix=%s --enable-ldap' % self.prefix
+        if conf[CONF_MYSQL_CONFIG]:
+            configure_command += ' --with-mysql=%s' % conf[CONF_MYSQL_CONFIG]
         self.build_commands = [
-            './configure --prefix=%s --disable-client --enable-server --enable-pgsql --enable-ldap' % self.prefix,
+            configure_command,
             'make -j%s' % conf[CONF_JOBS],
             'make install'
         ]
@@ -220,9 +224,12 @@ class Seafile(Project):
         if conf[CONF_ENABLE_S3]:
             s3_support = '--enable-s3'
 
+        configure_command = './configure --prefix=%s %s' % (self.prefix, s3_support)
+        if conf[CONF_MYSQL_CONFIG]:
+            configure_command += ' --with-mysql=%s' % conf[CONF_MYSQL_CONFIG]
+
         self.build_commands = [
-            './configure --prefix=%s --disable-client --enable-server --enable-pgsql %s' \
-                % (self.prefix, s3_support),
+            configure_command,
             'make -j%s' % conf[CONF_JOBS],
             'make install'
         ]
@@ -376,6 +383,8 @@ def validate_args(usage, options):
     # [ s3 ]
     s3 = get_option(CONF_ENABLE_S3)
 
+    mysql_config_path = get_option(CONF_MYSQL_CONFIG)
+
     conf[CONF_VERSION] = version
     conf[CONF_LIBSEARPC_VERSION] = libsearpc_version
     conf[CONF_SEAFILE_VERSION] = seafile_version
@@ -390,6 +399,7 @@ def validate_args(usage, options):
     conf[CONF_ENABLE_S3] = s3
     conf[CONF_YES] = yes
     conf[CONF_JOBS] = jobs
+    conf[CONF_MYSQL_CONFIG] = mysql_config_path
 
     prepare_builddir(builddir)
     show_build_info()
@@ -500,6 +510,12 @@ def parse_args():
                       dest=CONF_ENABLE_S3,
                       action='store_true',
                       help='''enable amazon s3 support''')
+
+    parser.add_option(long_opt(CONF_MYSQL_CONFIG),
+                      dest=CONF_MYSQL_CONFIG,
+                      nargs=1,
+                      help='''Absolute path to mysql_config or mariadb_config program.''')
+
     usage = parser.format_help()
     options, remain = parser.parse_args()
     if remain:
