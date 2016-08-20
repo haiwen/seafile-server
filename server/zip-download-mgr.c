@@ -465,7 +465,6 @@ zip_download_mgr_start_zip_task (ZipDownloadMgr *mgr,
     const char *data;
     const char *operation;
     SeafRepo *repo;
-    void *internal;
     DownloadObj *obj;
     Progress *progress;
     int file_count;

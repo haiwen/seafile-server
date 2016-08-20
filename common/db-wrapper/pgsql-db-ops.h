@@ -18,6 +18,9 @@ void
 pgsql_db_connection_close (DBConnection *vconn);
 
 gboolean
+pgsql_db_connection_ping (DBConnection *vconn);
+
+gboolean
 pgsql_db_connection_execute (DBConnection *vconn, const char *sql, GError **error);
 
 void

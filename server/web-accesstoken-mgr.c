@@ -131,7 +131,6 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
                                       int use_onetime,
                                       GError **error)
 {
-    GString *key;
     AccessInfo *info;
     long now = (long)time(NULL);
     long expire;

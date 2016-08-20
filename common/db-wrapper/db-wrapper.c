@@ -9,6 +9,7 @@ typedef struct DBOperations {
     void (*db_conn_pool_free) (DBConnPool *);
     DBConnection* (*get_db_connection) (DBConnPool *, GError **);
     void (*db_connection_close) (DBConnection *);
+    gboolean (*db_connection_ping) (DBConnection *);
     gboolean (*db_connection_execute) (DBConnection *, const char *, GError **);
     ResultSet* (*db_connection_execute_query) (DBConnection *, const char *, GError **);
     gboolean (*result_set_next) (ResultSet *, GError **);
@@ -31,6 +32,14 @@ static DBOperations db_ops;
 
 /* DB Connection Pool. */
 
+static void
+init_conn_pool_common (DBConnPool *pool, int max_connections)
+{
+    pool->connections = g_ptr_array_sized_new (max_connections);
+    pthread_mutex_init (&pool->lock, NULL);
+    pool->max_connections = max_connections;
+}
+
 DBConnPool *
 db_conn_pool_new_mysql (const char *host,
                         const char *user,
@@ -45,6 +54,7 @@ db_conn_pool_new_mysql (const char *host,
     db_ops.db_conn_pool_free = mysql_db_conn_pool_free;
     db_ops.get_db_connection = mysql_get_db_connection;
     db_ops.db_connection_close = mysql_db_connection_close;
+    db_ops.db_connection_ping = mysql_db_connection_ping;
     db_ops.db_connection_execute = mysql_db_connection_execute;
     db_ops.db_connection_execute_query = mysql_execute_query;
     db_ops.result_set_next = mysql_result_set_next;
@@ -62,8 +72,13 @@ db_conn_pool_new_mysql (const char *host,
     db_ops.db_connection_commit = mysql_db_commit;
     db_ops.db_connection_rollback = mysql_db_rollback;
 
-    return mysql_db_conn_pool_new (host, user, password, port, db_name, unix_socket,
-                                   use_ssl, charset, max_connections);
+    DBConnPool *pool;
+
+    pool = mysql_db_conn_pool_new (host, user, password, port, db_name, unix_socket,
+                                   use_ssl, charset);
+    init_conn_pool_common (pool, max_connections);
+
+    return pool;
 }
 
 DBConnPool *
@@ -71,11 +86,13 @@ db_conn_pool_new_pgsql (const char *host,
                         const char *user,
                         const char *password,
                         const char *db_name,
-                        const char *unix_socket)
+                        const char *unix_socket,
+                        int max_connections)
 {
     db_ops.db_conn_pool_free = pgsql_db_conn_pool_free;
     db_ops.get_db_connection = pgsql_get_db_connection;
     db_ops.db_connection_close = pgsql_db_connection_close;
+    db_ops.db_connection_ping = pgsql_db_connection_ping;
     db_ops.db_connection_execute = pgsql_db_connection_execute;
     db_ops.db_connection_execute_query = pgsql_execute_query;
     db_ops.result_set_next = pgsql_result_set_next;
@@ -93,7 +110,12 @@ db_conn_pool_new_pgsql (const char *host,
     db_ops.db_connection_commit = pgsql_db_commit;
     db_ops.db_connection_rollback = pgsql_db_rollback;
 
-    return pgsql_db_conn_pool_new (host, user, password, db_name, unix_socket);
+    DBConnPool *pool;
+
+    pool = pgsql_db_conn_pool_new (host, user, password, db_name, unix_socket);
+    init_conn_pool_common (pool, max_connections);
+
+    return pool;
 }
 
 DBConnPool *
@@ -102,6 +124,7 @@ db_conn_pool_new_sqlite (const char *db_path, int max_connections)
     db_ops.db_conn_pool_free = sqlite_db_conn_pool_free;
     db_ops.get_db_connection = sqlite_get_db_connection;
     db_ops.db_connection_close = sqlite_db_connection_close;
+    db_ops.db_connection_ping = sqlite_db_connection_ping;
     db_ops.db_connection_execute = sqlite_db_connection_execute;
     db_ops.db_connection_execute_query = sqlite_execute_query;
     db_ops.result_set_next = sqlite_result_set_next;
@@ -119,12 +142,20 @@ db_conn_pool_new_sqlite (const char *db_path, int max_connections)
     db_ops.db_connection_commit = sqlite_db_commit;
     db_ops.db_connection_rollback = sqlite_db_rollback;
 
-    return sqlite_db_conn_pool_new (db_path, max_connections);
+    DBConnPool *pool;
+
+    pool = sqlite_db_conn_pool_new (db_path);
+    init_conn_pool_common (pool, max_connections);
+
+    return pool;
 }
 
 void
 db_conn_pool_free (DBConnPool *pool)
 {
+    g_ptr_array_free (pool->connections, TRUE);
+    pthread_mutex_destroy (&pool->lock);
+
     return db_ops.db_conn_pool_free (pool);
 }
 
@@ -133,15 +164,40 @@ db_conn_pool_free (DBConnPool *pool)
 DBConnection *
 db_conn_pool_get_connection (DBConnPool *pool, GError **error)
 {
-    return db_ops.get_db_connection (pool, error);
+    DBConnection *conn = NULL;
+
+    pthread_mutex_lock (&pool->lock);
+
+    guint i, size = pool->connections->len;
+    for (i = 0; i < size; ++i) {
+        conn = g_ptr_array_index (pool->connections, i);
+        if (conn->is_available && db_connection_ping (conn)) {
+            conn->is_available = FALSE;
+            goto out;
+        }
+    }
+    conn = NULL;
+    if (size < pool->max_connections) {
+        conn = db_ops.get_db_connection (pool, error);
+        if (conn) {
+            conn->is_available = TRUE;
+            conn->pool = pool;
+            g_ptr_array_add (pool->connections, conn);
+        }
+    }
+
+out:
+    pthread_mutex_unlock (&pool->lock);
+    return conn;
 }
 
 static void
 db_connection_clear (DBConnection *conn)
 {
     result_set_free (conn->result_set);
-
     db_stmt_free (conn->stmt);
+    conn->result_set = NULL;
+    conn->stmt = NULL;
 }
 
 void
@@ -150,15 +206,26 @@ db_connection_close (DBConnection *conn)
     if (!conn)
         return;
 
+    if (conn->in_transaction)
+        db_connection_rollback (conn, NULL);
+
     db_connection_clear (conn);
 
-    db_ops.db_connection_close (conn);
+    pthread_mutex_lock (&conn->pool->lock);
+    conn->is_available = TRUE;
+    pthread_mutex_unlock (&conn->pool->lock);
 }
 
 gboolean
 db_connection_execute (DBConnection *conn, const char *sql, GError **error)
 {
     return db_ops.db_connection_execute (conn, sql, error);
+}
+
+gboolean
+db_connection_ping (DBConnection *conn)
+{
+    return db_ops.db_connection_ping (conn);
 }
 
 /* Result Sets. */
@@ -341,19 +408,31 @@ db_stmt_free (DBStmt *stmt)
 gboolean
 db_connection_begin_transaction (DBConnection *conn, GError **error)
 {
-    return db_ops.db_connection_begin_transaction (conn, error);
+    gboolean ret;
+
+    ret = db_ops.db_connection_begin_transaction (conn, error);
+    if (ret)
+        conn->in_transaction++;
+
+    return ret;
 }
 
 gboolean
 db_connection_commit (DBConnection *conn, GError **error)
 {
+    if (conn->in_transaction)
+        conn->in_transaction = 0;
+
     return db_ops.db_connection_commit (conn, error);
 }
 
 gboolean
 db_connection_rollback (DBConnection *conn, GError **error)
 {
-    db_connection_clear (conn);
+    if (conn->in_transaction) {
+        db_connection_clear (conn);
+        conn->in_transaction = 0;
+    }
 
     return db_ops.db_connection_rollback (conn, error);
 }

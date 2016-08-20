@@ -479,24 +479,6 @@ parse_content_type(const char *filename)
 }
 
 static gboolean
-test_windows (evhtp_request_t *req)
-{
-    const char *user_agent = evhtp_header_find (req->headers_in, "User-Agent");
-    if (!user_agent)
-        return FALSE;
-
-    GString *s = g_string_new (user_agent);
-    if (g_strrstr (g_string_ascii_down (s)->str, "windows")) {
-        g_string_free (s, TRUE);
-        return TRUE;
-    }
-    else {
-        g_string_free (s, TRUE);
-        return FALSE;
-    }
-}
-
-static gboolean
 test_firefox (evhtp_request_t *req)
 {
     const char *user_agent = evhtp_header_find (req->headers_in, "User-Agent");
@@ -1206,7 +1188,6 @@ access_cb(evhtp_request_t *req, void *arg)
     const char *user = NULL;
     const char *byte_ranges = NULL;
 
-    GError *err = NULL;
     SeafileCryptKey *key = NULL;
     SeafileWebAccess *webaccess = NULL;
 
@@ -1251,7 +1232,6 @@ access_cb(evhtp_request_t *req, void *arg)
     }
 
     if (repo->encrypted) {
-        err = NULL;
         key = seaf_passwd_manager_get_decrypt_key (seaf->passwd_mgr,
                                                    repo_id, user);
         if (!key) {

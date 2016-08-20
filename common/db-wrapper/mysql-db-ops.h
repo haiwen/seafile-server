@@ -9,8 +9,7 @@ mysql_db_conn_pool_new (const char *host,
                         const char *db_name,
                         const char *unix_socket,
                         gboolean use_ssl,
-                        const char *charset,
-                        int max_connections);
+                        const char *charset);
 
 void
 mysql_db_conn_pool_free (DBConnPool *vpool);
@@ -20,6 +19,9 @@ mysql_get_db_connection (DBConnPool *vpool, GError **error);
 
 void
 mysql_db_connection_close (DBConnection *vconn);
+
+gboolean
+mysql_db_connection_ping (DBConnection *vconn);
 
 gboolean
 mysql_db_connection_execute (DBConnection *vconn, const char *sql, GError **error);

@@ -27,12 +27,10 @@ mysql_db_conn_pool_new (const char *host,
                         const char *db_name,
                         const char *unix_socket,
                         gboolean use_ssl,
-                        const char *charset,
-                        int max_connections)
+                        const char *charset)
 {
     MySQLDBConnPool *pool = g_new0 (MySQLDBConnPool, 1);
 
-    pool->parent.max_connections = max_connections;
     pool->host = g_strdup (host);
     pool->user = g_strdup (user);
     pool->password = g_strdup (password);
@@ -117,7 +115,6 @@ mysql_get_db_connection (DBConnPool *vpool, GError **error)
         return NULL;
     conn = g_new0 (MySQLDBConnection, 1);
     conn->db = db;
-    conn->parent.pool = vpool;
     return (DBConnection *)conn;
 }
 
@@ -132,6 +129,14 @@ mysql_db_connection_close (DBConnection *vconn)
     mysql_close (conn->db);
 
     g_free (conn);
+}
+
+gboolean
+mysql_db_connection_ping (DBConnection *vconn)
+{
+    MySQLDBConnection *conn = (MySQLDBConnection *)vconn;
+
+    return (mysql_ping (conn->db) == 0);
 }
 
 gboolean

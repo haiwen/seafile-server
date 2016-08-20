@@ -322,8 +322,6 @@ check_permission (HttpServer *htp_server, const char *repo_id, const char *usern
 static gboolean
 get_vir_repo_info (SeafDBRow *row, void *data)
 {
-    HttpServer *htp_server = data;
-
     const char *repo_id = seaf_db_row_get_column_text (row, 0);
     if (!repo_id)
         return FALSE;
@@ -409,13 +407,6 @@ get_repo_store_id (HttpServer *htp_server, const char *repo_id)
     add_vir_info_to_cache (htp_server, repo_id, vinfo);
 
     return g_strdup (vinfo->store_id);
-}
-
-static void
-default_cb (evhtp_request_t *req, void *arg)
-{
-    evbuffer_add (req->buffer_out, INIT_INFO, strlen (INIT_INFO));
-    evhtp_send_reply (req, EVHTP_RES_OK);
 }
 
 typedef struct {
@@ -515,9 +506,6 @@ get_client_ip_addr (evhtp_request_t *req)
 static int
 validate_client_ver (const char *client_ver)
 {
-    int n_major;
-    int n_minor;
-    int n_build;
     char **versions = NULL;
     char *next_str = NULL;
 
@@ -527,19 +515,19 @@ validate_client_ver (const char *client_ver)
         return EVHTP_RES_BADREQ;
     }
 
-    n_major = strtoll (versions[0], &next_str, 10);
+    strtoll (versions[0], &next_str, 10);
     if (versions[0] == next_str) {
         g_strfreev (versions);
         return EVHTP_RES_BADREQ;
     }
 
-    n_minor = strtoll (versions[1], &next_str, 10);
+    strtoll (versions[1], &next_str, 10);
     if (versions[1] == next_str) {
         g_strfreev (versions);
         return EVHTP_RES_BADREQ;
     }
 
-    n_build = strtoll (versions[2], &next_str, 10);
+    strtoll (versions[2], &next_str, 10);
     if (versions[2] == next_str) {
         g_strfreev (versions);
         return EVHTP_RES_BADREQ;

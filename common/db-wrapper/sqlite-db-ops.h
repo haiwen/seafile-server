@@ -2,7 +2,7 @@
 #define SQLITE_DB_OPS_H
 
 DBConnPool *
-sqlite_db_conn_pool_new (const char *db_path, int max_connections);
+sqlite_db_conn_pool_new (const char *db_path);
 
 void
 sqlite_db_conn_pool_free (DBConnPool *vpool);
@@ -12,6 +12,9 @@ sqlite_get_db_connection (DBConnPool *vpool, GError **error);
 
 void
 sqlite_db_connection_close (DBConnection *vconn);
+
+gboolean
+sqlite_db_connection_ping (DBConnection *vconn);
 
 gboolean
 sqlite_db_connection_execute (DBConnection *vconn, const char *sql, GError **error);

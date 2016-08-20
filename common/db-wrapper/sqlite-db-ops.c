@@ -91,15 +91,13 @@ sqlite3_blocking_exec(sqlite3 *db, const char *sql, int (*callback)(void *, int,
 typedef struct SQLiteDBConnPool {
     DBConnPool parent;
     char *db_path;
-    int max_connections;
 } SQLiteDBConnPool;
 
 DBConnPool *
-sqlite_db_conn_pool_new (const char *db_path, int max_connections)
+sqlite_db_conn_pool_new (const char *db_path)
 {
     SQLiteDBConnPool *pool = g_new0 (SQLiteDBConnPool, 1);
     pool->db_path = g_strdup(db_path);
-    pool->max_connections = max_connections;
 
     return (DBConnPool *)pool;
 }
@@ -156,6 +154,12 @@ sqlite_db_connection_close (DBConnection *vconn)
     sqlite3_close (conn->db);
 
     g_free (conn);
+}
+
+gboolean
+sqlite_db_connection_ping (DBConnection *vconn)
+{
+    return TRUE;
 }
 
 gboolean

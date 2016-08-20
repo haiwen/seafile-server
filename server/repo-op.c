@@ -1236,7 +1236,6 @@ seaf_repo_manager_post_blocks (SeafRepoManager *mgr,
                                GError **error)
 {
     SeafRepo *repo = NULL;
-    char buf[SEAF_PATH_MAX];
     GList *blockids = NULL, *paths = NULL, *ptr;
     int ret = 0;
 

@@ -2,6 +2,7 @@
 #define DB_WARPPER_H
 
 #include <glib.h>
+#include <pthread.h>
 
 #define SEAF_DB_ERROR_DOMAIN g_quark_from_string("SEAF_DB")
 #define SEAF_DB_ERROR_CODE 0
@@ -9,6 +10,8 @@
 /* DB Connection Pool. */
 
 struct DBConnPool {
+    GPtrArray *connections;
+    pthread_mutex_t lock;
     int max_connections;
 };
 typedef struct DBConnPool DBConnPool;
@@ -29,7 +32,8 @@ db_conn_pool_new_pgsql (const char *host,
                         const char *user,
                         const char *password,
                         const char *db_name,
-                        const char *unix_socket);
+                        const char *unix_socket,
+                        int max_connections);
 
 DBConnPool *
 db_conn_pool_new_sqlite (const char *db_path, int max_connections);
@@ -46,6 +50,8 @@ struct DBStmt;
 typedef struct DBStmt DBStmt;
 
 struct DBConnection {
+    gboolean is_available;
+    int in_transaction;
     DBConnPool *pool;
     ResultSet *result_set;
     DBStmt *stmt;
@@ -57,6 +63,9 @@ db_conn_pool_get_connection (DBConnPool *pool, GError **error);
 
 void
 db_connection_close (DBConnection *conn);
+
+gboolean
+db_connection_ping (DBConnection *conn);
 
 gboolean
 db_connection_execute (DBConnection *conn, const char *sql, GError **error);

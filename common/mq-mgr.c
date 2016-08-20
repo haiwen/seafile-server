@@ -68,7 +68,6 @@ seaf_mq_manager_init (SeafMqManager *mgr)
 int
 seaf_mq_manager_start (SeafMqManager *mgr)
 {
-    SeafMqManagerPriv *priv = mgr->priv;
     return 0;
 }
 

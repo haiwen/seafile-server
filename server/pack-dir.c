@@ -331,7 +331,6 @@ pack_dir_data_new (const char *store_id,
 {
     struct archive *a = NULL;
     char *tmpfile_name = NULL ;
-    char *ret = NULL;
     int fd = -1;
     PackDirData *data = NULL;
 

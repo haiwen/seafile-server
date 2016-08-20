@@ -114,7 +114,6 @@ pgsql_get_db_connection (DBConnPool *vpool, GError **error)
 
     conn = g_new0 (PGDBConnection, 1);
     conn->db = db;
-    conn->parent.pool = vpool;
 
     return (DBConnection *)conn;
 }
@@ -130,6 +129,14 @@ pgsql_db_connection_close (DBConnection *vconn)
     PQfinish (conn->db);
 
     g_free (conn);
+}
+
+gboolean
+pgsql_db_connection_ping (DBConnection *vconn)
+{
+    PGDBConnection *conn = (PGDBConnection *)vconn;
+
+    return (PQstatus(conn->db) == CONNECTION_OK);
 }
 
 gboolean

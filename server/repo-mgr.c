@@ -43,23 +43,6 @@ struct _SeafRepoManagerPriv {
     gint64 trash_expire_interval;
 };
 
-static const char *ignore_table[] = {
-    /* tmp files under Linux */
-    "*~",
-    /* Emacs tmp files */
-    "#*#",
-    /* ms office tmp files */
-    "~$*",
-    "~*.tmp", /* for files like ~WRL0001.tmp */
-    /* windows image cache */
-    "Thumbs.db",
-    /* For Mac */
-    ".DS_Store",
-    NULL,
-};
-
-static GPatternSpec** ignore_patterns;
-
 static void
 load_repo (SeafRepoManager *manager, SeafRepo *repo);
 
@@ -336,12 +319,6 @@ seaf_repo_manager_new (SeafileSession *seaf)
                                                    REAP_TOKEN_INTERVAL * 1000);
 
     init_scan_trash_timer (mgr->priv, seaf->config);
-
-    /* ignore_patterns = g_new0 (GPatternSpec*, G_N_ELEMENTS(ignore_table)); */
-    /* int i; */
-    /* for (i = 0; ignore_table[i] != NULL; i++) { */
-    /*     ignore_patterns[i] = g_pattern_spec_new (ignore_table[i]); */
-    /* } */
 
     return mgr;
 }
@@ -2334,8 +2311,6 @@ seaf_repo_manager_del_repo_from_trash (SeafRepoManager *mgr,
                                        const char *repo_id,
                                        GError **error)
 {
-    int ret = 0;
-
     /* As long as the repo is successfully moved into GarbageRepo table,
      * we consider this operation successful.
      */

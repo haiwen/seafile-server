@@ -158,7 +158,8 @@ pgsql_db_start (SeafileSession *session)
     unix_socket = g_key_file_get_string (session->config,
                                          "database", "unix_socket", &error);
 
-    session->db = seaf_db_new_pgsql (host, user, passwd, db, unix_socket);
+    session->db = seaf_db_new_pgsql (host, user, passwd, db, unix_socket,
+                                     DEFAULT_MAX_CONNECTIONS);
     if (!session->db) {
         seaf_warning ("Failed to start pgsql db.\n");
         return -1;
