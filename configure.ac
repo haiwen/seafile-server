@@ -355,6 +355,7 @@ AC_CONFIG_FILES(
     python/seaserv/Makefile
     controller/Makefile
     tools/Makefile
+    doc/Makefile
 )
 
 AC_OUTPUT

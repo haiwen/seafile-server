@@ -14,9 +14,9 @@ endif
 
 MAKE_SERVER = server tools $(MAKE_CONTROLLER) $(MAKE_FUSE)
 
-SUBDIRS = include lib common python $(MAKE_SERVER)
+SUBDIRS = include lib common python $(MAKE_SERVER) doc
 
-DIST_SUBDIRS = include lib common python server tools controller fuse
+DIST_SUBDIRS = include lib common python server tools controller fuse doc
 
 INTLTOOL = \
 	intltool-extract.in \
