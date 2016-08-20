@@ -268,17 +268,19 @@ if test "xyes" = "x$mysql"; then
         tmp_LDFLAGS=$LDFLAGS
         CPPFLAGS="`$MYSQLCONFIG --include` $CPPFLAGS"
         LDFLAGS="`$MYSQLCONFIG --libs` $LDFLAGS"
-        AC_CHECK_HEADERS([mysql.h])
+        AC_CHECK_HEADERS([mysql.h], [], [mysql="no"])
         if test "xyes" = "x$mysql"; then
 	        echo "found mysql client library"
 		MYSQL_CFLAGS=`$MYSQLCONFIG --include`
                 MYSQL_LIBS=`$MYSQLCONFIG --libs`		
 		AC_SUBST(MYSQL_CFLAGS)
 		AC_SUBST(MYSQL_LIBS)
+		AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 to enable mysql])
         fi
         CPPFLAGS=$tmp_CPPFLAGS
         LDFLAGS=$tmp_LDFLAGS
 fi
+AM_CONDITIONAL([WITH_MYSQL], test "xyes" = "x$mysql")
 
 postgresql="yes"
 check_postgres_config() 
@@ -320,10 +322,12 @@ if test "xyes" = "x$postgresql"; then
                 PGSQL_LIBS="-L`$PGCONFIG --libdir` -lpq"
 		AC_SUBST(PGSQL_CFLAGS)
 		AC_SUBST(PGSQL_LIBS)
+                AC_DEFINE([HAVE_POSTGRESQL], 1, [Define to 1 to enable postgresql])
         fi
         CPPFLAGS=$tmp_CPPFLAGS
         LDFLAGS=$tmp_LDFLAGS
 fi
+AM_CONDITIONAL([WITH_POSTGRESQL], test "xyes" = "x$postgresql")
 
 if test "${compile_fuse}" = "yes"; then
    PKG_CHECK_MODULES(FUSE, [fuse >= $FUSE_REQUIRED])

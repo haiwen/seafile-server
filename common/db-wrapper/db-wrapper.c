@@ -1,9 +1,15 @@
 #include "common.h"
 
 #include "db-wrapper.h"
-#include "mysql-db-ops.h"
 #include "sqlite-db-ops.h"
+
+#ifdef HAVE_MYSQL
+#include "mysql-db-ops.h"
+#endif
+
+#ifdef HAVE_POSTGRESQL
 #include "pgsql-db-ops.h"
+#endif
 
 typedef struct DBOperations {
     void (*db_conn_pool_free) (DBConnPool *);
@@ -39,6 +45,8 @@ init_conn_pool_common (DBConnPool *pool, int max_connections)
     pthread_mutex_init (&pool->lock, NULL);
     pool->max_connections = max_connections;
 }
+
+#ifdef HAVE_MYSQL
 
 DBConnPool *
 db_conn_pool_new_mysql (const char *host,
@@ -81,6 +89,10 @@ db_conn_pool_new_mysql (const char *host,
     return pool;
 }
 
+#endif
+
+#ifdef HAVE_POSTGRESQL
+
 DBConnPool *
 db_conn_pool_new_pgsql (const char *host,
                         const char *user,
@@ -117,6 +129,8 @@ db_conn_pool_new_pgsql (const char *host,
 
     return pool;
 }
+
+#endif
 
 DBConnPool *
 db_conn_pool_new_sqlite (const char *db_path, int max_connections)

@@ -21,6 +21,8 @@ struct SeafDBTrans {
     DBConnection *conn;
 };
 
+#ifdef HAVE_MYSQL
+
 SeafDB *
 seaf_db_new_mysql (const char *host,
                    int port,
@@ -48,6 +50,10 @@ seaf_db_new_mysql (const char *host,
     return db;
 }
 
+#endif
+
+#ifdef HAVE_POSTGRESQL
+
 SeafDB *
 seaf_db_new_pgsql (const char *host,
                    const char *user,
@@ -71,6 +77,8 @@ seaf_db_new_pgsql (const char *host,
 
     return db;
 }
+
+#endif
 
 SeafDB *
 seaf_db_new_sqlite (const char *db_path, int max_connections)

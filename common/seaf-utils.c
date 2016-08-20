@@ -52,6 +52,8 @@ sqlite_db_start (SeafileSession *session)
     return 0;
 }
 
+#ifdef HAVE_MYSQL
+
 #define MYSQL_DEFAULT_PORT 3306
 
 static int
@@ -125,6 +127,10 @@ mysql_db_start (SeafileSession *session)
     return 0;
 }
 
+#endif
+
+#ifdef HAVE_POSTGRESQL
+
 static int
 pgsql_db_start (SeafileSession *session)
 {
@@ -174,6 +180,8 @@ pgsql_db_start (SeafileSession *session)
     return 0;
 }
 
+#endif
+
 int
 load_database_config (SeafileSession *session)
 {
@@ -185,11 +193,18 @@ load_database_config (SeafileSession *session)
     /* Default to use sqlite if not set. */
     if (!type || strcasecmp (type, "sqlite") == 0) {
         ret = sqlite_db_start (session);
-    } else if (strcasecmp (type, "mysql") == 0) {
+    }
+#ifdef HAVE_MYSQL
+    else if (strcasecmp (type, "mysql") == 0) {
         ret = mysql_db_start (session);
-    } else if (strcasecmp (type, "pgsql") == 0) {
+    }
+#endif
+#ifdef HAVE_POSTGRESQL
+    else if (strcasecmp (type, "pgsql") == 0) {
         ret = pgsql_db_start (session);
-    } else {
+    }
+#endif
+    else {
         seaf_warning ("Unsupported db type %s.\n", type);
         ret = -1;
     }
