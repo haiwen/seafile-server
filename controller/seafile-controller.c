@@ -321,6 +321,7 @@ setup_env ()
 
     char *seahub_dir = g_build_filename (installpath, "seahub", NULL);
     g_setenv ("SEAHUB_DIR", seahub_dir, TRUE);
+    g_setenv ("SEAFDAV_CONF", seafdav_conf, TRUE);
 
     setup_python_path();
 }
