@@ -320,6 +320,7 @@ setup_env ()
     g_setenv ("SEAFILE_CENTRAL_CONF_DIR", ctl->central_config_dir, TRUE);
 
     char *seahub_dir = g_build_filename (installpath, "seahub", NULL);
+    char *seafdav_conf = g_build_filename (ctl->central_config_dir, "seafdav.conf", NULL);
     g_setenv ("SEAHUB_DIR", seahub_dir, TRUE);
     g_setenv ("SEAFDAV_CONF", seafdav_conf, TRUE);
 
