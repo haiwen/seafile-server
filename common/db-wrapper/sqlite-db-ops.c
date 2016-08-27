@@ -6,6 +6,8 @@
 #include <sqlite3.h>
 #include <pthread.h>
 
+#if 0
+
 /* SQLite thread synchronization rountines. */
 
 typedef struct UnlockNotification {
@@ -88,6 +90,23 @@ sqlite3_blocking_exec(sqlite3 *db, const char *sql, int (*callback)(void *, int,
     return rc;
 }
 
+#endif
+
+#define SQLITE_QUERY_TIMEOUT 3
+
+#define EXEC_SQLITE(status, action) \
+        do {\
+                long t = (SQLITE_QUERY_TIMEOUT * G_USEC_PER_SEC);\
+                int x = 0;\
+                do {\
+                        status = (action);\
+                        if (((status == SQLITE_BUSY) || (status == SQLITE_LOCKED)) && (x++ <= 9))\
+                            g_usleep(t/(rand() % 10 + 100));\
+                        else\
+                            break;\
+                } while (1);\
+        } while (0)
+
 typedef struct SQLiteDBConnPool {
     DBConnPool parent;
     char *db_path;
@@ -169,7 +188,7 @@ sqlite_db_connection_execute (DBConnection *vconn, const char *sql, GError **err
     char *errmsg = NULL;
     int rc;
 
-    rc = sqlite3_blocking_exec (conn->db, sql, NULL, NULL, &errmsg);
+    EXEC_SQLITE(rc, sqlite3_exec (conn->db, sql, NULL, NULL, &errmsg));
     if (rc != SQLITE_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
                      "sqlite3_exec failed: %s",
@@ -210,7 +229,7 @@ sqlite_execute_query (DBConnection *vconn, const char *sql, GError **error)
     int rc;
     SQLiteResultSet *r;
 
-    rc = sqlite3_blocking_prepare_v2 (conn->db, sql, -1, &stmt, NULL);
+    EXEC_SQLITE(rc, sqlite3_prepare_v2(conn->db, sql, -1, &stmt, NULL));
     if (rc != SQLITE_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
                      "sqlite3_prepare_v2 failed: %s", sqlite3_errmsg(conn->db));
@@ -231,7 +250,7 @@ sqlite_result_set_next (ResultSet *vr, GError **error)
     SQLiteResultSet *r = (SQLiteResultSet *)vr;
     int rc;
 
-    rc = sqlite3_blocking_step (r->stmt);
+    EXEC_SQLITE(rc, sqlite3_step(r->stmt));
     if (rc != SQLITE_ROW && rc != SQLITE_DONE) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
                      "sqlite3_step failed: %s", sqlite3_errmsg(r->db));
@@ -276,7 +295,7 @@ sqlite_prepare_statement (DBConnection *vconn, const char *sql, GError **error)
     int rc;
     SQLiteDBStmt *ret;
 
-    rc = sqlite3_blocking_prepare_v2 (conn->db, sql, -1, &stmt, NULL);
+    EXEC_SQLITE(rc, sqlite3_prepare_v2 (conn->db, sql, -1, &stmt, NULL));
     if (rc != SQLITE_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
                      "sqlite3_prepare_v2 failed: %s", sqlite3_errmsg(conn->db));
@@ -306,7 +325,7 @@ sqlite_stmt_set_int (DBStmt *vstmt, int i, int x, GError **error)
     rc = sqlite3_bind_int (stmt->stmt, i+1, x);
     if (rc != SQLITE_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
-                     "sqlite3_bind_int failed: %s", sqlite3_errstr(rc));
+                     "sqlite3_bind_int failed: %s", sqlite3_errmsg(stmt->db));
         return FALSE;
     }
 
@@ -328,7 +347,7 @@ sqlite_stmt_set_int64 (DBStmt *vstmt, int i, gint64 x, GError **error)
     rc = sqlite3_bind_int64 (stmt->stmt, i+1, x);
     if (rc != SQLITE_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
-                     "sqlite3_bind_int failed: %s", sqlite3_errstr(rc));
+                     "sqlite3_bind_int failed: %s", sqlite3_errmsg(stmt->db));
         return FALSE;
     }
 
@@ -350,7 +369,7 @@ sqlite_stmt_set_string (DBStmt *vstmt, int i, const char *s, GError **error)
     rc = sqlite3_bind_text (stmt->stmt, i+1, s, -1, SQLITE_TRANSIENT);
     if (rc != SQLITE_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
-                     "sqlite3_bind_int failed: %s", sqlite3_errstr(rc));
+                     "sqlite3_bind_int failed: %s", sqlite3_errmsg(stmt->db));
         return FALSE;
     }
 
@@ -363,7 +382,7 @@ sqlite_db_stmt_execute (DBStmt *vstmt, GError **error)
     SQLiteDBStmt *stmt = (SQLiteDBStmt *)vstmt;
     int rc;
 
-    rc = sqlite3_blocking_step (stmt->stmt);
+    EXEC_SQLITE(rc, sqlite3_step(stmt->stmt));
     if (rc == SQLITE_DONE) {
         sqlite3_reset (stmt->stmt);
         return TRUE;
@@ -415,7 +434,7 @@ sqlite_db_begin_transaction (DBConnection *vconn, GError **error)
     SQLiteDBConnection *conn = (SQLiteDBConnection *)vconn;
     int rc;
 
-    rc = sqlite3_blocking_exec (conn->db, "BEGIN TRANSACTION;", NULL, NULL, NULL);
+    EXEC_SQLITE(rc, sqlite3_exec (conn->db, "BEGIN TRANSACTION;", NULL, NULL, NULL));
     if (rc != SQLITE_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
                      "begin transaction failed: %s", sqlite3_errmsg(conn->db));
@@ -431,7 +450,7 @@ sqlite_db_commit (DBConnection *vconn, GError **error)
     SQLiteDBConnection *conn = (SQLiteDBConnection *)vconn;
     int rc;
 
-    rc = sqlite3_blocking_exec (conn->db, "COMMIT TRANSACTION;", NULL, NULL, NULL);
+    EXEC_SQLITE(rc, sqlite3_exec (conn->db, "COMMIT TRANSACTION;", NULL, NULL, NULL));
     if (rc != SQLITE_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
                      "commit transaction failed: %s", sqlite3_errmsg(conn->db));
@@ -447,7 +466,7 @@ sqlite_db_rollback (DBConnection *vconn, GError **error)
     SQLiteDBConnection *conn = (SQLiteDBConnection *)vconn;
     int rc;
 
-    rc = sqlite3_blocking_exec (conn->db, "ROLLBACK TRANSACTION;", NULL, NULL, NULL);
+    EXEC_SQLITE(rc, sqlite3_exec (conn->db, "ROLLBACK TRANSACTION;", NULL, NULL, NULL));
     if (rc != SQLITE_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,
                      "rollback transaction failed: %s", sqlite3_errmsg(conn->db));
