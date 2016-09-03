@@ -194,7 +194,7 @@ db_conn_pool_get_connection (DBConnPool *pool, GError **error)
     if (size < pool->max_connections) {
         conn = db_ops.get_db_connection (pool, error);
         if (conn) {
-            conn->is_available = TRUE;
+            conn->is_available = FALSE;
             conn->pool = pool;
             g_ptr_array_add (pool->connections, conn);
         }
