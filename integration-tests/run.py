@@ -30,7 +30,7 @@ TRAVIS_BRANCH = os.environ.get('TRAVIS_BRANCH', 'master')
 def make_build_env():
     env = dict(os.environ)
     libsearpc_dir = abspath(join(TOPDIR, 'libsearpc'))
-    ccnet_dir = abspath(join(TOPDIR, 'ccnet'))
+    ccnet_dir = abspath(join(TOPDIR, 'ccnet-server'))
 
     def _env_add(*a, **kw):
         kw['env'] = env
@@ -117,7 +117,12 @@ class Project(object):
         tarball = glob.glob('*.tar.gz')[0]
         info('copying %s to %s', tarball, SRCDIR)
         shell('cp {} {}'.format(tarball, SRCDIR))
-        name = 'seafile' if self.name == 'seafile-server' else self.name
+        if self.name == 'seafile-server':
+            name = 'seafile'
+        elif self.name == 'ccnet-server':
+            name = 'ccnet'
+        else:
+            name = self.name
         m = re.match('{}-(.*).tar.gz'.format(name), basename(tarball))
         if m:
             self.version = m.group(1)
@@ -129,7 +134,7 @@ class Project(object):
 
 class CcnetServer(Project):
     def __init__(self):
-        super(CcnetServer, self).__init__('ccnet')
+        super(CcnetServer, self).__init__('ccnet-server')
 
 
 class SeafileServer(Project):
@@ -297,4 +302,6 @@ def setup_and_test(db, initmode):
 
 if __name__ == '__main__':
     os.chdir(TOPDIR)
+    # Add the location where libevhtp is installed so ldd can know it.
+    prepend_env_value('LD_LIBRARY_PATH', os.path.expanduser('~/opt/local/lib'))
     main()
