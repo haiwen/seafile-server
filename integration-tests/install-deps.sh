@@ -13,21 +13,6 @@ wget https://dl.bintray.com/lins05/generic/libevhtp-bin/$libevhtp_bin
 tar xf $libevhtp_bin
 find $HOME/opt
 
-# download precompiled libzdb
-# zdb_bin=libzdb-bin_2.11.1.tar.gz
-# wget https://dl.bintray.com/lins05/generic/libzdb-bin/$zdb_bin
-# tar xf $zdb_bin
-# sed -i -e "s|prefix=/opt/local|prefix=$HOME/opt/local|g" $HOME/opt/local/lib/pkgconfig/zdb.pc
-# find $HOME/opt
-pushd /tmp/
-git clone --depth=1 https://github.com/haiwen/libzdb.git
-cd libzdb
-./bootstrap
-./configure --prefix=$HOME/opt/local
-make -j2
-make install
-popd
-
 # download seahub thirdpart python libs
 WGET="wget --no-check-certificate"
 downloads=$HOME/downloads

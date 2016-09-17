@@ -30,7 +30,7 @@ TRAVIS_BRANCH = os.environ.get('TRAVIS_BRANCH', 'master')
 def make_build_env():
     env = dict(os.environ)
     libsearpc_dir = abspath(join(TOPDIR, 'libsearpc'))
-    ccnet_dir = abspath(join(TOPDIR, 'ccnet'))
+    ccnet_dir = abspath(join(TOPDIR, 'ccnet-server'))
 
     def _env_add(*a, **kw):
         kw['env'] = env
@@ -68,7 +68,7 @@ def prepend_env_value(name, value, seperator=':', env=None):
 
 
 def get_project_branch(project, default_branch='master'):
-    if project.name == 'seafile':
+    if project.name == 'seafile-server':
         return TRAVIS_BRANCH
     conf = json.loads(requests.get(
         'https://raw.githubusercontent.com/haiwen/seafile-test-deploy/master/branches.json').text)
@@ -117,7 +117,13 @@ class Project(object):
         tarball = glob.glob('*.tar.gz')[0]
         info('copying %s to %s', tarball, SRCDIR)
         shell('cp {} {}'.format(tarball, SRCDIR))
-        m = re.match('{}-(.*).tar.gz'.format(self.name), basename(tarball))
+        if self.name == 'seafile-server':
+            name = 'seafile'
+        elif self.name == 'ccnet-server':
+            name = 'ccnet'
+        else:
+            name = self.name
+        m = re.match('{}-(.*).tar.gz'.format(name), basename(tarball))
         if m:
             self.version = m.group(1)
 
@@ -126,20 +132,20 @@ class Project(object):
         shell('git checkout {}'.format(branch))
 
 
-class Ccnet(Project):
+class CcnetServer(Project):
     def __init__(self):
-        super(Ccnet, self).__init__('ccnet')
+        super(CcnetServer, self).__init__('ccnet-server')
 
 
-class Seafile(Project):
-    configure_cmd = './configure --enable-client --enable-server'
+class SeafileServer(Project):
+    configure_cmd = './configure'
 
     def __init__(self):
-        super(Seafile, self).__init__('seafile')
+        super(SeafileServer, self).__init__('seafile-server')
 
     @chdir
     def copy_dist(self):
-        super(Seafile, self).copy_dist()
+        super(SeafileServer, self).copy_dist()
         global seafile_version
         seafile_version = self.version
 
@@ -181,7 +187,7 @@ class SeafObj(Project):
 def build_server(libsearpc, ccnet, seafile):
     cmd = [
         'python',
-        join(TOPDIR, 'seafile/scripts/build/build-server.py'),
+        join(TOPDIR, 'seafile-server/scripts/build/build-server.py'),
         '--yes',
         '--version=%s' % seafile.version,
         '--libsearpc_version=%s' % libsearpc.version,
@@ -196,14 +202,14 @@ def build_server(libsearpc, ccnet, seafile):
 
 def fetch_and_build():
     libsearpc = Project('libsearpc')
-    ccnet = Ccnet()
-    seafile = Seafile()
+    ccnet = CcnetServer()
+    seafile = SeafileServer()
     seahub = Seahub()
     seafobj = SeafObj()
     seafdav = SeafDAV()
 
     for project in (libsearpc, ccnet, seafile, seahub, seafdav, seafobj):
-        if project.name != 'seafile':
+        if project.name != 'seafile-server':
             project.clone()
         project.copy_dist()
 
@@ -296,4 +302,6 @@ def setup_and_test(db, initmode):
 
 if __name__ == '__main__':
     os.chdir(TOPDIR)
+    # Add the location where libevhtp is installed so ldd can know it.
+    prepend_env_value('LD_LIBRARY_PATH', os.path.expanduser('~/opt/local/lib'))
     main()
