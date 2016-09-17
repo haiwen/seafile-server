@@ -13,7 +13,6 @@ addons:
       - libevent-dev
       - libarchive-dev
       - intltool
-      - re2c
       - libjansson-dev
       - libonig-dev
       - libfuse-dev
