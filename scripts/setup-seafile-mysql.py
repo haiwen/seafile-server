@@ -470,9 +470,9 @@ Please choose a way to initialize seafile databases:
 
         print 'done'
 
-    def check_mysql_user(self, user, password):
+    def check_mysql_user(self, user, password, host=None):
         print '\nverifying password of user %s ... ' % user,
-        kwargs = dict(host=self.mysql_host,
+        kwargs = dict(host=host or self.mysql_host,
                       port=self.mysql_port,
                       user=user,
                       passwd=password)
@@ -555,7 +555,16 @@ class NewDBConfigurator(AbstractDBConfigurator):
         self.create_databases()
 
     def validate_root_passwd(self, password):
-        self.root_conn = self.check_mysql_user('root', password)
+        try:
+            self.root_conn = self.check_mysql_user('root', password)
+        except InvalidAnswer:
+            # For MariaDB on Ubuntu 16.04, the msyql root user can only be
+            # accessed from localhost with unix socket. So we retry with
+            # localhost when failing with 127.0.0.1.
+            if self.mysql_host == '127.0.0.1':
+                self.root_conn = self.check_mysql_user('root', password, host='localhost')
+            else:
+                raise
         return password
 
     def ask_root_password(self):
@@ -589,7 +598,9 @@ class NewDBConfigurator(AbstractDBConfigurator):
     def ask_seafile_mysql_user_password(self):
         def validate(user):
             if user == 'root':
-                self.seafile_mysql_password = self.root_password
+                raise InvalidAnswer(
+                    'Using mysql "root" user is not allowed for security reasons. Please specify a different database user.'
+                )
             else:
                 question = 'Enter the password for mysql user "%s":' % Utils.highlight(user)
                 key = 'password for %s' % user
@@ -604,7 +615,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
 
         question = 'Enter the name for mysql user of seafile. It would be created if not exists.'
         key = 'mysql user for seafile'
-        default = 'root'
+        default = 'seafile'
         self.seafile_mysql_user = Utils.ask_question(question,
                                                      key=key,
                                                      default=default,
@@ -709,6 +720,10 @@ class ExistingDBConfigurator(AbstractDBConfigurator):
 
     def ask_existing_mysql_user_password(self):
         def validate(user):
+            if user == 'root':
+                raise InvalidAnswer(
+                    'Using root is not allowed for security reasons. Please specify a different database user.'
+                )
             question = 'What is the password for mysql user "%s"?' % Utils.highlight(user)
             key = 'password for %s' % user
             password = Utils.ask_question(question, key=key, password=True)
