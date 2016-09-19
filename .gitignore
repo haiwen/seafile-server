@@ -127,3 +127,4 @@ server/gc/seaf-migrate
 /test-driver
 *.dmp
 /symbols
+tests/conf/seafile-data/*
