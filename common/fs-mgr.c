@@ -662,7 +662,6 @@ chunking_worker (gpointer vdata, gpointer user_data)
     if (chunk->result < 0)
         goto out;
 
-    //idx = chunk->offset / FIXED_BLOCK_SIZE;
     idx = chunk->offset / seaf->http_server->fixed_block_size;
     memcpy (data->blk_sha1s + idx * CHECKSUM_LENGTH, chunk->checksum, CHECKSUM_LENGTH);
 

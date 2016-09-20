@@ -19,6 +19,7 @@ struct _HttpServerStruct {
     gint64 fixed_block_size;
     gint64 max_upload_size;
     gint64 max_download_dir_size;
+    int web_token_expire_time;
     int max_indexing_threads;
 };
 
