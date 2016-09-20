@@ -7,7 +7,7 @@
 
 #include "seafile-object.h"
 #include "seafile-crypt.h"
-#include "seafile.h"
+#include "seafile-error.h"
 
 #include "utils.h"
 

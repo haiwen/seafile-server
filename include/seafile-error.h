@@ -19,4 +19,8 @@
 #define SEAF_ERR_DIR_MISSING    515
 #define SEAF_ERR_PATH_NO_EXIST  516 /* the dir or file pointed by this path not exists */
 
+#define POST_FILE_ERR_FILENAME  517
+#define POST_FILE_ERR_BLOCK_MISSING 518
+#define POST_FILE_ERR_QUOTA_FULL 519
+
 #endif

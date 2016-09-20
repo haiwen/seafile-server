@@ -12,7 +12,6 @@
 #include "utils.h"
 #define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"
-#include "seafile.h"
 #include "seafile-object.h"
 
 #include "seafile-session.h"
@@ -1287,6 +1286,32 @@ out:
     return ret;
 }
 
+static int
+check_quota_before_commit_blocks (const char *store_id,
+                                  int version,
+                                  GList *blockids)
+{
+    GList *ptr;
+    char *blockid;
+    gint64 total_size = 0;
+    BlockMetadata *bmd;
+
+    for (ptr = blockids; ptr; ptr = ptr->next) {
+        blockid = ptr->data;
+        bmd = seaf_block_manager_stat_block (seaf->block_mgr, store_id, version, blockid);
+        if (!bmd) {
+            seaf_warning ("Failed to stat block %s in store %s.\n",
+                          blockid, store_id);
+            return -1;
+        }
+
+        total_size += (gint64)bmd->size;
+        g_free (bmd);
+    }
+
+    return seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, store_id, total_size);
+}
+
 int
 seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
                                       const char *repo_id,
@@ -1330,6 +1355,14 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
         seaf_warning ("[post-blks] parent_dir cantains // sequence.\n");
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                      "Invalid parent dir");
+        ret = -1;
+        goto out;
+    }
+
+    int rc = check_quota_before_commit_blocks (repo->store_id, repo->version, blockids);
+    if (rc != 0) {
+        g_set_error (error, SEAFILE_DOMAIN, POST_FILE_ERR_QUOTA_FULL,
+                     "Quota full");
         ret = -1;
         goto out;
     }

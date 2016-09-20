@@ -26,6 +26,8 @@
 #include "upload-file.h"
 #include "http-status-codes.h"
 
+#include "seafile-error.h"
+
 enum RecvState {
     RECV_INIT,
     RECV_HEADERS,
@@ -74,9 +76,6 @@ typedef struct RecvFSM {
 } RecvFSM;
 
 #define MAX_CONTENT_LINE 10240
-
-#define POST_FILE_ERR_FILENAME 401
-#define POST_FILE_ERR_BLOCK_MISSING 402
 
 static GHashTable *upload_progress;
 static pthread_mutex_t pg_lock;
@@ -379,7 +378,10 @@ upload_cb(evhtp_request_t *req, void *arg)
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
+    gint64 content_len = evhtp_request_content_len(req);
+    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                   fsm->repo_id,
+                                                   content_len) != 0) {
         error_code = ERROR_QUOTA;
         goto error;
     }
@@ -501,7 +503,10 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
+    gint64 content_len = evhtp_request_content_len(req);
+    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                   fsm->repo_id,
+                                                   content_len) != 0) {
         error_code = ERROR_QUOTA;
         goto error;
     }
@@ -584,11 +589,6 @@ upload_raw_blks_api_cb(evhtp_request_t *req, void *arg)
 
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
-
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
-        error_code = ERROR_QUOTA;
-        goto error;
-    }
 
     blockids_json = file_list_to_json (fsm->filenames);
     tmp_files_json = file_list_to_json (fsm->files);
@@ -678,15 +678,18 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         return;
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
-        error_code = ERROR_QUOTA;
-        goto error;
-    }
-
     char *new_file_id = NULL;
     int rc = 0;
     commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
     if (!commitonly_str) {
+        gint64 content_len = evhtp_request_content_len (req);
+        if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                       fsm->repo_id,
+                                                       content_len) != 0) {
+            error_code = ERROR_QUOTA;
+            goto error;
+        }
+
         if (!check_tmp_file_list (fsm->files, &error_code))
             goto error;
         blockids_json = file_list_to_json (fsm->filenames);
@@ -729,6 +732,8 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
                 error_code = ERROR_FILENAME;
             } else if (error->code == POST_FILE_ERR_BLOCK_MISSING) {
                 error_code = ERROR_BLOCK_MISSING;
+            } else if (error->code == POST_FILE_ERR_QUOTA_FULL) {
+                error_code = ERROR_QUOTA;
             }
             g_clear_error (&error);
         }
@@ -831,7 +836,10 @@ upload_blks_ajax_cb(evhtp_request_t *req, void *arg)
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
+    gint64 content_len = evhtp_request_content_len (req);
+    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                   fsm->repo_id,
+                                                   content_len) != 0) {
         error_code = ERROR_QUOTA;
         goto error;
     }
@@ -946,7 +954,10 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
+    gint64 content_len = evhtp_request_content_len (req);
+    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                   fsm->repo_id,
+                                                   content_len) != 0) {
         error_code = ERROR_QUOTA;
         goto error;
     }
@@ -1053,7 +1064,10 @@ update_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
+    gint64 content_len = evhtp_request_content_len(req);
+    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                   fsm->repo_id,
+                                                   content_len) != 0) {
         error_code = ERROR_QUOTA;
         goto error;
     }
@@ -1126,7 +1140,10 @@ update_api_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
+    gint64 content_len = evhtp_request_content_len(req);
+    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                   fsm->repo_id,
+                                                   content_len) != 0) {
         error_code = ERROR_QUOTA;
         goto error;
     }
@@ -1217,15 +1234,17 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
-        error_code = ERROR_QUOTA;
-        goto error;
-    }
-
-
     int rc = 0;
     commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
     if (!commitonly_str) {
+        gint64 content_len = evhtp_request_content_len(req);
+        if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                       fsm->repo_id,
+                                                       content_len) != 0) {
+            error_code = ERROR_QUOTA;
+            goto error;
+        }
+
         if (!check_tmp_file_list (fsm->files, &error_code))
             goto error;
 
@@ -1269,6 +1288,8 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
         if (error) {
             if (g_strcmp0 (error->message, "file does not exist") == 0) {
                 error_code = ERROR_NOT_EXIST;
+            } else if (error->code == POST_FILE_ERR_QUOTA_FULL) {
+                error_code = ERROR_QUOTA;
             }
             g_clear_error (&error);
         }
@@ -1361,7 +1382,10 @@ update_blks_ajax_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
+    gint64 content_len = evhtp_request_content_len (req);
+    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                   fsm->repo_id,
+                                                   content_len) != 0) {
         error_code = ERROR_QUOTA;
         goto error;
     }
@@ -1514,7 +1538,10 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    if (seaf_quota_manager_check_quota (seaf->quota_mgr, fsm->repo_id) < 0) {
+    gint64 content_len = evhtp_request_content_len (req);
+    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                   fsm->repo_id,
+                                                   content_len) != 0) {
         error_code = ERROR_QUOTA;
         goto error;
     }

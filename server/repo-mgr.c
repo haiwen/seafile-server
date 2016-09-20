@@ -11,7 +11,6 @@
 #include <ccnet/ccnet-object.h>
 #include "utils.h"
 #include "log.h"
-#include "seafile.h"
 
 #include "seafile-session.h"
 #include "commit-mgr.h"
