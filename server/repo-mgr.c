@@ -417,7 +417,7 @@ add_deleted_repo_to_trash (SeafRepoManager *mgr, const char *repo_id,
                                     "string", commit->commit_id,
                                     "string", owner,
                                     "int64", size,
-                                    "int64", time(NULL));
+                                    "int64", (gint64)time(NULL));
 out:
     g_free (owner);
 
