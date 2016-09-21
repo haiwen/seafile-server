@@ -391,10 +391,11 @@ seafile_set_org_user_quota (SearpcClient *client,
 int
 seafile_check_quota (SearpcClient *client,
                      const char *repo_id,
+                     gint64 delta,
                      GError **error)
 {
     return searpc_client_call__int (client, "check_quota", error,
-                                    1, "string", repo_id);
+                                    2, "string", repo_id, "int64", delta);
 }
 
 int

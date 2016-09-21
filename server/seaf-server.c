@@ -610,7 +610,7 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_check_quota,
                                      "check_quota",
-                                     searpc_signature_int__string());
+                                     searpc_signature_int__string_int64());
 
     /* repo permission */
     searpc_server_register_function ("seafserv-threaded-rpcserver",

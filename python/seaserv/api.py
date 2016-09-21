@@ -575,8 +575,8 @@ class SeafileAPI(object):
     def set_user_share_quota(self, username, quota):
         pass
 
-    def check_quota(self, repo_id):
-        pass
+    def check_quota(self, repo_id, delta=0):
+        return seafserv_threaded_rpc.check_quota(repo_id, delta)
 
     # encrypted repo password management
     def check_passwd(self, repo_id, magic):

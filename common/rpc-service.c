@@ -4056,14 +4056,19 @@ seafile_get_user_quota (const char *user, GError **error)
 }
 
 int
-seafile_check_quota (const char *repo_id, GError **error)
+seafile_check_quota (const char *repo_id, gint64 delta, GError **error)
 {
+    int rc;
+
     if (!repo_id) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Bad arguments");
         return -1;
     }
 
-    return seaf_quota_manager_check_quota (seaf->quota_mgr, repo_id);
+    rc = seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, repo_id, delta);
+    if (rc == 1)
+        return -1;
+    return rc;
 }
 
 static char *

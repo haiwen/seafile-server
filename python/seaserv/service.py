@@ -881,9 +881,9 @@ def get_related_users_by_org_repo(org_id, repo_id):
     return users
 
 # quota
-def check_quota(repo_id):
+def check_quota(repo_id, delta=0):
     try:
-        ret = seafserv_threaded_rpc.check_quota(repo_id)
+        ret = seafserv_threaded_rpc.check_quota(repo_id, delta)
     except SearpcError, e:
         logger.error(e)
         ret = -1
