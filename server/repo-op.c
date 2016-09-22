@@ -4364,6 +4364,7 @@ convert_to_seafile_commit (SeafCommit *c)
                   "new_merge", c->new_merge,
                   "conflict", c->conflict,
                   "device_name", c->device_name,
+                  "client_version", c->client_version,
                   NULL);
     return commit;
 }

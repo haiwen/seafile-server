@@ -65,6 +65,7 @@ public class Commit : Object {
 	public string rev_renamed_old_path { get; set; }
 
 	public string device_name { get; set; }
+	public string client_version { get; set; }
 }
 
 } // namespace
