@@ -16,8 +16,10 @@ struct _HttpServerStruct {
     int bind_port;
     char *http_temp_dir;        /* temp dir for file upload */
     char *windows_encoding;
+    gint64 fixed_block_size;
     gint64 max_upload_size;
     gint64 max_download_dir_size;
+    int web_token_expire_time;
     int max_indexing_threads;
 };
 

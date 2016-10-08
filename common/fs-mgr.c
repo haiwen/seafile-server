@@ -662,7 +662,7 @@ chunking_worker (gpointer vdata, gpointer user_data)
     if (chunk->result < 0)
         goto out;
 
-    idx = chunk->offset / FIXED_BLOCK_SIZE;
+    idx = chunk->offset / seaf->http_server->fixed_block_size;
     memcpy (data->blk_sha1s + idx * CHECKSUM_LENGTH, chunk->checksum, CHECKSUM_LENGTH);
 
 out:
@@ -689,7 +689,7 @@ split_file_to_block (const char *repo_id,
     CDCDescriptor *chunk;
     int ret = 0;
 
-    n_blocks = (file_size + BLOCK_SZ - 1) / BLOCK_SZ;
+    n_blocks = (file_size + seaf->http_server->fixed_block_size - 1) / seaf->http_server->fixed_block_size;
     block_sha1s = g_new0 (uint8_t, n_blocks * CHECKSUM_LENGTH);
     if (!block_sha1s) {
         seaf_warning ("Failed to allocate block_sha1s.\n");
@@ -720,7 +720,7 @@ split_file_to_block (const char *repo_id,
     guint64 len;
     guint64 left = (guint64)file_size;
     while (left > 0) {
-        len = ((left >= FIXED_BLOCK_SIZE) ? FIXED_BLOCK_SIZE : left);
+        len = ((left >= seaf->http_server->fixed_block_size) ? seaf->http_server->fixed_block_size : left);
 
         chunk = g_new0 (CDCDescriptor, 1);
         chunk->offset = offset;

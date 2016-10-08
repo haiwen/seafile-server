@@ -111,6 +111,8 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     GError *error = NULL;
     char *host = NULL;
     int port = 0;
+    int web_token_expire_time;
+    int fixed_block_size_mb;
     int max_upload_size_mb;
     int max_download_dir_size_mb;
     char *encoding;
@@ -142,6 +144,32 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
 
         htp_server->bind_port = DEFAULT_BIND_PORT;
         g_clear_error (&error);
+    }
+
+    fixed_block_size_mb = fileserver_config_get_integer (session->config,
+                                                  "fixed_block_size",
+                                                  &error);
+    if (error){
+        htp_server->fixed_block_size = BLOCK_SZ;
+        g_clear_error(&error);
+    } else {
+        if (fixed_block_size_mb <= 0)
+            htp_server->fixed_block_size = BLOCK_SZ;
+        else
+            htp_server->fixed_block_size = fixed_block_size_mb * ((gint64)1 << 20);
+    }
+
+    web_token_expire_time = fileserver_config_get_integer (session->config,
+                                                "web_token_expire_time",
+                                                &error);
+    if (error){
+        htp_server->web_token_expire_time = 3600; /* default 3600s */
+        g_clear_error(&error);
+    } else {
+        if (web_token_expire_time <= 0)
+            htp_server->web_token_expire_time = 3600; /* default 3600s */
+        else
+            htp_server->web_token_expire_time = web_token_expire_time;
     }
 
     max_upload_size_mb = fileserver_config_get_integer (session->config,
