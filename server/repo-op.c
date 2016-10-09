@@ -918,7 +918,7 @@ json_to_file_list (const char *files_json)
     }
 
     json_decref (array);
-    return files;
+    return g_list_reverse(files);
 }
 
 /*
