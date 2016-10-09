@@ -1540,7 +1540,7 @@ seaf_repo_manager_delete_repo_tokens_by_peer_id (SeafRepoManager *mgr,
     int rc = 0;
 
     template = "SELECT u.token "
-        "FROM RepoUserToken as u, RepoTokenPeerInfo as p "
+        "FROM RepoUserToken u, RepoTokenPeerInfo p "
         "WHERE u.token = p.token "
         "AND u.email = ? AND p.peer_id = ?";
     rc = seaf_db_statement_foreach_row (mgr->seaf->db, template,
@@ -1607,7 +1607,7 @@ seaf_repo_manager_delete_repo_tokens_by_email (SeafRepoManager *mgr,
     int rc;
 
     template = "SELECT u.token "
-        "FROM RepoUserToken as u, RepoTokenPeerInfo as p "
+        "FROM RepoUserToken u, RepoTokenPeerInfo p "
         "WHERE u.token = p.token "
         "AND u.email = ?";
     rc = seaf_db_statement_foreach_row (mgr->seaf->db, template,
