@@ -583,6 +583,11 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
                                  evhtp_header_new("X-Content-Type-Options", "nosniff",
                                                   1, 1));
     }
+    /* HEAD Request */
+    if (evhtp_request_get_method(req) == htp_method_HEAD) {
+        evhtp_send_reply (req, EVHTP_RES_OK);
+        return 0;
+    }
 
     /* If it's an empty file, send an empty reply. */
     if (file->n_blocks == 0) {

@@ -156,7 +156,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
     pthread_mutex_lock (&mgr->priv->lock);
 
     t = gen_new_token (mgr->priv->access_token_hash);
-    expire = now + TOKEN_EXPIRE_TIME;
+    expire = now + seaf->http_server->web_token_expire_time;
 
     info = g_new0 (AccessInfo, 1);
     info->repo_id = g_strdup (repo_id);
