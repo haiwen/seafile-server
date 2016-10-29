@@ -196,6 +196,7 @@ db_conn_pool_get_connection (DBConnPool *pool, GError **error)
         if (conn) {
             conn->is_available = FALSE;
             conn->pool = pool;
+            conn->conn_no = size;
             g_ptr_array_add (pool->connections, conn);
         }
     }

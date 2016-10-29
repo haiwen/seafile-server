@@ -55,6 +55,7 @@ struct DBConnection {
     DBConnPool *pool;
     ResultSet *result_set;
     DBStmt *stmt;
+    int conn_no;
 };
 typedef struct DBConnection DBConnection;
 
