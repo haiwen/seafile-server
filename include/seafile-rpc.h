@@ -505,7 +505,7 @@ seafile_get_checkout_task (const char *repo_id, GError **error);
 GList *
 seafile_get_sync_task_list (GError **error);
 
-int
+char *
 seafile_share_subdir_to_user (const char *repo_id,
                               const char *path,
                               const char *owner,
@@ -550,7 +550,7 @@ int
 seafile_remove_share (const char *repo_id, const char *from_email,
                       const char *to_email, GError **error);
 
-int
+char *
 seafile_share_subdir_to_group (const char *repo_id,
                                const char *path,
                                const char *owner,
