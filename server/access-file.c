@@ -122,6 +122,8 @@ static struct file_type_map ftmap[] = {
     { "mp4", "video/mp4" },
     { "jpg", "image/jpg" },
     { "JPG", "image/jpg" },
+    { "jpeg", "image/jpeg" },
+    { "JPEG", "image/jpeg" },
     { "png", "image/png" },
     { "PNG", "image/png" },
     { "gif", "image/gif" },
