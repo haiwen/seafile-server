@@ -564,6 +564,8 @@ handle_missing_virtual_repo (SeafRepoManager *mgr,
 
         char de_id[41];
         char *new_path;
+        char *new_name;
+        char **parts = NULL;
 
         for (ptr = diff_res; ptr; ptr = ptr->next) {
             de = ptr->data;
@@ -578,12 +580,25 @@ handle_missing_virtual_repo (SeafRepoManager *mgr,
                                 vinfo->repo_id, new_path);
                     set_virtual_repo_base_commit_path (vinfo->repo_id,
                                                        head->commit_id, new_path);
+                    parts = g_strsplit(new_path, "/", 0);
+                    new_name = parts[g_strv_length(parts) - 1];
+
+                    seaf_repo_manager_edit_repo (vinfo->repo_id,
+                                                 new_name,
+                                                 "Changed library name",
+                                                 NULL,
+                                                 &error);
+                    if (error) {
+                        seaf_warning ("Failed to rename repo %s", de->new_name);
+                        g_clear_error (&error);
+                    }
                     is_renamed = TRUE;
                     break;
                 }
             }
         }
         g_free (old_dir_id);
+        g_strfreev (parts);
 
         if (is_renamed)
             break;

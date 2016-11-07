@@ -766,4 +766,10 @@ seaf_repo_manager_get_shared_groups_for_subdir (SeafRepoManager *mgr,
                                                 const char *path,
                                                 const char *from_user,
                                                 GError **error);
+int
+seaf_repo_manager_edit_repo (const char *repo_id,
+                const char *name,
+                const char *description,
+                const char *user,
+                GError **error);
 #endif
