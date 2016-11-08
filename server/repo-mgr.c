@@ -3449,3 +3449,93 @@ seaf_repo_manager_get_shared_groups_for_subdir (SeafRepoManager *mgr,
 
     return shared_groups;
 }
+int
+seaf_repo_manager_edit_repo (const char *repo_id,
+                             const char *name,
+                             const char *description,
+                             const char *user,
+                             GError **error)
+{
+    SeafRepo *repo = NULL;
+    SeafCommit *commit = NULL, *parent = NULL;
+    int ret = 0;
+
+    if (!name && !description) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                     "At least one argument should be non-null");
+        return -1;
+    }
+
+    if (!is_uuid_valid (repo_id)) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
+        return -1;
+    }
+
+retry:
+    repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
+    if (!repo) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "No such library");
+        return -1;
+    }
+    if (!name)
+        name = repo->name;
+    if (!description)
+        description = repo->desc;
+
+    /*
+     * We only change repo_name or repo_desc, so just copy the head commit
+     * and change these two fields.
+     */
+    parent = seaf_commit_manager_get_commit (seaf->commit_mgr,
+                                             repo->id, repo->version,
+                                             repo->head->commit_id);
+    if (!parent) {
+        seaf_warning ("Failed to get commit %s:%s.\n",
+                      repo->id, repo->head->commit_id);
+        ret = -1;
+        goto out;
+    }
+    if (!user) {
+        user = parent->creator_name;
+    }
+
+    commit = seaf_commit_new (NULL,
+                              repo->id,
+                              parent->root_id,
+                              user,
+                              EMPTY_SHA1,
+                              "Changed library name or description",
+                              0);
+    commit->parent_id = g_strdup(parent->commit_id);
+    seaf_repo_to_commit (repo, commit);
+
+    g_free (commit->repo_name);
+    commit->repo_name = g_strdup(name);
+    g_free (commit->repo_desc);
+    commit->repo_desc = g_strdup(description);
+
+    if (seaf_commit_manager_add_commit (seaf->commit_mgr, commit) < 0) {
+        ret = -1;
+        goto out;
+    }
+
+    seaf_branch_set_commit (repo->head, commit->commit_id);
+    if (seaf_branch_manager_test_and_update_branch (seaf->branch_mgr,
+                                                    repo->head,
+                                                    parent->commit_id) < 0) {
+        seaf_repo_unref (repo);
+        seaf_commit_unref (commit);
+        seaf_commit_unref (parent);
+        repo = NULL;
+        commit = NULL;
+        parent = NULL;
+        goto retry;
+    }
+
+out:
+    seaf_commit_unref (commit);
+    seaf_commit_unref (parent);
+    seaf_repo_unref (repo);
+
+    return ret;
+}
