@@ -1337,7 +1337,7 @@ def check_params(args):
         else:
             db_config.seafile_mysql_userhost = db_config.validate_mysql_user_host(mysql_user_host)
 
-        if not mysql_root_passwd:
+        if not mysql_root_passwd and "MYSQL_ROOT_PASSWD" not in os.environ:
             raise InvalidParams('mysql root password parameter is missing in creating new db mode')
         db_config.root_password = db_config.validate_root_passwd(mysql_root_passwd)
 
