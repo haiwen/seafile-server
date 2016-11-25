@@ -1258,10 +1258,7 @@ def get_param_val(arg, env, default=None):
     return arg or os.environ.get(env, default)
 
 def check_params(args):
-    host_name = socket.gethostname()
-    if len(host_name) > 15:
-        host_name = host_name[0:15]
-    server_name = get_param_val(args.server_name, 'SERVER_NAME', host_name)
+    server_name = 'seafile'
     ccnet_config.server_name = ccnet_config.validate_server_name(server_name)
 
     server_ip = get_param_val(args.server_ip, 'SERVER_IP',
@@ -1337,7 +1334,7 @@ def check_params(args):
         else:
             db_config.seafile_mysql_userhost = db_config.validate_mysql_user_host(mysql_user_host)
 
-        if not mysql_root_passwd:
+        if not mysql_root_passwd and "MYSQL_ROOT_PASSWD" not in os.environ:
             raise InvalidParams('mysql root password parameter is missing in creating new db mode')
         db_config.root_password = db_config.validate_root_passwd(mysql_root_passwd)
 
