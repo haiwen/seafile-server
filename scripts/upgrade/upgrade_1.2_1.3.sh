@@ -110,7 +110,7 @@ if [[ ! -d ${dest_avatar_dir} ]]; then
     mv "${orig_avatar_dir}" "${dest_avatar_dir}" 2>/dev/null 1>&2
     ln -s ../../../seahub-data/avatars ${media_dir}
 
-elif [[ ! -L ${orig_avatar_dir}} ]]; then
+elif [[ ! -L ${orig_avatar_dir} ]]; then
     mv ${orig_avatar_dir}/* "${dest_avatar_dir}" 2>/dev/null 1>&2
     rm -rf "${orig_avatar_dir}"
     ln -s ../../../seahub-data/avatars ${media_dir}
