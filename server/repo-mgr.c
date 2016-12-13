@@ -603,6 +603,8 @@ del_repo:
     seaf_db_statement_query (mgr->seaf->db, "DELETE FROM VirtualRepo "
                              "WHERE repo_id=? OR origin_repo=?",
                              2, "string", repo_id, "string", repo_id);
+    if (!head_commit)
+        add_deleted_repo_record(mgr, repo_id);
 
     return 0;
 }
