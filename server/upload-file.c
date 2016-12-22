@@ -115,6 +115,17 @@ set_content_length_header (evhtp_request_t *req)
                              evhtp_header_new("Content-Length", lstr, 1, 1));
 }
 
+static gint64
+get_content_length (evhtp_request_t *req)
+{
+    const char *content_len_str = evhtp_kv_find (req->headers_in, "Content-Length");
+    if (!content_len_str) {
+        return -1;
+    }
+
+    return strtoll (content_len_str, NULL, 10);
+}
+
 static void
 send_error_reply (evhtp_request_t *req, evhtp_res code, char *error)
 {
@@ -378,7 +389,7 @@ upload_cb(evhtp_request_t *req, void *arg)
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
-    gint64 content_len = evhtp_request_content_len(req);
+    gint64 content_len = get_content_length(req);
     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                    fsm->repo_id,
                                                    content_len) != 0) {
@@ -503,7 +514,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
-    gint64 content_len = evhtp_request_content_len(req);
+    gint64 content_len = get_content_length(req);
     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                    fsm->repo_id,
                                                    content_len) != 0) {
@@ -682,7 +693,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
     int rc = 0;
     commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
     if (!commitonly_str) {
-        gint64 content_len = evhtp_request_content_len (req);
+        gint64 content_len = get_content_length (req);
         if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                        fsm->repo_id,
                                                        content_len) != 0) {
@@ -836,7 +847,7 @@ upload_blks_ajax_cb(evhtp_request_t *req, void *arg)
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
-    gint64 content_len = evhtp_request_content_len (req);
+    gint64 content_len = get_content_length (req);
     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                    fsm->repo_id,
                                                    content_len) != 0) {
@@ -954,7 +965,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
-    gint64 content_len = evhtp_request_content_len (req);
+    gint64 content_len = get_content_length (req);
     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                    fsm->repo_id,
                                                    content_len) != 0) {
@@ -1064,7 +1075,7 @@ update_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    gint64 content_len = evhtp_request_content_len(req);
+    gint64 content_len = get_content_length(req);
     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                    fsm->repo_id,
                                                    content_len) != 0) {
@@ -1140,7 +1151,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    gint64 content_len = evhtp_request_content_len(req);
+    gint64 content_len = get_content_length(req);
     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                    fsm->repo_id,
                                                    content_len) != 0) {
@@ -1237,7 +1248,7 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
     int rc = 0;
     commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
     if (!commitonly_str) {
-        gint64 content_len = evhtp_request_content_len(req);
+        gint64 content_len = get_content_length(req);
         if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                        fsm->repo_id,
                                                        content_len) != 0) {
@@ -1382,7 +1393,7 @@ update_blks_ajax_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    gint64 content_len = evhtp_request_content_len (req);
+    gint64 content_len = get_content_length (req);
     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                    fsm->repo_id,
                                                    content_len) != 0) {
@@ -1538,7 +1549,7 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    gint64 content_len = evhtp_request_content_len (req);
+    gint64 content_len = get_content_length (req);
     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                    fsm->repo_id,
                                                    content_len) != 0) {
