@@ -134,6 +134,7 @@ if test "$bwin32" = true; then
   LIB_MAC=
   MSVC_CFLAGS="-D__MSVCRT__ -D__MSVCRT_VERSION__=0x0601"
   LIB_CRYPT32=-lcrypt32
+  LIB_ICONV=-liconv
 elif test "$bmac" = true ; then
   LIB_WS32=
   LIB_GDI32=
