@@ -31,8 +31,6 @@ noinst_HEADERS = ${utils_headers} include.h
 seafiledir = $(includedir)/seafile
 seafile_HEADERS = seafile-object.h
 
-seafile-rpc-wrapper.c: seafile-object.h
-
 seafile-object.h: ${seafile_object_define}
 	rm -f $@
 	valac --pkg posix ${seafile_object_define} -C -H seafile-object.h
@@ -40,12 +38,6 @@ seafile-object.h: ${seafile_object_define}
 DISTCLEANFILES = ${searpc_gen}
 
 ## library rules
-lib_LTLIBRARIES = libseafile.la
-
-libseafile_la_SOURCES = ${seafile_object_gen} seafile-rpc-wrapper.c
-
-libseafile_la_LDFLAGS = -no-undefined
-libseafile_la_LIBADD = @GLIB2_LIBS@  @GOBJECT_LIBS@ @SEARPC_LIBS@
 
 noinst_LTLIBRARIES = libseafile_common.la
 
