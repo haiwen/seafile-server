@@ -5,6 +5,7 @@
 #include "seafile-session.h"
 #include "seaf-utils.h"
 #include "seaf-db.h"
+#include "utils.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -23,8 +24,6 @@ seafile_session_get_tmp_file_path (SeafileSession *session,
 
     return path;
 }
-
-#ifdef SEAFILE_SERVER
 
 #define SQLITE_DB_NAME "seafile.db"
 
@@ -65,7 +64,7 @@ mysql_db_start (SeafileSession *session)
     int max_connections = 0;
     GError *error = NULL;
 
-    host = g_key_file_get_string (session->config, "database", "host", &error);
+    host = seaf_key_file_get_string (session->config, "database", "host", &error);
     if (!host) {
         seaf_warning ("DB host not set in config.\n");
         return -1;
@@ -76,31 +75,31 @@ mysql_db_start (SeafileSession *session)
         port = MYSQL_DEFAULT_PORT;
     }
 
-    user = g_key_file_get_string (session->config, "database", "user", &error);
+    user = seaf_key_file_get_string (session->config, "database", "user", &error);
     if (!user) {
         seaf_warning ("DB user not set in config.\n");
         return -1;
     }
 
-    passwd = g_key_file_get_string (session->config, "database", "password", &error);
+    passwd = seaf_key_file_get_string (session->config, "database", "password", &error);
     if (!passwd) {
         seaf_warning ("DB passwd not set in config.\n");
         return -1;
     }
 
-    db = g_key_file_get_string (session->config, "database", "db_name", &error);
+    db = seaf_key_file_get_string (session->config, "database", "db_name", &error);
     if (!db) {
         seaf_warning ("DB name not set in config.\n");
         return -1;
     }
 
-    unix_socket = g_key_file_get_string (session->config, 
+    unix_socket = seaf_key_file_get_string (session->config, 
                                          "database", "unix_socket", NULL);
 
     use_ssl = g_key_file_get_boolean (session->config,
                                       "database", "use_ssl", NULL);
 
-    charset = g_key_file_get_string (session->config,
+    charset = seaf_key_file_get_string (session->config,
                                      "database", "connection_charset", NULL);
 
     max_connections = g_key_file_get_integer (session->config,
@@ -137,31 +136,31 @@ pgsql_db_start (SeafileSession *session)
     char *host, *user, *passwd, *db, *unix_socket;
     GError *error = NULL;
 
-    host = g_key_file_get_string (session->config, "database", "host", &error);
+    host = seaf_key_file_get_string (session->config, "database", "host", &error);
     if (!host) {
         seaf_warning ("DB host not set in config.\n");
         return -1;
     }
 
-    user = g_key_file_get_string (session->config, "database", "user", &error);
+    user = seaf_key_file_get_string (session->config, "database", "user", &error);
     if (!user) {
         seaf_warning ("DB user not set in config.\n");
         return -1;
     }
 
-    passwd = g_key_file_get_string (session->config, "database", "password", &error);
+    passwd = seaf_key_file_get_string (session->config, "database", "password", &error);
     if (!passwd) {
         seaf_warning ("DB passwd not set in config.\n");
         return -1;
     }
 
-    db = g_key_file_get_string (session->config, "database", "db_name", &error);
+    db = seaf_key_file_get_string (session->config, "database", "db_name", &error);
     if (!db) {
         seaf_warning ("DB name not set in config.\n");
         return -1;
     }
 
-    unix_socket = g_key_file_get_string (session->config,
+    unix_socket = seaf_key_file_get_string (session->config,
                                          "database", "unix_socket", &error);
 
     session->db = seaf_db_new_pgsql (host, user, passwd, db, unix_socket,
@@ -189,7 +188,7 @@ load_database_config (SeafileSession *session)
     GError *error = NULL;
     int ret = 0;
 
-    type = g_key_file_get_string (session->config, "database", "type", &error);
+    type = seaf_key_file_get_string (session->config, "database", "type", &error);
     /* Default to use sqlite if not set. */
     if (!type || strcasecmp (type, "sqlite") == 0) {
         ret = sqlite_db_start (session);
@@ -213,5 +212,3 @@ load_database_config (SeafileSession *session)
 
     return ret;
 }
-
-#endif

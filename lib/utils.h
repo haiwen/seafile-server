@@ -211,11 +211,6 @@ typedef gboolean (*KeyValueFunc2) (void *data, const char *key,
                                    const char *value);
 void parse_key_value_pairs2 (char *string, KeyValueFunc2 func, void *data);
 
-gchar*  ccnet_key_file_get_string (GKeyFile *keyf,
-                                   const char *category,
-                                   const char *key);
-
-
 GList *string_list_append (GList *str_list, const char *string);
 GList *string_list_append_sorted (GList *str_list, const char *string);
 GList *string_list_remove (GList *str_list, const char *string);
@@ -401,5 +396,11 @@ is_empty_string (const char *str);
 
 gboolean
 is_permission_valid (const char *perm);
+
+char *
+seaf_key_file_get_string (GKeyFile *key_file,
+                          const char *group,
+                          const char *key,
+                          GError **error);
 
 #endif

@@ -1227,28 +1227,6 @@ void parse_key_value_pairs2 (char *string, KeyValueFunc2 func, void *data)
 }
 
 /**
- * handle the empty string problem.
- */
-gchar* 
-ccnet_key_file_get_string (GKeyFile *keyf,
-                           const char *category,
-                           const char *key)
-{
-    gchar *v;
-
-    if (!g_key_file_has_key (keyf, category, key, NULL))
-        return NULL;
-
-    v = g_key_file_get_string (keyf, category, key, NULL);
-    if (v != NULL && v[0] == '\0') {
-        g_free(v);
-        return NULL;
-    }
-
-    return v;
-}
-
-/**
  * string_list_is_exists:
  * @str_list: 
  * @string: a C string or %NULL
@@ -2482,4 +2460,21 @@ is_permission_valid (const char *perm)
     }
 
     return strcmp (perm, "r") == 0 || strcmp (perm, "rw") == 0;
+}
+
+char *
+seaf_key_file_get_string (GKeyFile *key_file,
+                          const char *group,
+                          const char *key,
+                          GError **error)
+{
+    char *v;
+
+    v = g_key_file_get_string (key_file, group, key, error);
+    if (!v || v[0] == '\0') {
+        g_free (v);
+        return NULL;
+    }
+
+    return g_strchomp(v);
 }

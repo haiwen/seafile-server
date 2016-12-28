@@ -827,7 +827,7 @@ read_seafdav_config()
     }
 
     /* host */
-    char *host = g_key_file_get_string (key_file, "WEBDAV", "host", &error);
+    char *host = seaf_key_file_get_string (key_file, "WEBDAV", "host", &error);
     if (error != NULL) {
         g_clear_error(&error);
         ctl->seafdav_config.host = g_strdup(ctl->seafdav_config.fastcgi ? "localhost" : "0.0.0.0");
