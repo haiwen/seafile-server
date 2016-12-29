@@ -79,7 +79,7 @@ if test "$bwin32" != true; then
 fi
 
 AC_ARG_ENABLE(python,
-              AC_HELP_STRING([--enable-python],[build ccnet python binding]),
+              AC_HELP_STRING([--enable-python],[build seafile python binding]),
               [compile_python=$enableval],
               [compile_python=yes])
 
@@ -134,6 +134,7 @@ if test "$bwin32" = true; then
   LIB_MAC=
   MSVC_CFLAGS="-D__MSVCRT__ -D__MSVCRT_VERSION__=0x0601"
   LIB_CRYPT32=-lcrypt32
+  LIB_ICONV=-liconv
 elif test "$bmac" = true ; then
   LIB_WS32=
   LIB_GDI32=
@@ -222,63 +223,72 @@ AC_SUBST(ZLIB_CFLAGS)
 AC_SUBST(ZLIB_LIBS)
 
 if test x${compile_python} = xyes; then
-   AM_PATH_PYTHON([2.6])
-
-   if test "$bwin32" = true; then
-       # set pyexecdir to somewhere like /c/Python26/Lib/site-packages
-       pyexecdir=${PYTHON_DIR}/Lib/site-packages
-       pythondir=${pyexecdir}
-       pkgpyexecdir=${pyexecdir}/${PACKAGE}
-       pkgpythondir=${pythondir}/${PACKAGE}
-
-   fi # end for bwin32
-
+    AM_PATH_PYTHON([2.6])
+    if test "$bwin32" = true; then
+        if test x$PYTHON_DIR != x; then
+            # set pyexecdir to somewhere like /c/Python26/Lib/site-packages
+            pyexecdir=${PYTHON_DIR}/Lib/site-packages
+            pythondir=${pyexecdir}
+            pkgpyexecdir=${pyexecdir}/${PACKAGE}
+            pkgpythondir=${pythondir}/${PACKAGE}
+        fi
+    fi
 fi
 
 mysql="yes"
-check_mysql_config() 
-{
+if test "$bwin32" != "true"; then
+    AC_MSG_CHECKING(for mysql in unix)
+    check_mysql_config()
+    {
         AC_PATH_PROG([MYSQLCONFIG], [mysql_config], [no], [$PATH:/usr/local/bin:/usr/local/mysql/bin])
-        if test "x$MYSQLCONFIG" = "xno" 
+        if test "x$MYSQLCONFIG" = "xno"
         then
-                AC_MSG_WARN([mysql_config is required to build seafile server with mysql])
-                mysql="no"
+            AC_MSG_WARN([mysql_config is required to build seafile server with mysql])
+            mysql="no"
         fi
-}
-AC_MSG_CHECKING(for mysql)
-AC_ARG_WITH([mysql], 
-        AS_HELP_STRING([--with-mysql(=<path>)], 
-                [Path is optional and if given should specify the full path to the MySQL
-                 configure script, mysql_config. E.g. --with-mysql=/<path>/mysql_config]), 
-        [
-                if test "xno" = "x$with_mysql"; then
-                        AC_MSG_RESULT([no])
-                        mysql="no"
-                else
-                        AC_MSG_RESULT([yes])
-                        AC_CHECK_FILE([$with_mysql], [MYSQLCONFIG=$with_mysql], [check_mysql_config])        
-                fi
-        ],
-        [
-                AC_MSG_RESULT([yes])
-                check_mysql_config
-        ])
-if test "xyes" = "x$mysql"; then
+    }
+    AC_MSG_CHECKING(for mysql)
+    AC_ARG_WITH([mysql],
+      AS_HELP_STRING([--with-mysql(=<path>)],
+          [Path is optional and if given should specify the full path to the MySQL
+          configure script, mysql_config. E.g. --with-mysql=/<path>/mysql_config]),
+      [
+          if test "xno" = "x$with_mysql"; then
+              AC_MSG_RESULT([no])
+              mysql="no"
+          else
+              AC_MSG_RESULT([yes])
+              AC_CHECK_FILE([$with_mysql], [MYSQLCONFIG=$with_mysql], [check_mysql_config])
+          fi
+      ],
+      [
+          AC_MSG_RESULT([yes])
+          check_mysql_config
+      ])
+    if test "xyes" = "x$mysql"; then
         tmp_CPPFLAGS=$CPPFLAGS
         tmp_LDFLAGS=$LDFLAGS
         CPPFLAGS="`$MYSQLCONFIG --include` $CPPFLAGS"
         LDFLAGS="`$MYSQLCONFIG --libs` $LDFLAGS"
         AC_CHECK_HEADERS([mysql.h], [], [mysql="no"])
         if test "xyes" = "x$mysql"; then
-	        echo "found mysql client library"
-		MYSQL_CFLAGS=`$MYSQLCONFIG --include`
-                MYSQL_LIBS=`$MYSQLCONFIG --libs`		
-		AC_SUBST(MYSQL_CFLAGS)
-		AC_SUBST(MYSQL_LIBS)
-		AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 to enable mysql])
+            echo "found mysql client library"
+            MYSQL_CFLAGS=`$MYSQLCONFIG --include`
+            MYSQL_LIBS=`$MYSQLCONFIG --libs`
+            AC_SUBST(MYSQL_CFLAGS)
+            AC_SUBST(MYSQL_LIBS)
+            AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 to enable mysql])
         fi
         CPPFLAGS=$tmp_CPPFLAGS
         LDFLAGS=$tmp_LDFLAGS
+    fi
+else
+    AC_MSG_CHECKING(for mysql in windows)
+    AC_CHECK_HEADERS([mysql.h], [], [mysql="no"])
+    if test "xyes" = "x$mysql"; then
+        AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 to enable mysql])
+        LDFLAGS="$LDFLAGS -lmysql -lws2_32"
+    fi
 fi
 AM_CONDITIONAL([WITH_MYSQL], test "xyes" = "x$mysql")
 

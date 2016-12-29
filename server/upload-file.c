@@ -109,7 +109,11 @@ set_content_length_header (evhtp_request_t *req)
 {
     char lstr[128];
 
+#ifdef WIN32
+    snprintf(lstr, sizeof(lstr), "%lu", (unsigned long)(evbuffer_get_length(req->buffer_out)));
+#else
     snprintf(lstr, sizeof(lstr), "%zu", evbuffer_get_length(req->buffer_out));
+#endif
 
     evhtp_headers_add_header(req->headers_out,
                              evhtp_header_new("Content-Length", lstr, 1, 1));
