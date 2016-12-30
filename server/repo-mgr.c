@@ -3541,3 +3541,58 @@ out:
 
     return ret;
 }
+
+gboolean
+get_total_file_number_cb (SeafDBRow *row, void *vdata)
+{
+    gint64 *data = (gint64 *)vdata;
+    gint64 count = seaf_db_row_get_column_int64 (row, 0);
+    *data += count;
+
+    return TRUE;
+}
+
+gint64
+seaf_get_total_file_number (GError **error)
+{
+    gint64 count = 0;
+    int ret = seaf_db_statement_foreach_row (seaf->db,
+                                             "SELECT file_count FROM RepoFileCount",
+                                             get_total_file_number_cb,
+                                             &count, 0);
+    if (ret < 0) { 
+        seaf_warning ("Failed to get total file number.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to get total file number from db.");
+        return -1;
+    }
+
+    return count;
+}
+
+gboolean
+get_total_storage_cb(SeafDBRow *row, void *vdata)
+{
+    gint64 *data = (gint64 *)vdata;
+    gint64 size = seaf_db_row_get_column_int64 (row, 0);
+    *data += size;
+    return TRUE;
+}
+
+gint64
+seaf_get_total_storage (GError **error)
+{
+    gint64 size = 0;
+    int ret = seaf_db_statement_foreach_row (seaf->db,
+                                             "SELECT size FROM RepoSize",
+                                             get_total_storage_cb,
+                                             &size, 0);
+    if (ret < 0) {
+        seaf_warning ("Failed to get total storage occupation.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to get total storage occupation from db.");
+        return -1;
+    }
+
+    return size;
+}

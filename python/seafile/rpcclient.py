@@ -952,3 +952,11 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     @searpc_func("object", ["int", "string", "string"])
     def generate_magic_and_random_key(enc_version, repo_id, password):
         pass
+
+    @searpc_func("int64", [])
+    def get_total_file_number():
+        pass
+
+    @searpc_func("int64", [])
+    def get_total_storage():
+        pass

@@ -772,4 +772,10 @@ seaf_repo_manager_edit_repo (const char *repo_id,
                 const char *description,
                 const char *user,
                 GError **error);
+
+gint64
+seaf_get_total_file_number (GError **error);
+
+gint64
+seaf_get_total_storage (GError **error);
 #endif

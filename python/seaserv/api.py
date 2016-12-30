@@ -630,6 +630,12 @@ class SeafileAPI(object):
     def empty_repo_trash_by_owner(self, owner):
         return seafserv_threaded_rpc.empty_repo_trash_by_owner(owner)
 
+    def get_total_file_number (self):
+        return seafserv_threaded_rpc.get_total_file_number()
+
+    def get_total_storage (self):
+        return seafserv_threaded_rpc.get_total_storage()
+
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):
