@@ -5036,4 +5036,16 @@ seafile_get_shared_groups_for_subdir (const char *repo_id,
     return ret;
 }
 
+gint64
+seafile_get_total_file_number (GError **error)
+{
+    return seaf_get_total_file_number (error);
+}
+
+gint64
+seafile_get_total_storage (GError **error)
+{
+    return seaf_get_total_storage (error);
+}
+
 #endif  /* SEAFILE_SERVER */

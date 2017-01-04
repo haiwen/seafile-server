@@ -1026,4 +1026,10 @@ seafile_generate_magic_and_random_key(int enc_version,
                                       const char* repo_id,
                                       const char *passwd,
                                       GError **error);
+
+gint64
+seafile_get_total_file_number (GError **error);
+
+gint64
+seafile_get_total_storage (GError **error);
 #endif
