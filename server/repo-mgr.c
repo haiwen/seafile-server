@@ -826,7 +826,8 @@ create_tables_mysql (SeafRepoManager *mgr)
 
     sql = "CREATE TABLE IF NOT EXISTS RepoOwner ("
         "repo_id CHAR(37) PRIMARY KEY, "
-        "owner_id VARCHAR(255),"
+        "owner_id VARCHAR(255), "
+        "is_group INTEGER,"
         "INDEX (owner_id))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
@@ -912,6 +913,7 @@ create_tables_mysql (SeafRepoManager *mgr)
     sql = "CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY,"
         "repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255),"
         "size BIGINT(20), org_id INTEGER, del_time BIGINT, "
+        "is_group INTEGER, group_perm CHAR(15), "
         "INDEX(owner_id), INDEX(org_id))ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
@@ -939,7 +941,7 @@ create_tables_sqlite (SeafRepoManager *mgr)
 
     sql = "CREATE TABLE IF NOT EXISTS RepoOwner ("
         "repo_id CHAR(37) PRIMARY KEY, "
-        "owner_id TEXT)";
+        "owner_id TEXT, is_group INTEGER)";
     if (seaf_db_query (db, sql) < 0)
         return -1;
     sql = "CREATE INDEX IF NOT EXISTS OwnerIndex ON RepoOwner (owner_id)";
@@ -1046,7 +1048,7 @@ create_tables_sqlite (SeafRepoManager *mgr)
 
     sql = "CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY,"
         "repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255), size BIGINT UNSIGNED,"
-        "org_id INTEGER, del_time BIGINT)";
+        "org_id INTEGER, del_time BIGINT, is_group INTEGER, group_perm CHAR(15))";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
@@ -1079,7 +1081,7 @@ create_tables_pgsql (SeafRepoManager *mgr)
 
     sql = "CREATE TABLE IF NOT EXISTS RepoOwner ("
         "repo_id CHAR(36) PRIMARY KEY, "
-        "owner_id VARCHAR(255))";
+        "owner_id VARCHAR(255), is_group INTEGER)";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
@@ -1181,7 +1183,7 @@ create_tables_pgsql (SeafRepoManager *mgr)
 
     sql = "CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY,"
         "repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255), size bigint,"
-        "org_id INTEGER, del_time BIGINT)";
+        "org_id INTEGER, del_time BIGINT, is_group INTEGER, group_perm CHAR(15),)";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
@@ -1909,7 +1911,7 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
                      "repo_id='%s'", email, repo_id);
         else
             snprintf(sql, sizeof(sql),
-                     "INSERT INTO RepoOwner VALUES ('%s', '%s')",
+                     "INSERT INTO RepoOwner VALUES ('%s', '%s', 0)",
                      repo_id, email);
         if (err) {
             ret = -1;
@@ -1921,7 +1923,7 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
             goto out;
         }
     } else {
-        if (seaf_db_statement_query (db, "REPLACE INTO RepoOwner VALUES (?, ?)",
+        if (seaf_db_statement_query (db, "REPLACE INTO RepoOwner VALUES (?, ?, 0)",
                                      2, "string", repo_id, "string", email) < 0) {
             ret = -1;
             goto out;
@@ -2415,7 +2417,7 @@ seaf_repo_manager_restore_repo_from_trash (SeafRepoManager *mgr,
 
     if (!exists) {
         ret = seaf_db_trans_query (trans,
-                                   "INSERT INTO RepoOwner VALUES (?, ?)",
+                                   "INSERT INTO RepoOwner VALUES (?, ?, 0)",
                                    2, "string", repo_id,
                                    "string", seafile_trash_repo_get_owner_id(repo));
         if (ret < 0) {
