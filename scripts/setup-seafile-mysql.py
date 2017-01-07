@@ -2,6 +2,7 @@
 
 '''This script would guide the seafile admin to setup seafile with MySQL'''
 
+import argparse
 import sys
 import os
 import time
@@ -13,11 +14,11 @@ import hashlib
 import getpass
 import uuid
 import warnings
-import MySQLdb
-import argparse
 import socket
-
 from ConfigParser import ConfigParser
+
+import MySQLdb
+
 
 try:
     import readline # pylint: disable=W0611
@@ -105,6 +106,10 @@ Press ENTER to continue
                                     env=env,
                                     shell=True)
             return proc.wait()
+
+    @staticmethod
+    def get_command_output(args, *a, **kw):
+        return subprocess.check_output(args, *a, **kw)
 
     @staticmethod
     def prepend_env_value(name, value, env=None, seperator=':'):
@@ -380,6 +385,9 @@ class AbstractDBConfigurator(AbstractConfigurator):
         self.seafile_mysql_password = ''
         self.seafile_mysql_userhost = 'localhost'
 
+        self.root_password = ''
+        self.root_conn = ''
+
         self.ccnet_db_name = ''
         self.seafile_db_name = ''
         self.seahub_db_name = ''
@@ -537,9 +545,6 @@ class NewDBConfigurator(AbstractDBConfigurator):
     '''Handles the case of creating new mysql databases for ccnet/seafile/seahub'''
     def __init__(self):
         AbstractDBConfigurator.__init__(self)
-
-        self.root_password = ''
-        self.root_conn = ''
 
     def ask_questions(self):
         self.ask_mysql_host_port()
@@ -988,22 +993,29 @@ class SeahubConfigurator(AbstractConfigurator):
 
     def ask_questions(self):
         pass
-        # self.ask_admin_email()
-        # self.ask_admin_password()
 
     def generate(self):
         '''Generating seahub_settings.py'''
         print 'Generating seahub configuration ...\n'
         time.sleep(1)
-        self.write_secret_key()
-        with open(self.seahub_settings_py, 'a') as fp:
+        with open(self.seahub_settings_py, 'w') as fp:
+            self.write_utf8_comment(fp)
+            fp.write('\n')
+            self.write_secret_key(fp)
+            fp.write('\n')
             self.write_database_config(fp)
 
-    def write_secret_key(self):
-        Utils.run_argv([Utils.get_python_executable(),
-                        os.path.join(env_mgr.install_path, 'seahub',
-                                     'tools', 'secret_key_generator.py'),
-                        self.seahub_settings_py])
+    def write_utf8_comment(self, fp):
+        fp.write('# -*- coding: utf-8 -*-')
+
+    def write_secret_key(self, fp):
+        script = os.path.join(env_mgr.install_path, 'seahub/tools/secret_key_generator.py')
+        cmd = [
+            Utils.get_python_executable(),
+            script,
+        ]
+        key = Utils.get_command_output(cmd).strip()
+        fp.write('SECRET_KEY = "%s"' % key)
 
     def write_database_config(self, fp):
         template = '''\
@@ -1275,6 +1287,7 @@ def check_params(args):
     global db_config
 
     use_existing_db = get_param_val(args.use_existing_db, 'USE_EXISTING_DB', '0')
+    # pylint: disable=redefined-variable-type
     if use_existing_db == '0':
         db_config = NewDBConfigurator()
     elif use_existing_db == '1':
@@ -1396,6 +1409,7 @@ def main():
     seafile_config.ask_questions()
     seahub_config.ask_questions()
 
+    # pylint: disable=redefined-variable-type
     if not db_config:
         if AbstractDBConfigurator.ask_use_existing_db():
             db_config = ExistingDBConfigurator()
