@@ -988,22 +988,29 @@ class SeahubConfigurator(AbstractConfigurator):
 
     def ask_questions(self):
         pass
-        # self.ask_admin_email()
-        # self.ask_admin_password()
 
     def generate(self):
         '''Generating seahub_settings.py'''
         print 'Generating seahub configuration ...\n'
         time.sleep(1)
-        self.write_secret_key()
-        with open(self.seahub_settings_py, 'a') as fp:
+        with open(self.seahub_settings_py, 'w') as fp:
+            self.write_utf8_comment(fp)
+            fp.write('\n')
+            self.write_secret_key(fp)
+            fp.write('\n')
             self.write_database_config(fp)
 
-    def write_secret_key(self):
-        Utils.run_argv([Utils.get_python_executable(),
-                        os.path.join(env_mgr.install_path, 'seahub',
-                                     'tools', 'secret_key_generator.py'),
-                        self.seahub_settings_py])
+    def write_utf8_comment(self, fp):
+        fp.write('# -*- coding: utf-8 -*-')
+
+    def write_secret_key(self, fp):
+        script = os.path.join(env_mgr.install_path, 'seahub/tools/secret_key_generator.py')
+        cmd = [
+            Utils.get_python_executable(),
+            script,
+        ]
+        key = Utils.get_command_output(cmd).strip()
+        fp.write('SECRET_KEY = "%s"' % key)
 
     def write_database_config(self, fp):
         template = '''\

@@ -530,9 +530,11 @@ dest_settings_py=${TOPDIR}/conf/seahub_settings.py
 seahub_secret_keygen=${INSTALLPATH}/seahub/tools/secret_key_generator.py
 
 if [[ ! -f ${dest_settings_py} ]]; then
-    echo -n "SECRET_KEY = " >> "${dest_settings_py}"
     key=$($PYTHON "${seahub_secret_keygen}")
-    echo "\"${key}\"" >> "${dest_settings_py}"
+    cat > ${dest_settings_py} <<EOF
+# -*- coding: utf-8 -*-
+SECRET_KEY = "$key"
+EOF
 fi
 
 # -------------------------------------------
