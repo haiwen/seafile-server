@@ -108,6 +108,10 @@ Press ENTER to continue
             return proc.wait()
 
     @staticmethod
+    def get_command_output(args, *a, **kw):
+        return subprocess.check_output(args, *a, **kw)
+
+    @staticmethod
     def prepend_env_value(name, value, env=None, seperator=':'):
         '''prepend a new value to a list'''
         if env is None:
