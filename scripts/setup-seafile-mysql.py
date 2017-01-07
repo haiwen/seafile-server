@@ -2,6 +2,7 @@
 
 '''This script would guide the seafile admin to setup seafile with MySQL'''
 
+import argparse
 import sys
 import os
 import time
@@ -13,11 +14,11 @@ import hashlib
 import getpass
 import uuid
 import warnings
-import MySQLdb
-import argparse
 import socket
-
 from ConfigParser import ConfigParser
+
+import MySQLdb
+
 
 try:
     import readline # pylint: disable=W0611
@@ -380,6 +381,9 @@ class AbstractDBConfigurator(AbstractConfigurator):
         self.seafile_mysql_password = ''
         self.seafile_mysql_userhost = 'localhost'
 
+        self.root_password = ''
+        self.root_conn = ''
+
         self.ccnet_db_name = ''
         self.seafile_db_name = ''
         self.seahub_db_name = ''
@@ -537,9 +541,6 @@ class NewDBConfigurator(AbstractDBConfigurator):
     '''Handles the case of creating new mysql databases for ccnet/seafile/seahub'''
     def __init__(self):
         AbstractDBConfigurator.__init__(self)
-
-        self.root_password = ''
-        self.root_conn = ''
 
     def ask_questions(self):
         self.ask_mysql_host_port()
@@ -1282,6 +1283,7 @@ def check_params(args):
     global db_config
 
     use_existing_db = get_param_val(args.use_existing_db, 'USE_EXISTING_DB', '0')
+    # pylint: disable=redefined-variable-type
     if use_existing_db == '0':
         db_config = NewDBConfigurator()
     elif use_existing_db == '1':
@@ -1403,6 +1405,7 @@ def main():
     seafile_config.ask_questions()
     seahub_config.ask_questions()
 
+    # pylint: disable=redefined-variable-type
     if not db_config:
         if AbstractDBConfigurator.ask_use_existing_db():
             db_config = ExistingDBConfigurator()
