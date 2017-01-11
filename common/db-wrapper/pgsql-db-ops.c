@@ -419,7 +419,10 @@ pgsql_db_stmt_free (DBStmt *vstmt)
     if (!vstmt)
         return;
 
+    char Stmt[256];
     PGDBStmt *stmt = (PGDBStmt *)vstmt;
+    snprintf(Stmt, sizeof(Stmt), "DEALLOCATE \"%s\";", stmt->name);
+    PQclear(PQexec(stmt->db, Stmt));
 
     g_free (stmt->name);
 
