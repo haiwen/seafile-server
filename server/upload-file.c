@@ -1698,7 +1698,7 @@ parse_mime_header (char *header, RecvFSM *fsm)
 
     *colon = 0;
     if (strcmp (header, "Content-Disposition") == 0) {
-        params = g_strsplit (colon + 1, ";", 0);
+        params = g_strsplit (colon + 1, ";", 3);
         for (p = params; *p != NULL; ++p)
             *p = g_strstrip (*p);
 
@@ -1730,10 +1730,12 @@ parse_mime_header (char *header, RecvFSM *fsm)
             for (p = params; *p != NULL; ++p) {
                 if (strncasecmp (*p, "filename", strlen("filename")) == 0) {
                     file_name = get_mime_header_param_value (*p);
-                    fsm->file_name = normalize_utf8_path (file_name);
-                    if (!fsm->file_name)
-                        seaf_debug ("File name is not valid utf8 encoding.\n");
-                    g_free (file_name);
+                    if (file_name) {
+                        fsm->file_name = normalize_utf8_path (file_name);
+                        if (!fsm->file_name)
+                            seaf_debug ("File name is not valid utf8 encoding.\n");
+                        g_free (file_name);
+                    }
                     break;
                 }
             }
