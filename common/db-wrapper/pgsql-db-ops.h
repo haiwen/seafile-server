@@ -3,6 +3,7 @@
 
 DBConnPool *
 pgsql_db_conn_pool_new (const char *host,
+                        unsigned int port,
                         const char *user,
                         const char *password,
                         const char *db_name,

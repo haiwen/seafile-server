@@ -134,6 +134,7 @@ static int
 pgsql_db_start (SeafileSession *session)
 {
     char *host, *user, *passwd, *db, *unix_socket;
+    unsigned int port;
     GError *error = NULL;
 
     host = seaf_key_file_get_string (session->config, "database", "host", &error);
@@ -159,11 +160,17 @@ pgsql_db_start (SeafileSession *session)
         seaf_warning ("DB name not set in config.\n");
         return -1;
     }
+    port = g_key_file_get_integer (session->config,
+                                   "database", "port", &error);
+    if (error) {
+        port = 0;
+        g_clear_error (&error);
+    }
 
     unix_socket = seaf_key_file_get_string (session->config,
                                          "database", "unix_socket", &error);
 
-    session->db = seaf_db_new_pgsql (host, user, passwd, db, unix_socket,
+    session->db = seaf_db_new_pgsql (host, port, user, passwd, db, unix_socket,
                                      DEFAULT_MAX_CONNECTIONS);
     if (!session->db) {
         seaf_warning ("Failed to start pgsql db.\n");

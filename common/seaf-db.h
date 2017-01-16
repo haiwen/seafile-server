@@ -26,6 +26,7 @@ seaf_db_new_mysql (const char *host,
 
 SeafDB *
 seaf_db_new_pgsql (const char *host,
+                   unsigned int port,
                    const char *user,
                    const char *passwd,
                    const char *db_name,
