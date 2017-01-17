@@ -29,6 +29,7 @@ db_conn_pool_new_mysql (const char *host,
 
 DBConnPool *
 db_conn_pool_new_pgsql (const char *host,
+                        unsigned int port,
                         const char *user,
                         const char *password,
                         const char *db_name,

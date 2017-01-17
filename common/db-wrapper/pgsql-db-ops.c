@@ -8,6 +8,7 @@
 typedef struct PGDBConnPool {
     DBConnPool parent;
     char *host;
+    unsigned int port;
     char *user;
     char *password;
     char *db_name;
@@ -16,6 +17,7 @@ typedef struct PGDBConnPool {
 
 DBConnPool *
 pgsql_db_conn_pool_new (const char *host,
+                        unsigned int port,
                         const char *user,
                         const char *password,
                         const char *db_name,
@@ -24,6 +26,7 @@ pgsql_db_conn_pool_new (const char *host,
     PGDBConnPool *pool = g_new0 (PGDBConnPool, 1);
 
     pool->host = g_strdup (host);
+    pool->port = port;
     pool->user = g_strdup (user);
     pool->password = g_strdup (password);
     pool->db_name = g_strdup(db_name);
@@ -88,8 +91,12 @@ connect_pgsql (PGDBConnPool *pool, GError **error)
         g_string_append_printf (buf, "host='%s' ", pool->host);
     }
 
-    g_string_append_printf (buf, "dbname='%s' ", pool->db_name);
+    if (pool->port > 0) {
+        g_string_append_printf (buf, "port=%u ", pool->port);
+    }
 
+    g_string_append_printf (buf, "dbname='%s' ", pool->db_name);
+    
     db = PQconnectdb (buf->str);
     if (PQstatus (db) != CONNECTION_OK) {
         g_set_error (error, SEAF_DB_ERROR_DOMAIN, SEAF_DB_ERROR_CODE,

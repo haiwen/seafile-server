@@ -95,6 +95,7 @@ db_conn_pool_new_mysql (const char *host,
 
 DBConnPool *
 db_conn_pool_new_pgsql (const char *host,
+                        unsigned int port,
                         const char *user,
                         const char *password,
                         const char *db_name,
@@ -124,7 +125,7 @@ db_conn_pool_new_pgsql (const char *host,
 
     DBConnPool *pool;
 
-    pool = pgsql_db_conn_pool_new (host, user, password, db_name, unix_socket);
+    pool = pgsql_db_conn_pool_new (host, port, user, password, db_name, unix_socket);
     init_conn_pool_common (pool, max_connections);
 
     return pool;

@@ -56,6 +56,7 @@ seaf_db_new_mysql (const char *host,
 
 SeafDB *
 seaf_db_new_pgsql (const char *host,
+                   unsigned int port,
                    const char *user,
                    const char *passwd,
                    const char *db_name,
@@ -72,7 +73,7 @@ seaf_db_new_pgsql (const char *host,
 
     db->type = SEAF_DB_TYPE_PGSQL;
 
-    db->pool = db_conn_pool_new_pgsql (host, user, passwd, db_name, unix_socket,
+    db->pool = db_conn_pool_new_pgsql (host, port, user, passwd, db_name, unix_socket,
                                        max_connections);
 
     return db;
