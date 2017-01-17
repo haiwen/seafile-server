@@ -715,6 +715,12 @@ class CcnetAPI(object):
         """
         return ccnet_threaded_rpc.search_emailusers(source, email_patt, start, limit)
 
+    def search_groups(self, group_patt, start, limit):
+        """
+        Search for groups whose name contains @group_patt.
+        """
+        return ccnet_threaded_rpc.search_groups(group_patt, start, limit)
+
     def search_ldapusers(self, keyword, start, limit):
         """
         Search for users whose name contains @keyword directly from LDAP server.
