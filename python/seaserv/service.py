@@ -60,6 +60,11 @@ else:
     CCNET_SERVER_PORT = None
     SERVICE_URL = None
 
+if config.has_option('LDAP', 'HOST'):
+    LDAP_HOST = config.get('LDAP', 'HOST')
+else:
+    LDAP_HOST = None
+
 SERVER_ID = config.get('General', 'ID')
 config.read(os.path.join(SEAFILE_CENTRAL_CONF_DIR if SEAFILE_CENTRAL_CONF_DIR else SEAFILE_CONF_DIR,
                          'seafile.conf'))
