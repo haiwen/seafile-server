@@ -231,10 +231,12 @@ function stop_seahub () {
         pid=$(cat "${pidfile}")
         echo "Stopping seahub ..."
         kill ${pid}
+        sleep 1
+        kill -0 $pid &>/dev/null && echo "Error: seahub is still running, pid $pid. You can try to force kill it with 'kill -9 $pid; rm -f $pidfile'." >&2 && exit 1
         rm -f ${pidfile}
-        return 0
     else
         echo "Seahub is not running"
+                exit 1
     fi
 }
 
