@@ -1368,7 +1368,7 @@ def check_params(args):
 
 
 def main():
-    if len(sys.argv) > 2 and sys.argv[1] == 'auto':
+    if len(sys.argv) >= 2 and sys.argv[1] == 'auto':
         sys.argv.remove('auto')
         parser = argparse.ArgumentParser()
         parser.add_argument('-n', '--server-name', help='server name')
