@@ -36,7 +36,7 @@ from service import post_empty_file, del_file
 from service import CCNET_CONF_PATH, CCNET_SERVER_ADDR, CCNET_SERVER_PORT, \
     MAX_UPLOAD_FILE_SIZE, MAX_DOWNLOAD_DIR_SIZE, FILE_SERVER_ROOT, \
     CALC_SHARE_USAGE, SERVICE_URL, FILE_SERVER_PORT, SERVER_ID, \
-    SEAFILE_CENTRAL_CONF_DIR
+    SEAFILE_CENTRAL_CONF_DIR, LDAP_HOST
 
 from service import send_message
 
