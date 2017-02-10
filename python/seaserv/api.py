@@ -281,12 +281,27 @@ class SeafileAPI(object):
 
         Return a list of DeletedEntry objects (lib/repo.vala).
         If no more deleted entries can be returned within the given time frame (specified by
-        @show_days) or all deleted entries in the history have been returned, 'None' will be
-        returned.
+        @show_days) or all deleted entries in the history have been returned, a list with a
+        single entry will be returned. The 'scan_stat' attribute of this entry is set to
+        None.
         """
         return seafserv_threaded_rpc.get_deleted(repo_id, show_days, path, scan_stat, limit)
 
     def get_file_revisions(self, repo_id, path, max_revision, limit, show_days=-1):
+        """
+        Get revisions of a file.
+
+        @max_revision: maximum number of revisions returned
+        @limit: maximum number of commits to traverse when looking for revisions
+        @show_days: only return revisions in the @show_days
+
+        Return a list of Commit objects (lib/commit.vala) related to the revisions.
+        A few special attributes are added to the commit object:
+        @rev_file_id: id of the file revision
+        @rev_file_size: size of the file revision
+        @rev_renamed_old_path: set if this revision is made by a rename operation.
+                               It's set to the old path before rename.
+        """
         return seafserv_threaded_rpc.list_file_revisions(repo_id, path,
                                                          max_revision, limit,
                                                          show_days)
