@@ -713,11 +713,18 @@ sigchld_handler (int signo)
 }
 
 static void
+sigusr1_handler (int signo)
+{
+    seafile_log_reopen();
+}
+
+static void
 set_signal_handlers ()
 {
     signal (SIGINT, sigint_handler);
     signal (SIGTERM, sigint_handler);
     signal (SIGCHLD, sigchld_handler);
+    signal (SIGUSR1, sigusr1_handler);
     signal (SIGPIPE, SIG_IGN);
 }
 
