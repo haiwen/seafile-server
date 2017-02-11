@@ -5259,7 +5259,7 @@ scan_commits_for_collect_deleted (CollectDelData *data,
         }
         seaf_commit_unref (commit);
 
-        if (++scan_num == limit && (!list || !list->next)) {
+        if (++scan_num >= limit && (!list || !list->next)) {
             break;
         }
     }

@@ -276,8 +276,8 @@ class SeafileAPI(object):
         @scan_stat: An opaque status returned by the last call. In the first call, None
                     must be passed. The last entry of the result list contains a 'scan_stat'
                     attribute. In the next call, pass in the returned 'scan_stat'.
-        @limit: Advisory maximum number of result entries returned. Sometimes more than @limit
-                entries will be returned.
+        @limit: Advisory maximum number of commits to traverse. Sometimes more than @limit
+                commits will be traversed.
 
         Return a list of DeletedEntry objects (lib/repo.vala).
         If no more deleted entries can be returned within the given time frame (specified by
