@@ -5464,3 +5464,164 @@ seaf_repo_diff (SeafRepo *repo, const char *old, const char *new, int fold_dir_r
 
     return diff_entries;
 }
+
+int
+seaf_repo_manager_mkdir_with_parents (SeafRepoManager *mgr,
+                                      const char *repo_id,
+                                      const char *parent_dir,
+                                      const char *new_dir_path,
+                                      const char *user,
+                                      GError **error)
+{
+    SeafRepo *repo = NULL;
+    SeafCommit *head_commit = NULL;
+    char **sub_folders = NULL;
+    int nfolder;
+    char buf[SEAF_PATH_MAX];
+    char *root_id = NULL;
+    SeafDirent *new_dent = NULL;
+    char *parent_dir_can = NULL;
+    char *relative_dir_can = NULL;
+    char *abs_path = NULL;
+    int total_path_len;
+    int sub_folder_len;
+    GList *uncre_dir_list = NULL;
+    GList *iter_list = NULL;
+    char *uncre_dir;
+    int ret = 0; 
+
+    if (new_dir_path[0] == '/' || new_dir_path[0] == '\\') {
+        seaf_warning ("[mkdir with parent] Invalid relative path %s.\n", new_dir_path);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                     "Invalid relative path");
+        return -1;
+    }    
+
+    GET_REPO_OR_FAIL(repo, repo_id);
+    GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
+
+    relative_dir_can = get_canonical_path (new_dir_path);
+    sub_folders = g_strsplit (relative_dir_can, "/", 0);
+    nfolder = g_strv_length (sub_folders);
+
+    int i = 0;
+    for (; i < nfolder; ++i) {
+        if (strcmp (sub_folders[i], "") == 0)
+            continue;
+
+        if (should_ignore_file (sub_folders[i], NULL)) {
+            seaf_warning ("[post dir] Invalid dir name %s.\n", sub_folders[i]);
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                         "Invalid dir name");
+            ret = -1;
+            goto out;
+        }
+    }
+
+    if (strcmp (parent_dir, "/") == 0 ||
+        strcmp (parent_dir, "\\") == 0) {
+        parent_dir_can = g_strdup ("/");
+        abs_path = g_strdup_printf ("%s%s", parent_dir_can, relative_dir_can);
+    } else {
+        parent_dir_can = get_canonical_path (parent_dir);
+        abs_path = g_strdup_printf ("%s/%s", parent_dir_can, relative_dir_can);
+    }
+    if (!abs_path) {
+        seaf_warning ("[mkdir with parent] Out of memory.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_INTERNAL,
+                     "Out of memory");
+        ret = -1;
+        goto out;
+    }
+    total_path_len = strlen (abs_path);
+
+    // from the last, to check the folder exist
+    i = nfolder - 1;
+    for (; i >= 0; --i) {
+        if (strcmp (sub_folders[i], "") == 0)
+            continue;
+
+        sub_folder_len = strlen (sub_folders[i]) + 1;
+        total_path_len -= sub_folder_len;
+        memset (abs_path + total_path_len, '\0', sub_folder_len);
+
+        if (check_file_exists (repo->store_id, repo->version,
+                               head_commit->root_id, abs_path, sub_folders[i], NULL)) {
+            // folder exist, skip loop to create unexist subfolder
+            strcat (abs_path, "/");
+            strcat (abs_path, sub_folders[i]);
+            break;
+        } else {
+            // folder not exist, cache it to create later
+            uncre_dir_list = g_list_prepend (uncre_dir_list, sub_folders[i]);
+        }
+    }
+
+    if (uncre_dir_list) {
+        // exist parent folder has been found, based on it to create unexist subfolder
+        char new_root_id[41];
+        memcpy (new_root_id, head_commit->root_id, 40);
+        new_root_id[40] = '\0';
+
+        for (iter_list = uncre_dir_list; iter_list; iter_list = iter_list->next) {
+            uncre_dir = iter_list->data;
+            new_dent = seaf_dirent_new (dir_version_from_repo_version(repo->version),
+                                        EMPTY_SHA1, S_IFDIR, uncre_dir,
+                                        (gint64)time(NULL), NULL, -1);
+
+            root_id = do_post_file (repo,
+                                    new_root_id, abs_path, new_dent);
+            if (!root_id) {
+                seaf_warning ("[put dir] Failed to put dir.\n");
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                             "Failed to put dir");
+                ret = -1;
+                seaf_dirent_free (new_dent);
+                goto out;
+            }
+
+            // the last folder has been created
+            if (!iter_list->next) {
+                seaf_dirent_free (new_dent);
+                break;
+            }
+
+            strcat (abs_path, "/");
+            strcat (abs_path, uncre_dir);
+            memcpy (new_root_id, root_id, 40);
+
+            seaf_dirent_free (new_dent);
+            g_free (root_id);
+        }
+
+        /* Commit. */
+        snprintf(buf, SEAF_PATH_MAX, "Added directory \"%s\"", relative_dir_can);
+        if (gen_new_commit (repo_id, head_commit, root_id,
+                            user, buf, NULL, error) < 0) {
+            ret = -1;
+            g_free (root_id);
+            goto out;
+        }
+
+        seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
+        g_free (root_id);
+    }
+
+out:
+    if (repo)
+        seaf_repo_unref (repo);
+    if (head_commit)
+        seaf_commit_unref(head_commit);
+    if (sub_folders)
+        g_strfreev (sub_folders);
+    if (uncre_dir_list)
+        g_list_free (uncre_dir_list);
+    if (relative_dir_can)
+        g_free (relative_dir_can);
+    if (parent_dir_can)
+        g_free (parent_dir_can);
+    if (abs_path)
+        g_free (abs_path);
+
+    return ret;
+}
