@@ -3584,7 +3584,10 @@ seaf_get_total_storage (GError **error)
 {
     gint64 size = 0;
     int ret = seaf_db_statement_foreach_row (seaf->db,
-                                             "SELECT size FROM RepoSize",
+                                             "SELECT size FROM RepoSize s "
+                                             "LEFT JOIN VirtualRepo v "
+                                             "ON s.repo_id=v.repo_id "
+                                             "WHERE v.repo_id IS NULL",
                                              get_total_storage_cb,
                                              &size, 0);
     if (ret < 0) {
