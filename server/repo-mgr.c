@@ -3583,13 +3583,24 @@ gint64
 seaf_get_total_storage (GError **error)
 {
     gint64 size = 0;
-    int ret = seaf_db_statement_foreach_row (seaf->db,
+    int ret;
+    if (seaf_db_type(seaf->db) == SEAF_DB_TYPE_PGSQL) {
+        ret = seaf_db_statement_foreach_row (seaf->db,
+                                             "SELECT \"size\" FROM RepoSize s "
+                                             "LEFT JOIN VirtualRepo v "
+                                             "ON s.repo_id=v.repo_id "
+                                             "WHERE v.repo_id IS NULL",
+                                             get_total_storage_cb,
+                                             &size, 0);
+    } else {
+        ret = seaf_db_statement_foreach_row (seaf->db,
                                              "SELECT size FROM RepoSize s "
                                              "LEFT JOIN VirtualRepo v "
                                              "ON s.repo_id=v.repo_id "
                                              "WHERE v.repo_id IS NULL",
                                              get_total_storage_cb,
                                              &size, 0);
+    }
     if (ret < 0) {
         seaf_warning ("Failed to get total storage occupation.\n");
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
