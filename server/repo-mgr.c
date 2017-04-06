@@ -635,15 +635,24 @@ gboolean
 create_repo_fill_size (SeafDBRow *row, void *data)
 {
     SeafRepo **repo = data;
+    SeafBranch *head;
 
     const char *repo_id = seaf_db_row_get_column_text (row, 0);
     gint64 size = seaf_db_row_get_column_int64 (row, 1);
+    const char *commit_id = seaf_db_row_get_column_text (row, 2);
 
     *repo = seaf_repo_new (repo_id, NULL, NULL);
     if (!*repo)
         return FALSE;
 
+    if (!commit_id) {
+        (*repo)->is_corrupted = TRUE;
+        return FALSE;
+    }
+
     (*repo)->size = size;
+    head = seaf_branch_new ("master", repo_id, commit_id);
+    (*repo)->head = head;
 
     return TRUE;
 }
@@ -652,8 +661,18 @@ static SeafRepo*
 get_repo_from_db (SeafRepoManager *mgr, const char *id, gboolean *db_err)
 {
     SeafRepo *repo = NULL;
-    const char *sql = "SELECT r.repo_id, s.size FROM Repo r left join RepoSize s "
-                      "ON r.repo_id = s.repo_id WHERE r.repo_id = ?";
+    const char *sql;
+
+    if (seaf_db_type(mgr->seaf->db) != SEAF_DB_TYPE_PGSQL)
+        sql = "SELECT r.repo_id, s.size, b.commit_id FROM "
+            "Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id "
+            "LEFT JOIN RepoSize s ON r.repo_id = s.repo_id "
+            "WHERE r.repo_id = ? AND b.name = 'master'";
+    else
+        sql = "SELECT r.repo_id, s.\"size\", b.commit_id FROM "
+            "Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id "
+            "LEFT JOIN RepoSize s ON r.repo_id = s.repo_id "
+            "WHERE r.repo_id = ? AND b.name = 'master'";
 
     int ret = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
                                              create_repo_fill_size, &repo,
@@ -668,15 +687,20 @@ SeafRepo*
 seaf_repo_manager_get_repo (SeafRepoManager *manager, const gchar *id)
 {
     int len = strlen(id);
-    gboolean db_err = FALSE;
     SeafRepo *repo = NULL;
+    gboolean has_err = FALSE;
 
     if (len >= 37)
         return NULL;
 
-    repo = get_repo_from_db (manager, id, &db_err);
+    repo = get_repo_from_db (manager, id, &has_err);
 
     if (repo) {
+        if (repo->is_corrupted) {
+            seaf_repo_unref (repo);
+            return NULL;
+        }
+
         load_repo (manager, repo);
         if (repo->is_corrupted) {
             seaf_repo_unref (repo);
@@ -691,20 +715,24 @@ SeafRepo*
 seaf_repo_manager_get_repo_ex (SeafRepoManager *manager, const gchar *id)
 {
     int len = strlen(id);
-    gboolean db_err = FALSE;
+    gboolean has_err = FALSE;
     SeafRepo *ret = NULL;
 
     if (len >= 37)
         return NULL;
 
-    ret = get_repo_from_db (manager, id, &db_err);
-    if (db_err) {
+    ret = get_repo_from_db (manager, id, &has_err);
+    if (has_err) {
         ret = seaf_repo_new(id, NULL, NULL);
         ret->is_corrupted = TRUE;
         return ret;
     }
 
     if (ret) {
+        if (ret->is_corrupted) {
+            return ret;
+        }
+
         load_repo (manager, ret);
     }
 
@@ -765,21 +793,19 @@ seaf_repo_manager_branch_repo_unmap (SeafRepoManager *manager, SeafBranch *branc
 
 static void
 load_repo_commit (SeafRepoManager *manager,
-                  SeafRepo *repo,
-                  SeafBranch *branch)
+                  SeafRepo *repo)
 {
     SeafCommit *commit;
 
     commit = seaf_commit_manager_get_commit_compatible (manager->seaf->commit_mgr,
                                                         repo->id,
-                                                        branch->commit_id);
+                                                        repo->head->commit_id);
     if (!commit) {
-        seaf_warning ("Commit %s:%s is missing\n", repo->id, branch->commit_id);
+        seaf_warning ("Commit %s:%s is missing\n", repo->id, repo->head->commit_id);
         repo->is_corrupted = TRUE;
         return;
     }
 
-    set_head_common (repo, branch);
     seaf_repo_from_commit (repo, commit);
 
     seaf_commit_unref (commit);
@@ -788,18 +814,9 @@ load_repo_commit (SeafRepoManager *manager,
 static void
 load_repo (SeafRepoManager *manager, SeafRepo *repo)
 {
-    SeafBranch *branch;
-
     repo->manager = manager;
 
-    branch = seaf_branch_manager_get_branch (seaf->branch_mgr, repo->id, "master");
-    if (!branch) {
-        seaf_warning ("Failed to get master branch of repo %.8s.\n", repo->id);
-        repo->is_corrupted = TRUE;
-    } else {
-        load_repo_commit (manager, repo, branch);
-        seaf_branch_unref (branch);
-    }
+    load_repo_commit (manager, repo);
 
     if (repo->is_corrupted) {
         return;
@@ -2032,35 +2049,114 @@ seaf_repo_manager_get_orphan_repo_list (SeafRepoManager *mgr)
     return ret;
 }
 
+gboolean
+collect_repos_fill_size_commit (SeafDBRow *row, void *data)
+{
+    GList **prepos = data;
+    SeafRepo *repo;
+    SeafBranch *head;
+
+    const char *repo_id = seaf_db_row_get_column_text (row, 0);
+    gint64 size = seaf_db_row_get_column_int64 (row, 1);
+    const char *commit_id = seaf_db_row_get_column_text (row, 2);
+
+    repo = seaf_repo_new (repo_id, NULL, NULL);
+    if (!repo)
+        return TRUE;
+
+    if (!commit_id) {
+        repo->is_corrupted = TRUE;
+        goto out;
+    }
+
+    repo->size = size;
+    head = seaf_branch_new ("master", repo_id, commit_id);
+    repo->head = head;
+
+out:
+    *prepos = g_list_prepend (*prepos, repo);
+
+    return TRUE;
+}
+
 GList *
 seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                                       const char *email,
-                                      int ret_corrupted)
+                                      int ret_corrupted,
+                                      int start,
+                                      int limit)
 {
-    GList *id_list = NULL, *ptr;
+    GList *repo_list = NULL, *ptr;
     GList *ret = NULL;
     char *sql;
     SeafRepo *repo = NULL;
+    int db_type = seaf_db_type(mgr->seaf->db);
 
-    sql = "SELECT repo_id FROM RepoOwner WHERE owner_id=?";
+    if (start == -1 && limit == -1) {
+        if (db_type != SEAF_DB_TYPE_PGSQL)
+            sql = "SELECT o.repo_id, s.size, b.commit_id FROM "
+                "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
+                "WHERE owner_id=? AND "
+                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v)";
+        else
+            sql = "SELECT o.repo_id, s.\"size\", b.commit_id FROM "
+                "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
+                "WHERE owner_id=? AND "
+                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v)";
 
-    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, 
-                                       collect_repo_id, &id_list,
-                                       1, "string", email) < 0)
-        return NULL;
+        if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, 
+                                           collect_repos_fill_size_commit, &repo_list,
+                                           1, "string", email) < 0)
+            return NULL;
+    } else {
+        if (db_type != SEAF_DB_TYPE_PGSQL)
+            sql = "SELECT o.repo_id, s.size, b.commit_id FROM "
+                "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
+                "WHERE owner_id=? AND "
+                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "LIMIT ? OFFSET ?";
+        else
+            sql = "SELECT o.repo_id, s.\"size\", b.commit_id FROM "
+                "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
+                "WHERE owner_id=? AND "
+                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "LIMIT ? OFFSET ?";
 
-    for (ptr = id_list; ptr; ptr = ptr->next) {
-        char *repo_id = ptr->data;
+        if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, 
+                                           collect_repos_fill_size_commit,
+                                           &repo_list,
+                                           3, "string", email,
+                                           "int", limit,
+                                           "int", start) < 0) {
+            return NULL;
+        }
+    }
+
+    for (ptr = repo_list; ptr; ptr = ptr->next) {
+        repo = ptr->data;
         if (ret_corrupted) {
-            repo = seaf_repo_manager_get_repo_ex (mgr, repo_id);
+            if (!repo->is_corrupted)
+                load_repo (mgr, repo);
         } else {
-            repo = seaf_repo_manager_get_repo (mgr, repo_id);
+            if (repo->is_corrupted) {
+                seaf_repo_unref (repo);
+                continue;
+            }
+
+            load_repo (mgr, repo);
+
+            if (repo->is_corrupted) {
+                seaf_repo_unref (repo);
+                continue;
+            }
         }
         if (repo != NULL)
             ret = g_list_prepend (ret, repo);
     }
-
-    string_list_free (id_list);
 
     return ret;
 }

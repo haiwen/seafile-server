@@ -552,7 +552,9 @@ seaf_repo_manager_get_orphan_repo_list (SeafRepoManager *mgr);
 GList *
 seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                                       const char *email,
-                                      int ret_corrupted);
+                                      int ret_corrupted,
+                                      int start,
+                                      int limit);
 
 GList *
 seaf_repo_manager_get_repo_ids_by_owner (SeafRepoManager *mgr,

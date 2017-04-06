@@ -77,6 +77,7 @@ convert_repo (SeafRepo *r)
     g_object_set (repo, "store_id", r->store_id,
                   "repaired", r->repaired,
                   "size", r->size, "file_count", r->file_count, NULL);
+    g_object_set (repo, "is_corrupted", r->is_corrupted, NULL);
 #endif
 
 #ifndef SEAFILE_SERVER
@@ -1973,32 +1974,32 @@ seafile_get_orphan_repo_list(GError **error)
 }
 
 GList *
-seafile_list_owned_repos (const char *email, int ret_corrupted, GError **error)
+seafile_list_owned_repos (const char *email, int ret_corrupted,
+                          int start, int limit, GError **error)
 {
     GList *ret = NULL;
     GList *repos, *ptr;
-    char *repo_id = NULL;
-    int is_shared;
 
-    repos = seaf_repo_manager_get_repos_by_owner (seaf->repo_mgr, email, ret_corrupted);
+    repos = seaf_repo_manager_get_repos_by_owner (seaf->repo_mgr, email, ret_corrupted,
+                                                  start, limit);
     ret = convert_repo_list (repos);
 
-    for (ptr = ret; ptr; ptr = ptr->next) {
-        g_object_get (ptr->data, "repo_id", &repo_id, NULL);
-        is_shared = seaf_share_manager_is_repo_shared (seaf->share_mgr, repo_id);
-        if (is_shared < 0) {
-            g_free (repo_id);
-            break;
-        } else {
-            g_object_set (ptr->data, "is_shared", is_shared, NULL);
-            g_free (repo_id);
-        }
-    }
+    /* for (ptr = ret; ptr; ptr = ptr->next) { */
+    /*     g_object_get (ptr->data, "repo_id", &repo_id, NULL); */
+    /*     is_shared = seaf_share_manager_is_repo_shared (seaf->share_mgr, repo_id); */
+    /*     if (is_shared < 0) { */
+    /*         g_free (repo_id); */
+    /*         break; */
+    /*     } else { */
+    /*         g_object_set (ptr->data, "is_shared", is_shared, NULL); */
+    /*         g_free (repo_id); */
+    /*     } */
+    /* } */
 
-    while (ptr) {
-        g_object_set (ptr->data, "is_shared", FALSE, NULL);
-        ptr = ptr->prev;
-    }
+    /* while (ptr) { */
+    /*     g_object_set (ptr->data, "is_shared", FALSE, NULL); */
+    /*     ptr = ptr->prev; */
+    /* } */
 
     for(ptr = repos; ptr; ptr = ptr->next) {
         seaf_repo_unref ((SeafRepo *)ptr->data);
