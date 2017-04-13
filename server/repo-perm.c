@@ -16,6 +16,26 @@
  * Permission priority: owner --> personal share --> group share --> public.
  * Permission with higher priority overwrites those with lower priority.
  */
+
+static gboolean
+check_repo_share_perm_cb (SeafDBRow *row, void *data)
+{
+    char **orig_perm = data;
+    char *perm = g_strdup (seaf_db_row_get_column_text (row, 0));
+
+    if (g_strcmp0(perm, "rw") == 0) {
+        g_free (*orig_perm);
+        *orig_perm = perm;
+        return FALSE;
+    } else if (g_strcmp0(perm, "r") == 0 && !(*orig_perm)) {
+        *orig_perm = perm;
+        return TRUE;
+    }
+
+    g_free (perm);
+    return TRUE;
+}
+
 static char *
 check_repo_share_permission (SeafRepoManager *mgr,
                              const char *repo_id,
@@ -23,11 +43,10 @@ check_repo_share_permission (SeafRepoManager *mgr,
 {
     SearpcClient *rpc_client;
     GList *groups, *p1;
-    GList *group_perms, *p2;
     CcnetGroup *group;
-    GroupPerm *perm;
     int group_id;
     char *permission;
+    GString *sql = g_string_new ("");
 
     permission = seaf_share_manager_check_permission (seaf->share_mgr,
                                                       repo_id,
@@ -47,43 +66,29 @@ check_repo_share_permission (SeafRepoManager *mgr,
 
     ccnet_rpc_client_free (rpc_client);
 
-    /* Get the groups this repo shared to. */
-    group_perms = seaf_repo_manager_get_group_perm_by_repo (mgr, repo_id, NULL);
-
-    permission = NULL;
-    /* Check if any one group overlaps. */
+    g_string_printf (sql, "SELECT permission FROM RepoGroup WHERE repo_id = ? AND group_id IN (");
     for (p1 = groups; p1 != NULL; p1 = p1->next) {
         group = p1->data;
         g_object_get (group, "id", &group_id, NULL);
 
-        for (p2 = group_perms; p2 != NULL; p2 = p2->next) {
-            perm = p2->data;
-            if (group_id == perm->group_id) {
-                /* If the repo is shared to more than 1 groups,
-                 * and user is in more than 1 of these groups,
-                 * "rw" permission will overwrite "ro" permission.
-                 */
-                if (g_strcmp0(perm->permission, "rw") == 0) {
-                    permission = perm->permission;
-                    goto group_out;
-                } else if (g_strcmp0(perm->permission, "r") == 0 &&
-                           !permission) {
-                    permission = perm->permission;
-                }
-            }
-        }
+        g_string_append_printf (sql, "%d", group_id);
+        if (p1->next)
+            g_string_append_printf (sql, ",");
+    }
+    g_string_append_printf (sql, ")");
+
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql->str,
+                                       check_repo_share_perm_cb, &permission,
+                                       1, "string", repo_id) < 0) {
+        seaf_warning ("DB error when get repo share permission for repo %s.\n", repo_id);
+        goto group_out;
     }
 
 group_out:
-    if (permission != NULL)
-        permission = g_strdup(permission);
-
+    g_string_free (sql, TRUE);
     for (p1 = groups; p1 != NULL; p1 = p1->next)
         g_object_unref ((GObject *)p1->data);
     g_list_free (groups);
-    for (p2 = group_perms; p2 != NULL; p2 = p2->next)
-        g_free (p2->data);
-    g_list_free (group_perms);
 
     if (permission != NULL)
         return permission;
