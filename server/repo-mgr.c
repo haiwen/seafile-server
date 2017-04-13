@@ -1919,8 +1919,9 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
         gboolean err;
         snprintf(sql, sizeof(sql),
-                 "SELECT repo_id FROM RepoOwner WHERE repo_id='%s'", repo_id);
-        if (seaf_db_check_for_existence(db, sql, &err))
+                 "SELECT repo_id FROM RepoOwner WHERE repo_id=?");
+        if (seaf_db_statement_exists (db, sql, &err,
+                                      1, "string", repo_id))
             snprintf(sql, sizeof(sql),
                      "UPDATE RepoOwner SET owner_id='%s' WHERE "
                      "repo_id='%s'", email, repo_id);
@@ -3015,9 +3016,9 @@ seaf_repo_manager_set_inner_pub_repo (SeafRepoManager *mgr,
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
         gboolean err;
         snprintf(sql, sizeof(sql),
-                 "SELECT repo_id FROM InnerPubRepo WHERE repo_id='%s'",
-                 repo_id);
-        if (seaf_db_check_for_existence(db, sql, &err))
+                 "SELECT repo_id FROM InnerPubRepo WHERE repo_id=?");
+        if (seaf_db_statement_exists (db, sql, &err,
+                                      1, "string", repo_id))
             snprintf(sql, sizeof(sql),
                      "UPDATE InnerPubRepo SET permission='%s' "
                      "WHERE repo_id='%s'", permission, repo_id);
