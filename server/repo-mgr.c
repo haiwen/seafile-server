@@ -2099,13 +2099,15 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "WHERE owner_id=? AND "
-                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v)";
+                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY o.repo_id";
         else
             sql = "SELECT o.repo_id, s.\"size\", b.commit_id FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "WHERE owner_id=? AND "
-                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v)";
+                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY o.repo_id";
 
         if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, 
                                            collect_repos_fill_size_commit, &repo_list,
@@ -2118,6 +2120,7 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY o.repo_id "
                 "LIMIT ? OFFSET ?";
         else
             sql = "SELECT o.repo_id, s.\"size\", b.commit_id FROM "
@@ -2125,6 +2128,7 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY o.repo_id "
                 "LIMIT ? OFFSET ?";
 
         if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, 
