@@ -4758,6 +4758,7 @@ seafile_get_file_id_by_commit_and_path(const char *repo_id,
     SeafRepo *repo;
     SeafCommit *commit;
     char *file_id;
+    guint32 mode;
 
     if (!repo_id || !is_uuid_valid(repo_id) || !commit_id || !path) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
@@ -4786,7 +4787,11 @@ seafile_get_file_id_by_commit_and_path(const char *repo_id,
 
     file_id = seaf_fs_manager_path_to_obj_id (seaf->fs_mgr,
                                               repo->store_id, repo->version,
-                                              commit->root_id, rpath, NULL, error);
+                                              commit->root_id, rpath, &mode, error);
+    if (file_id && S_ISDIR(mode)) {
+        g_free (file_id);
+        file_id = NULL;
+    }
     g_free (rpath);
 
     filter_error (error);
