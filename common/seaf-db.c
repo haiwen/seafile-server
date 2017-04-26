@@ -128,106 +128,6 @@ get_db_connection (SeafDB *db)
     return conn;
 }
 
-int
-seaf_db_query (SeafDB *db, const char *sql)
-{
-    GError *error = NULL;
-    int ret = 0;
-
-    DBConnection *conn = get_db_connection (db);
-    if (!conn)
-        return -1;
-
-    if (!db_connection_execute (conn, sql, &error)) {
-        seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-        g_clear_error (&error);
-        ret = -1;
-    }
-
-    db_connection_close (conn);
-
-    return ret;
-}
-
-gboolean
-seaf_db_check_for_existence (SeafDB *db, const char *sql, gboolean *db_err)
-{
-    DBConnection *conn;
-    ResultSet *result;
-    gboolean ret = TRUE;
-    GError *error = NULL;
-
-    *db_err = FALSE;
-
-    conn = get_db_connection (db);
-    if (!conn) {
-        *db_err = TRUE;
-        return FALSE;
-    }
-
-    result = db_connection_execute_query (conn, sql, &error);
-    if (error) {
-        seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-        g_clear_error (&error);
-        *db_err = TRUE;
-        ret = FALSE;
-        goto out;
-    }
-
-    ret = result_set_next (result, &error);
-    if (error) {
-        seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-        g_clear_error (&error);
-        *db_err = TRUE;
-    }
-
-out:
-    db_connection_close (conn);
-
-    return ret;
-}
-
-int
-seaf_db_foreach_selected_row (SeafDB *db, const char *sql, 
-                              SeafDBRowFunc callback, void *data)
-{
-    DBConnection *conn;
-    ResultSet *result;
-    SeafDBRow seaf_row;
-    int n_rows = 0;
-    GError *error = NULL;
-
-    conn = get_db_connection (db);
-    if (!conn)
-        return -1;
-
-    result = db_connection_execute_query (conn, sql, &error);
-    if (error) {
-        seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-        g_clear_error (&error);
-        n_rows = -1;
-        goto out;
-    }
-
-    seaf_row.res = result;
-
-    while (result_set_next (result, &error)) {
-        n_rows++;
-        if (!callback (&seaf_row, data))
-            break;
-    }
-
-    if (error) {
-        seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-        g_clear_error (&error);
-        n_rows = -1;
-    }
-
-out:
-    db_connection_close (conn);
-    return n_rows;
-}
-
 const char *
 seaf_db_row_get_column_text (SeafDBRow *row, guint32 idx)
 {
@@ -253,116 +153,6 @@ seaf_db_row_get_column_int64 (SeafDBRow *row, guint32 idx)
     g_return_val_if_fail (idx < result_set_get_column_count(row->res), -1);
 
     return result_set_get_int64 (row->res, idx, &error);
-}
-
-int
-seaf_db_get_int (SeafDB *db, const char *sql)
-{
-    int ret = -1;
-    DBConnection *conn;
-    ResultSet *result;
-    SeafDBRow seaf_row;
-    GError *error = NULL;
-
-    conn = get_db_connection (db);
-    if (!conn)
-        return -1;
-
-    result = db_connection_execute_query (conn, sql, &error);
-    if (error) {
-        seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-        g_clear_error (&error);
-        goto out;
-    }
-
-    seaf_row.res = result;
-    if (!result_set_next (result, &error)) {
-        if (error) {
-            seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-            g_clear_error (&error);
-        }
-        goto out;
-    }
-
-    ret = seaf_db_row_get_column_int (&seaf_row, 0);
-
-out:
-    db_connection_close (conn);
-    return ret;
-}
-
-gint64
-seaf_db_get_int64 (SeafDB *db, const char *sql)
-{
-    gint64 ret = -1;
-    DBConnection *conn;
-    ResultSet *result;
-    SeafDBRow seaf_row;
-    GError *error = NULL;
-
-    conn = get_db_connection (db);
-    if (!conn)
-        return -1;
-
-    result = db_connection_execute_query (conn, sql, &error);
-    if (error) {
-        seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-        g_clear_error (&error);
-        goto out;
-    }
-
-    seaf_row.res = result;
-    if (!result_set_next (result, &error)) {
-        if (error) {
-            seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-            g_clear_error (&error);
-        }
-        goto out;
-    }
-
-    ret = seaf_db_row_get_column_int64 (&seaf_row, 0);
-
-out:
-    db_connection_close (conn);
-    return ret;
-}
-
-char *
-seaf_db_get_string (SeafDB *db, const char *sql)
-{
-    char *ret = NULL;
-    const char *s;
-    DBConnection *conn;
-    ResultSet *result;
-    SeafDBRow seaf_row;
-    GError *error = NULL;
-
-    conn = get_db_connection (db);
-    if (!conn)
-        return NULL;
-
-    result = db_connection_execute_query (conn, sql, &error);
-    if (error) {
-        seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-        g_clear_error (&error);
-        goto out;
-    }
-
-    seaf_row.res = result;
-    if (!result_set_next (result, &error)) {
-        if (error) {
-            seaf_warning ("Error exec query %s: %s.\n", sql, error->message);
-            g_clear_error (&error);
-        }
-        goto out;
-    }
-
-    s = seaf_db_row_get_column_text (&seaf_row, 0);
-    ret = g_strdup(s);
-
-out:
-    db_connection_close (conn);
-    return ret;
 }
 
 char *
@@ -394,9 +184,9 @@ pgsql_index_exists (SeafDB *db, const char *index_name)
     gboolean db_err = FALSE;
 
     snprintf (sql, sizeof(sql),
-              "SELECT 1 FROM pg_class WHERE relname='%s'",
-              index_name);
-    return seaf_db_check_for_existence (db, sql, &db_err);
+              "SELECT 1 FROM pg_class WHERE relname=?");
+
+    return seaf_db_statement_exists (db, sql, &db_err, 1, "string", index_name);
 }
 
 /* Prepared Statements */

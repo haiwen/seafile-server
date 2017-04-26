@@ -206,9 +206,9 @@ repo_exists_in_db (SeafDB *db, const char *id)
     char sql[256];
     gboolean db_err = FALSE;
 
-    snprintf (sql, sizeof(sql), "SELECT repo_id FROM Repo WHERE repo_id = '%s'",
-              id);
-    return seaf_db_check_for_existence (db, sql, &db_err);
+    snprintf (sql, sizeof(sql), "SELECT repo_id FROM Repo WHERE repo_id = ?");
+
+    return seaf_db_statement_exists (db, sql, &db_err, 1, "string", id);
 }
 
 SeafRepo*
@@ -286,8 +286,9 @@ get_origin_repo_id (SeafRepoManager *mgr, const char *repo_id)
 
     snprintf (sql, 256,
               "SELECT origin_repo FROM VirtualRepo "
-              "WHERE repo_id = '%s'", repo_id);
-    seaf_db_foreach_selected_row (seaf->db, sql, load_virtual_info, origin_repo_id);
+              "WHERE repo_id = ?");
+    seaf_db_statement_foreach_row (seaf->db, sql, load_virtual_info, origin_repo_id,
+                                   1, "string", repo_id);
 
     if (origin_repo_id[0] != 0)
         return g_strdup(origin_repo_id);
@@ -354,8 +355,8 @@ seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
 
     snprintf (sql, 256, "SELECT repo_id FROM Repo");
 
-    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql, 
-                                      collect_repo_id, &ret) < 0)
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_repo_id, &ret, 0) < 0)
         return NULL;
 
     return ret;
@@ -369,14 +370,19 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit)
     SeafRepo *repo;
     char sql[256];
 
-    if (start == -1 && limit == -1)
+    if (start == -1 && limit == -1) {
         snprintf (sql, 256, "SELECT repo_id FROM Repo");
-    else
-        snprintf (sql, 256, "SELECT repo_id FROM Repo LIMIT %d, %d", start, limit);
+        if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                           collect_repo_id, &id_list, 0) < 0)
+            return NULL;
+    } else {
+        snprintf (sql, 256, "SELECT repo_id FROM Repo LIMIT ?, ?");
 
-    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql, 
-                                      collect_repo_id, &id_list) < 0)
-        return NULL;
+        if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                           collect_repo_id, &id_list, 2,
+                                           "int", start, "int", limit) < 0)
+            return NULL;
+    }
 
     for (ptr = id_list; ptr; ptr = ptr->next) {
         char *repo_id = ptr->data;
@@ -397,11 +403,11 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
     GList *ret = NULL;
     char sql[256];
 
-    snprintf (sql, 256, "SELECT repo_id FROM RepoOwner WHERE owner_id='%s'",
-              email);
+    snprintf (sql, 256, "SELECT repo_id FROM RepoOwner WHERE owner_id=?");
 
-    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql, 
-                                      collect_repo_id, &id_list) < 0)
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_repo_id, &id_list,
+                                       1, "string", email) < 0)
         return NULL;
 
     for (ptr = id_list; ptr; ptr = ptr->next) {
@@ -423,6 +429,6 @@ seaf_repo_manager_is_virtual_repo (SeafRepoManager *mgr, const char *repo_id)
     gboolean db_err;
 
     snprintf (sql, 256,
-              "SELECT 1 FROM VirtualRepo WHERE repo_id = '%s'", repo_id);
-    return seaf_db_check_for_existence (seaf->db, sql, &db_err);
+              "SELECT 1 FROM VirtualRepo WHERE repo_id = ?");
+    return seaf_db_statement_exists (seaf->db, sql, &db_err, 1, "string", repo_id);
 }

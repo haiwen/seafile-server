@@ -210,9 +210,9 @@ repo_exists_in_db (SeafDB *db, const char *id)
     char sql[256];
     gboolean db_err = FALSE;
 
-    snprintf (sql, sizeof(sql), "SELECT repo_id FROM Repo WHERE repo_id = '%s'",
-              id);
-    return seaf_db_check_for_existence (db, sql, &db_err);
+    snprintf (sql, sizeof(sql), "SELECT repo_id FROM Repo WHERE repo_id = ?");
+
+    return seaf_db_statement_exists (db, sql, &db_err, 1, "string", id);
 }
 
 static gboolean
@@ -220,9 +220,9 @@ repo_exists_in_db_ex (SeafDB *db, const char *id, gboolean *db_err)
 {
     char sql[256];
 
-    snprintf (sql, sizeof(sql), "SELECT repo_id FROM Repo WHERE repo_id = '%s'",
-              id);
-    return seaf_db_check_for_existence (db, sql, db_err);
+    snprintf (sql, sizeof(sql), "SELECT repo_id FROM Repo WHERE repo_id = ?");
+
+    return seaf_db_statement_exists (db, sql, db_err, 1, "string", id);
 }
 
 SeafRepo*
@@ -369,8 +369,8 @@ seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
 
     snprintf (sql, 256, "SELECT repo_id FROM Repo");
 
-    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql, 
-                                      collect_repo_id, &ret) < 0)
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_repo_id, &ret, 0) < 0)
         return NULL;
 
     return ret;
@@ -388,14 +388,19 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr,
 
     *error = FALSE;
 
-    if (start == -1 && limit == -1)
+    if (start == -1 && limit == -1) {
         snprintf (sql, 256, "SELECT repo_id FROM Repo");
-    else
-        snprintf (sql, 256, "SELECT repo_id FROM Repo LIMIT %d, %d", start, limit);
+        if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                           collect_repo_id, &id_list, 0) < 0)
+            goto error;
+    } else {
+        snprintf (sql, 256, "SELECT repo_id FROM Repo LIMIT ?, ?");
 
-    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql, 
-                                      collect_repo_id, &id_list) < 0)
-        goto error;
+        if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                           collect_repo_id, &id_list, 2,
+                                           "int", start, "int", limit) < 0)
+            goto error;
+    }
 
     for (ptr = id_list; ptr; ptr = ptr->next) {
         char *repo_id = ptr->data;
@@ -432,23 +437,28 @@ seaf_repo_manager_set_repo_history_limit (SeafRepoManager *mgr,
         gboolean err;
         snprintf(sql, sizeof(sql),
                  "SELECT repo_id FROM RepoHistoryLimit "
-                 "WHERE repo_id='%s'", repo_id);
-        if (seaf_db_check_for_existence(db, sql, &err))
-            snprintf(sql, sizeof(sql),
-                     "UPDATE RepoHistoryLimit SET days=%d"
-                     "WHERE repo_id='%s'", days, repo_id);
-        else
-            snprintf(sql, sizeof(sql),
-                     "INSERT INTO RepoHistoryLimit VALUES "
-                     "('%s', %d)", repo_id, days);
+                 "WHERE repo_id=?");
+        gboolean exists = seaf_db_statement_exists (db, sql, &err,
+                                                    1, "string", repo_id);
         if (err)
             return -1;
-        return seaf_db_query(db, sql);
+
+        if (exists) {
+            snprintf(sql, sizeof(sql),
+                     "UPDATE RepoHistoryLimit SET days=? WHERE repo_id=?");
+            return seaf_db_statement_query (db, sql, 2,
+                                            "int", days, "string", repo_id);
+        } else {
+            snprintf(sql, sizeof(sql),
+                     "INSERT INTO RepoHistoryLimit VALUES (?, ?)");
+            return seaf_db_statement_query (db, sql, 2,
+                                            "string", repo_id, "int", days);
+        }
     } else {
         snprintf (sql, sizeof(sql),
-                  "REPLACE INTO RepoHistoryLimit VALUES ('%s', %d)",
-                  repo_id, days);
-        if (seaf_db_query (db, sql) < 0)
+                  "REPLACE INTO RepoHistoryLimit VALUES (?, ?)");
+        if (seaf_db_statement_query (db, sql, 2,
+                                     "string", repo_id, "int", days) < 0)
             return -1;
     }
 
@@ -480,8 +490,7 @@ seaf_repo_manager_get_repo_history_limit (SeafRepoManager *mgr,
         r_repo_id = vinfo->origin_repo_id;
 
     snprintf (sql, sizeof(sql),
-              "SELECT days FROM RepoHistoryLimit WHERE repo_id='%s'",
-              r_repo_id);
+              "SELECT days FROM RepoHistoryLimit WHERE repo_id=?");
     seaf_virtual_repo_info_free (vinfo);
 
     /* We don't use seaf_db_get_int() because we need to differ DB error
@@ -490,8 +499,9 @@ seaf_repo_manager_get_repo_history_limit (SeafRepoManager *mgr,
      * since the global value may be smaller than per repo one.
      * This can lead to data lose in GC.
      */
-    ret = seaf_db_foreach_selected_row (mgr->seaf->db, sql,
-                                        get_limit, &per_repo_days);
+    ret = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                         get_limit, &per_repo_days,
+                                         1, "string", r_repo_id);
     if (ret == 0) {
         /* If per repo value is not set, return the global one. */
         return mgr->seaf->keep_history_days;
@@ -516,24 +526,32 @@ seaf_repo_manager_set_repo_valid_since (SeafRepoManager *mgr,
         gboolean err;
         snprintf(sql, sizeof(sql),
                  "SELECT repo_id FROM RepoValidSince WHERE "
-                 "repo_id='%s'", repo_id);
-        if (seaf_db_check_for_existence(db, sql, &err))
-            snprintf(sql, sizeof(sql),
-                     "UPDATE RepoValidSince SET timestamp=%"G_GINT64_FORMAT
-                     " WHERE repo_id='%s'", timestamp, repo_id);
-        else
-            snprintf(sql, sizeof(sql),
-                     "INSERT INTO RepoValidSince VALUES "
-                     "('%s', %"G_GINT64_FORMAT")", repo_id, timestamp);
+                 "repo_id=?");
+        gboolean exists = seaf_db_statement_exists (db, sql, &err, 1, "string", repo_id);
         if (err)
             return -1;
-        if (seaf_db_query (db, sql) < 0)
-            return -1;
+
+        if (exists) {
+            snprintf(sql, sizeof(sql),
+                     "UPDATE RepoValidSince SET timestamp=? WHERE repo_id=?");
+            if (seaf_db_statement_query(db, sql, 2,
+                                        "int64", timestamp,
+                                        "string", repo_id) < 0)
+                return -1;
+        } else {
+            snprintf(sql, sizeof(sql),
+                     "INSERT INTO RepoValidSince VALUES (?, ?)");
+            if (seaf_db_statement_query(db, sql, 2,
+                                        "string", repo_id,
+                                        "int64", timestamp) < 0)
+                return -1;
+        }
     } else {
         snprintf (sql, sizeof(sql),
-                  "REPLACE INTO RepoValidSince VALUES ('%s', %"G_GINT64_FORMAT")",
-                  repo_id, timestamp);
-        if (seaf_db_query (db, sql) < 0)
+                  "REPLACE INTO RepoValidSince VALUES (?, ?)");
+        if (seaf_db_statement_query(db, sql, 2,
+                                    "string", repo_id,
+                                    "int64", timestamp) < 0)
             return -1;
     }
 
@@ -550,7 +568,7 @@ seaf_repo_manager_get_repo_valid_since (SeafRepoManager *mgr,
               "SELECT timestamp FROM RepoValidSince WHERE repo_id='%s'",
               repo_id);
     /* Also return -1 if DB error. */
-    return seaf_db_get_int64 (mgr->seaf->db, sql);
+    return seaf_db_statement_get_int64 (mgr->seaf->db, sql, 0);
 }
 
 gint64
@@ -601,8 +619,9 @@ seaf_repo_manager_get_virtual_repo_info (SeafRepoManager *mgr,
 
     snprintf (sql, 256,
               "SELECT origin_repo, path, base_commit FROM VirtualRepo "
-              "WHERE repo_id = '%s'", repo_id);
-    seaf_db_foreach_selected_row (seaf->db, sql, load_virtual_info, &vinfo);
+              "WHERE repo_id = ?");
+    seaf_db_statement_foreach_row (seaf->db, sql, load_virtual_info,
+                                   &vinfo, 1, "string", repo_id);
 
     return vinfo;
 }
@@ -636,10 +655,10 @@ seaf_repo_manager_get_virtual_repo_ids_by_origin (SeafRepoManager *mgr,
     char sql[256];
 
     snprintf (sql, 256,
-              "SELECT repo_id FROM VirtualRepo WHERE origin_repo='%s'",
-              origin_repo);
-    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql, 
-                                      collect_virtual_repo_ids, &ret) < 0) {
+              "SELECT repo_id FROM VirtualRepo WHERE origin_repo=?");
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_virtual_repo_ids, &ret,
+                                       1, "string", origin_repo) < 0) {
         return NULL;
     }
 
@@ -663,9 +682,9 @@ seaf_repo_manager_list_garbage_repos (SeafRepoManager *mgr)
 {
     GList *repo_ids = NULL;
 
-    seaf_db_foreach_selected_row (seaf->db,
-                                  "SELECT repo_id FROM GarbageRepos",
-                                  get_garbage_repo_id, &repo_ids);
+    seaf_db_statement_foreach_row (seaf->db,
+                                   "SELECT repo_id FROM GarbageRepos",
+                                   get_garbage_repo_id, &repo_ids, 0);
 
     return repo_ids;
 }
@@ -675,7 +694,7 @@ seaf_repo_manager_remove_garbage_repo (SeafRepoManager *mgr, const char *repo_id
 {
     char sql[256];
 
-    snprintf (sql, sizeof(sql), "DELETE FROM GarbageRepos WHERE repo_id='%s'",
-              repo_id);
-    seaf_db_query (seaf->db, sql);
+    snprintf (sql, sizeof(sql), "DELETE FROM GarbageRepos WHERE repo_id=?");
+
+    seaf_db_statement_query (seaf->db, sql, 1, "string", repo_id);
 }
