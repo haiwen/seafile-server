@@ -63,6 +63,8 @@ check_repo_share_permission (SeafRepoManager *mgr,
 
     /* Get the groups this user belongs to. */
     groups = ccnet_get_groups_by_user (rpc_client, user_name);
+    if (!groups)
+        goto group_out;
 
     ccnet_rpc_client_free (rpc_client);
 
