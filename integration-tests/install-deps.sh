@@ -2,7 +2,6 @@
 
 set -e -x
 
-pip install http://effbot.org/media/downloads/PIL-1.1.7.tar.gz
 pip install -r ./integration-tests/requirements.txt
 
 pushd $HOME
