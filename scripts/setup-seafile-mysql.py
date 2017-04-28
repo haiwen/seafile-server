@@ -1273,8 +1273,7 @@ def check_params(args):
     server_name = 'seafile'
     ccnet_config.server_name = ccnet_config.validate_server_name(server_name)
 
-    server_ip = get_param_val(args.server_ip, 'SERVER_IP',
-                              socket.gethostbyname(socket.gethostname()))
+    server_ip = get_param_val(args.server_ip, 'SERVER_IP', '127.0.0.1')
     ccnet_config.ip_or_domain = ccnet_config.validate_server_ip(server_ip)
 
     fileserver_port = get_param_val(args.fileserver_port, 'FILESERVER_PORT', '8082')
