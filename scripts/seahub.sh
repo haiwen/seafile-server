@@ -42,7 +42,7 @@ function usage () {
 
 # Check args
 if [[ $1 != "start" && $1 != "stop" && $1 != "restart" \
-    && $1 != "start-fastcgi" && $1 != "restart-fastcgi" && $1 != "clearsessions" ]]; then
+    && $1 != "start-fastcgi" && $1 != "restart-fastcgi" && $1 != "clearsessions" && $1 != "python-env" ]]; then
     usage;
     exit 1;
 fi
@@ -119,6 +119,8 @@ if [[ ($1 == "start" || $1 == "restart" || $1 == "start-fastcgi" || $1 == "resta
 elif [[ $1 == "stop" && $# == 1 ]]; then
     dummy=dummy
 elif [[ $1 == "clearsessions" && $# == 1 ]]; then
+    dummy=dummy
+elif [[ $1 == "python-env" ]]; then
     dummy=dummy
 else
     usage;
@@ -245,6 +247,24 @@ function check_init_admin() {
     fi
 }
 
+function run_python_env() {
+    local pyexec
+
+    prepare_env;
+
+    if which ipython 2>/dev/null; then
+        pyexec=ipython
+    else
+        pyexec=$PYTHON
+    fi
+
+    if [[ $# -eq 0 ]]; then
+        $pyexec "$@"
+    else
+        "$@"
+    fi
+}
+
 case $1 in
     "start" )
         start_seahub;
@@ -264,6 +284,10 @@ case $1 in
         stop_seahub
         sleep 2
         start_seahub_fastcgi
+        ;;
+    "python-env")
+        shift
+        run_python_env "$@"
         ;;
     "clearsessions" )
         clear_sessions
