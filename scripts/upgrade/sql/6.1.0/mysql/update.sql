@@ -1,6 +1,6 @@
-ALTER TABLE share_fileshare MODIFY token varchar(100);
-
-ALTER TABLE share_uploadlinkshare MODIFY token varchar(100);
+ALTER TABLE `share_fileshare` MODIFY token varchar(100);
+ALTER TABLE `share_fileshare` ADD COLUMN `permission` varchar(50) NOT NULL DEFAULT 'view_download';
+ALTER TABLE `share_uploadlinkshare` MODIFY token varchar(100);
 
 CREATE TABLE IF NOT EXISTS `institutions_institutionquota` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
