@@ -205,7 +205,7 @@ static int
 send_auth_response (BlockTxServer *server, int status)
 {
     AuthResponse rsp;
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
     int ret = 0;
 
     rsp.status = htonl (status);
@@ -221,21 +221,21 @@ send_auth_response (BlockTxServer *server, int status)
         goto out;
     }
 
-    if (send_encrypted_data (&ctx, server->data_fd, &rsp, sizeof(rsp)) < 0)
+    if (send_encrypted_data (ctx, server->data_fd, &rsp, sizeof(rsp)) < 0)
     {
         seaf_warning ("Send auth response: failed to send data.\n");
         ret = -1;
         goto out;
     }
 
-    if (send_encrypted_data_frame_end (&ctx, server->data_fd) < 0) {
+    if (send_encrypted_data_frame_end (ctx, server->data_fd) < 0) {
         seaf_warning ("Send auth response: failed to end.\n");
         ret = -1;
         goto out;
     }
 
 out:
-    EVP_CIPHER_CTX_cleanup (&ctx);
+    EVP_CIPHER_CTX_free (ctx);
     return ret;
 }
 
@@ -308,7 +308,7 @@ static int
 send_block_response_header (BlockTxServer *server, int status)
 {
     ResponseHeader header;
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
     int ret = 0;
 
     header.status = htonl (status);
@@ -325,7 +325,7 @@ send_block_response_header (BlockTxServer *server, int status)
         goto out;
     }
 
-    if (send_encrypted_data (&ctx, server->data_fd,
+    if (send_encrypted_data (ctx, server->data_fd,
                              &header, sizeof(header)) < 0)
     {
         seaf_warning ("Send block response header %s: failed to send data.\n",
@@ -334,7 +334,7 @@ send_block_response_header (BlockTxServer *server, int status)
         goto out;
     }
 
-    if (send_encrypted_data_frame_end (&ctx, server->data_fd) < 0) {
+    if (send_encrypted_data_frame_end (ctx, server->data_fd) < 0) {
         seaf_warning ("Send block response header %s: failed to end.\n",
                       server->curr_block_id);
         ret = -1;
@@ -342,7 +342,7 @@ send_block_response_header (BlockTxServer *server, int status)
     }
 
 out:
-    EVP_CIPHER_CTX_cleanup (&ctx);
+    EVP_CIPHER_CTX_free (ctx);
     return ret;
 }
 
@@ -447,7 +447,7 @@ send_encrypted_block (BlockTxServer *server,
 {
     int n, remain;
     int ret = 0;
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
     char send_buf[SEND_BUFFER_SIZE];
 
     if (server->version == 1)
@@ -472,7 +472,7 @@ send_encrypted_block (BlockTxServer *server,
             goto out;
         }
 
-        if (send_encrypted_data (&ctx, server->data_fd, send_buf, n) < 0) {
+        if (send_encrypted_data (ctx, server->data_fd, send_buf, n) < 0) {
             seaf_warning ("Send block %s: failed to send data.\n", block_id);
             ret = -1;
             goto out;
@@ -481,7 +481,7 @@ send_encrypted_block (BlockTxServer *server,
         remain -= n;
     }
 
-    if (send_encrypted_data_frame_end (&ctx, server->data_fd) < 0) {
+    if (send_encrypted_data_frame_end (ctx, server->data_fd) < 0) {
         seaf_warning ("Send block %s: failed to end.\n", block_id);
         ret = -1;
         goto out;
@@ -490,7 +490,7 @@ send_encrypted_block (BlockTxServer *server,
     seaf_debug ("Send block %s done.\n", server->curr_block_id);
 
 out:
-    EVP_CIPHER_CTX_cleanup (&ctx);
+    EVP_CIPHER_CTX_free (ctx);
     return ret;
 }
 
@@ -661,7 +661,7 @@ block_tx_server_thread (void *vdata)
     }
 
     if (server->parser.enc_init)
-        EVP_CIPHER_CTX_cleanup (&server->parser.ctx);
+        EVP_CIPHER_CTX_free (server->parser.ctx);
 
     evbuffer_free (server->recv_buf);
     evutil_closesocket (server->data_fd);
