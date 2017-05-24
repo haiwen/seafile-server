@@ -357,6 +357,41 @@ file_list_to_json (GList *files)
     return ret;
 }
 
+static int
+create_relative_path (RecvFSM *fsm, char *parent_dir, char **abs_path)
+{
+    int rc = 0;
+    GError *error = NULL;
+
+    char *relative_path = g_hash_table_lookup (fsm->form_kvs, "relative_path");
+    if (relative_path != NULL && strcmp(relative_path, "") != 0) {
+        rc = seaf_repo_manager_mkdir_with_parents (seaf->repo_mgr,
+                                                   fsm->repo_id,
+                                                   parent_dir,
+                                                   relative_path,
+                                                   fsm->user,
+                                                   &error);
+        if (rc < 0) {
+            if (error) {
+                seaf_warning ("[upload folder] %s.", error->message);
+                g_clear_error (&error);
+            }
+            goto out;
+        }
+
+        *abs_path = g_new0 (char, SEAF_PATH_MAX);
+        if (!*abs_path) {
+            rc = -1;
+            goto out;
+        }
+        strcat (*abs_path, parent_dir);
+        strcat (*abs_path, relative_path);
+    }
+
+out:
+    return rc;
+}
+
 static void
 upload_cb(evhtp_request_t *req, void *arg)
 {
@@ -909,41 +944,6 @@ error:
     }
 }
 
-static int
-create_relative_path (RecvFSM *fsm, char *parent_dir, char **abs_path)
-{
-    int rc = 0; 
-    GError *error = NULL;
-
-    char *relative_path = g_hash_table_lookup (fsm->form_kvs, "relative_path");
-    if (relative_path != NULL && strcmp(relative_path, "") != 0) { 
-        rc = seaf_repo_manager_mkdir_with_parents (seaf->repo_mgr,
-                                                   fsm->repo_id,
-                                                   parent_dir,
-                                                   relative_path,
-                                                   fsm->user,
-                                                   &error);
-        if (rc < 0) { 
-            if (error) {
-                seaf_warning ("[upload folder] %s.", error->message);
-                g_clear_error (&error);
-            }
-            goto out; 
-        }
-
-        *abs_path = g_new0 (char, SEAF_PATH_MAX);
-        if (!*abs_path) {
-            rc = -1;
-            goto out; 
-        }
-        strcat (*abs_path, parent_dir);
-        strcat (*abs_path, relative_path);
-    }    
-
-out:
-    return rc;
-}
-
 /*
   Handle AJAX file upload.
   @return an array of json data, e.g. [{"name": "foo.txt"}]
@@ -1013,9 +1013,6 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
         goto error;
     }
 
-    filenames_json = file_list_to_json (fsm->filenames);
-    tmp_files_json = file_list_to_json (fsm->files);
-
     char *abs_path = NULL;
     rc = create_relative_path (fsm, parent_dir, &abs_path);
     if (rc < 0) {
@@ -1023,6 +1020,9 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     } else if (abs_path) {
         parent_dir = abs_path;
     }
+
+    filenames_json = file_list_to_json (fsm->filenames);
+    tmp_files_json = file_list_to_json (fsm->files);
 
     char *ret_json = NULL;
     rc = seaf_repo_manager_post_multi_files (seaf->repo_mgr,
@@ -1034,6 +1034,8 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
                                              0,
                                              &ret_json,
                                              &error);
+    if (abs_path)
+        g_free (abs_path);
     g_free (filenames_json);
     g_free (tmp_files_json);
     if (rc < 0) {
