@@ -91,6 +91,16 @@ seafile_session_new(const char *central_config_dir,
         goto onerror;
     }
 
+    if (create_config_table (session) < 0) {
+        seaf_warning ("Failed to create table SeafileConf.\n");
+        goto onerror;
+    }
+
+    if (load_config_from_db (session) < 0) {
+        seaf_warning ("Failed to load config from database.\n");
+        goto onerror;
+    }
+
     if (load_thread_pool_config (session) < 0) {
         seaf_warning ("Failed to load thread pool config.\n");
         goto onerror;
@@ -420,4 +430,25 @@ schedule_create_system_default_repo (SeafileSession *session)
     ccnet_job_manager_schedule_job (session->job_mgr,
                                     create_system_default_repo,
                                     NULL, session);
+}
+
+int
+create_config_table (SeafileSession *session)
+{
+    char *sql;
+    int db_type = seaf_db_type(session->db);
+
+    if (db_type == SEAF_DB_TYPE_SQLITE ||
+        db_type == SEAF_DB_TYPE_MYSQL)
+        sql = "CREATE TABLE IF NOT EXISTS SeafileConf "
+              "(`group` VARCHAR(32), `key` VARCHAR(32), value VARCHAR(32))";
+    else
+        sql = "CREATE TABLE IF NOT EXISTS SeafileConf "
+              "(\"group\" VARCHAR(32), key VARCHAR(32), value VARCHAR(32));";
+
+
+    if (seaf_db_statement_query (session->db, sql, 0) < 0)
+        return -1;
+
+    return 0;
 }

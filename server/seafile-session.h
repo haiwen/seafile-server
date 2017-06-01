@@ -116,4 +116,7 @@ get_system_default_repo_id (SeafileSession *session);
 int
 set_system_default_repo_id (SeafileSession *session, const char *repo_id);
 
+int
+create_config_table (SeafileSession *session);
+
 #endif /* SEAFILE_H */
