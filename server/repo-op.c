@@ -1442,14 +1442,35 @@ del_file_recursive(SeafRepo *repo,
         SeafDirent *old, *new;
         GList *newentries = NULL, *p;
 
-        for (p = olddir->entries; p != NULL; p = p->next) {
-            old = p->data;
-            if (strcmp(old->name, filename) != 0) {
-                new = seaf_dirent_dup (old);
-                newentries = g_list_prepend (newentries, new);
+        if (strchr(filename, '\t')) {
+            char **file_names = g_strsplit (filename, "\t", -1); 
+            int file_num = g_strv_length (file_names);
+            int i, found_flag;
+
+            for (p = olddir->entries; p != NULL; p = p->next) {
+                found_flag = 0;
+                old = p->data;
+                for (i = 0; i < file_num; i++) {
+                    if (strcmp(old->name, file_names[i]) == 0) {
+                        found_flag = 1;
+                        break;
+                    }
+                }
+                if (!found_flag) {
+                    new = seaf_dirent_dup (old);
+                    newentries = g_list_prepend (newentries, new);
+                }
+            }
+            g_strfreev (file_names);
+        } else {
+            for (p = olddir->entries; p != NULL; p = p->next) {
+                old = p->data;
+                if (strcmp(old->name, filename) != 0) {
+                    new = seaf_dirent_dup (old);
+                    newentries = g_list_prepend (newentries, new);
+                }
             }
         }
-
         newentries = g_list_reverse (newentries);
 
         newdir = seaf_dir_new(NULL, newentries,
@@ -1457,7 +1478,6 @@ del_file_recursive(SeafRepo *repo,
         if (seaf_dir_save(seaf->fs_mgr, repo->store_id, repo->version, newdir) == 0)
             ret = g_strdup(newdir->dir_id);
         seaf_dir_free(newdir);
-
         goto out;
     }
 
@@ -1529,18 +1549,33 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
     SeafRepo *repo = NULL;
     SeafCommit *head_commit = NULL;
     char *canon_path = NULL;
+    char **file_names;
     char buf[SEAF_PATH_MAX];
     char *root_id = NULL;
+    int i = 0;
     int mode = 0;
     int ret = 0;
+    int file_num = 0;
 
     GET_REPO_OR_FAIL(repo, repo_id);
     GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
 
     if (!canon_path)
         canon_path = get_canonical_path (parent_dir);
-    
-    if (!check_file_exists(repo->store_id, repo->version,
+
+    if (strchr(file_name, '\t')) {
+        file_names = g_strsplit (file_name, "\t", -1);
+        file_num = g_strv_length (file_names);
+
+        for (i = 0; i < file_num; i++) {
+            if (strcmp(file_names[i], "") == 0)
+                continue;
+            if (!check_file_exists(repo->store_id, repo->version,
+                                   head_commit->root_id, canon_path, file_names[i], &mode)) {
+                goto out;
+            }
+        }
+    } else if (!check_file_exists(repo->store_id, repo->version,
                            head_commit->root_id, canon_path, file_name, &mode)) {
         goto out;
     }
@@ -1548,8 +1583,8 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
     root_id = do_del_file (repo,
                            head_commit->root_id, canon_path, file_name);
     if (!root_id) {
-        seaf_warning ("[del file] Failed to del file %s from %s in repo %s.\n",
-                      file_name, canon_path, repo->id);
+        seaf_warning ("[del file] Failed to del file from %s in repo %s.\n",
+                      canon_path, repo->id);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to del file");
         ret = -1;
@@ -1557,7 +1592,10 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
     }
 
     /* Commit. */
-    if (S_ISDIR(mode)) {
+    if (file_num) {
+        snprintf(buf, SEAF_PATH_MAX, "Deleted muti-files: %s, %s..",
+                                      file_names[0], file_names[1]);
+    } else if (S_ISDIR(mode)) {
         snprintf(buf, SEAF_PATH_MAX, "Removed directory \"%s\"", file_name);
     } else {
         snprintf(buf, SEAF_PATH_MAX, "Deleted \"%s\"", file_name);
@@ -1578,6 +1616,8 @@ out:
         seaf_repo_unref (repo);
     if (head_commit)
         seaf_commit_unref(head_commit);
+    if (file_num)
+        g_strfreev (file_names);
     g_free (root_id);
     g_free (canon_path);
 
