@@ -3988,6 +3988,12 @@ seafile_check_quota (const char *repo_id, gint64 delta, GError **error)
     return rc;
 }
 
+int
+seafile_set_role_quota (const char *role, gint64 quota, GError **error)
+{
+    return 0;
+}
+
 static char *
 get_obj_id_by_path (const char *repo_id,
                     const char *path,

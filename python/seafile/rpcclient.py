@@ -757,6 +757,10 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     def check_quota(repo_id, delta):
         pass
 
+    @searpc_func("int", ["string", "int64"])
+    def set_role_quota(role, quota):
+        pass
+
     # password management
     @searpc_func("int", ["string", "string"])
     def seafile_check_passwd(repo_id, magic):
