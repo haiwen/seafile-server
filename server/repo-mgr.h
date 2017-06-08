@@ -365,6 +365,14 @@ seaf_repo_manager_post_dir (SeafRepoManager *mgr,
                             const char *user,
                             GError **error);
 
+int
+seaf_repo_manager_mkdir_with_parents (SeafRepoManager *mgr,
+                                      const char *repo_id,
+                                      const char *parent_dir,
+                                      const char *new_dir_path,
+                                      const char *user,
+                                      GError **error);
+
 /**
  * Update an existing file in a repo
  * @params: same as seaf_repo_manager_post_file
