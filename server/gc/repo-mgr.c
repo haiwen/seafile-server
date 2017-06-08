@@ -559,9 +559,15 @@ seaf_repo_manager_get_repo_truncate_time (SeafRepoManager *mgr,
 {
     int days;
     gint64 timestamp;
+    char *primary_url = NULL;
 
     days = seaf_repo_manager_get_repo_history_limit (mgr, repo_id);
     timestamp = seaf_repo_manager_get_repo_valid_since (mgr, repo_id);
+
+    primary_url = g_key_file_get_string (seaf->config, "backup", "primary_url", NULL);
+
+    if (primary_url)
+        return timestamp;
 
     gint64 now = (gint64)time(NULL);
     if (days > 0)
