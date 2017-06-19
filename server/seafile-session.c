@@ -363,6 +363,7 @@ copy_template_files_recursive (SeafileSession *session,
         }
         g_free (sub_path);
     }
+    g_dir_close (dir);
 }
 
 static void *
