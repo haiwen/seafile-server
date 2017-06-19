@@ -276,6 +276,7 @@ seaf_repo_manager_list_dir_with_perm (SeafRepoManager *mgr,
                           "mtime", dent->mtime,
                           "size", dent->size,
                           "permission", perm,
+                          "modifier", dent->modifier,
                           NULL);
 
         if (shared_sub_dirs && S_ISDIR(dent->mode)) {
