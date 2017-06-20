@@ -46,7 +46,7 @@ check_repo_share_permission (SeafRepoManager *mgr,
     CcnetGroup *group;
     int group_id;
     char *permission;
-    GString *sql = g_string_new ("");
+    GString *sql = NULL;
 
     permission = seaf_share_manager_check_permission (seaf->share_mgr,
                                                       repo_id,
@@ -68,6 +68,7 @@ check_repo_share_permission (SeafRepoManager *mgr,
 
     ccnet_rpc_client_free (rpc_client);
 
+    sql = g_string_new ("");
     g_string_printf (sql, "SELECT permission FROM RepoGroup WHERE repo_id = ? AND group_id IN (");
     for (p1 = groups; p1 != NULL; p1 = p1->next) {
         group = p1->data;
