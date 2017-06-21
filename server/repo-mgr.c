@@ -2162,7 +2162,7 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
         if (repo != NULL)
             ret = g_list_prepend (ret, repo);
     }
-    g_list_free_full (repo_list, (GDestroyNotify)seaf_repo_unref);
+    g_list_free (repo_list);
 
     return ret;
 }
