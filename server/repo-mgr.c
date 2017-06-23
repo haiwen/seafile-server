@@ -146,6 +146,7 @@ seaf_repo_from_commit (SeafRepo *repo, SeafCommit *commit)
     }
     repo->no_local_history = commit->no_local_history;
     repo->version = commit->version;
+    repo->last_modifier = g_strdup (commit->creator_name);
 }
 
 void
@@ -640,6 +641,7 @@ create_repo_fill_size (SeafDBRow *row, void *data)
     const char *repo_id = seaf_db_row_get_column_text (row, 0);
     gint64 size = seaf_db_row_get_column_int64 (row, 1);
     const char *commit_id = seaf_db_row_get_column_text (row, 2);
+    const char *vrepo_id = seaf_db_row_get_column_text (row, 3);
 
     *repo = seaf_repo_new (repo_id, NULL, NULL);
     if (!*repo)
@@ -654,6 +656,23 @@ create_repo_fill_size (SeafDBRow *row, void *data)
     head = seaf_branch_new ("master", repo_id, commit_id);
     (*repo)->head = head;
 
+    if (vrepo_id) {
+        const char *origin_repo_id = seaf_db_row_get_column_text (row, 4);
+        const char *origin_path = seaf_db_row_get_column_text (row, 5);
+        const char *base_commit = seaf_db_row_get_column_text (row, 6);
+
+        SeafVirtRepo *vinfo = g_new0 (SeafVirtRepo, 1);
+        memcpy (vinfo->repo_id, vrepo_id, 36);
+        memcpy (vinfo->origin_repo_id, origin_repo_id, 36);
+        vinfo->path = g_strdup(origin_path);
+        memcpy (vinfo->base_commit, base_commit, 40);
+
+        (*repo)->virtual_info = vinfo;
+        memcpy ((*repo)->store_id, origin_repo_id, 36);
+    } else {
+        memcpy ((*repo)->store_id, repo_id, 36);
+    }
+
     return TRUE;
 }
 
@@ -664,14 +683,18 @@ get_repo_from_db (SeafRepoManager *mgr, const char *id, gboolean *db_err)
     const char *sql;
 
     if (seaf_db_type(mgr->seaf->db) != SEAF_DB_TYPE_PGSQL)
-        sql = "SELECT r.repo_id, s.size, b.commit_id FROM "
+        sql = "SELECT r.repo_id, s.size, b.commit_id, "
+            "v.repo_id, v.origin_repo, v.path, v.base_commit FROM "
             "Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id "
             "LEFT JOIN RepoSize s ON r.repo_id = s.repo_id "
+            "LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id "
             "WHERE r.repo_id = ? AND b.name = 'master'";
     else
-        sql = "SELECT r.repo_id, s.\"size\", b.commit_id FROM "
+        sql = "SELECT r.repo_id, s.\"size\", b.commit_id, "
+            "v.repo_id, v.origin_repo, v.path, v.base_commit FROM "
             "Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id "
             "LEFT JOIN RepoSize s ON r.repo_id = s.repo_id "
+            "LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id "
             "WHERE r.repo_id = ? AND b.name = 'master'";
 
     int ret = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
@@ -791,6 +814,65 @@ seaf_repo_manager_branch_repo_unmap (SeafRepoManager *manager, SeafBranch *branc
                                     "string", branch->repo_id);
 }
 
+int
+set_repo_commit_to_db (const char *repo_id, const char *repo_name, gint64 update_time,
+                       int version, gboolean is_encrypted, const char *last_modifier)
+{
+    int db_type = seaf_db_type (seaf->db);
+    char *sql;
+    gboolean exists = FALSE, db_err = FALSE;
+
+    if (db_type == SEAF_DB_TYPE_SQLITE || db_type == SEAF_DB_TYPE_MYSQL) {
+        sql = "REPLACE INTO RepoInfo (repo_id, name, update_time, version, is_encrypted, last_modifier) "
+            "VALUES (?, ?, ?, ?, ?, ?)";
+        if (seaf_db_statement_query (seaf->db, sql, 6,
+                                     "string", repo_id,
+                                     "string", repo_name,
+                                     "int64", update_time,
+                                     "int", version,
+                                     "int", (is_encrypted ? 1:0),
+                                     "string", last_modifier) < 0) { 
+            seaf_warning ("Failed to add repo info for repo %s.\n", repo_id);
+            return -1;
+        }    
+    } else {
+        sql = "SELECT 1 FROM RepoInfo WHERE repo_id=?";
+        exists = seaf_db_statement_exists (seaf->db, sql, &db_err, 1, "string", repo_id);
+        if (db_err)
+            return -1;
+
+        if (exists) {
+            sql = "UPDATE RepoInfo SET name=?, update_time=?, version=?, is_encrypted=?, "
+                "last_modifier=? WHERE repo_id=?";
+            if (seaf_db_statement_query (seaf->db, sql, 6,
+                                         "string", repo_name,
+                                         "int64", update_time,
+                                         "int", version,
+                                         "int", (is_encrypted ? 1:0),
+                                         "string", last_modifier,
+                                         "string", repo_id) < 0) { 
+                seaf_warning ("Failed to update repo info for repo %s.\n", repo_id);
+                return -1;
+            }    
+        } else {
+            sql = "INSERT INTO RepoInfo (repo_id, name, update_time, version, is_encrypted, last_modifier) "
+                "VALUES (?, ?, ?, ?, ?, ?)";
+            if (seaf_db_statement_query (seaf->db, sql, 6,
+                                         "string", repo_id,
+                                         "string", repo_name,
+                                         "int64", update_time,
+                                         "int", version,
+                                         "int", (is_encrypted ? 1:0),
+                                         "string", last_modifier) < 0) {
+                seaf_warning ("Failed to add repo info for repo %s.\n", repo_id);
+                return -1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 static void
 load_repo_commit (SeafRepoManager *manager,
                   SeafRepo *repo)
@@ -817,17 +899,30 @@ load_repo (SeafRepoManager *manager, SeafRepo *repo)
     repo->manager = manager;
 
     load_repo_commit (manager, repo);
+}
 
-    if (repo->is_corrupted) {
+static void
+load_mini_repo (SeafRepoManager *manager, SeafRepo *repo)
+{
+    repo->manager = manager;
+    SeafCommit *commit;
+
+    commit = seaf_commit_manager_get_commit_compatible (manager->seaf->commit_mgr,
+                                                        repo->id,
+                                                        repo->head->commit_id);
+    if (!commit) {
+        seaf_warning ("Commit %s:%s is missing\n", repo->id, repo->head->commit_id);
+        repo->is_corrupted = TRUE;
         return;
     }
 
-    /* Load virtual repo info if any. */
-    repo->virtual_info = seaf_repo_manager_get_virtual_repo_info (manager, repo->id);
-    if (repo->virtual_info)
-        memcpy (repo->store_id, repo->virtual_info->origin_repo_id, 36);
-    else
-        memcpy (repo->store_id, repo->id, 36);
+    repo->name = g_strdup (commit->repo_name);
+    repo->encrypted = commit->encrypted;
+    repo->last_modify = commit->ctime;
+    repo->version = commit->version;
+    repo->last_modifier = g_strdup (commit->creator_name);
+
+    seaf_commit_unref (commit);
 }
 
 static int
@@ -936,6 +1031,12 @@ create_tables_mysql (SeafRepoManager *mgr)
     sql = "CREATE TABLE IF NOT EXISTS RepoFileCount ("
         "repo_id CHAR(36) PRIMARY KEY,"
         "file_count BIGINT UNSIGNED)ENGINE=INNODB";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+
+    sql = "CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, "
+        "name VARCHAR(255) NOT NULL, update_time BIGINT, version INTEGER, "
+        "is_encrypted INTEGER, last_modifier VARCHAR(255)) ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
@@ -1081,6 +1182,12 @@ create_tables_sqlite (SeafRepoManager *mgr)
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
+    sql = "CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, "
+        "name VARCHAR(255) NOT NULL, update_time INTEGER, version INTEGER, "
+        "is_encrypted INTEGER, last_modifier VARCHAR(255))";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+
     return 0;
 }
 
@@ -1216,6 +1323,12 @@ create_tables_pgsql (SeafRepoManager *mgr)
     sql = "CREATE TABLE IF NOT EXISTS RepoFileCount ("
         "repo_id CHAR(36) PRIMARY KEY,"
         "file_count BIGINT)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+
+    sql = "CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, "
+        "name VARCHAR(255) NOT NULL, update_time BIGINT, version INTEGER, "
+        "is_encrypted INTEGER, last_modifier VARCHAR(255))";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
@@ -2060,6 +2173,11 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
     const char *repo_id = seaf_db_row_get_column_text (row, 0);
     gint64 size = seaf_db_row_get_column_int64 (row, 1);
     const char *commit_id = seaf_db_row_get_column_text (row, 2);
+    const char *repo_name = seaf_db_row_get_column_text (row, 3);
+    gint64 update_time = seaf_db_row_get_column_int64 (row, 4);
+    int version = seaf_db_row_get_column_int (row, 5);
+    gboolean is_encrypted = seaf_db_row_get_column_int (row, 6) ? TRUE : FALSE;
+    const char *last_modifier = seaf_db_row_get_column_text (row, 7);
 
     repo = seaf_repo_new (repo_id, NULL, NULL);
     if (!repo)
@@ -2073,6 +2191,13 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
     repo->size = size;
     head = seaf_branch_new ("master", repo_id, commit_id);
     repo->head = head;
+    if (repo_name) {
+        repo->name = g_strdup (repo_name);
+        repo->last_modify = update_time;
+        repo->version = version;
+        repo->encrypted = is_encrypted;
+        repo->last_modifier = g_strdup (last_modifier);
+    }
 
 out:
     *prepos = g_list_prepend (*prepos, repo);
@@ -2095,19 +2220,23 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
 
     if (start == -1 && limit == -1) {
         if (db_type != SEAF_DB_TYPE_PGSQL)
-            sql = "SELECT o.repo_id, s.size, b.commit_id FROM "
+            sql = "SELECT o.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
+                "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
-                "ORDER BY o.repo_id";
+                "ORDER BY i.update_time DESC, o.repo_id";
         else
-            sql = "SELECT o.repo_id, s.\"size\", b.commit_id FROM "
+            sql = "SELECT o.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
+                "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
-                "ORDER BY o.repo_id";
+                "ORDER BY i.update_time DESC, o.repo_id";
 
         if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, 
                                            collect_repos_fill_size_commit, &repo_list,
@@ -2115,20 +2244,24 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
             return NULL;
     } else {
         if (db_type != SEAF_DB_TYPE_PGSQL)
-            sql = "SELECT o.repo_id, s.size, b.commit_id FROM "
+            sql = "SELECT o.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
+                "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
-                "ORDER BY o.repo_id "
+                "ORDER BY i.update_time DESC, o.repo_id "
                 "LIMIT ? OFFSET ?";
         else
-            sql = "SELECT o.repo_id, s.\"size\", b.commit_id FROM "
+            sql = "SELECT o.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
+                "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
-                "ORDER BY o.repo_id "
+                "ORDER BY i.update_time DESC, o.repo_id "
                 "LIMIT ? OFFSET ?";
 
         if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, 
@@ -2144,16 +2277,25 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
     for (ptr = repo_list; ptr; ptr = ptr->next) {
         repo = ptr->data;
         if (ret_corrupted) {
-            if (!repo->is_corrupted)
-                load_repo (mgr, repo);
+            if (!repo->is_corrupted && (!repo->name || !repo->last_modifier)) {
+                load_mini_repo (mgr, repo);
+                if (!repo->is_corrupted)
+                    set_repo_commit_to_db (repo->id, repo->name, repo->last_modify,
+                                           repo->version, (repo->encrypted ? 1 : 0),
+                                           repo->last_modifier);
+            }
         } else {
             if (repo->is_corrupted) {
                 seaf_repo_unref (repo);
                 continue;
             }
-
-            load_repo (mgr, repo);
-
+            if (!repo->name || !repo->last_modifier) {
+                load_mini_repo (mgr, repo);
+                if (!repo->is_corrupted)
+                    set_repo_commit_to_db (repo->id, repo->name, repo->last_modify,
+                                           repo->version, (repo->encrypted ? 1 : 0),
+                                           repo->last_modifier);
+            }
             if (repo->is_corrupted) {
                 seaf_repo_unref (repo);
                 continue;
@@ -2425,6 +2567,10 @@ seaf_repo_manager_del_repo_from_trash (SeafRepoManager *mgr,
 
     seaf_db_statement_query (mgr->seaf->db,
                              "DELETE FROM RepoTrash WHERE repo_id = ?",
+                             1, "string", repo_id);
+
+    seaf_db_statement_query (mgr->seaf->db,
+                             "DELETE FROM RepoInfo WHERE repo_id = ?",
                              1, "string", repo_id);
 
     return 0;
@@ -2876,7 +3022,8 @@ seaf_fill_repo_obj_from_commit (GList **repos)
                           NULL);
             g_object_set (repo,
                           "repo_name", commit->repo_name, "repo_desc", commit->repo_desc,
-                          "last_modified", commit->ctime, "repaired", commit->repaired, NULL);
+                          "last_modified", commit->ctime, "repaired", commit->repaired,
+                          "last_modifier", commit->creator_name, NULL);
             if (commit->encrypted && commit->enc_version == 2)
                 g_object_set (repo, "random_key", commit->random_key, NULL);
 
@@ -3288,6 +3435,8 @@ create_repo_common (SeafRepoManager *mgr,
                      "Failed to add repo.");
         goto out;
     }
+
+    seaf_repo_manager_update_repo_info (mgr, repo->id, repo->head->commit_id);
 
     ret = 0;
 out:
@@ -3711,4 +3860,23 @@ seaf_get_total_storage (GError **error)
     }
 
     return size;
+}
+
+void
+seaf_repo_manager_update_repo_info (SeafRepoManager *mgr,
+                                    const char *repo_id, const char *head_commit_id)
+{
+    SeafCommit *head;
+
+    head = seaf_commit_manager_get_commit (seaf->commit_mgr,
+                                           repo_id, 1, head_commit_id);
+    if (!head) {
+        seaf_warning ("Failed to get commit %s:%s.\n", repo_id, head_commit_id);
+        return;
+    }
+
+    set_repo_commit_to_db (repo_id, head->repo_name, head->ctime, head->version,
+                           (head->encrypted ? 1 : 0), head->creator_name);
+
+    seaf_commit_unref (head);
 }

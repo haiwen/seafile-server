@@ -359,6 +359,8 @@ on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)
     rdata->commit_id = g_strdup (branch->commit_id);
     
     cevent_manager_add_event (seaf->ev_mgr, mgr->priv->cevent_id, rdata);
+
+    seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id);
 }
 
 int

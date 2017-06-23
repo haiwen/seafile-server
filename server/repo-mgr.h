@@ -23,6 +23,7 @@ struct _SeafRepo {
     gchar       id[37];
     gchar      *name;
     gchar      *desc;
+    gchar      *last_modifier;
     gboolean    encrypted;
     int         enc_version;
     gchar       magic[65];       /* hash(repo_id + passwd), key stretched. */
@@ -788,4 +789,13 @@ seaf_get_total_file_number (GError **error);
 
 gint64
 seaf_get_total_storage (GError **error);
+
+void
+seaf_repo_manager_update_repo_info (SeafRepoManager *mgr,
+                                    const char *repo_id,
+                                    const char *head_commit_id);
+
+int
+set_repo_commit_to_db (const char *repo_id, const char *repo_name, gint64 update_time,
+                       int version, gboolean is_encrypted, const char *last_modifier);
 #endif

@@ -154,6 +154,11 @@ collect_repos (SeafDBRow *row, void *data)
     permission = seaf_db_row_get_column_text (row, 3);
     commit_id = seaf_db_row_get_column_text (row, 4);
     size = seaf_db_row_get_column_int64 (row, 5);
+    const char *repo_name = seaf_db_row_get_column_text (row, 8);
+    gint64 update_time = seaf_db_row_get_column_int64 (row, 9);
+    int version = seaf_db_row_get_column_int (row, 10); 
+    gboolean is_encrypted = seaf_db_row_get_column_int (row, 11) ? TRUE : FALSE;
+    const char *last_modifier = seaf_db_row_get_column_text (row, 12);
 
     char *email_l = g_ascii_strdown (email, -1);
 
@@ -179,10 +184,75 @@ collect_repos (SeafDBRow *row, void *data)
         } else {
             g_object_set (repo, "store_id", repo_id, NULL);
         }
+        if (repo_name) {
+            g_object_set (repo, "name", repo_name,
+                          "repo_name", repo_name,
+                          "last_modify", update_time,
+                          "version", version,
+                          "encrypted", is_encrypted,
+                          "last_modifier", last_modifier, NULL);
+        }
         *p_repos = g_list_prepend (*p_repos, repo);
     }
 
     return TRUE;
+}
+
+static void
+seaf_fill_repo_commit_if_not_in_db (GList **repos)
+{
+    char *repo_name = NULL;
+    char *last_modifier = NULL;
+    char *repo_id = NULL;
+    char *commit_id = NULL;
+    SeafileRepo *repo = NULL;
+    GList *p = NULL;
+
+    for (p = *repos; p;) {
+        repo = p->data;
+        g_object_get (repo, "name", &repo_name, NULL);
+        g_object_get (repo, "last_modifier", &last_modifier, NULL);
+        if (!repo_name || !last_modifier) {
+            g_object_get (repo, "repo_id", &repo_id,
+                          "head_cmmt_id", &commit_id, NULL);
+            SeafCommit *commit = seaf_commit_manager_get_commit_compatible (seaf->commit_mgr,
+                                                                            repo_id, commit_id);
+            if (!commit) {
+                seaf_warning ("Commit %s:%s is missing\n", repo_id, commit_id);
+                GList *next = p->next;
+                g_object_unref (repo);
+                *repos = g_list_delete_link (*repos, p);
+                p = next;
+                if (repo_name)
+                    g_free (repo_name);
+                if (last_modifier)
+                    g_free (last_modifier);
+                continue;
+            } else {
+                g_object_set (repo, "name", commit->repo_name,
+                                    "repo_name", commit->repo_name,
+                                    "last_modify", commit->ctime,
+                                    "version", commit->version,
+                                    "encrypted", commit->encrypted,
+                                    "last_modifier", commit->creator_name,
+                                    NULL);
+
+                /* Set to database */
+                set_repo_commit_to_db (repo_id, commit->repo_name, commit->ctime, commit->version,
+                                       commit->encrypted, commit->creator_name);
+
+                seaf_commit_unref (commit);
+            }
+            g_free (repo_id);
+            g_free (commit_id);
+        }
+        if (repo_name)
+            g_free (repo_name);
+        if (last_modifier)
+            g_free (last_modifier);
+
+        p = p->next;
+    }
 }
 
 GList*
@@ -194,24 +264,31 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
 
     if (start == -1 && limit == -1) {
         if (g_strcmp0 (type, "from_email") == 0) {
-            sql = "SELECT SharedRepo.repo_id, VirtualRepo.repo_id, "
+            sql = "SELECT sh.repo_id, v.repo_id, "
                 "to_email, permission, commit_id, s.size, "
-                "VirtualRepo.origin_repo, VirtualRepo.path FROM "
-                "SharedRepo LEFT JOIN VirtualRepo ON "
-                "SharedRepo.repo_id=VirtualRepo.repo_id "
-                "LEFT JOIN RepoSize s ON SharedRepo.repo_id = s.repo_id, Branch "
+                "v.origin_repo, v.path, i.name, "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "SharedRepo sh LEFT JOIN VirtualRepo v ON "
+                "sh.repo_id=v.repo_id "
+                "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
+                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
                 "WHERE from_email=? AND "
-                "SharedRepo.repo_id = Branch.repo_id AND "
-                "Branch.name = 'master'";
+                "sh.repo_id = b.repo_id AND "
+                "b.name = 'master' "
+                "ORDER BY i.update_time DESC, sh.repo_id";
         } else if (g_strcmp0 (type, "to_email") == 0) {
-            sql = "SELECT SharedRepo.repo_id, VirtualRepo.repo_id, "
+            sql = "SELECT sh.repo_id, v.repo_id, "
                 "from_email, permission, commit_id, s.size, "
-                "VirtualRepo.origin_repo, VirtualRepo.path FROM "
-                "SharedRepo LEFT JOIN VirtualRepo on SharedRepo.repo_id = VirtualRepo.repo_id "
-                "LEFT JOIN RepoSize s ON SharedRepo.repo_id = s.repo_id, Branch "
+                "v.origin_repo, v.path, i.name, "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "SharedRepo sh LEFT JOIN VirtualRepo v ON "
+                "sh.repo_id=v.repo_id "
+                "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
+                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
                 "WHERE to_email=? AND "
-                "SharedRepo.repo_id = Branch.repo_id AND "
-                "Branch.name = 'master'";
+                "sh.repo_id = b.repo_id AND "
+                "b.name = 'master' "
+                "ORDER BY i.update_time DESC, sh.repo_id";
         } else {
             /* should never reach here */
             seaf_warning ("[share mgr] Wrong column type");
@@ -231,27 +308,32 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
     }
     else {
         if (g_strcmp0 (type, "from_email") == 0) {
-            sql = "SELECT SharedRepo.repo_id, VirtualRepo.repo_id, "
+            sql = "SELECT sh.repo_id, v.repo_id, "
                 "to_email, permission, commit_id, s.size, "
-                "VirtualRepo.origin_repo, VirtualRepo.path FROM "
-                "SharedRepo LEFT JOIN VirtualRepo ON "
-                "SharedRepo.repo_id=VirtualRepo.repo_id "
-                "LEFT JOIN RepoSize s ON SharedRepo.repo_id = s.repo_id, Branch "
+                "v.origin_repo, v.path, i.name, "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "SharedRepo sh LEFT JOIN VirtualRepo v ON "
+                "sh.repo_id=v.repo_id "
+                "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
+                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
                 "WHERE from_email=? "
-                "AND SharedRepo.repo_id = Branch.repo_id "
-                "AND Branch.name = 'master' "
-                "ORDER BY SharedRepo.repo_id "
+                "sh.repo_id = b.repo_id AND "
+                "AND b.name = 'master' "
+                "ORDER BY i.update_time DESC, sh.repo_id"
                 "LIMIT ? OFFSET ?";
         } else if (g_strcmp0 (type, "to_email") == 0) {
-            sql = "SELECT SharedRepo.repo_id, VirtualRepo.repo_id, "
+            sql = "SELECT sh.repo_id, v.repo_id, "
                 "from_email, permission, commit_id, s.size, "
-                "VirtualRepo.origin_repo, VirtualRepo.path FROM "
-                "SharedRepo LEFT JOIN VirtualRepo on SharedRepo.repo_id = VirtualRepo.repo_id "
-                "LEFT JOIN RepoSize s ON SharedRepo.repo_id = s.repo_id, "
-                "Branch WHERE to_email=? "
-                "AND SharedRepo.repo_id = Branch.repo_id "
-                "AND Branch.name = 'master' "
-                "ORDER BY SharedRepo.repo_id "
+                "v.origin_repo, v.path, i.name, "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "SharedRepo sh LEFT JOIN VirtualRepo v ON "
+                "sh.repo_id=v.repo_id "
+                "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
+                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
+                "WHERE to_email=? "
+                "sh.repo_id = b.repo_id AND "
+                "AND b.name = 'master' "
+                "ORDER BY i.update_time DESC, sh.repo_id"
                 "LIMIT ? OFFSET ?";
         } else {
             /* should never reach here */
@@ -272,7 +354,7 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
         }
     }
 
-    seaf_fill_repo_obj_from_commit (&ret);
+    seaf_fill_repo_commit_if_not_in_db (&ret);
 
     return g_list_reverse (ret);
 }
