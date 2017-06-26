@@ -188,6 +188,7 @@ collect_repos (SeafDBRow *row, void *data)
             g_object_set (repo, "name", repo_name,
                           "repo_name", repo_name,
                           "last_modify", update_time,
+                          "last_modified", update_time,
                           "version", version,
                           "encrypted", is_encrypted,
                           "last_modifier", last_modifier, NULL);
@@ -232,6 +233,7 @@ seaf_fill_repo_commit_if_not_in_db (GList **repos)
                 g_object_set (repo, "name", commit->repo_name,
                                     "repo_name", commit->repo_name,
                                     "last_modify", commit->ctime,
+                                    "last_modified", commit->ctime,
                                     "version", commit->version,
                                     "encrypted", commit->encrypted,
                                     "last_modifier", commit->creator_name,

@@ -9,6 +9,10 @@ public class Repo : Object {
     // vala to automatically generate a property. Note,
     // if a Vala property is start with _, it is not
     // translated into a GObject property.
+
+    // Due to performance reasons, 'desc', 'magic', 'enc_version', 'root', 'repaired', 'random_key'
+    // are no longer returned in listing repos API.
+
     public char _id[37];
     public string id {
         get { return (string)_id; }

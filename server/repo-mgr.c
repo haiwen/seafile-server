@@ -3022,8 +3022,8 @@ seaf_fill_repo_obj_from_commit (GList **repos)
                           NULL);
             g_object_set (repo,
                           "repo_name", commit->repo_name, "repo_desc", commit->repo_desc,
-                          "last_modified", commit->ctime, "repaired", commit->repaired,
-                          "last_modifier", commit->creator_name, NULL);
+                          "last_modified", commit->ctime, "last_modify", commit->ctime,
+                          "repaired", commit->repaired, "last_modifier", commit->creator_name, NULL);
             if (commit->encrypted && commit->enc_version == 2)
                 g_object_set (repo, "random_key", commit->random_key, NULL);
 
