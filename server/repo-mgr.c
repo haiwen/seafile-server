@@ -642,7 +642,6 @@ create_repo_fill_size (SeafDBRow *row, void *data)
     gint64 size = seaf_db_row_get_column_int64 (row, 1);
     const char *commit_id = seaf_db_row_get_column_text (row, 2);
     const char *vrepo_id = seaf_db_row_get_column_text (row, 3);
-    gint64 file_count = seaf_db_row_get_column_int64 (row, 7);
 
     *repo = seaf_repo_new (repo_id, NULL, NULL);
     if (!*repo)
@@ -654,7 +653,6 @@ create_repo_fill_size (SeafDBRow *row, void *data)
     }
 
     (*repo)->size = size;
-    (*repo)->file_count = file_count;
     head = seaf_branch_new ("master", repo_id, commit_id);
     (*repo)->head = head;
 
@@ -686,19 +684,17 @@ get_repo_from_db (SeafRepoManager *mgr, const char *id, gboolean *db_err)
 
     if (seaf_db_type(mgr->seaf->db) != SEAF_DB_TYPE_PGSQL)
         sql = "SELECT r.repo_id, s.size, b.commit_id, "
-            "v.repo_id, v.origin_repo, v.path, v.base_commit, fc.file_count FROM "
+            "v.repo_id, v.origin_repo, v.path, v.base_commit FROM "
             "Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id "
             "LEFT JOIN RepoSize s ON r.repo_id = s.repo_id "
             "LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id "
-            "LEFT JOIN RepoFileCount fc ON fc.repo_id = r.repo_id "
             "WHERE r.repo_id = ? AND b.name = 'master'";
     else
         sql = "SELECT r.repo_id, s.\"size\", b.commit_id, "
-            "v.repo_id, v.origin_repo, v.path, v.base_commit, fc_file_count FROM "
+            "v.repo_id, v.origin_repo, v.path, v.base_commit FROM "
             "Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id "
             "LEFT JOIN RepoSize s ON r.repo_id = s.repo_id "
             "LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id "
-            "LEFT JOIN RepoFileCount fc ON fc.repo_id = r.repo_id "
             "WHERE r.repo_id = ? AND b.name = 'master'";
 
     int ret = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
@@ -2182,7 +2178,6 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
     int version = seaf_db_row_get_column_int (row, 5);
     gboolean is_encrypted = seaf_db_row_get_column_int (row, 6) ? TRUE : FALSE;
     const char *last_modifier = seaf_db_row_get_column_text (row, 7);
-    gint64 file_count = seaf_db_row_get_column_int64 (row, 8);
 
     repo = seaf_repo_new (repo_id, NULL, NULL);
     if (!repo)
@@ -2194,7 +2189,6 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
     }
 
     repo->size = size;
-    repo->file_count = file_count;
     head = seaf_branch_new ("master", repo_id, commit_id);
     repo->head = head;
     if (repo_name) {
@@ -2227,21 +2221,19 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
     if (start == -1 && limit == -1) {
         if (db_type != SEAF_DB_TYPE_PGSQL)
             sql = "SELECT o.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, fc.file_count FROM "
+                "i.version, i.is_encrypted, i.last_modifier FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
-                "LEFT JOIN RepoFileCount fc ON o.repo_id = fc.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
                 "ORDER BY i.update_time DESC, o.repo_id";
         else
             sql = "SELECT o.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, fc.file_count FROM "
+                "i.version, i.is_encrypted, i.last_modifier FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
-                "LEFT JOIN RepoFileCount fc ON o.repo_id = fc.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
                 "ORDER BY i.update_time DESC, o.repo_id";
@@ -2253,22 +2245,20 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
     } else {
         if (db_type != SEAF_DB_TYPE_PGSQL)
             sql = "SELECT o.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, fc.file_count FROM "
+                "i.version, i.is_encrypted, i.last_modifier FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
-                "LEFT JOIN RepoFileCount fc ON o.repo_id = fc.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
                 "ORDER BY i.update_time DESC, o.repo_id "
                 "LIMIT ? OFFSET ?";
         else
             sql = "SELECT o.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, fc.file_count FROM "
+                "i.version, i.is_encrypted, i.last_modifier FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
-                "LEFT JOIN RepoFileCount fc ON o.repo_id = fc.repo_id "
                 "WHERE owner_id=? AND "
                 "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
                 "ORDER BY i.update_time DESC, o.repo_id "
