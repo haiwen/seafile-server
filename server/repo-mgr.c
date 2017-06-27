@@ -640,6 +640,7 @@ create_repo_fill_size (SeafDBRow *row, void *data)
     const char *repo_id = seaf_db_row_get_column_text (row, 0);
     gint64 size = seaf_db_row_get_column_int64 (row, 1);
     const char *commit_id = seaf_db_row_get_column_text (row, 2);
+    gint64 file_count = seaf_db_row_get_column_int64 (row, 3);
 
     *repo = seaf_repo_new (repo_id, NULL, NULL);
     if (!*repo)
@@ -651,6 +652,7 @@ create_repo_fill_size (SeafDBRow *row, void *data)
     }
 
     (*repo)->size = size;
+    (*repo)->file_count = file_count;
     head = seaf_branch_new ("master", repo_id, commit_id);
     (*repo)->head = head;
 
@@ -664,14 +666,16 @@ get_repo_from_db (SeafRepoManager *mgr, const char *id, gboolean *db_err)
     const char *sql;
 
     if (seaf_db_type(mgr->seaf->db) != SEAF_DB_TYPE_PGSQL)
-        sql = "SELECT r.repo_id, s.size, b.commit_id FROM "
+        sql = "SELECT r.repo_id, s.size, b.commit_id, fc.file_count FROM "
             "Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id "
             "LEFT JOIN RepoSize s ON r.repo_id = s.repo_id "
+            "LEFT JOIN RepoFileCount fc ON r.repo_id = fc.repo_id "
             "WHERE r.repo_id = ? AND b.name = 'master'";
     else
-        sql = "SELECT r.repo_id, s.\"size\", b.commit_id FROM "
+        sql = "SELECT r.repo_id, s.\"size\", b.commit_id, fc.file_count FROM "
             "Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id "
             "LEFT JOIN RepoSize s ON r.repo_id = s.repo_id "
+            "LEFT JOIN RepoFileCount fc ON r.repo_id = fc.repo_id "
             "WHERE r.repo_id = ? AND b.name = 'master'";
 
     int ret = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
