@@ -159,6 +159,7 @@ collect_repos (SeafDBRow *row, void *data)
     int version = seaf_db_row_get_column_int (row, 10); 
     gboolean is_encrypted = seaf_db_row_get_column_int (row, 11) ? TRUE : FALSE;
     const char *last_modifier = seaf_db_row_get_column_text (row, 12);
+    gint64 file_count = seaf_db_row_get_column_int64 (row, 13);
 
     char *email_l = g_ascii_strdown (email, -1);
 
@@ -171,6 +172,7 @@ collect_repos (SeafDBRow *row, void *data)
                          "permission", permission,
                          "is_virtual", (vrepo_id != NULL),
                          "size", size,
+                         "file_count", file_count,
                          NULL);
     g_free (email_l);
 
@@ -269,11 +271,13 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "to_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier, fc.file_count FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
-                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
+                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id "
+                "LEFT JOIN RepoFileCount fc ON sh.repo_id = fc.repo_id, "
+                "Branch b "
                 "WHERE from_email=? AND "
                 "sh.repo_id = b.repo_id AND "
                 "b.name = 'master' "
@@ -282,11 +286,13 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "from_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier, fc.file_count FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
-                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
+                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id "
+                "LEFT JOIN RepoFileCount fc ON sh.repo_id = fc.repo_id, "
+                "Branch b "
                 "WHERE to_email=? AND "
                 "sh.repo_id = b.repo_id AND "
                 "b.name = 'master' "
@@ -313,29 +319,33 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "to_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier, fc.file_count FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
-                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
-                "WHERE from_email=? "
+                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id "
+                "LEFT JOIN RepoFileCount fc ON sh.repo_id = fc.repo_id, "
+                "Branch b "
+                "WHERE from_email=? AND "
                 "sh.repo_id = b.repo_id AND "
-                "AND b.name = 'master' "
-                "ORDER BY i.update_time DESC, sh.repo_id"
+                "b.name = 'master' "
+                "ORDER BY i.update_time DESC, sh.repo_id "
                 "LIMIT ? OFFSET ?";
         } else if (g_strcmp0 (type, "to_email") == 0) {
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "from_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier, fc.file_count FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
-                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
-                "WHERE to_email=? "
+                "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id "
+                "LEFT JOIN RepoFileCount fc ON sh.repo_id = fc.repo_id, "
+                "Branch b "
+                "WHERE to_email=? AND "
                 "sh.repo_id = b.repo_id AND "
-                "AND b.name = 'master' "
-                "ORDER BY i.update_time DESC, sh.repo_id"
+                "b.name = 'master' "
+                "ORDER BY i.update_time DESC, sh.repo_id "
                 "LIMIT ? OFFSET ?";
         } else {
             /* should never reach here */
