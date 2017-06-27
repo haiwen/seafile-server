@@ -319,9 +319,9 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
                 "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
                 "WHERE from_email=? "
-                "sh.repo_id = b.repo_id AND "
+                "AND sh.repo_id = b.repo_id "
                 "AND b.name = 'master' "
-                "ORDER BY i.update_time DESC, sh.repo_id"
+                "ORDER BY i.update_time DESC, sh.repo_id "
                 "LIMIT ? OFFSET ?";
         } else if (g_strcmp0 (type, "to_email") == 0) {
             sql = "SELECT sh.repo_id, v.repo_id, "
@@ -333,9 +333,9 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
                 "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
                 "WHERE to_email=? "
-                "sh.repo_id = b.repo_id AND "
+                "AND sh.repo_id = b.repo_id "
                 "AND b.name = 'master' "
-                "ORDER BY i.update_time DESC, sh.repo_id"
+                "ORDER BY i.update_time DESC, sh.repo_id "
                 "LIMIT ? OFFSET ?";
         } else {
             /* should never reach here */
