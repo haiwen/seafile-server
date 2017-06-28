@@ -2655,6 +2655,8 @@ seaf_repo_manager_post_empty_file (SeafRepoManager *mgr,
 
     seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
 
+    update_repo_size (repo_id);
+
 out:
     if (repo)
         seaf_repo_unref (repo);
