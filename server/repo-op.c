@@ -714,21 +714,14 @@ out:
 }
 
 static int
-add_new_entries (SeafRepo *repo, const char *user,
-                 GList **entries, GList *filenames, GList *id_list,
-                 GList *size_list, int replace_existed, GList **name_list)
+add_new_entries (SeafRepo *repo, const char *user, GList **entries,
+                 GList *dents, int replace_existed, GList **name_list)
 {
-    GList *ptr1, *ptr2, *ptr3;
-    char *file, *id;
-    gint64 *size;
+    GList *ptr;
+    SeafDirent *dent;
 
-    for (ptr1 = filenames, ptr2 = id_list, ptr3 = size_list;
-         ptr1 && ptr2 && ptr3;
-         ptr1 = ptr1->next, ptr2 = ptr2->next, ptr3 = ptr3->next)
-    {
-        file = ptr1->data;
-        id = ptr2->data;
-        size = ptr3->data;
+    for (ptr = dents; ptr; ptr = ptr->next) {
+        dent = ptr->data;
 
         char *unique_name;
         SeafDirent *newdent;
@@ -736,28 +729,27 @@ add_new_entries (SeafRepo *repo, const char *user,
 
         if (replace_existed) {
             GList *p;
-            SeafDirent *dent;
-
+            SeafDirent *tmp_dent;
             for (p = *entries; p; p = p->next) {
-                dent = p->data;
-                if (strcmp(dent->name, file) == 0) {
+                tmp_dent = p->data;
+                if (strcmp(tmp_dent->name, dent->name) == 0) {
                     replace = TRUE;
                     *entries = g_list_delete_link (*entries, p);
-                    seaf_dirent_free (dent);
+                    seaf_dirent_free (tmp_dent);
                     break;
                 }
             }
         }
 
         if (replace)
-            unique_name = g_strdup (file);
+            unique_name = g_strdup (dent->name);
         else
-            unique_name = generate_unique_filename (file, *entries);
+            unique_name = generate_unique_filename (dent->name, *entries);
 
         if (unique_name != NULL) {
             newdent = seaf_dirent_new (dir_version_from_repo_version(repo->version),
-                                       id, STD_FILE_MODE, unique_name,
-                                       (gint64)time(NULL), user, *size);
+                                       dent->id, dent->mode, unique_name,
+                                       (gint64)time(NULL), user, dent->size);
             *entries = g_list_insert_sorted (*entries, newdent, compare_dirents);
             *name_list = g_list_append (*name_list, unique_name);
             /* No need to free unique_name */
@@ -773,9 +765,7 @@ static char *
 post_multi_files_recursive (SeafRepo *repo,
                             const char *dir_id,
                             const char *to_path,
-                            GList *filenames,
-                            GList *id_list,
-                            GList *size_list,
+                            GList *dents,
                             const char *user,
                             int replace_existed,
                             GList **name_list)
@@ -803,8 +793,7 @@ post_multi_files_recursive (SeafRepo *repo,
         newentries = dup_seafdir_entries (olddir->entries);
 
         if (add_new_entries (repo, user,
-                             &newentries, filenames, id_list, size_list,
-                             replace_existed, name_list) < 0)
+                             &newentries, dents, replace_existed, name_list) < 0)
             goto out;
 
         newdir = seaf_dir_new (NULL, newentries,
@@ -832,8 +821,7 @@ post_multi_files_recursive (SeafRepo *repo,
         if (strcmp(dent->name, to_path_dup) != 0)
             continue;
 
-        id = post_multi_files_recursive (repo, dent->id, remain, filenames,
-                                         id_list, size_list, user,
+        id = post_multi_files_recursive (repo, dent->id, remain, dents, user,
                                          replace_existed, name_list);
         if (id != NULL) {
             memcpy(dent->id, id, 40);
@@ -874,13 +862,37 @@ do_post_multi_files (SeafRepo *repo,
                      int replace_existed,
                      GList **name_list)
 {
+    SeafDirent *dent;
+    GList *dents = NULL;
+    GList *ptr1, *ptr2, *ptr3;
+    char *ret;
+
+    for (ptr1 = filenames, ptr2 = id_list, ptr3 = size_list;
+         ptr1 && ptr2 && ptr3;
+         ptr1 = ptr1->next, ptr2 = ptr2->next, ptr3 = ptr3->next) {
+
+        char *name = ptr1->data;
+        char *id = ptr2->data;
+        gint64 *size = ptr3->data;
+
+        dent = g_new0 (SeafDirent, 1);
+        dent->name = name;
+        memcpy(dent->id, id, 40);
+        dent->id[40] = '\0';
+        dent->size = *size;
+        dent->mode = STD_FILE_MODE;
+
+        dents = g_list_append (dents, dent);
+    }
     /* if parent_dir is a absolutely path, we will remove the first '/' */
     if (*parent_dir == '/')
         parent_dir = parent_dir + 1;
 
-    return post_multi_files_recursive(repo, root_id, parent_dir,
-                                      filenames, id_list, size_list,
-                                      user, replace_existed, name_list);
+    ret = post_multi_files_recursive(repo, root_id, parent_dir,
+                                     dents, user, replace_existed, name_list);
+    g_list_free_full (dents, g_free);
+
+    return ret;
 }
 
 static GList *
@@ -1722,23 +1734,16 @@ put_dirent_and_commit (SeafRepo *repo,
     
     root_id = head_commit->root_id;
 
-    GList *filenames = NULL;
-    GList *id_list = NULL;
-    GList *size_list = NULL;
+    GList *dent_list = NULL;
     GList *name_list = NULL;
-    for (i = 0; i < n_dents; i++) {
-        filenames = g_list_append (filenames, dents[i]->name);
-        id_list = g_list_append (id_list, dents[i]->id);
-        size_list = g_list_append (size_list, &(dents[i]->size));
-    }
+    for (i = 0; i < n_dents; i++)
+        dent_list = g_list_append (dent_list, dents[i]);
+
     if (*path == '/')
         path = path + 1;
-    root_id = post_multi_files_recursive (repo, root_id, path, filenames,
-                                          id_list, size_list, user,
+    root_id = post_multi_files_recursive (repo, root_id, path, dent_list, user,
                                           replace, &name_list);
-    g_list_free (filenames);
-    g_list_free (id_list);
-    g_list_free (size_list);
+    g_list_free (dent_list);
     g_list_free_full (name_list, (GDestroyNotify)g_free);
 
     if (!root_id) {
@@ -2519,14 +2524,10 @@ move_file_same_repo (const char *repo_id,
     filenames_str = g_string_new ("");
     root_id_after_put = head_commit->root_id;
 
-    GList *filenames = NULL;
-    GList *id_list = NULL;
-    GList *size_list = NULL;
+    GList *dent_list = NULL;
     GList *name_list = NULL;
     for (i = 0; i < file_num; i++) {
-        filenames = g_list_append (filenames, dst_dents[i]->name);
-        id_list = g_list_append (id_list, dst_dents[i]->id);
-        size_list = g_list_append (size_list, &(dst_dents[i]->size));
+        dent_list = g_list_append (dent_list, dst_dents[i]);
         g_string_append_printf (filenames_str, "%s", src_dents[i]->name);
         if ((i + 1) < file_num)
             g_string_append_printf (filenames_str, "\t");
@@ -2534,12 +2535,9 @@ move_file_same_repo (const char *repo_id,
     if (*dst_path == '/') 
         dst_path = dst_path + 1; 
 
-    root_id_after_put = post_multi_files_recursive (repo, head_commit->root_id, dst_path, filenames,
-                                                    id_list, size_list, user,
+    root_id_after_put = post_multi_files_recursive (repo, head_commit->root_id, dst_path, dent_list, user,
                                                     replace, &name_list);
-    g_list_free (filenames);
-    g_list_free (id_list);
-    g_list_free (size_list);
+    g_list_free (dent_list);
     g_list_free_full (name_list, (GDestroyNotify)g_free);
 
     if (!root_id_after_put) {
