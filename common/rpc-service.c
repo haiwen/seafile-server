@@ -3717,11 +3717,19 @@ seafile_copy_file (const char *src_repo_id,
     rsrc_dir = format_dir_path (norm_src_dir);
     rdst_dir = format_dir_path (norm_dst_dir);
 
-    ret = (GObject *)seaf_repo_manager_copy_file (seaf->repo_mgr,
-                                                  src_repo_id, rsrc_dir, norm_src_filename,
-                                                  dst_repo_id, rdst_dir, norm_dst_filename,
-                                                  user, need_progress, synchronous,
-                                                  error);
+    if (strchr(norm_src_filename, '\t') && strchr(norm_dst_filename, '\t'))
+        ret = (GObject *)seaf_repo_manager_copy_multiple_files (seaf->repo_mgr,
+                                                                src_repo_id, rsrc_dir, norm_src_filename,
+                                                                dst_repo_id, rdst_dir, norm_dst_filename,
+                                                                user, need_progress, synchronous,
+                                                                error);
+
+    else    
+        ret = (GObject *)seaf_repo_manager_copy_file (seaf->repo_mgr,
+                                                      src_repo_id, rsrc_dir, norm_src_filename,
+                                                      dst_repo_id, rdst_dir, norm_dst_filename,
+                                                      user, need_progress, synchronous,
+                                                      error);
 
 out:
     g_free (norm_src_dir);
@@ -3794,11 +3802,18 @@ seafile_move_file (const char *src_repo_id,
     rsrc_dir = format_dir_path (norm_src_dir);
     rdst_dir = format_dir_path (norm_dst_dir);
 
-    ret = (GObject *)seaf_repo_manager_move_file (seaf->repo_mgr,
-                                                  src_repo_id, rsrc_dir, norm_src_filename,
-                                                  dst_repo_id, rdst_dir, norm_dst_filename,
-                                                  replace, user, need_progress, synchronous,
-                                                  error);
+    if (strchr(norm_src_filename, '\t') && strchr(norm_dst_filename, '\t'))
+        ret = (GObject *)seaf_repo_manager_move_multiple_files (seaf->repo_mgr,
+                                                                src_repo_id, rsrc_dir, norm_src_filename,
+                                                                dst_repo_id, rdst_dir, norm_dst_filename,
+                                                                replace, user, need_progress, synchronous,
+                                                                error);
+    else
+        ret = (GObject *)seaf_repo_manager_move_file (seaf->repo_mgr,
+                                                      src_repo_id, rsrc_dir, norm_src_filename,
+                                                      dst_repo_id, rdst_dir, norm_dst_filename,
+                                                      replace, user, need_progress, synchronous,
+                                                      error);
 
 out:
     g_free (norm_src_dir);
