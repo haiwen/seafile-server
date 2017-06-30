@@ -761,6 +761,10 @@ out:
 
 #endif  /* SEAFILE_SERVER */
 
+#define CDC_AVERAGE_BLOCK_SIZE (1 << 23) /* 8MB */
+#define CDC_MIN_BLOCK_SIZE (6 * (1 << 20)) /* 6MB */
+#define CDC_MAX_BLOCK_SIZE (10 * (1 << 20)) /* 10MB */
+
 int
 seaf_fs_manager_index_blocks (SeafFSManager *mgr,
                               const char *repo_id,
@@ -791,9 +795,9 @@ seaf_fs_manager_index_blocks (SeafFSManager *mgr,
 
 #if defined SEAFILE_SERVER && defined FULL_FEATURE
         if (use_cdc || version == 0) {
-            cdc.block_sz = calculate_chunk_size (sb.st_size);
-            cdc.block_min_sz = cdc.block_sz >> 2;
-            cdc.block_max_sz = cdc.block_sz << 2;
+            cdc.block_sz = CDC_AVERAGE_BLOCK_SIZE;
+            cdc.block_min_sz = CDC_MIN_BLOCK_SIZE;
+            cdc.block_max_sz = CDC_MAX_BLOCK_SIZE;
             cdc.write_block = seafile_write_chunk;
             memcpy (cdc.repo_id, repo_id, 36);
             cdc.version = version;
@@ -811,9 +815,9 @@ seaf_fs_manager_index_blocks (SeafFSManager *mgr,
             }
         }
 #else
-        cdc.block_sz = calculate_chunk_size (sb.st_size);
-        cdc.block_min_sz = cdc.block_sz >> 2;
-        cdc.block_max_sz = cdc.block_sz << 2;
+        cdc.block_sz = CDC_AVERAGE_BLOCK_SIZE;
+        cdc.block_min_sz = CDC_MIN_BLOCK_SIZE;
+        cdc.block_max_sz = CDC_MAX_BLOCK_SIZE;
         cdc.write_block = seafile_write_chunk;
         memcpy (cdc.repo_id, repo_id, 36);
         cdc.version = version;
