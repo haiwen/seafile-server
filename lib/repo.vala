@@ -104,6 +104,7 @@ public class TrashRepo : Object {
     public string owner_id { get; set; }
     public int64 size { get; set; }
     public int64 del_time { get; set; }
+    public bool encrypted { get; set; }
 }
 
 public class SyncInfo : Object {
