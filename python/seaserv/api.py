@@ -652,6 +652,9 @@ class SeafileAPI(object):
     def get_total_storage (self):
         return seafserv_threaded_rpc.get_total_storage()
 
+    def get_system_default_repo_id (self):
+        return seafserv_threaded_rpc.get_system_default_repo_id()
+
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):
