@@ -33,6 +33,7 @@
 #define DEFAULT_THREADS 50
 #define DEFAULT_MAX_DOWNLOAD_DIR_SIZE 100 * ((gint64)1 << 20) /* 100MB */
 #define DEFAULT_MAX_INDEXING_THREADS 1
+#define DEFAULT_FIXED_BLOCK_SIZE ((gint64)1 << 23) /* 8MB */
 
 #define HOST "host"
 #define PORT "port"
@@ -150,11 +151,11 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
                                                   "fixed_block_size",
                                                   &error);
     if (error){
-        htp_server->fixed_block_size = BLOCK_SZ;
+        htp_server->fixed_block_size = DEFAULT_FIXED_BLOCK_SIZE;
         g_clear_error(&error);
     } else {
         if (fixed_block_size_mb <= 0)
-            htp_server->fixed_block_size = BLOCK_SZ;
+            htp_server->fixed_block_size = DEFAULT_FIXED_BLOCK_SIZE;
         else
             htp_server->fixed_block_size = fixed_block_size_mb * ((gint64)1 << 20);
     }
