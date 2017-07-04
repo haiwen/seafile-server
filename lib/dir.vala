@@ -16,4 +16,10 @@ namespace Seafile {
 		public int version { set; get; }
 	}
 
+    public class FileCountInfo : Object {
+        public int64 file_count { set; get; }
+        public int64 dir_count { set; get; }
+        public int64 size { set; get; }
+    }
+
 } // namespace

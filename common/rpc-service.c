@@ -5069,4 +5069,34 @@ seafile_get_total_storage (GError **error)
     return seaf_get_total_storage (error);
 }
 
+GObject *
+seafile_get_file_count_info_by_path (const char *repo_id,
+                                     const char *path,
+                                     GError **error)
+{
+    if (!repo_id || !path) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return NULL;
+    }
+
+    GObject *ret = NULL;
+    SeafRepo *repo = NULL;
+    repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
+    if (!repo) {
+        seaf_warning ("Failed to get repo %.10s\n", repo_id);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Library not exists");
+        return NULL;
+    }
+
+    ret = seaf_fs_manager_get_file_count_info_by_path (seaf->fs_mgr,
+                                                       repo->store_id,
+                                                       repo->version,
+                                                       repo->root_id,
+                                                       path, error);
+    seaf_repo_unref (repo);
+
+    return ret;
+}
+
 #endif  /* SEAFILE_SERVER */

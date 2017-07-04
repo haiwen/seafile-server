@@ -664,6 +664,9 @@ class SeafileAPI(object):
     def get_system_default_repo_id (self):
         return seafserv_threaded_rpc.get_system_default_repo_id()
 
+    def get_file_count_info_by_path(self, repo_id, path):
+        return seafserv_threaded_rpc.get_file_count_info_by_path(repo_id, path)
+
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):

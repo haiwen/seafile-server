@@ -420,4 +420,12 @@ int
 seaf_fs_manager_remove_store (SeafFSManager *mgr,
                               const char *store_id);
 
+GObject *
+seaf_fs_manager_get_file_count_info_by_path (SeafFSManager *mgr,
+                                             const char *repo_id,
+                                             int version,
+                                             const char *root_id,
+                                             const char *path,
+                                             GError **error);
+
 #endif
