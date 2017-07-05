@@ -154,7 +154,7 @@ main(int argc, char *argv[])
     }
 
     if (rm_garbage) {
-        delete_garbaged_repos (!rm_garbage);
+        delete_garbaged_repos (dry_run);
         return 0;
     }
 
