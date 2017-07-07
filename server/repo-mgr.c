@@ -89,6 +89,7 @@ seaf_repo_free (SeafRepo *repo)
     if (repo->head) seaf_branch_unref (repo->head);
     if (repo->virtual_info)
         seaf_virtual_repo_info_free (repo->virtual_info);
+    g_free (repo->last_modifier);
     g_free (repo);
 }
 
