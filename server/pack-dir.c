@@ -289,6 +289,41 @@ archive_dir (PackDirData *data,
         seaf_warning ("failed to get dir %s:%s\n", data->store_id, root_id);
         goto out;
     }
+    if (!dir->entries) {
+        char *pathname = g_build_filename (data->top_dir_name, dirpath, NULL);
+        struct archive_entry *entry = archive_entry_new ();
+        gboolean is_windows = data->is_windows;
+
+        if (is_windows && seaf->http_server->windows_encoding) {
+            char *win_file_name = do_iconv ("UTF-8",
+                    seaf->http_server->windows_encoding,
+                    pathname);
+            if (!win_file_name) {
+                seaf_warning ("Failed to convert file name to %s\n",
+                              seaf->http_server->windows_encoding);
+                ret = -1;
+                goto out;
+            }
+            archive_entry_copy_pathname (entry, win_file_name);
+            g_free (win_file_name);
+
+        } else {
+            archive_entry_set_pathname (entry, pathname);
+        }
+
+        archive_entry_set_filetype (entry, AE_IFDIR);
+        archive_entry_set_mtime (entry, data->mtime, 0);
+        archive_entry_set_perm (entry, 0755);
+        int n = archive_write_header (data->a, entry);
+        if (n != ARCHIVE_OK) {
+            seaf_warning ("archive_write_header  error: %s\n", archive_error_string(data->a));
+            ret = -1;
+        }
+
+        archive_entry_free (entry);
+        g_free (pathname);
+        goto out;
+    }
 
     for (ptr = dir->entries; ptr; ptr = ptr->next) {
         dent = ptr->data;

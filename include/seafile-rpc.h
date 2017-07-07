@@ -1033,4 +1033,9 @@ seafile_get_total_file_number (GError **error);
 
 gint64
 seafile_get_total_storage (GError **error);
+
+GObject *
+seafile_get_file_count_info_by_path (const char *repo_id,
+                                     const char *path,
+                                     GError **error);
 #endif

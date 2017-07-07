@@ -363,6 +363,11 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      "get_total_storage",
                                      searpc_signature_int64__void());
 
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_file_count_info_by_path,
+                                     "get_file_count_info_by_path",
+                                     searpc_signature_object__string_string());
+
     /* share repo to user */
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_add_share,

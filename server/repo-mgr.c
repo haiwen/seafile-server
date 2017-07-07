@@ -2464,6 +2464,15 @@ collect_trash_repo (SeafDBRow *row, void *data)
     if (!trash_repo)
         return FALSE;
 
+    SeafCommit *commit = seaf_commit_manager_get_commit_compatible (seaf->commit_mgr,
+                                                                    repo_id, head_id);
+    if (!commit) {
+        seaf_warning ("Commit %s not found in repo %s\n", head_id, repo_id);
+        return FALSE;
+    }
+    g_object_set (trash_repo, "encrypted", commit->encrypted, NULL);
+    seaf_commit_unref (commit);
+
     *trash_repos = g_list_prepend (*trash_repos, trash_repo);
 
     return TRUE;

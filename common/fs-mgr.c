@@ -761,6 +761,10 @@ out:
 
 #endif  /* SEAFILE_SERVER */
 
+#define CDC_AVERAGE_BLOCK_SIZE (1 << 23) /* 8MB */
+#define CDC_MIN_BLOCK_SIZE (6 * (1 << 20)) /* 6MB */
+#define CDC_MAX_BLOCK_SIZE (10 * (1 << 20)) /* 10MB */
+
 int
 seaf_fs_manager_index_blocks (SeafFSManager *mgr,
                               const char *repo_id,
@@ -791,9 +795,9 @@ seaf_fs_manager_index_blocks (SeafFSManager *mgr,
 
 #if defined SEAFILE_SERVER && defined FULL_FEATURE
         if (use_cdc || version == 0) {
-            cdc.block_sz = calculate_chunk_size (sb.st_size);
-            cdc.block_min_sz = cdc.block_sz >> 2;
-            cdc.block_max_sz = cdc.block_sz << 2;
+            cdc.block_sz = CDC_AVERAGE_BLOCK_SIZE;
+            cdc.block_min_sz = CDC_MIN_BLOCK_SIZE;
+            cdc.block_max_sz = CDC_MAX_BLOCK_SIZE;
             cdc.write_block = seafile_write_chunk;
             memcpy (cdc.repo_id, repo_id, 36);
             cdc.version = version;
@@ -811,9 +815,9 @@ seaf_fs_manager_index_blocks (SeafFSManager *mgr,
             }
         }
 #else
-        cdc.block_sz = calculate_chunk_size (sb.st_size);
-        cdc.block_min_sz = cdc.block_sz >> 2;
-        cdc.block_max_sz = cdc.block_sz << 2;
+        cdc.block_sz = CDC_AVERAGE_BLOCK_SIZE;
+        cdc.block_min_sz = CDC_MIN_BLOCK_SIZE;
+        cdc.block_max_sz = CDC_MAX_BLOCK_SIZE;
         cdc.write_block = seafile_write_chunk;
         memcpy (cdc.repo_id, repo_id, 36);
         cdc.version = version;
@@ -2488,6 +2492,42 @@ count_dir_files (SeafFSManager *mgr, const char *repo_id, int version, const cha
     return count;
 }
 
+static int
+get_file_count_info (SeafFSManager *mgr,
+                     const char *repo_id,
+                     int version,
+                     const char *id,
+                     gint64 *dir_count,
+                     gint64 *file_count,
+                     gint64 *size)
+{
+    SeafDir *dir;
+    SeafDirent *seaf_dent;
+    GList *p;
+    int ret = 0;
+
+    dir = seaf_fs_manager_get_seafdir (mgr, repo_id, version, id);
+    if (!dir)
+        return -1;
+
+    for (p = dir->entries; p; p = p->next) {
+        seaf_dent = (SeafDirent *)p->data;
+
+        if (S_ISREG(seaf_dent->mode)) {
+            (*file_count)++;
+            if (version > 0)
+                (*size) += seaf_dent->size;
+        } else if (S_ISDIR(seaf_dent->mode)) {
+            (*dir_count)++;
+            ret = get_file_count_info (mgr, repo_id, version, seaf_dent->id,
+                                       dir_count, file_count, size);
+        }
+    }
+    seaf_dir_free (dir);
+
+    return ret;
+}
+
 int
 seaf_fs_manager_count_fs_files (SeafFSManager *mgr,
                                 const char *repo_id,
@@ -3030,4 +3070,43 @@ seaf_fs_manager_remove_store (SeafFSManager *mgr,
                               const char *store_id)
 {
     return seaf_obj_store_remove_store (mgr->obj_store, store_id);
+}
+
+GObject *
+seaf_fs_manager_get_file_count_info_by_path (SeafFSManager *mgr,
+                                             const char *repo_id,
+                                             int version,
+                                             const char *root_id,
+                                             const char *path,
+                                             GError **error)
+{
+    char *dir_id = NULL;
+    gint64 file_count = 0, dir_count = 0, size = 0;
+    SeafileFileCountInfo *info = NULL;
+
+    dir_id = seaf_fs_manager_get_seafdir_id_by_path (mgr,
+                                                     repo_id,
+                                                     version,
+                                                     root_id,
+                                                     path, NULL);
+    if (!dir_id) {
+        seaf_warning ("Path %s doesn't exist or is not a dir in repo %.10s.\n",
+                      path, repo_id);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Bad path");
+        goto out;
+    }
+    if (get_file_count_info (mgr, repo_id, version,
+                             dir_id, &dir_count, &file_count, &size) < 0) {
+        seaf_warning ("Failed to get count info from path %s in repo %.10s.\n",
+                      path, repo_id);
+        goto out;
+    }
+    info = g_object_new (SEAFILE_TYPE_FILE_COUNT_INFO,
+                         "file_count", file_count,
+                         "dir_count", dir_count,
+                         "size", size, NULL);
+out:
+    g_free (dir_id);
+
+    return (GObject *)info;
 }

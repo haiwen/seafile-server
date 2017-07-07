@@ -3717,11 +3717,19 @@ seafile_copy_file (const char *src_repo_id,
     rsrc_dir = format_dir_path (norm_src_dir);
     rdst_dir = format_dir_path (norm_dst_dir);
 
-    ret = (GObject *)seaf_repo_manager_copy_file (seaf->repo_mgr,
-                                                  src_repo_id, rsrc_dir, norm_src_filename,
-                                                  dst_repo_id, rdst_dir, norm_dst_filename,
-                                                  user, need_progress, synchronous,
-                                                  error);
+    if (strchr(norm_src_filename, '\t') && strchr(norm_dst_filename, '\t'))
+        ret = (GObject *)seaf_repo_manager_copy_multiple_files (seaf->repo_mgr,
+                                                                src_repo_id, rsrc_dir, norm_src_filename,
+                                                                dst_repo_id, rdst_dir, norm_dst_filename,
+                                                                user, need_progress, synchronous,
+                                                                error);
+
+    else    
+        ret = (GObject *)seaf_repo_manager_copy_file (seaf->repo_mgr,
+                                                      src_repo_id, rsrc_dir, norm_src_filename,
+                                                      dst_repo_id, rdst_dir, norm_dst_filename,
+                                                      user, need_progress, synchronous,
+                                                      error);
 
 out:
     g_free (norm_src_dir);
@@ -3794,11 +3802,18 @@ seafile_move_file (const char *src_repo_id,
     rsrc_dir = format_dir_path (norm_src_dir);
     rdst_dir = format_dir_path (norm_dst_dir);
 
-    ret = (GObject *)seaf_repo_manager_move_file (seaf->repo_mgr,
-                                                  src_repo_id, rsrc_dir, norm_src_filename,
-                                                  dst_repo_id, rdst_dir, norm_dst_filename,
-                                                  replace, user, need_progress, synchronous,
-                                                  error);
+    if (strchr(norm_src_filename, '\t') && strchr(norm_dst_filename, '\t'))
+        ret = (GObject *)seaf_repo_manager_move_multiple_files (seaf->repo_mgr,
+                                                                src_repo_id, rsrc_dir, norm_src_filename,
+                                                                dst_repo_id, rdst_dir, norm_dst_filename,
+                                                                replace, user, need_progress, synchronous,
+                                                                error);
+    else
+        ret = (GObject *)seaf_repo_manager_move_file (seaf->repo_mgr,
+                                                      src_repo_id, rsrc_dir, norm_src_filename,
+                                                      dst_repo_id, rdst_dir, norm_dst_filename,
+                                                      replace, user, need_progress, synchronous,
+                                                      error);
 
 out:
     g_free (norm_src_dir);
@@ -5053,6 +5068,36 @@ gint64
 seafile_get_total_storage (GError **error)
 {
     return seaf_get_total_storage (error);
+}
+
+GObject *
+seafile_get_file_count_info_by_path (const char *repo_id,
+                                     const char *path,
+                                     GError **error)
+{
+    if (!repo_id || !path) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return NULL;
+    }
+
+    GObject *ret = NULL;
+    SeafRepo *repo = NULL;
+    repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
+    if (!repo) {
+        seaf_warning ("Failed to get repo %.10s\n", repo_id);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Library not exists");
+        return NULL;
+    }
+
+    ret = seaf_fs_manager_get_file_count_info_by_path (seaf->fs_mgr,
+                                                       repo->store_id,
+                                                       repo->version,
+                                                       repo->root_id,
+                                                       path, error);
+    seaf_repo_unref (repo);
+
+    return ret;
 }
 
 #endif  /* SEAFILE_SERVER */

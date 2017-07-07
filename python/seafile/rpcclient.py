@@ -960,3 +960,7 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     @searpc_func("int64", [])
     def get_total_storage():
         pass
+
+    @searpc_func("object", ["string", "string"])
+    def get_file_count_info_by_path(repo_id, path):
+        pass
