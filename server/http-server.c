@@ -1355,7 +1355,7 @@ get_block_cb (evhtp_request_t *req, void *arg)
 
     blk_meta = seaf_block_manager_stat_block (seaf->block_mgr,
                                               store_id, 1, block_id);
-    if (blk_meta == NULL) {
+    if (blk_meta == NULL || blk_meta->size <= 0) {
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
         goto out;
     }
