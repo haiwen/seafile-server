@@ -136,6 +136,14 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.get_commit_list(repo_id, offset, limit)
 
+    def get_commit(self, repo_id, repo_version, cmt_id):
+        """ Get a commit. """
+        try:
+            ret = seafserv_threaded_rpc.get_commit(repo_id, repo_version, cmt_id)
+        except SearpcError:
+            ret = None
+        return ret
+
     def change_repo_passwd(self, repo_id, old_passwd, new_passwd, user):
         return seafserv_threaded_rpc.change_repo_passwd(repo_id, old_passwd,
                                                         new_passwd, user)
