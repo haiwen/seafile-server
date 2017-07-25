@@ -925,7 +925,7 @@ create_relative_path (RecvFSM *fsm, char *parent_dir, char **abs_path)
                                                    &error);
         if (rc < 0) { 
             if (error) {
-                seaf_warning ("[upload folder] %s.", error->message);
+                seaf_warning ("[upload folder] %s.\n", error->message);
                 g_clear_error (&error);
             }
             goto out; 
