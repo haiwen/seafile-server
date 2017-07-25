@@ -3662,9 +3662,9 @@ get_total_file_number_cb (SeafDBRow *row, void *vdata)
 {
     gint64 *data = (gint64 *)vdata;
     gint64 count = seaf_db_row_get_column_int64 (row, 0);
-    *data += count;
+    *data = count;
 
-    return TRUE;
+    return FALSE;
 }
 
 gint64
@@ -3672,7 +3672,10 @@ seaf_get_total_file_number (GError **error)
 {
     gint64 count = 0;
     int ret = seaf_db_statement_foreach_row (seaf->db,
-                                             "SELECT file_count FROM RepoFileCount",
+                                             "SELECT SUM(file_count) FROM RepoFileCount f "
+                                             "LEFT JOIN VirtualRepo v "
+                                             "ON f.repo_id=v.repo_id "
+                                             "WHERE v.repo_id IS NULL",
                                              get_total_file_number_cb,
                                              &count, 0);
     if (ret < 0) { 
@@ -3690,8 +3693,9 @@ get_total_storage_cb(SeafDBRow *row, void *vdata)
 {
     gint64 *data = (gint64 *)vdata;
     gint64 size = seaf_db_row_get_column_int64 (row, 0);
-    *data += size;
-    return TRUE;
+    *data = size;
+
+    return FALSE;
 }
 
 gint64
@@ -3701,7 +3705,7 @@ seaf_get_total_storage (GError **error)
     int ret;
     if (seaf_db_type(seaf->db) == SEAF_DB_TYPE_PGSQL) {
         ret = seaf_db_statement_foreach_row (seaf->db,
-                                             "SELECT \"size\" FROM RepoSize s "
+                                             "SELECT SUM(\"size\") FROM RepoSize s "
                                              "LEFT JOIN VirtualRepo v "
                                              "ON s.repo_id=v.repo_id "
                                              "WHERE v.repo_id IS NULL",
@@ -3709,7 +3713,7 @@ seaf_get_total_storage (GError **error)
                                              &size, 0);
     } else {
         ret = seaf_db_statement_foreach_row (seaf->db,
-                                             "SELECT size FROM RepoSize s "
+                                             "SELECT SUM(size) FROM RepoSize s "
                                              "LEFT JOIN VirtualRepo v "
                                              "ON s.repo_id=v.repo_id "
                                              "WHERE v.repo_id IS NULL",
