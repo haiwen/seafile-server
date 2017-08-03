@@ -1038,4 +1038,7 @@ GObject *
 seafile_get_file_count_info_by_path (const char *repo_id,
                                      const char *path,
                                      GError **error);
+
+char *
+seafile_get_trash_repo_owner (const char *repo_id, GError **error);
 #endif

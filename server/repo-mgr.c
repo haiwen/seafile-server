@@ -3729,3 +3729,10 @@ seaf_get_total_storage (GError **error)
 
     return size;
 }
+
+char *
+seaf_get_trash_repo_owner (const char *repo_id)
+{
+    char *sql = "SELECT owner_id from RepoTrash WHERE repo_id = ?";
+    return seaf_db_statement_get_string(seaf->db, sql, 1, "string", repo_id);
+}
