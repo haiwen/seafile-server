@@ -730,6 +730,10 @@ int
 seafile_post_dir (const char *repo_id, const char *parent_dir,
                   const char *new_dir_name, const char *user,
                   GError **error);
+int
+seafile_mkdir_with_parents (const char *repo_id, const char *parent_dir,
+                            const char *new_dir_path, const char *user,
+                            GError **error);
 
 /**
  * delete a file/directory from the repo on server.
