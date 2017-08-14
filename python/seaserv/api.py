@@ -678,6 +678,9 @@ class SeafileAPI(object):
     def get_trash_repo_owner (self, repo_id):
         return seafserv_threaded_rpc.get_trash_repo_owner(repo_id)
 
+    def mkdir_with_parents (self, repo_id, parent_dir, relative_path, username):
+        return seafserv_threaded_rpc.mkdir_with_parents(repo_id, parent_dir, relative_path, username)
+
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):

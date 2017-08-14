@@ -5110,4 +5110,28 @@ seafile_get_trash_repo_owner (const char *repo_id, GError **error)
     return seaf_get_trash_repo_owner (repo_id);
 }
 
+int
+seafile_mkdir_with_parents (const char *repo_id, const char *parent_dir,
+                            const char *new_dir_path, const char *user,
+                            GError **error)
+{
+    if (!repo_id || !parent_dir || !new_dir_path || !user) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return -1;
+    }
+
+    if (!is_uuid_valid (repo_id)) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
+        return -1;
+    }
+
+    if (seaf_repo_manager_mkdir_with_parents (seaf->repo_mgr, repo_id,
+                                              parent_dir, new_dir_path,
+                                              user, error) < 0) {
+        return -1;
+    }
+
+    return 0;
+}
+
 #endif  /* SEAFILE_SERVER */
