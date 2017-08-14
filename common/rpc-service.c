@@ -5099,4 +5099,15 @@ seafile_get_file_count_info_by_path (const char *repo_id,
     return ret;
 }
 
+char *
+seafile_get_trash_repo_owner (const char *repo_id, GError **error)
+{
+    if (!repo_id) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return NULL;
+    }
+
+    return seaf_get_trash_repo_owner (repo_id);
+}
+
 #endif  /* SEAFILE_SERVER */

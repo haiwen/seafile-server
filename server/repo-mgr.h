@@ -815,4 +815,7 @@ seaf_get_total_file_number (GError **error);
 
 gint64
 seaf_get_total_storage (GError **error);
+
+char *
+seaf_get_trash_repo_owner (const char *repo_id);
 #endif
