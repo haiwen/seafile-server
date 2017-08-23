@@ -234,6 +234,11 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                         searpc_signature_int__string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_mkdir_with_parents,
+                                     "seafile_mkdir_with_parents",
+                        searpc_signature_int__string_string_string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_del_file,
                                      "seafile_del_file",
                         searpc_signature_int__string_string_string_string());
@@ -367,6 +372,11 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      seafile_get_file_count_info_by_path,
                                      "get_file_count_info_by_path",
                                      searpc_signature_object__string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_trash_repo_owner,
+                                     "get_trash_repo_owner",
+                                     searpc_signature_string__string());
 
     /* share repo to user */
     searpc_server_register_function ("seafserv-threaded-rpcserver",

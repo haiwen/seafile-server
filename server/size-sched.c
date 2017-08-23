@@ -6,6 +6,7 @@
 #include "seafile-session.h"
 #include "size-sched.h"
 
+#define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"
 
 typedef struct SizeSchedulerPriv {
@@ -169,8 +170,8 @@ set_repo_size (SeafDB *db,
         }
     } else {
         if (strcmp (old_head_id, cached_head_id) != 0) {
-            g_message ("[size sched] Size update conflict for repo %s, rollback.\n",
-                       repo_id);
+            seaf_debug ("[size sched] Size update conflict for repo %s, rollback.\n",
+                        repo_id);
             ret = SET_SIZE_CONFLICT;
             goto rollback;
         }

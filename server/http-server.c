@@ -831,7 +831,7 @@ fast_forward_or_merge (const char *repo_id,
                        SeafCommit *base,
                        SeafCommit *new_commit)
 {
-#define MAX_RETRY_COUNT 3
+#define MAX_RETRY_COUNT 10
 
     SeafRepo *repo = NULL;
     SeafCommit *current_head = NULL, *merged_commit = NULL;
@@ -924,16 +924,17 @@ retry:
         seaf_commit_unref (merged_commit);
         merged_commit = NULL;
 
-        repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
-        if (!repo) {
-            seaf_warning ("Repo %s doesn't exist.\n", repo_id);
-            ret = -1;
-            goto out;
-        }
-
         if (++retry_cnt <= MAX_RETRY_COUNT) {
             /* Sleep random time between 100 and 1000 millisecs. */
             usleep (g_random_int_range(1, 11) * 100 * 1000);
+
+            repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
+            if (!repo) {
+                seaf_warning ("Repo %s doesn't exist.\n", repo_id);
+                ret = -1;
+                goto out;
+            }
+
             goto retry;
         } else {
             ret = -1;

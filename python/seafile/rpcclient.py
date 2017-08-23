@@ -964,3 +964,12 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     @searpc_func("object", ["string", "string"])
     def get_file_count_info_by_path(repo_id, path):
         pass
+
+    @searpc_func("string", ["string"])
+    def get_trash_repo_owner(repo_id):
+        pass
+
+    @searpc_func("int", ["string", "string", "string", "string"])
+    def seafile_mkdir_with_parents (repo_id, parent_dir, relative_path, username):
+        pass
+    mkdir_with_parents = seafile_mkdir_with_parents
