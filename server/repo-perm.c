@@ -37,23 +37,16 @@ check_repo_share_perm_cb (SeafDBRow *row, void *data)
 }
 
 static char *
-check_repo_share_permission (SeafRepoManager *mgr,
-                             const char *repo_id,
-                             const char *user_name)
+check_group_permission_by_user (SeafRepoManager *mgr,
+                                const char *repo_id,
+                                const char *user_name)
 {
+    char *permission = NULL;
     SearpcClient *rpc_client;
-    GList *groups, *p1;
+    GList *groups = NULL, *p1;
     CcnetGroup *group;
     int group_id;
-    char *permission;
-    GString *sql = NULL;
-
-    permission = seaf_share_manager_check_permission (seaf->share_mgr,
-                                                      repo_id,
-                                                      user_name);
-    if (permission != NULL)
-        return permission;
-    g_free (permission);
+    GString *sql;
 
     rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
                                                  NULL,
@@ -63,10 +56,9 @@ check_repo_share_permission (SeafRepoManager *mgr,
 
     /* Get the groups this user belongs to. */
     groups = ccnet_get_groups_by_user (rpc_client, user_name);
-    if (!groups)
-        goto group_out;
-
-    ccnet_rpc_client_free (rpc_client);
+    if (!groups) {
+        goto out;
+    }
 
     sql = g_string_new ("");
     g_string_printf (sql, "SELECT permission FROM RepoGroup WHERE repo_id = ? AND group_id IN (");
@@ -84,15 +76,32 @@ check_repo_share_permission (SeafRepoManager *mgr,
                                        check_repo_share_perm_cb, &permission,
                                        1, "string", repo_id) < 0) {
         seaf_warning ("DB error when get repo share permission for repo %s.\n", repo_id);
-        goto group_out;
     }
 
-group_out:
     g_string_free (sql, TRUE);
+
+out:
+    ccnet_rpc_client_free (rpc_client);
     for (p1 = groups; p1 != NULL; p1 = p1->next)
         g_object_unref ((GObject *)p1->data);
     g_list_free (groups);
+    return permission;
+}
 
+static char *
+check_repo_share_permission (SeafRepoManager *mgr,
+                             const char *repo_id,
+                             const char *user_name)
+{
+    char *permission;
+
+    permission = seaf_share_manager_check_permission (seaf->share_mgr,
+                                                      repo_id,
+                                                      user_name);
+    if (permission != NULL)
+        return permission;
+
+    permission = check_group_permission_by_user (mgr, repo_id, user_name);
     if (permission != NULL)
         return permission;
 
