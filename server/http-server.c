@@ -39,7 +39,7 @@
 #define PORT "port"
 
 #define INIT_INFO "If you see this page, Seafile HTTP syncing component works."
-#define PROTO_VERSION "{\"version\": 1}"
+#define PROTO_VERSION "{\"version\": 2}"
 
 #define CLEANING_INTERVAL_SEC 300	/* 5 minutes */
 #define TOKEN_EXPIRE_TIME 7200	    /* 2 hours */
@@ -96,6 +96,7 @@ const char *GET_PROTO_PATH = "/protocol-version";
 const char *OP_PERM_CHECK_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/permission-check/.*";
 const char *GET_CHECK_QUOTA_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/quota-check/.*";
 const char *HEAD_COMMIT_OPER_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/commit/HEAD";
+const char *GET_HEAD_COMMITS_MULTI_REGEX = "^/repo/head-commits-multi";
 const char *COMMIT_OPER_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/commit/[\\da-z]{40}";
 const char *PUT_COMMIT_INFO_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/commit/[\\da-z]{40}";
 const char *GET_FS_OBJ_ID_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/fs-id-list/.*";
@@ -1039,6 +1040,109 @@ head_commit_oper_cb (evhtp_request_t *req, void *arg)
    }
 }
 
+static gboolean
+collect_head_commit_ids (SeafDBRow *row, void *data)
+{
+    json_t *map = (json_t *)data;
+    const char *repo_id = seaf_db_row_get_column_text (row, 0);
+    const char *commit_id = seaf_db_row_get_column_text (row, 1);
+
+    json_object_set_new (map, repo_id, json_string(commit_id));
+
+    return TRUE;
+}
+
+static void
+head_commits_multi_cb (evhtp_request_t *req, void *arg)
+{
+    size_t list_len;
+    json_t *repo_id_array = NULL;
+    size_t n, i;
+    GString *id_list_str = NULL;
+    char *sql = NULL;
+    json_t *commit_id_map = NULL;
+    char *data = NULL;
+
+    list_len = evbuffer_get_length (req->buffer_in);
+    if (list_len == 0) {
+        evhtp_send_reply (req, EVHTP_RES_BADREQ);
+        goto out;
+    }
+
+    char *repo_id_list_con = g_new0 (char, list_len);
+    if (!repo_id_list_con) {
+        evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        seaf_warning ("Failed to allocate %lu bytes memory.\n", list_len);
+        goto out;
+    }
+
+    json_error_t jerror;
+    evbuffer_remove (req->buffer_in, repo_id_list_con, list_len);
+    repo_id_array = json_loadb (repo_id_list_con, list_len, 0, &jerror);
+    g_free (repo_id_list_con);
+
+    if (!repo_id_array) {
+        seaf_warning ("load repo_id_list to json failed, error: %s\n", jerror.text);
+        evhtp_send_reply (req, EVHTP_RES_BADREQ);
+        goto out;
+    }
+
+    n = json_array_size (repo_id_array);
+    if (n == 0) {
+        evhtp_send_reply (req, EVHTP_RES_BADREQ);
+        goto out;
+    }
+
+    json_t *id;
+    id_list_str = g_string_new ("");
+    for (i = 0; i < n; ++i) {
+        id = json_array_get (repo_id_array, i);
+        if (json_typeof(id) != JSON_STRING) {
+            evhtp_send_reply (req, EVHTP_RES_BADREQ);
+            goto out;
+        }
+        /* Make sure ids are in UUID format. */
+        if (!is_uuid_valid (json_string_value (id))) {
+            evhtp_send_reply (req, EVHTP_RES_BADREQ);
+            goto out;
+        }
+        if (i == 0)
+            g_string_append_printf (id_list_str, "'%s'", json_string_value(id));
+        else
+            g_string_append_printf (id_list_str, ",'%s'", json_string_value(id));
+    }
+
+    sql = g_strdup_printf ("SELECT repo_id, commit_id FROM Branch WHERE name='master' AND repo_id IN (%s) LOCK IN SHARE MODE",
+                           id_list_str->str);
+    commit_id_map = json_object();
+    if (seaf_db_statement_foreach_row (seaf->db, sql,
+                                       collect_head_commit_ids, commit_id_map, 0) < 0) {
+        evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        goto out;
+    }
+
+    data = json_dumps (commit_id_map, JSON_COMPACT);
+    if (!data) {
+        seaf_warning ("failed to dump json.\n");
+        evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        goto out;
+    }
+
+    evbuffer_add (req->buffer_out, data, strlen(data));
+    evhtp_send_reply (req, EVHTP_RES_OK);
+
+out:
+    if (repo_id_array)
+        json_decref (repo_id_array);
+    if (id_list_str)
+        g_string_free (id_list_str, TRUE);
+    g_free (sql);
+    if (commit_id_map)
+        json_decref (commit_id_map);
+    if (data)
+        free (data);
+}
+
 static void
 get_commit_info_cb (evhtp_request_t *req, void *arg)
 {
@@ -1867,6 +1971,10 @@ http_request_init (HttpServerStruct *server)
 
     evhtp_set_regex_cb (priv->evhtp,
                         HEAD_COMMIT_OPER_REGEX, head_commit_oper_cb,
+                        priv);
+
+    evhtp_set_regex_cb (priv->evhtp,
+                        GET_HEAD_COMMITS_MULTI_REGEX, head_commits_multi_cb,
                         priv);
 
     evhtp_set_regex_cb (priv->evhtp,
