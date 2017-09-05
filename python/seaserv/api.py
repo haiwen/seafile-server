@@ -974,4 +974,10 @@ class CcnetAPI(object):
     def set_org_name(self, org_id, org_name):
         return ccnet_threaded_rpc.set_org_name(org_id, org_name)
 
+    def get_primary_id (self, email):
+        return ccnet_threaded_rpc.get_primary_id(email)
+
+    def set_reference_id (self, primary_id, reference_id):
+        return ccnet_threaded_rpc.set_reference_id(primary_id, reference_id)
+
 ccnet_api = CcnetAPI()
