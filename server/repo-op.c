@@ -4417,7 +4417,7 @@ seaf_repo_manager_revert_file (SeafRepoManager *mgr,
 
         old_dent = get_dirent_by_path (repo, old_commit->root_id,
                                        parent_dir, filename, error);
-        if (S_ISDIR(old_dent->mode)) {
+        if (!old_dent || S_ISDIR(old_dent->mode)) {
             ret = -1;
             goto out;
         }
@@ -4631,7 +4631,7 @@ seaf_repo_manager_revert_dir (SeafRepoManager *mgr,
 
         old_dent = get_dirent_by_path (repo, old_commit->root_id,
                                        parent_dir, dirname, error);
-        if (S_ISREG(old_dent->mode)) {
+        if (!old_dent || S_ISREG(old_dent->mode)) {
             ret = -1;
             goto out;
         }
