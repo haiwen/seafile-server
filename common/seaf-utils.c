@@ -188,6 +188,38 @@ pgsql_db_start (SeafileSession *session)
 
 #endif
 
+gboolean
+load_config_from_db_cb (SeafDBRow *row, void *data)
+{
+    GKeyFile *config = data;
+    const char *group = seaf_db_row_get_column_text (row, 0);
+    const char *key = seaf_db_row_get_column_text (row, 1);
+    const char *value = seaf_db_row_get_column_text (row, 2);
+
+    g_key_file_set_string (config, group, key, value);
+
+    return TRUE;
+}
+
+int
+load_config_from_db (SeafileSession *session)
+{
+    char *sql;
+    int db_type = seaf_db_type(session->db);
+    if (db_type == SEAF_DB_TYPE_SQLITE ||
+        db_type == SEAF_DB_TYPE_MYSQL)
+        sql = "SELECT `group`, `key`, value FROM SeafileConf ORDER BY `group`";
+    else
+        sql = "SELECT \"group\", key, value FROM SeafileConf ORDER BY \"group\"";
+
+    int ret = seaf_db_statement_foreach_row (session->db, sql,
+                                             load_config_from_db_cb, session->config, 0);
+    if (ret < 0)
+        return -1;
+
+    return 0;
+}
+
 int
 load_database_config (SeafileSession *session)
 {
