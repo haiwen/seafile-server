@@ -5135,4 +5135,95 @@ seafile_mkdir_with_parents (const char *repo_id, const char *parent_dir,
     return 0;
 }
 
+int
+seafile_set_server_config_int (const char *group, const char *key, int value,
+                               GError **error)
+{
+    if (!group || !key) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return -1;
+    }
+
+    return seaf_cfg_manager_set_config_int (seaf->cfg_mgr, group, key, value);
+}
+
+int
+seafile_get_server_config_int (const char *group, const char *key, GError **error)
+{
+    if (!group || !key ) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return -1;
+    }
+
+    return seaf_cfg_manager_get_config_int (seaf->cfg_mgr, group, key);
+}
+
+int
+seafile_set_server_config_int64 (const char *group, const char *key, gint64 value,
+                                 GError **error)
+{
+    if (!group || !key) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return -1;
+    }
+
+    return seaf_cfg_manager_set_config_int64 (seaf->cfg_mgr, group, key, value);
+}
+
+gint64
+seafile_get_server_config_int64 (const char *group, const char *key, GError **error)
+{
+    if (!group || !key ) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return -1;
+    }
+
+    return seaf_cfg_manager_get_config_int64 (seaf->cfg_mgr, group, key);
+}
+
+int
+seafile_set_server_config_string (const char *group, const char *key, const char *value,
+                                  GError **error)
+{
+    if (!group || !key || !value) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return -1;
+    }
+
+    return seaf_cfg_manager_set_config_string (seaf->cfg_mgr, group, key, value);
+}
+
+char *
+seafile_get_server_config_string (const char *group, const char *key, GError **error)
+{
+    if (!group || !key ) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return NULL;
+    }
+
+    return seaf_cfg_manager_get_config_string (seaf->cfg_mgr, group, key);
+}
+
+int
+seafile_set_server_config_boolean (const char *group, const char *key, int value,
+                                   GError **error)
+{
+    if (!group || !key) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return -1;
+    }
+
+    return seaf_cfg_manager_set_config_boolean (seaf->cfg_mgr, group, key, value);
+}
+
+int
+seafile_get_server_config_boolean (const char *group, const char *key, GError **error)
+{
+    if (!group || !key ) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return -1;
+    }
+
+    return seaf_cfg_manager_get_config_boolean (seaf->cfg_mgr, group, key);
+}
 #endif  /* SEAFILE_SERVER */

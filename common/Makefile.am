@@ -22,6 +22,7 @@ noinst_HEADERS = \
 	block.h \
 	mq-mgr.h \
 	seaf-db.h \
+	config-mgr.h \
 	merge-new.h \
 	block-tx-utils.h \
 	sync-repo-common.h \

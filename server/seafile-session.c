@@ -91,6 +91,10 @@ seafile_session_new(const char *central_config_dir,
         goto onerror;
     }
 
+    session->cfg_mgr = seaf_cfg_manager_new (session);
+    if (!session->cfg_mgr)
+        goto onerror;
+
     if (load_thread_pool_config (session) < 0) {
         seaf_warning ("Failed to load thread pool config.\n");
         goto onerror;
@@ -191,6 +195,9 @@ seafile_session_init (SeafileSession *session)
         return -1;
 
     if (seaf_quota_manager_init (session->quota_mgr) < 0)
+        return -1;
+
+    if (seaf_cfg_manager_init (session->cfg_mgr) < 0)
         return -1;
 
     seaf_mq_manager_init (session->mq_mgr);

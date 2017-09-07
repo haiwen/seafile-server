@@ -726,6 +726,48 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      seafile_generate_magic_and_random_key,
                                      "generate_magic_and_random_key",
                                      searpc_signature_object__int_string_string());
+
+    /* Config */
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_server_config_int,
+                                     "get_server_config_int",
+                                     searpc_signature_int__string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_set_server_config_int,
+                                     "set_server_config_int",
+                                     searpc_signature_int__string_string_int());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_server_config_int64,
+                                     "get_server_config_int64",
+                                     searpc_signature_int64__string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_set_server_config_int64,
+                                     "set_server_config_int64",
+                                     searpc_signature_int__string_string_int64());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_server_config_string,
+                                     "get_server_config_string",
+                                     searpc_signature_string__string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_set_server_config_string,
+                                     "set_server_config_string",
+                                     searpc_signature_int__string_string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_server_config_boolean,
+                                     "get_server_config_boolean",
+                                     searpc_signature_int__string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_set_server_config_boolean,
+                                     "set_server_config_boolean",
+                                     searpc_signature_int__string_string_int());
+
 }
 
 static struct event sigusr1;
@@ -815,23 +857,6 @@ write_pidfile (const char *pidfile_path)
     fflush (pidfile);
     fclose (pidfile);
     return 0;
-}
-
-static void
-load_history_config ()
-{
-    int keep_history_days;
-    GError *error = NULL;
-
-    seaf->keep_history_days = -1;
-
-    keep_history_days = g_key_file_get_integer (seaf->config,
-                                                "history", "keep_days",
-                                                &error);
-    if (error == NULL)
-        seaf->keep_history_days = keep_history_days;
-    else
-        g_clear_error (&error);
 }
 
 static void
@@ -1010,8 +1035,6 @@ main (int argc, char **argv)
     seaf->async_ccnetrpc_client_t = async_ccnetrpc_client_t;
     seaf->client_pool = ccnet_client_pool_new (central_config_dir, config_dir);
     seaf->cloud_mode = cloud_mode;
-
-    load_history_config ();
 
 #ifndef WIN32
     set_syslog_config (seaf->config);

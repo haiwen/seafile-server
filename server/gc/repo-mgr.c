@@ -494,7 +494,8 @@ seaf_repo_manager_get_repo_history_limit (SeafRepoManager *mgr,
                                         get_limit, &per_repo_days);
     if (ret == 0) {
         /* If per repo value is not set, return the global one. */
-        return mgr->seaf->keep_history_days;
+        per_repo_days = seaf_cfg_manager_get_config_int (mgr->seaf->cfg_mgr,
+                                                         "history", "keep_days");
     }
 
     if (per_repo_days < 0) {

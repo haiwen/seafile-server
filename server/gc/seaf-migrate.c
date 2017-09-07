@@ -36,21 +36,6 @@ static void usage ()
              "usage: seaf-migrate [-c config_dir] [-d seafile_dir]\n");
 }
 
-static void
-load_history_config ()
-{
-    int keep_history_days;
-    GError *error = NULL;
-
-    seaf->keep_history_days = -1;
-
-    keep_history_days = g_key_file_get_integer (seaf->config,
-                                                "history", "keep_days",
-                                                &error);
-    if (error == NULL)
-        seaf->keep_history_days = keep_history_days;
-}
-
 #ifdef WIN32
 /* Get the commandline arguments in unicode, then convert them to utf8  */
 static char **
@@ -135,8 +120,6 @@ main(int argc, char *argv[])
         seaf_warning ("Failed to create seafile session.\n");
         exit (1);
     }
-
-    load_history_config ();
 
     migrate_v0_repos_to_v1_layout ();
 

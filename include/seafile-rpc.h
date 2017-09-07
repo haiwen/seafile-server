@@ -1045,4 +1045,28 @@ seafile_get_file_count_info_by_path (const char *repo_id,
 
 char *
 seafile_get_trash_repo_owner (const char *repo_id, GError **error);
+
+int
+seafile_set_server_config_int (const char *group, const char *key, int value, GError **error);
+
+int
+seafile_get_server_config_int (const char *group, const char *key, GError **error);
+
+int
+seafile_set_server_config_int64 (const char *group, const char *key, gint64 value, GError **error);
+
+gint64
+seafile_get_server_config_int64 (const char *group, const char *key, GError **error);
+
+int
+seafile_set_server_config_string (const char *group, const char *key, const char *value, GError **error);
+
+char *
+seafile_get_server_config_string (const char *group, const char *key, GError **error);
+
+int
+seafile_set_server_config_boolean (const char *group, const char *key, int value, GError **error);
+
+int
+seafile_get_server_config_boolean (const char *group, const char *key, GError **error);
 #endif

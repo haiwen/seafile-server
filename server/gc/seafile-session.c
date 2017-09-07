@@ -77,6 +77,10 @@ seafile_session_new(const char *central_config_dir,
         }
     }
 
+    session->cfg_mgr = seaf_cfg_manager_new (session);
+    if (!session->cfg_mgr)
+        goto onerror;
+
     session->fs_mgr = seaf_fs_manager_new (session, abs_seafile_dir);
     if (!session->fs_mgr)
         goto onerror;
