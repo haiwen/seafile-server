@@ -973,3 +973,35 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     def seafile_mkdir_with_parents (repo_id, parent_dir, relative_path, username):
         pass
     mkdir_with_parents = seafile_mkdir_with_parents
+
+    @searpc_func("int", ["string", "string"])
+    def get_server_config_int (group, key):
+        pass
+
+    @searpc_func("int", ["string", "string", "int"])
+    def set_server_config_int (group, key, value):
+        pass
+
+    @searpc_func("int64", ["string", "string"])
+    def get_server_config_int64 (group, key):
+        pass
+
+    @searpc_func("int", ["string", "string", "int64"])
+    def set_server_config_int64 (group, key, value):
+        pass
+
+    @searpc_func("string", ["string", "string"])
+    def get_server_config_string (group, key):
+        pass
+
+    @searpc_func("int", ["string", "string", "string"])
+    def set_server_config_string (group, key, value):
+        pass
+
+    @searpc_func("int", ["string", "string"])
+    def get_server_config_boolean (group, key):
+        pass
+
+    @searpc_func("int", ["string", "string", "int"])
+    def set_server_config_boolean (group, key, value):
+        pass

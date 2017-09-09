@@ -114,8 +114,6 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     int port = 0;
     int web_token_expire_time;
     int fixed_block_size_mb;
-    int max_upload_size_mb;
-    int max_download_dir_size_mb;
     char *encoding;
     int max_indexing_threads;
 
@@ -171,32 +169,6 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
             htp_server->web_token_expire_time = 3600; /* default 3600s */
         else
             htp_server->web_token_expire_time = web_token_expire_time;
-    }
-
-    max_upload_size_mb = fileserver_config_get_integer (session->config,
-                                                 "max_upload_size",
-                                                 &error);
-    if (error) {
-        htp_server->max_upload_size = -1; /* no limit */
-        g_clear_error (&error);
-    } else {
-        if (max_upload_size_mb <= 0)
-            htp_server->max_upload_size = -1; /* no limit */
-        else
-            htp_server->max_upload_size = max_upload_size_mb * ((gint64)1 << 20);
-    }
-
-    max_download_dir_size_mb = fileserver_config_get_integer (session->config,
-                                                       "max_download_dir_size",
-                                                       &error);
-    if (error) {
-        htp_server->max_download_dir_size = DEFAULT_MAX_DOWNLOAD_DIR_SIZE;
-        g_clear_error (&error);
-    } else {
-        if (max_download_dir_size_mb <= 0)
-            htp_server->max_download_dir_size = DEFAULT_MAX_DOWNLOAD_DIR_SIZE;
-        else
-            htp_server->max_download_dir_size = max_download_dir_size_mb * ((gint64)1 << 20);
     }
 
     max_indexing_threads = fileserver_config_get_integer (session->config,

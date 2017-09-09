@@ -24,6 +24,7 @@
 #include "listen-mgr.h"
 #include "size-sched.h"
 #include "copy-mgr.h"
+#include "config-mgr.h"
 
 #include "mq-mgr.h"
 
@@ -68,6 +69,7 @@ struct _SeafileSession {
     SeafQuotaManager    *quota_mgr;
     SeafListenManager   *listen_mgr;
     SeafCopyManager     *copy_mgr;
+    SeafCfgManager      *cfg_mgr;
     
     SeafWebAccessTokenManager	*web_at_mgr;
 
@@ -81,7 +83,6 @@ struct _SeafileSession {
     int                  is_master;
 
     int                  cloud_mode;
-    int                  keep_history_days;
 
     int                  rpc_thread_pool_size;
     int                  sync_thread_pool_size;

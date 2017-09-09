@@ -15,6 +15,7 @@
 #define MAX_ZIP_THREAD_NUM 5
 #define SCAN_PROGRESS_INTERVAL 24 * 3600 // 1 day
 #define PROGRESS_TTL 5 * 3600 // 5 hours
+#define DEFAULT_MAX_DOWNLOAD_DIR_SIZE 100 * ((gint64)1 << 20) /* 100MB */
 
 typedef struct ZipDownloadMgrPriv {
     pthread_mutex_t progress_lock;
@@ -406,6 +407,7 @@ validate_download_size (DownloadObj *obj, GError **error)
 {
     SeafRepo *repo = obj->repo;
     gint64 download_size;
+    gint64 max_download_dir_size;
 
     if (obj->type == DOWNLOAD_DIR) {
         download_size = seaf_fs_manager_get_fs_size (seaf->fs_mgr,
@@ -415,15 +417,23 @@ validate_download_size (DownloadObj *obj, GError **error)
         download_size = calcuate_download_multi_size (repo, (GList *)obj->internal);
     }
 
+    /* default is MB */
+    max_download_dir_size = seaf_cfg_manager_get_config_int64 (seaf->cfg_mgr, "fileserver",
+                                                               "max_download_dir_size");
+    if (max_download_dir_size > 0)
+        max_download_dir_size = max_download_dir_size * ((gint64)1 << 20);
+    else
+        max_download_dir_size = DEFAULT_MAX_DOWNLOAD_DIR_SIZE;
+
     if (download_size < 0) {
         seaf_warning ("Failed to get download size.\n");
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to get download size.");
         return FALSE;
-    } else if (download_size > seaf->http_server->max_download_dir_size) {
+    } else if (download_size > max_download_dir_size) {
         seaf_warning ("Total download size %"G_GINT64_FORMAT
                       ", exceed max download dir size %"G_GINT64_FORMAT".\n",
-                      download_size, seaf->http_server->max_download_dir_size);
+                      download_size, max_download_dir_size);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Download size exceed max download dir size.");
         return FALSE;

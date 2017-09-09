@@ -41,21 +41,6 @@ static void usage ()
              "-V, --verbose: verbose output messages\n");
 }
 
-static void
-load_history_config ()
-{
-    int keep_history_days;
-    GError *error = NULL;
-
-    seaf->keep_history_days = -1;
-
-    keep_history_days = g_key_file_get_integer (seaf->config,
-                                                "history", "keep_days",
-                                                &error);
-    if (error == NULL)
-        seaf->keep_history_days = keep_history_days;
-}
-
 #ifdef WIN32
 /* Get the commandline arguments in unicode, then convert them to utf8  */
 static char **
@@ -157,8 +142,6 @@ main(int argc, char *argv[])
         delete_garbaged_repos (dry_run);
         return 0;
     }
-
-    load_history_config ();
 
     GList *repo_id_list = NULL;
     int i;

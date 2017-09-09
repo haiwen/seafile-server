@@ -35,7 +35,8 @@ common_sources = \
 	../../common/seaf-utils.c \
 	../../common/obj-store.c \
 	../../common/obj-backend-fs.c \
-	../../common/seafile-crypt.c
+	../../common/seafile-crypt.c \
+	../../common/config-mgr.c
 
 seafserv_gc_SOURCES = \
 	seafserv-gc.c \

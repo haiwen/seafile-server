@@ -11,6 +11,7 @@
 #include "repo-mgr.h"
 #include "db.h"
 #include "seaf-db.h"
+#include "config-mgr.h"
 
 struct _CcnetClient;
 
@@ -30,8 +31,8 @@ struct _SeafileSession {
     SeafCommitManager   *commit_mgr;
     SeafBranchManager   *branch_mgr;
     SeafRepoManager     *repo_mgr;
+    SeafCfgManager      *cfg_mgr;
 
-    int                  keep_history_days;
 };
 
 extern SeafileSession *seaf;

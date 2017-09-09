@@ -18,7 +18,7 @@
 #define TB 1000000000000L
 
 static gint64
-get_default_quota (GKeyFile *config)
+get_default_quota (SeafCfgManager *mgr)
 {
     char *quota_str;
     char *end;
@@ -26,7 +26,7 @@ get_default_quota (GKeyFile *config)
     gint64 multiplier = GB;
     gint64 quota;
 
-    quota_str = g_key_file_get_string (config, "quota", "default", NULL);
+    quota_str = seaf_cfg_manager_get_config (mgr, "quota", "default");
     if (!quota_str)
         return INFINITE_QUOTA;
 
@@ -68,7 +68,6 @@ seaf_quota_manager_new (struct _SeafileSession *session)
         return NULL;
     mgr->session = session;
 
-    mgr->default_quota = get_default_quota (session->config);
     mgr->calc_share_usage = g_key_file_get_boolean (session->config,
                                                     "quota", "calc_share_usage",
                                                     NULL);
@@ -206,7 +205,7 @@ seaf_quota_manager_get_user_quota (SeafQuotaManager *mgr,
     quota = seaf_db_statement_get_int64 (mgr->session->db, sql,
                                          1, "string", user);
     if (quota <= 0)
-        quota = mgr->default_quota;
+        quota = get_default_quota (seaf->cfg_mgr);
 
     return quota;
 }
@@ -255,7 +254,7 @@ seaf_quota_manager_get_org_quota (SeafQuotaManager *mgr,
     sql = "SELECT quota FROM OrgQuota WHERE org_id=?";
     quota = seaf_db_statement_get_int64 (mgr->session->db, sql, 1, "int", org_id);
     if (quota <= 0)
-        quota = mgr->default_quota;
+        quota = get_default_quota (seaf->cfg_mgr);
 
     return quota;
 }

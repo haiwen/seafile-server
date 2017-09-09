@@ -8,7 +8,6 @@
 struct _SeafQuotaManager {
     struct _SeafileSession *session;
 
-    gint64 default_quota;
     gboolean calc_share_usage;
 };
 typedef struct _SeafQuotaManager SeafQuotaManager;

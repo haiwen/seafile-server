@@ -681,6 +681,31 @@ class SeafileAPI(object):
     def mkdir_with_parents (self, repo_id, parent_dir, relative_path, username):
         return seafserv_threaded_rpc.mkdir_with_parents(repo_id, parent_dir, relative_path, username)
 
+    def get_server_config_int (self, group, key):
+        return seafserv_threaded_rpc.get_server_config_int (group, key)
+
+    def set_server_config_int (self, group, key, value):
+        return seafserv_threaded_rpc.set_server_config_int (group, key, value)
+
+    def get_server_config_int64 (self, group, key):
+        return seafserv_threaded_rpc.get_server_config_int64 (group, key)
+
+    def set_server_config_int64 (self, group, key, value):
+        return seafserv_threaded_rpc.set_server_config_int64 (group, key, value)
+
+    def get_server_config_string (self, group, key):
+        return seafserv_threaded_rpc.get_server_config_string (group, key)
+
+    def set_server_config_string (self, group, key, value):
+        return seafserv_threaded_rpc.set_server_config_string (group, key, value)
+
+    def get_server_config_boolean (self, group, key):
+        return bool(seafserv_threaded_rpc.get_server_config_boolean (group, key))
+
+    def set_server_config_boolean (self, group, key, value):
+        i_value = 1 if bool(value) else 0
+        return seafserv_threaded_rpc.set_server_config_boolean (group, key, i_value)
+
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):

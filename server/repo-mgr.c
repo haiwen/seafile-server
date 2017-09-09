@@ -39,7 +39,6 @@ struct _SeafRepoManagerPriv {
     CcnetTimer *reap_token_timer;
 
     CcnetTimer *scan_trash_timer;
-    gint64 trash_expire_interval;
 };
 
 static void
@@ -250,7 +249,15 @@ scan_trash (void *data)
 {
     GList *repo_ids = NULL;
     SeafRepoManager *mgr = seaf->repo_mgr;
-    gint64 expire_time = time(NULL) - mgr->priv->trash_expire_interval;
+    gint64 trash_expire_interval = TRASH_EXPIRE_DAYS * 24 * 3600;
+    int expire_days = seaf_cfg_manager_get_config_int (seaf->cfg_mgr,
+                                                       "library_trash",
+                                                       "expire_days");
+    if (expire_days > 0) {
+        trash_expire_interval = expire_days * 24 * 3600;
+    }
+
+    gint64 expire_time = time(NULL) - trash_expire_interval;
     char *sql = "SELECT repo_id FROM RepoTrash WHERE del_time <= ?";
 
     int ret = seaf_db_statement_foreach_row (seaf->db, sql,
@@ -280,7 +287,6 @@ static void
 init_scan_trash_timer (SeafRepoManagerPriv *priv, GKeyFile *config)
 {
     int scan_days;
-    int expire_days;
     GError *error = NULL;
 
     scan_days = g_key_file_get_integer (config,
@@ -291,15 +297,6 @@ init_scan_trash_timer (SeafRepoManagerPriv *priv, GKeyFile *config)
        g_clear_error (&error);
     }
 
-    expire_days = g_key_file_get_integer (config,
-                                          "library_trash", "expire_days",
-                                          &error);
-    if (error) {
-        expire_days = TRASH_EXPIRE_DAYS;
-        g_clear_error (&error);
-    }
-
-    priv->trash_expire_interval = expire_days * 24 * 3600;
     priv->scan_trash_timer = ccnet_timer_new (scan_trash, NULL,
                                               scan_days * 24 * 3600 * 1000);
 }
@@ -1933,7 +1930,8 @@ seaf_repo_manager_get_repo_history_limit (SeafRepoManager *mgr,
                                          &per_repo_days, 1, "string", r_repo_id);
     if (ret == 0) {
         // limit not set, return global one
-        per_repo_days = mgr->seaf->keep_history_days;
+        per_repo_days= seaf_cfg_manager_get_config_int (mgr->seaf->cfg_mgr,
+                                                        "history", "keep_days");
     }
 
     // db error or limit set as negative, means keep full history, return -1
@@ -2468,6 +2466,7 @@ collect_trash_repo (SeafDBRow *row, void *data)
                                                                     repo_id, head_id);
     if (!commit) {
         seaf_warning ("Commit %s not found in repo %s\n", head_id, repo_id);
+        g_object_unref (trash_repo);
         return FALSE;
     }
     g_object_set (trash_repo, "encrypted", commit->encrypted, NULL);

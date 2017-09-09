@@ -77,6 +77,7 @@ seaf_server_SOURCES = \
 	fileserver-config.c \
 	../common/seaf-db.c \
 	../common/branch-mgr.c ../common/fs-mgr.c \
+	../common/config-mgr.c \
 	repo-mgr.c ../common/commit-mgr.c \
 	../common/log.c ../common/object-list.c \
 	../common/rpc-service.c \
