@@ -19,6 +19,7 @@ struct _HttpServerStruct {
     gint64 fixed_block_size;
     int web_token_expire_time;
     int max_indexing_threads;
+    int worker_threads;
 };
 
 typedef struct _HttpServerStruct HttpServerStruct;
