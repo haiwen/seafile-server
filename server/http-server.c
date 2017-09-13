@@ -30,7 +30,7 @@
 
 #define DEFAULT_BIND_HOST "0.0.0.0"
 #define DEFAULT_BIND_PORT 8082
-#define DEFAULT_THREADS 50
+#define DEFAULT_WORKER_THREADS 10
 #define DEFAULT_MAX_DOWNLOAD_DIR_SIZE 100 * ((gint64)1 << 20) /* 100MB */
 #define DEFAULT_MAX_INDEXING_THREADS 1
 #define DEFAULT_FIXED_BLOCK_SIZE ((gint64)1 << 23) /* 8MB */
@@ -112,6 +112,7 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     GError *error = NULL;
     char *host = NULL;
     int port = 0;
+    int worker_threads;
     int web_token_expire_time;
     int fixed_block_size_mb;
     int max_upload_size_mb;
@@ -147,6 +148,19 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
         g_clear_error (&error);
     }
 
+    worker_threads = fileserver_config_get_integer (session->config, "worker_threads",
+                                                    &error);
+    if (error) {
+        htp_server->worker_threads = DEFAULT_WORKER_THREADS;
+        g_clear_error (&error);
+    } else {
+        if (worker_threads <= 0)
+            htp_server->worker_threads = DEFAULT_WORKER_THREADS;
+        else
+            htp_server->worker_threads = worker_threads;
+    }
+    seaf_message ("fileserver: worker_threads = %d\n", htp_server->worker_threads);
+
     fixed_block_size_mb = fileserver_config_get_integer (session->config,
                                                   "fixed_block_size",
                                                   &error);
@@ -159,6 +173,8 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
         else
             htp_server->fixed_block_size = fixed_block_size_mb * ((gint64)1 << 20);
     }
+    seaf_message ("fileserver: fixed_block_size = %"G_GINT64_FORMAT"\n",
+                  htp_server->fixed_block_size);
 
     web_token_expire_time = fileserver_config_get_integer (session->config,
                                                 "web_token_expire_time",
@@ -172,6 +188,8 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
         else
             htp_server->web_token_expire_time = web_token_expire_time;
     }
+    seaf_message ("fileserver: web_token_expire_time = %d\n",
+                  htp_server->web_token_expire_time);
 
     max_upload_size_mb = fileserver_config_get_integer (session->config,
                                                  "max_upload_size",
@@ -185,6 +203,8 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
         else
             htp_server->max_upload_size = max_upload_size_mb * ((gint64)1 << 20);
     }
+    seaf_message ("fileserver: max_upload_size = %"G_GINT64_FORMAT"\n",
+                  htp_server->max_upload_size);
 
     max_download_dir_size_mb = fileserver_config_get_integer (session->config,
                                                        "max_download_dir_size",
@@ -198,6 +218,8 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
         else
             htp_server->max_download_dir_size = max_download_dir_size_mb * ((gint64)1 << 20);
     }
+    seaf_message ("fileserver: max_download_dir_size = %"G_GINT64_FORMAT"\n",
+                  htp_server->max_download_dir_size);
 
     max_indexing_threads = fileserver_config_get_integer (session->config,
                                                           "max_indexing_threads",
@@ -211,6 +233,8 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
         else
             htp_server->max_indexing_threads = max_indexing_threads;
     }
+    seaf_message ("fileserver: max_indexing_threads = %d\n",
+                  htp_server->max_indexing_threads);
 
     encoding = g_key_file_get_string (session->config,
                                       "zip", "windows_encoding",
@@ -2022,7 +2046,7 @@ http_server_run (void *arg)
 
     http_request_init (server);
 
-    evhtp_use_threads (priv->evhtp, NULL, DEFAULT_THREADS, NULL);
+    evhtp_use_threads (priv->evhtp, NULL, server->worker_threads, NULL);
 
     struct timeval tv;
     tv.tv_sec = CLEANING_INTERVAL_SEC;

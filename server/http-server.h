@@ -21,6 +21,7 @@ struct _HttpServerStruct {
     gint64 max_download_dir_size;
     int web_token_expire_time;
     int max_indexing_threads;
+    int worker_threads;
 };
 
 typedef struct _HttpServerStruct HttpServerStruct;
