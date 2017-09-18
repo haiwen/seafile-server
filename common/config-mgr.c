@@ -203,8 +203,7 @@ seaf_cfg_manager_get_config (SeafCfgManager *mgr, const char *group, const char 
                                                2, "string", group, "string", key);
     if (!value) {
         value = g_key_file_get_string (mgr->config, group, key, NULL);
-        if (value)
-            seaf_cfg_manager_set_config (mgr, group, key, value);
     }
+
     return value;
 }
