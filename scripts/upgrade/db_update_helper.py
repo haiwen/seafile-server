@@ -241,6 +241,7 @@ class CcnetSQLiteDB(object):
             'GroupMgr/groupmgr.db',
             'misc/config.db',
             'OrgMgr/orgmgr.db',
+            'PeerMgr/usermgr.db',
         )
         for db in dbs:
             if os.path.splitext(os.path.basename(db))[0] == dbname:
