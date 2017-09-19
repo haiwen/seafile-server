@@ -13,6 +13,7 @@ typedef struct SizeSchedulerPriv {
     pthread_mutex_t q_lock;
     GQueue *repo_size_job_queue;
     int n_running_repo_size_jobs;
+    gint64 last_print_queue_size_time;
 
     CcnetTimer *sched_timer;
 } SizeSchedulerPriv;
@@ -78,6 +79,8 @@ schedule_repo_size_computation (SizeScheduler *scheduler, const char *repo_id)
     pthread_mutex_unlock (&scheduler->priv->q_lock);
 }
 
+#define PRINT_QUEUE_SIZE_INTERVAL 300
+
 static int
 schedule_pulse (void *vscheduler)
 {
@@ -85,8 +88,14 @@ schedule_pulse (void *vscheduler)
     RepoSizeJob *job;
 
     while (sched->priv->n_running_repo_size_jobs < CONCURRENT_JOBS) {
+        gint64 now = (gint64)time(NULL);
         pthread_mutex_lock (&sched->priv->q_lock);
         job = (RepoSizeJob *)g_queue_pop_head (sched->priv->repo_size_job_queue);
+        if (now - sched->priv->last_print_queue_size_time >= PRINT_QUEUE_SIZE_INTERVAL) {
+            seaf_message ("Repo size compute queue size is %u\n",
+                          sched->priv->repo_size_job_queue->length);
+            sched->priv->last_print_queue_size_time = now;
+        }
         pthread_mutex_unlock (&sched->priv->q_lock);
 
         if (!job)
@@ -98,9 +107,7 @@ schedule_pulse (void *vscheduler)
                                                   job);
         if (ret < 0) {
             seaf_warning ("[scheduler] failed to start compute job.\n");
-            pthread_mutex_lock (&sched->priv->q_lock);
-            g_queue_push_head (sched->priv->repo_size_job_queue, job);
-            pthread_mutex_unlock (&sched->priv->q_lock);
+            g_free (job);
             break;
         }
         ++(sched->priv->n_running_repo_size_jobs);
@@ -120,15 +127,12 @@ static gboolean get_head_id (SeafDBRow *row, void *data)
     return FALSE;
 }
 
-#define SET_SIZE_ERROR -1
-#define SET_SIZE_CONFLICT -2
-
 static int
-set_repo_size (SeafDB *db,
-               const char *repo_id,
-               const char *old_head_id,
-               const char *new_head_id,
-               gint64 size)
+set_repo_size_and_file_count (SeafDB *db,
+                              const char *repo_id,
+                              const char *new_head_id,
+                              gint64 size,
+                              gint64 file_count)
 {
     SeafDBTrans *trans;
     char *sql;
@@ -139,24 +143,14 @@ set_repo_size (SeafDB *db,
     if (!trans)
         return -1;
 
-    switch (seaf_db_type (db)) {
-    case SEAF_DB_TYPE_MYSQL:
-    case SEAF_DB_TYPE_PGSQL:
-        sql = "SELECT head_id FROM RepoSize WHERE repo_id=? FOR UPDATE";
-        break;
-    case SEAF_DB_TYPE_SQLITE:
-        sql = "SELECT head_id FROM RepoSize WHERE repo_id=?";
-        break;
-    default:
-        g_return_val_if_reached (-1);
-    }
+    sql = "SELECT head_id FROM RepoSize WHERE repo_id=?";
 
     int n = seaf_db_trans_foreach_selected_row (trans, sql,
                                                 get_head_id,
                                                 cached_head_id,
                                                 1, "string", repo_id);
     if (n < 0) {
-        ret = SET_SIZE_ERROR;
+        ret = -1;
         goto rollback;
     }
 
@@ -165,27 +159,47 @@ set_repo_size (SeafDB *db,
         sql = "INSERT INTO RepoSize VALUES (?, ?, ?)";
         if (seaf_db_trans_query (trans, sql, 3, "string", repo_id, "int64", size,
                                  "string", new_head_id) < 0) {
-            ret = SET_SIZE_ERROR;
+            ret = -1;
             goto rollback;
         }
     } else {
-        if (strcmp (old_head_id, cached_head_id) != 0) {
-            seaf_debug ("[size sched] Size update conflict for repo %s, rollback.\n",
-                        repo_id);
-            ret = SET_SIZE_CONFLICT;
-            goto rollback;
-        }
-
         sql = "UPDATE RepoSize SET size = ?, head_id = ? WHERE repo_id = ?";
         if (seaf_db_trans_query (trans, sql, 3, "int64", size, "string", new_head_id,
                                  "string", repo_id) < 0) {
-            ret = SET_SIZE_ERROR;
+            ret = -1;
+            goto rollback;
+        }
+    }
+
+    gboolean exist;
+    gboolean db_err;
+
+    exist = seaf_db_trans_check_for_existence (trans,
+                                               "SELECT 1 FROM RepoFileCount WHERE repo_id=?",
+                                               &db_err, 1, "string", repo_id);
+    if (db_err) {
+        ret = -1;
+        goto rollback;
+    }
+
+    if (exist) {
+        if (seaf_db_trans_query (trans,
+                                 "UPDATE RepoFileCount SET file_count=? WHERE repo_id=?",
+                                 2, "int64", file_count, "string", repo_id) < 0) {
+            ret = -1;
+            goto rollback;
+        }
+    } else {
+        if (seaf_db_trans_query (trans,
+                                 "INSERT INTO RepoFileCount (repo_id,file_count) VALUES (?,?)",
+                                 2, "string", repo_id, "int64", file_count) < 0) {
+            ret = -1;
             goto rollback;
         }
     }
 
     if (seaf_db_commit (trans) < 0) {
-        ret = SET_SIZE_ERROR;
+        ret = -1;
         goto rollback;
     }
 
@@ -208,29 +222,6 @@ get_cached_head_id (SeafDB *db, const char *repo_id)
     return seaf_db_statement_get_string (db, sql, 1, "string", repo_id);
 }
 
-static void
-set_file_count (SeafDB *db, const char *repo_id, gint64 file_count)
-{
-    gboolean exist;
-    gboolean db_err;
-
-    exist = seaf_db_statement_exists (db,
-                                      "SELECT 1 FROM RepoFileCount WHERE repo_id=?",
-                                      &db_err, 1, "string", repo_id);
-    if (db_err)
-        return;
-
-    if (exist) {
-        seaf_db_statement_query (db,
-                                 "UPDATE RepoFileCount SET file_count=? WHERE repo_id=?",
-                                 2, "int64", file_count, "string", repo_id);
-    } else {
-        seaf_db_statement_query (db,
-                                 "INSERT INTO RepoFileCount (repo_id,file_count) VALUES (?,?)",
-                                 2, "string", repo_id, "int64", file_count);
-    }
-}
-
 static void*
 compute_repo_size (void *vjob)
 {
@@ -240,8 +231,8 @@ compute_repo_size (void *vjob)
     SeafCommit *head = NULL;
     char *cached_head_id = NULL;
     gint64 size = 0;
+    gint64 file_count = 0;
 
-retry:
     repo = seaf_repo_manager_get_repo (sched->seaf->repo_mgr, job->repo_id);
     if (!repo) {
         seaf_warning ("[scheduler] failed to get repo %s.\n", job->repo_id);
@@ -270,27 +261,23 @@ retry:
         goto out;
     }
 
-    int ret = set_repo_size (sched->seaf->db,
-                             job->repo_id,
-                             cached_head_id,
-                             repo->head->commit_id,
-                             size);
-    if (ret == SET_SIZE_ERROR)
-        seaf_warning ("[scheduler] failed to store repo size %s.\n", job->repo_id);
-    else if (ret == SET_SIZE_CONFLICT) {
-        size = 0;
-        seaf_repo_unref (repo);
-        seaf_commit_unref (head);
-        g_free (cached_head_id);
-        repo = NULL;
-        head = NULL;
-        cached_head_id = NULL;
-        goto retry;
-    } else {
-        gint64 file_count = seaf_fs_manager_count_fs_files (sched->seaf->fs_mgr,
-                                                            repo->store_id, repo->version,
-                                                            head->root_id);
-        set_file_count (sched->seaf->db, repo->id, file_count);
+    file_count = seaf_fs_manager_count_fs_files (sched->seaf->fs_mgr,
+                                                 repo->store_id, repo->version,
+                                                 head->root_id);
+    if (file_count < 0) {
+        seaf_warning ("[scheduler] Failed to compute file count for repo %s.\n",
+                      repo->id);
+        goto out;
+    }
+
+    int ret = set_repo_size_and_file_count (sched->seaf->db,
+                                            job->repo_id,
+                                            repo->head->commit_id,
+                                            size,
+                                            file_count);
+    if (ret < 0) {
+        seaf_warning ("[scheduler] failed to store repo size and file count %s.\n", job->repo_id);
+        goto out;
     }
 
 out:
