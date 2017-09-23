@@ -560,17 +560,13 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
                               evhtp_header_new("Content-Length", file_size, 1, 1));
 
     if (strcmp(operation, "download") == 0) {
-        if (test_firefox (req)) {
-            snprintf(cont_filename, SEAF_PATH_MAX,
-                     "attachment;filename*=\"utf8\' \'%s\"", filename);
-        } else {
-            snprintf(cont_filename, SEAF_PATH_MAX,
-                     "attachment;filename=\"%s\"", filename);
-        }
+        /* Safari doesn't support 'utf8', 'utf-8' is compatible with most of browsers. */
+        snprintf(cont_filename, SEAF_PATH_MAX,
+                 "attachment;filename*=\"utf-8\' \'%s\"", filename);
     } else {
         if (test_firefox (req)) {
             snprintf(cont_filename, SEAF_PATH_MAX,
-                     "inline;filename*=\"utf8\' \'%s\"", filename);
+                     "inline;filename*=\"utf-8\' \'%s\"", filename);
         } else {
             snprintf(cont_filename, SEAF_PATH_MAX,
                      "inline;filename=\"%s\"", filename);
@@ -847,7 +843,7 @@ set_resp_disposition (evhtp_request_t *req, const char *operation,
 
     if (strcmp(operation, "download") == 0) {
         if (test_firefox (req)) {
-            cont_filename = g_strdup_printf("attachment;filename*=\"utf8\' \'%s\"",
+            cont_filename = g_strdup_printf("attachment;filename*=\"utf-8\' \'%s\"",
                                             filename);
 
         } else {
@@ -855,7 +851,7 @@ set_resp_disposition (evhtp_request_t *req, const char *operation,
         }
     } else {
         if (test_firefox (req)) {
-            cont_filename = g_strdup_printf("inline;filename*=\"utf8\' \'%s\"",
+            cont_filename = g_strdup_printf("inline;filename*=\"utf-8\' \'%s\"",
                                             filename);
         } else {
             cont_filename = g_strdup_printf("inline;filename=\"%s\"", filename);
@@ -1002,7 +998,7 @@ start_download_zip_file (evhtp_request_t *req, const char *token,
 
     if (test_firefox (req)) {
         snprintf(cont_filename, SEAF_PATH_MAX,
-                 "attachment;filename*=\"utf8\' \'%s.zip\"", zipname);
+                 "attachment;filename*=\"utf-8\' \'%s.zip\"", zipname);
     } else {
         snprintf(cont_filename, SEAF_PATH_MAX,
                  "attachment;filename=\"%s.zip\"", zipname);
@@ -1332,7 +1328,7 @@ do_block(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
 
     if (test_firefox (req)) {
         snprintf(cont_filename, SEAF_PATH_MAX,
-                 "attachment;filename*=\"utf8\' \'%s\"", blk_id);
+                 "attachment;filename*=\"utf-8\' \'%s\"", blk_id);
     } else {
         snprintf(cont_filename, SEAF_PATH_MAX,
                  "attachment;filename=\"%s\"", blk_id);
