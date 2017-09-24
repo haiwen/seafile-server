@@ -5,6 +5,7 @@
 import argparse
 import sys
 import os
+import platform
 import time
 import re
 import shutil
@@ -170,7 +171,12 @@ Press ENTER to continue
         variable which is set in setup-seafile-mysql.sh
 
         '''
-        return os.environ['PYTHON']
+        try:
+            python_executable = os.environ['PYTHON']
+        except KeyError:
+            return sys.executable + '2'
+        else:
+            return python_executable
 
     @staticmethod
     def read_config(fn):
@@ -298,10 +304,16 @@ class InvalidParams(Exception):
 
 class EnvManager(object):
     '''System environment and directory layout'''
-    def __init__(self):
-        self.install_path = os.path.dirname(os.path.abspath(__file__))
+    def __init__(self):        
+        if platform.node() == 'arch':
+            self.install_path = os.path.dirname(
+                                os.path.dirname(os.path.abspath(__file__)))
+            self.bin_dir = '/usr/bin'
+        else:
+            self.install_path = os.path.dirname(os.path.abspath(__file__))
+            self.bin_dir = os.path.join(self.install_path, 'seafile', 'bin')
+        
         self.top_dir = os.path.dirname(self.install_path)
-        self.bin_dir = os.path.join(self.install_path, 'seafile', 'bin')
         self.central_config_dir = os.path.join(self.top_dir, 'conf')
         Utils.must_mkdir(self.central_config_dir)
 
@@ -311,10 +323,12 @@ class EnvManager(object):
                 Utils.error('"%s" not found' % path)
 
         paths = [
-            os.path.join(self.install_path, 'seafile'),
             os.path.join(self.install_path, 'seahub'),
             os.path.join(self.install_path, 'runtime'),
         ]
+        
+        if platform.node() != 'arch':
+            paths.append(os.path.join(self.install_path, 'seafile'))
 
         for path in paths:
             error_if_not_exists(path)
