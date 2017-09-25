@@ -174,7 +174,7 @@ Press ENTER to continue
         try:
             python_executable = os.environ['PYTHON']
         except KeyError:
-            return sys.executable + '2'
+            return sys.executable
         else:
             return python_executable
 
@@ -304,7 +304,7 @@ class InvalidParams(Exception):
 
 class EnvManager(object):
     '''System environment and directory layout'''
-    def __init__(self):        
+    def __init__(self):
         if platform.node() == 'arch':
             self.install_path = os.path.dirname(
                                 os.path.dirname(os.path.abspath(__file__)))
@@ -312,7 +312,7 @@ class EnvManager(object):
         else:
             self.install_path = os.path.dirname(os.path.abspath(__file__))
             self.bin_dir = os.path.join(self.install_path, 'seafile', 'bin')
-        
+
         self.top_dir = os.path.dirname(self.install_path)
         self.central_config_dir = os.path.join(self.top_dir, 'conf')
         Utils.must_mkdir(self.central_config_dir)
@@ -326,7 +326,7 @@ class EnvManager(object):
             os.path.join(self.install_path, 'seahub'),
             os.path.join(self.install_path, 'runtime'),
         ]
-        
+
         if platform.node() != 'arch':
             paths.append(os.path.join(self.install_path, 'seafile'))
 
@@ -1487,3 +1487,4 @@ if __name__ == '__main__':
         print
         print Utils.highlight('The setup process is aborted')
         print
+
