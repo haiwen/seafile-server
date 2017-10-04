@@ -170,7 +170,12 @@ Press ENTER to continue
         variable which is set in setup-seafile-mysql.sh
 
         '''
-        return os.environ['PYTHON']
+        try:
+            python_executable = os.environ['PYTHON']
+        except KeyError:
+            return sys.executable
+        else:
+            return python_executable
 
     @staticmethod
     def read_config(fn):
