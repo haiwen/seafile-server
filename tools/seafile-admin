@@ -861,6 +861,12 @@ def check_necessary_files():
         os.path.join(cwd, 'conf', 'seahub_settings.py'),
     ]
 
+    with open(files[3], 'r') as f:
+        for line in f:
+            if 'DATABASES' in line:
+                del(files[2])
+                break
+
     for fpath in files:
         if not os.path.exists(fpath):
             error('%s not found' % fpath)
