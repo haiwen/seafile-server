@@ -103,7 +103,7 @@ generate_unique_filename (const char *file, GList *entries)
 
     unique_name = g_strdup(file);
     split_filename (unique_name, &name, &ext);
-    while (filename_exists (entries, unique_name) && i <= 16) {
+    while (filename_exists (entries, unique_name) && i <= 100) {
         g_free (unique_name);
         if (ext)
             unique_name = g_strdup_printf ("%s (%d).%s", name, i, ext);
@@ -115,7 +115,7 @@ generate_unique_filename (const char *file, GList *entries)
     g_free (name);
     g_free (ext);
 
-    if (i <= 16)
+    if (i <= 100)
         return unique_name;
     else {
         g_free (unique_name);
