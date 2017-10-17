@@ -290,7 +290,7 @@ char *
 get_system_default_repo_id (SeafileSession *session)
 {
     char *sql = "SELECT info_value FROM SystemInfo WHERE info_key='default_repo_id'";
-    return seaf_db_get_string (session->db, sql);
+    return seaf_db_statement_get_string (session->db, sql, 0);
 }
 
 int
@@ -298,16 +298,16 @@ set_system_default_repo_id (SeafileSession *session, const char *repo_id)
 {
     char sql[256];
     snprintf (sql, sizeof(sql),
-              "INSERT INTO SystemInfo VALUES ('default_repo_id', '%s')",
-              repo_id);
-    return seaf_db_query (session->db, sql);
+              "INSERT INTO SystemInfo VALUES ('default_repo_id', ?)");
+
+    return seaf_db_statement_query (session->db, sql, 1, "string", repo_id);
 }
 
 static int
 del_system_default_repo_id (SeafileSession *session)
 {
     const char *sql = "DELETE FROM SystemInfo WHERE info_key='default_repo_id'";
-    return seaf_db_query (session->db, sql);
+    return seaf_db_statement_query (session->db, sql, 0);
 }
 
 #define DEFAULT_TEMPLATE_DIR "library-template"
@@ -422,7 +422,7 @@ schedule_create_system_default_repo (SeafileSession *session)
 {
     char *sql = "CREATE TABLE IF NOT EXISTS SystemInfo "
         "(info_key VARCHAR(256), info_value VARCHAR(1024))";
-    if (seaf_db_query (session->db, sql) < 0)
+    if (seaf_db_statement_query (session->db, sql, 0) < 0)
         return;
 
     ccnet_job_manager_schedule_job (session->job_mgr,

@@ -85,67 +85,67 @@ seaf_quota_manager_init (SeafQuotaManager *mgr)
     case SEAF_DB_TYPE_PGSQL:
         sql = "CREATE TABLE IF NOT EXISTS UserQuota (\"user\" VARCHAR(255) PRIMARY KEY,"
             "quota BIGINT)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS UserShareQuota (\"user\" VARCHAR(255) PRIMARY KEY,"
             "quota BIGINT)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS OrgQuota (org_id INTEGER PRIMARY KEY,"
             "quota BIGINT)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS OrgUserQuota (org_id INTEGER,"
             "\"user\" VARCHAR(255), quota BIGINT, PRIMARY KEY (org_id, \"user\"))";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         break;
     case SEAF_DB_TYPE_SQLITE:
         sql = "CREATE TABLE IF NOT EXISTS UserQuota (user VARCHAR(255) PRIMARY KEY,"
             "quota BIGINT)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS UserShareQuota (user VARCHAR(255) PRIMARY KEY,"
             "quota BIGINT)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS OrgQuota (org_id INTEGER PRIMARY KEY,"
             "quota BIGINT)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS OrgUserQuota (org_id INTEGER,"
             "user VARCHAR(255), quota BIGINT, PRIMARY KEY (org_id, user))";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         break;
     case SEAF_DB_TYPE_MYSQL:
         sql = "CREATE TABLE IF NOT EXISTS UserQuota (user VARCHAR(255) PRIMARY KEY,"
             "quota BIGINT) ENGINE=INNODB";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS UserShareQuota (user VARCHAR(255) PRIMARY KEY,"
             "quota BIGINT) ENGINE=INNODB";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS OrgQuota (org_id INTEGER PRIMARY KEY,"
             "quota BIGINT) ENGINE=INNODB";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS OrgUserQuota (org_id INTEGER,"
             "user VARCHAR(255), quota BIGINT, PRIMARY KEY (org_id, user))"
             "ENGINE=INNODB";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
 
         break;

@@ -157,21 +157,21 @@ open_db (SeafBranchManager *mgr)
         sql = "CREATE TABLE IF NOT EXISTS Branch ("
             "name VARCHAR(10), repo_id CHAR(41), commit_id CHAR(41),"
             "PRIMARY KEY (repo_id, name)) ENGINE = INNODB";
-        if (seaf_db_query (mgr->seaf->db, sql) < 0)
+        if (seaf_db_statement_query (mgr->seaf->db, sql, 0) < 0)
             return -1;
         break;
     case SEAF_DB_TYPE_PGSQL:
         sql = "CREATE TABLE IF NOT EXISTS Branch ("
             "name VARCHAR(10), repo_id CHAR(40), commit_id CHAR(40),"
             "PRIMARY KEY (repo_id, name))";
-        if (seaf_db_query (mgr->seaf->db, sql) < 0)
+        if (seaf_db_statement_query (mgr->seaf->db, sql, 0) < 0)
             return -1;
         break;
     case SEAF_DB_TYPE_SQLITE:
         sql = "CREATE TABLE IF NOT EXISTS Branch ("
             "name VARCHAR(10), repo_id CHAR(41), commit_id CHAR(41),"
             "PRIMARY KEY (repo_id, name))";
-        if (seaf_db_query (mgr->seaf->db, sql) < 0)
+        if (seaf_db_statement_query (mgr->seaf->db, sql, 0) < 0)
             return -1;
         break;
     }

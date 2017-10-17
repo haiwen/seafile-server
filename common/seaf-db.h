@@ -42,16 +42,6 @@ seaf_db_free (SeafDB *db);
 int
 seaf_db_type (SeafDB *db);
 
-int
-seaf_db_query (SeafDB *db, const char *sql);
-
-gboolean
-seaf_db_check_for_existence (SeafDB *db, const char *sql, gboolean *db_err);
-
-int
-seaf_db_foreach_selected_row (SeafDB *db, const char *sql, 
-                              SeafDBRowFunc callback, void *data);
-
 const char *
 seaf_db_row_get_column_text (SeafDBRow *row, guint32 idx);
 

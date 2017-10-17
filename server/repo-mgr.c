@@ -935,7 +935,7 @@ create_tables_mysql (SeafRepoManager *mgr)
 
     sql = "CREATE TABLE IF NOT EXISTS Repo (repo_id CHAR(37) PRIMARY KEY)"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoOwner ("
@@ -943,7 +943,7 @@ create_tables_mysql (SeafRepoManager *mgr)
         "owner_id VARCHAR(255),"
         "INDEX (owner_id))"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoGroup (repo_id CHAR(37), "
@@ -951,14 +951,14 @@ create_tables_mysql (SeafRepoManager *mgr)
         "UNIQUE INDEX (group_id, repo_id), "
         "INDEX (repo_id), INDEX (user_name))"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS InnerPubRepo ("
         "repo_id CHAR(37) PRIMARY KEY,"
         "permission CHAR(15))"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoUserToken ("
@@ -967,7 +967,7 @@ create_tables_mysql (SeafRepoManager *mgr)
         "token CHAR(41), "
         "UNIQUE INDEX (repo_id, token), INDEX (email))"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo ("
@@ -978,13 +978,13 @@ create_tables_mysql (SeafRepoManager *mgr)
         "sync_time BIGINT, "
         "client_ver VARCHAR(20))"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoHead ("
         "repo_id CHAR(37) PRIMARY KEY, branch_name VARCHAR(10))"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoSize ("
@@ -992,48 +992,48 @@ create_tables_mysql (SeafRepoManager *mgr)
         "size BIGINT UNSIGNED,"
         "head_id CHAR(41))"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoHistoryLimit ("
         "repo_id CHAR(37) PRIMARY KEY, days INTEGER)"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoValidSince ("
         "repo_id CHAR(37) PRIMARY KEY, timestamp BIGINT)"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS WebAP (repo_id CHAR(37) PRIMARY KEY, "
         "access_property CHAR(10))"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS VirtualRepo (repo_id CHAR(36) PRIMARY KEY,"
         "origin_repo CHAR(36), path TEXT, base_commit CHAR(40), INDEX(origin_repo))"
         "ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS GarbageRepos (repo_id CHAR(36) PRIMARY KEY)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY,"
         "repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255),"
         "size BIGINT(20), org_id INTEGER, del_time BIGINT, "
         "INDEX(owner_id), INDEX(org_id))ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoFileCount ("
         "repo_id CHAR(36) PRIMARY KEY,"
         "file_count BIGINT UNSIGNED)ENGINE=INNODB";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, "
@@ -1052,7 +1052,7 @@ create_tables_sqlite (SeafRepoManager *mgr)
     char *sql;
 
     sql = "CREATE TABLE IF NOT EXISTS Repo (repo_id CHAR(37) PRIMARY KEY)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     /* Owner */
@@ -1060,32 +1060,32 @@ create_tables_sqlite (SeafRepoManager *mgr)
     sql = "CREATE TABLE IF NOT EXISTS RepoOwner ("
         "repo_id CHAR(37) PRIMARY KEY, "
         "owner_id TEXT)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
     sql = "CREATE INDEX IF NOT EXISTS OwnerIndex ON RepoOwner (owner_id)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     /* Group repo */
 
     sql = "CREATE TABLE IF NOT EXISTS RepoGroup (repo_id CHAR(37), "
         "group_id INTEGER, user_name TEXT, permission CHAR(15))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE UNIQUE INDEX IF NOT EXISTS groupid_repoid_indx on "
         "RepoGroup (group_id, repo_id)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE INDEX IF NOT EXISTS repogroup_repoid_index on "
         "RepoGroup (repo_id)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE INDEX IF NOT EXISTS repogroup_username_indx on "
         "RepoGroup (user_name)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     /* Public repo */
@@ -1093,24 +1093,24 @@ create_tables_sqlite (SeafRepoManager *mgr)
     sql = "CREATE TABLE IF NOT EXISTS InnerPubRepo ("
         "repo_id CHAR(37) PRIMARY KEY,"
         "permission CHAR(15))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoUserToken ("
         "repo_id CHAR(37), "
         "email VARCHAR(255), "
         "token CHAR(41))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE UNIQUE INDEX IF NOT EXISTS repo_token_indx on "
         "RepoUserToken (repo_id, token)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE INDEX IF NOT EXISTS repo_token_email_indx on "
         "RepoUserToken (email)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo ("
@@ -1120,68 +1120,68 @@ create_tables_sqlite (SeafRepoManager *mgr)
         "peer_name VARCHAR(255), "
         "sync_time BIGINT, "
         "client_ver VARCHAR(20))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoHead ("
         "repo_id CHAR(37) PRIMARY KEY, branch_name VARCHAR(10))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoSize ("
         "repo_id CHAR(37) PRIMARY KEY,"
         "size BIGINT UNSIGNED,"
         "head_id CHAR(41))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoHistoryLimit ("
         "repo_id CHAR(37) PRIMARY KEY, days INTEGER)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoValidSince ("
         "repo_id CHAR(37) PRIMARY KEY, timestamp BIGINT)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS WebAP (repo_id CHAR(37) PRIMARY KEY, "
         "access_property CHAR(10))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS VirtualRepo (repo_id CHAR(36) PRIMARY KEY,"
         "origin_repo CHAR(36), path TEXT, base_commit CHAR(40))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE INDEX IF NOT EXISTS virtualrepo_origin_repo_idx "
         "ON VirtualRepo (origin_repo)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS GarbageRepos (repo_id CHAR(36) PRIMARY KEY)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY,"
         "repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255), size BIGINT UNSIGNED,"
         "org_id INTEGER, del_time BIGINT)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE INDEX IF NOT EXISTS repotrash_owner_id_idx ON RepoTrash(owner_id)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE INDEX IF NOT EXISTS repotrash_org_id_idx ON RepoTrash(org_id)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoFileCount ("
         "repo_id CHAR(36) PRIMARY KEY,"
         "file_count BIGINT UNSIGNED)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, "
@@ -1200,43 +1200,43 @@ create_tables_pgsql (SeafRepoManager *mgr)
     char *sql;
 
     sql = "CREATE TABLE IF NOT EXISTS Repo (repo_id CHAR(36) PRIMARY KEY)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoOwner ("
         "repo_id CHAR(36) PRIMARY KEY, "
         "owner_id VARCHAR(255))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     if (!pgsql_index_exists (db, "repoowner_owner_idx")) {
         sql = "CREATE INDEX repoowner_owner_idx ON RepoOwner (owner_id)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
     }
 
     sql = "CREATE TABLE IF NOT EXISTS RepoGroup (repo_id CHAR(36), "
         "group_id INTEGER, user_name VARCHAR(255), permission VARCHAR(15), "
         "UNIQUE (group_id, repo_id))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     if (!pgsql_index_exists (db, "repogroup_repoid_idx")) {
         sql = "CREATE INDEX repogroup_repoid_idx ON RepoGroup (repo_id)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
     }
 
     if (!pgsql_index_exists (db, "repogroup_username_idx")) {
         sql = "CREATE INDEX repogroup_username_idx ON RepoGroup (user_name)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
     }
 
     sql = "CREATE TABLE IF NOT EXISTS InnerPubRepo ("
         "repo_id CHAR(36) PRIMARY KEY,"
         "permission VARCHAR(15))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoUserToken ("
@@ -1244,12 +1244,12 @@ create_tables_pgsql (SeafRepoManager *mgr)
         "email VARCHAR(255), "
         "token CHAR(40), "
         "UNIQUE (repo_id, token))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     if (!pgsql_index_exists (db, "repousertoken_email_idx")) {
         sql = "CREATE INDEX repousertoken_email_idx ON RepoUserToken (email)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
     }
 
@@ -1260,72 +1260,72 @@ create_tables_pgsql (SeafRepoManager *mgr)
         "peer_name VARCHAR(255), "
         "sync_time BIGINT, "
         "client_ver VARCHAR(20))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoHead ("
         "repo_id CHAR(36) PRIMARY KEY, branch_name VARCHAR(10))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoSize ("
         "repo_id CHAR(36) PRIMARY KEY,"
         "size BIGINT,"
         "head_id CHAR(40))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoHistoryLimit ("
         "repo_id CHAR(36) PRIMARY KEY, days INTEGER)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoValidSince ("
         "repo_id CHAR(36) PRIMARY KEY, timestamp BIGINT)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS WebAP (repo_id CHAR(36) PRIMARY KEY, "
         "access_property VARCHAR(10))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS VirtualRepo (repo_id CHAR(36) PRIMARY KEY,"
         "origin_repo CHAR(36), path TEXT, base_commit CHAR(40))";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     if (!pgsql_index_exists (db, "virtualrepo_origin_repo_idx")) {
         sql = "CREATE INDEX virtualrepo_origin_repo_idx ON VirtualRepo (origin_repo)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
     }
 
     sql = "CREATE TABLE IF NOT EXISTS GarbageRepos (repo_id CHAR(36) PRIMARY KEY)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY,"
         "repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255), size bigint,"
         "org_id INTEGER, del_time BIGINT)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     if (!pgsql_index_exists (db, "repotrash_owner_id")) {
         sql = "CREATE INDEX repotrash_owner_id on RepoTrash(owner_id)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
     }
     if (!pgsql_index_exists (db, "repotrash_org_id")) {
         sql = "CREATE INDEX repotrash_org_id on RepoTrash(org_id)";
-        if (seaf_db_query (db, sql) < 0)
+        if (seaf_db_statement_query (db, sql, 0) < 0)
             return -1;
     }
 
     sql = "CREATE TABLE IF NOT EXISTS RepoFileCount ("
         "repo_id CHAR(36) PRIMARY KEY,"
         "file_count BIGINT)";
-    if (seaf_db_query (db, sql) < 0)
+    if (seaf_db_statement_query (db, sql, 0) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, "
@@ -2036,23 +2036,29 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
         gboolean err;
         snprintf(sql, sizeof(sql),
                  "SELECT repo_id FROM RepoOwner WHERE repo_id=?");
-        if (seaf_db_statement_exists (db, sql, &err,
-                                      1, "string", repo_id))
-            snprintf(sql, sizeof(sql),
-                     "UPDATE RepoOwner SET owner_id='%s' WHERE "
-                     "repo_id='%s'", email, repo_id);
-        else
-            snprintf(sql, sizeof(sql),
-                     "INSERT INTO RepoOwner VALUES ('%s', '%s')",
-                     repo_id, email);
+        gboolean exists = seaf_db_statement_exists (db, sql, &err, 1, "string", repo_id);
         if (err) {
             ret = -1;
             goto out;
         }
-
-        if (seaf_db_query (db, sql) < 0) {
-            ret = -1;
-            goto out;
+        if (exists) {
+            snprintf(sql, sizeof(sql),
+                     "UPDATE RepoOwner SET owner_id=? WHERE repo_id=?");
+            if (seaf_db_statement_query (db, sql, 2,
+                                         "string", email,
+                                         "string", repo_id) < 0) {
+                ret = -1;
+                goto out;
+            }
+        } else {
+            snprintf(sql, sizeof(sql),
+                     "INSERT INTO RepoOwner VALUES (?, ?)");
+            if (seaf_db_statement_query (db, sql, 2,
+                                         "string", repo_id,
+                                         "string", email) < 0) {
+                ret = -1;
+                goto out;
+            }
         }
     } else {
         if (seaf_db_statement_query (db, "REPLACE INTO RepoOwner VALUES (?, ?)",
@@ -2150,8 +2156,8 @@ seaf_repo_manager_get_orphan_repo_list (SeafRepoManager *mgr)
               "RepoOwner ON Repo.repo_id = RepoOwner.repo_id WHERE "
               "RepoOwner.owner_id is NULL");
 
-    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql,
-                                      collect_repo_id, &id_list) < 0)
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_repo_id, &id_list, 0) < 0)
         return NULL;
 
     for (ptr = id_list; ptr; ptr = ptr->next) {
@@ -2320,8 +2326,8 @@ seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
 
     snprintf (sql, 256, "SELECT repo_id FROM Repo");
 
-    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql, 
-                                      collect_repo_id, &ret) < 0)
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_repo_id, &ret, 0) < 0)
         return NULL;
 
     return ret;
@@ -2400,8 +2406,8 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit)
 gint64
 seaf_repo_manager_count_repos (SeafRepoManager *mgr, GError **error)
 {
-    gint64 num = seaf_db_get_int64 (mgr->seaf->db,
-                                    "SELECT COUNT(repo_id) FROM Repo");
+    gint64 num = seaf_db_statement_get_int64 (mgr->seaf->db,
+                                              "SELECT COUNT(repo_id) FROM Repo", 0);
     if (num < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to count repos from db");
@@ -2419,7 +2425,7 @@ seaf_repo_manager_get_repo_ids_by_owner (SeafRepoManager *mgr,
 
     sql = "SELECT repo_id FROM RepoOwner WHERE owner_id=?";
 
-    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, 
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
                                        collect_repo_id, &ret,
                                        1, "string", email) < 0) {
         string_list_free (ret);
@@ -3182,18 +3188,23 @@ seaf_repo_manager_set_inner_pub_repo (SeafRepoManager *mgr,
         gboolean err;
         snprintf(sql, sizeof(sql),
                  "SELECT repo_id FROM InnerPubRepo WHERE repo_id=?");
-        if (seaf_db_statement_exists (db, sql, &err,
-                                      1, "string", repo_id))
-            snprintf(sql, sizeof(sql),
-                     "UPDATE InnerPubRepo SET permission='%s' "
-                     "WHERE repo_id='%s'", permission, repo_id);
-        else
-            snprintf(sql, sizeof(sql),
-                     "INSERT INTO InnerPubRepo VALUES "
-                     "('%s', '%s')", repo_id, permission);
+        gboolean exists = seaf_db_statement_exists (db, sql, &err, 1, "string", repo_id);
         if (err)
             return -1;
-        return seaf_db_query (db, sql);
+        if (exists) {
+            snprintf(sql, sizeof(sql),
+                     "UPDATE InnerPubRepo SET permission=? "
+                     "WHERE repo_id=?");
+            return seaf_db_statement_query (db, sql, 2,
+                                            "string", permission,
+                                            "string", repo_id);
+        } else {
+            snprintf(sql, sizeof(sql),
+                     "INSERT INTO InnerPubRepo VALUES (?, ?)");
+            return seaf_db_statement_query (db, sql, 2,
+                                            "string", repo_id,
+                                            "string", permission);
+        }
     } else {
         return seaf_db_statement_query (db,
                                         "REPLACE INTO InnerPubRepo VALUES (?, ?)",
@@ -3305,7 +3316,7 @@ seaf_repo_manager_count_inner_pub_repos (SeafRepoManager *mgr)
 
     snprintf (sql, 256, "SELECT COUNT(*) FROM InnerPubRepo");
 
-    return seaf_db_get_int64(mgr->seaf->db, sql);
+    return seaf_db_statement_get_int64 (mgr->seaf->db, sql, 0);
 }
 
 GList *
