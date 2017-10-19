@@ -5226,4 +5226,21 @@ seafile_get_server_config_boolean (const char *group, const char *key, GError **
 
     return seaf_cfg_manager_get_config_boolean (seaf->cfg_mgr, group, key);
 }
+
+char *
+seafile_get_shared_folder_perm (const char *repo_id,
+                                const char *shared_from,
+                                const char *shared_to,
+                                const char *path,
+                                int is_org,
+                                GError **error)
+{
+    if (!repo_id || !shared_from || !shared_to || !path) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return NULL;
+    }
+
+    return seaf_repo_manager_get_shared_folder_perm (seaf->repo_mgr, repo_id, shared_from,
+                                                     shared_to, path, is_org ? TRUE:FALSE);
+}
 #endif  /* SEAFILE_SERVER */

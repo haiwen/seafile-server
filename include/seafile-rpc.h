@@ -1069,4 +1069,12 @@ seafile_set_server_config_boolean (const char *group, const char *key, int value
 
 int
 seafile_get_server_config_boolean (const char *group, const char *key, GError **error);
+
+char *
+seafile_get_shared_folder_perm (const char *repo_id,
+                                const char *shared_from,
+                                const char *shared_to,
+                                const char *path,
+                                int is_org,
+                                GError **error);
 #endif

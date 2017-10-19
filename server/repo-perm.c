@@ -312,3 +312,31 @@ seaf_repo_manager_list_dir_with_perm (SeafRepoManager *mgr,
 
     return res;
 }
+
+char *
+seaf_repo_manager_get_shared_folder_perm (SeafRepoManager *mgr,
+                                          const char *repo_id,
+                                          const char *shared_from,
+                                          const char *shared_to,
+                                          const char *path,
+                                          gboolean is_org)
+{
+    char *sql;
+
+    if (!is_org)
+        sql = "SELECT permission FROM SharedRepo WHERE from_email=? "
+              "AND to_email=? AND repo_id=("
+              "SELECT repo_id FROM VirtualRepo WHERE origin_repo=? "
+              "AND path=?)";
+    else
+        sql = "SELECT permission FROM OrgSharedRepo WHERE from_email=? "
+              "AND to_email=? AND repo_id=("
+              "SELECT repo_id FROM VirtualRepo WHERE origin_repo=? "
+              "AND path=?)";
+
+    return seaf_db_statement_get_string(mgr->seaf->db, sql, 4,
+                                        "string", shared_from,
+                                        "string", shared_to,
+                                        "string", repo_id,
+                                        "string", path);
+}
