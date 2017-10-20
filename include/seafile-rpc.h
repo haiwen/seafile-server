@@ -1077,4 +1077,11 @@ seafile_get_shared_folder_perm (const char *repo_id,
                                 const char *path,
                                 int is_org,
                                 GError **error);
+char *
+seafile_get_group_shared_folder_perm (const char *repo_id,
+                                      const char *shared_from,
+                                      const char *path,
+                                      int group_id,
+                                      int is_org,
+                                      GError **error);
 #endif

@@ -340,3 +340,31 @@ seaf_repo_manager_get_shared_folder_perm (SeafRepoManager *mgr,
                                         "string", repo_id,
                                         "string", path);
 }
+
+char *
+seaf_repo_manager_get_group_shared_folder_perm (SeafRepoManager *mgr,
+                                                const char *repo_id,
+                                                const char *shared_from,
+                                                const char *path,
+                                                int group_id,
+                                                gboolean is_org)
+{
+    char *sql;
+
+    if (!is_org)
+        sql = "SELECT permission FROM RepoGroup WHERE user_name=? "
+              "AND group_id=? AND repo_id=("
+              "SELECT repo_id FROM VirtualRepo WHERE origin_repo=? "
+              "AND path=?)";
+    else
+        sql = "SELECT permission FROM OrgGroupRepo WHERE owner=? "
+              "AND group_id=? AND repo_id=("
+              "SELECT repo_id FROM VirtualRepo WHERE origin_repo=? "
+              "AND path=?)";
+
+    return seaf_db_statement_get_string(mgr->seaf->db, sql, 4,
+                                        "string", shared_from,
+                                        "int", group_id,
+                                        "string", repo_id,
+                                        "string", path);
+}

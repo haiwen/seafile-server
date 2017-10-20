@@ -566,6 +566,12 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.get_shared_folder_perm(repo_id, shared_from, shared_to, path, 1 if is_org else 0)
 
+    def get_group_shared_folder_perm(self, repo_id, shared_from, path, group_id, is_org=False):
+        """
+        Get group shared folder permission.
+        """
+        return seafserv_threaded_rpc.get_group_shared_folder_perm(repo_id, shared_from, path, group_id, 1 if is_org else 0)
+
     # token
     def generate_repo_token(self, repo_id, username):
         """Generate a token for sync a repo

@@ -787,6 +787,10 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     def get_shared_folder_perm(repo_id, shared_from, shared_to, path, is_org):
         pass
 
+    @searpc_func("string", ["string", "string", "string", "int", "int"])
+    def get_group_shared_folder_perm(repo_id, shared_from, path, group_id, is_org):
+        pass
+
     # org repo
     @searpc_func("string", ["string", "string", "string", "string", "string", "int", "int"])
     def seafile_create_org_repo(name, desc, user, passwd, magic, random_key, enc_version, org_id):

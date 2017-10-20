@@ -652,6 +652,10 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      seafile_get_shared_folder_perm,
                                      "get_shared_folder_perm",
                                      searpc_signature_string__string_string_string_string_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_group_shared_folder_perm,
+                                     "get_group_shared_folder_perm",
+                                     searpc_signature_string__string_string_string_int_int());
     
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_get_file_id_by_commit_and_path,

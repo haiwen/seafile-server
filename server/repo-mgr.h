@@ -835,4 +835,12 @@ seaf_repo_manager_get_shared_folder_perm (SeafRepoManager *mgr,
                                           const char *shared_to,
                                           const char *path,
                                           gboolean is_org);
+
+char *
+seaf_repo_manager_get_group_shared_folder_perm (SeafRepoManager *mgr,
+                                                const char *repo_id,
+                                                const char *shared_from,
+                                                const char *path,
+                                                int group_id,
+                                                gboolean is_org);
 #endif
