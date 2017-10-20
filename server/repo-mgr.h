@@ -643,6 +643,13 @@ seaf_repo_manager_get_group_repoids (SeafRepoManager *mgr,
                                      int group_id,
                                      GError **error);
 
+GObject *
+seaf_repo_manager_get_repo_by_group (SeafRepoManager *mgr,
+                                     int group_id,
+                                     const char *repo_id,
+                                     gboolean is_org,
+                                     GError **error);
+
 GList *
 seaf_repo_manager_get_repos_by_group (SeafRepoManager *mgr,
                                       int group_id,
