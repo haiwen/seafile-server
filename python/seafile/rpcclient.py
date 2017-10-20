@@ -628,6 +628,10 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
         pass
     get_group_repoids = seafile_get_group_repoids
 
+    @searpc_func("object", ["int", "string", "int"])
+    def get_repo_by_group(group_id, repo_id, is_org):
+        pass
+
     @searpc_func("objlist", ["int"])
     def seafile_get_repos_by_group(group_id):
         pass
