@@ -828,4 +828,19 @@ set_repo_commit_to_db (const char *repo_id, const char *repo_name, gint64 update
 char *
 seaf_get_trash_repo_owner (const char *repo_id);
 
+char *
+seaf_repo_manager_get_shared_folder_perm (SeafRepoManager *mgr,
+                                          const char *repo_id,
+                                          const char *shared_from,
+                                          const char *shared_to,
+                                          const char *path,
+                                          gboolean is_org);
+
+char *
+seaf_repo_manager_get_group_shared_folder_perm (SeafRepoManager *mgr,
+                                                const char *repo_id,
+                                                const char *shared_from,
+                                                const char *path,
+                                                int group_id,
+                                                gboolean is_org);
 #endif
