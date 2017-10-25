@@ -2903,6 +2903,20 @@ seafile_get_group_repoids (int group_id, GError **error)
     return g_string_free (result, FALSE);
 }
 
+GObject *
+seafile_get_repo_by_group (int group_id, const char *repo_id, int is_org, GError **error)
+{
+    SeafRepoManager *mgr = seaf->repo_mgr;
+
+    if (group_id < 0 || !repo_id) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                    "Bad args.");
+        return NULL;
+    }
+
+    return seaf_repo_manager_get_repo_by_group (mgr, group_id, repo_id, is_org ? TRUE:FALSE, error);
+}
+
 GList *
 seafile_get_repos_by_group (int group_id, GError **error)
 {

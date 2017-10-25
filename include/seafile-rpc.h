@@ -590,6 +590,9 @@ seafile_get_shared_groups_by_repo(const char *repo_id, GError **error);
 char *
 seafile_get_group_repoids (int group_id, GError **error);
 
+GObject *
+seafile_get_repo_by_group (int group_id, const char *repo_id, int is_org, GError **error);
+
 GList *
 seafile_get_repos_by_group (int group_id, GError **error);
 

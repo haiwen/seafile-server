@@ -473,6 +473,12 @@ class SeafileAPI(object):
             ret.append(r)
         return ret
 
+    def get_repo_by_group (self, group_id, repo_id, is_org=False):
+        """
+        Return: a repo object
+        """
+        return seafserv_threaded_rpc.get_repo_by_group(group_id, repo_id, 1 if is_org else 0)
+
     def get_repos_by_group(self, group_id):
         """
         Return: a list of Repo objects

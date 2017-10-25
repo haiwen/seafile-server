@@ -3048,6 +3048,63 @@ seaf_fill_repo_obj_from_commit (GList **repos)
     }
 }
 
+GObject *
+seaf_repo_manager_get_repo_by_group (SeafRepoManager *mgr,
+                                     int group_id,
+                                     const char *repo_id,
+                                     gboolean is_org,
+                                     GError **error)
+{
+    char *sql;
+    GList *repo = NULL;
+    GObject *ret = NULL;
+
+    /* This list should have only one repo,
+     * use existing api get_group_repos_cb() to get it.
+     */
+
+    if (!is_org)
+        sql = "SELECT RepoGroup.repo_id, VirtualRepo.repo_id, "
+            "group_id, user_name, permission, commit_id, s.size, "
+            "VirtualRepo.origin_repo, VirtualRepo.path "
+            "FROM RepoGroup LEFT JOIN VirtualRepo ON "
+            "RepoGroup.repo_id = VirtualRepo.repo_id "
+            "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
+            "Branch WHERE group_id = ? AND "
+            "RepoGroup.repo_id = Branch.repo_id AND "
+            "RepoGroup.repo_id = ? AND "
+            "Branch.name = 'master'";
+    else
+        sql = "SELECT OrgGroupRepo.repo_id, VirtualRepo.repo_id, "
+            "group_id, owner, permission, commit_id, s.size, "
+            "VirtualRepo.origin_repo, VirtualRepo.path "
+            "FROM OrgGroupRepo LEFT JOIN VirtualRepo ON "
+            "OrgGroupRepo.repo_id = VirtualRepo.repo_id "
+            "LEFT JOIN RepoSize s ON OrgGroupRepo.repo_id = s.repo_id, "
+            "Branch WHERE group_id = ? AND "
+            "OrgGroupRepo.repo_id = Branch.repo_id AND "
+            "OrgGroupRepo.repo_id = ? AND "
+            "Branch.name = 'master'";
+
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, get_group_repos_cb,
+                                       &repo, 2, "int", group_id,
+                                       "string", repo_id) < 0) {
+        g_list_free (repo);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                    "Failed to get repos by group from db.");
+        return NULL;
+    }
+
+    if (repo) {
+        seaf_fill_repo_obj_from_commit (&repo);
+        if (repo)
+            ret = (GObject *)(repo->data);
+        g_list_free (repo);
+    }
+
+    return ret;
+}
+
 GList *
 seaf_repo_manager_get_repos_by_group (SeafRepoManager *mgr,
                                       int group_id,
