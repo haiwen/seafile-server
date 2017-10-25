@@ -798,7 +798,7 @@ class CcnetAPI(object):
         """
         Search for users whose name contains @keyword directly from LDAP server.
         """
-        return ccnet_threaded_rpc.search_ladpusers(keyword, start, limit)
+        return ccnet_threaded_rpc.search_ldapusers(keyword, start, limit)
     
     def count_emailusers(self, source):
         """
