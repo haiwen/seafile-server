@@ -19,6 +19,12 @@
 
 #define CHECK_PROCESS_INTERVAL 10        /* every 10 seconds */
 
+#if defined(__sun)
+#define PROC_SELF_PATH "/proc/self/path/a.out"
+#else
+#define PROC_SELF_PATH "/proc/self/exe"
+#endif
+
 SeafileController *ctl;
 
 static char *controller_pidfile = NULL;
@@ -259,7 +265,7 @@ static void
 init_seafile_path ()
 {
     GError *error = NULL;
-    char *binary = g_file_read_link ("/proc/self/exe", &error);
+    char *binary = g_file_read_link (PROC_SELF_PATH, &error);
     char *tmp = NULL;
     if (error != NULL) {
         seaf_warning ("failed to readlink: %s\n", error->message);
