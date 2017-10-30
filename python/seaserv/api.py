@@ -430,6 +430,13 @@ class SeafileAPI(object):
         # deprecated, use list_repo_shared_group_by_user instead.
         return seafserv_threaded_rpc.list_repo_shared_group(from_user, repo_id)
 
+    def get_group_shared_repo_by_path (self, repo_id, path, group_id, is_org=False):
+        """
+        If path is not NULL, 'repo_id' represents for the repo we want,
+        otherwise, 'repo_id' represents for the origin repo, return virtual repo
+        """
+        return seafserv_threaded_rpc.get_group_shared_repo_by_path(repo_id, path, group_id, 1 if is_org else 0)
+
     def list_repo_shared_group_by_user(self, from_user, repo_id):
         """
         Return: a list of SharedGroup objects (lib/repo.vala)

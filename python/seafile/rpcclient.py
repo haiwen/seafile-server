@@ -601,6 +601,10 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
         pass
     list_repo_shared_group = seafile_list_repo_shared_group
 
+    @searpc_func("object", ["string", "string", "int", "int"])
+    def get_group_shared_repo_by_path(repo_id, path, group_id, is_org):
+        pass
+
     @searpc_func("objlist", ["string", "string", "string"])
     def seafile_get_shared_users_for_subdir(repo_id, path, from_user):
         pass

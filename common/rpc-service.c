@@ -5226,4 +5226,20 @@ seafile_get_server_config_boolean (const char *group, const char *key, GError **
 
     return seaf_cfg_manager_get_config_boolean (seaf->cfg_mgr, group, key);
 }
+
+GObject *
+seafile_get_group_shared_repo_by_path (const char *repo_id,
+                                       const char *path,
+                                       int group_id,
+                                       int is_org,
+                                       GError **error)
+{
+    if (!repo_id || group_id < 0) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Arguments error");
+        return NULL;
+    }
+    SeafRepoManager *mgr = seaf->repo_mgr;
+
+    return seaf_get_group_shared_repo_by_path (mgr, repo_id, path, group_id, is_org ? TRUE:FALSE, error);
+}
 #endif  /* SEAFILE_SERVER */

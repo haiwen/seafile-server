@@ -828,4 +828,11 @@ set_repo_commit_to_db (const char *repo_id, const char *repo_name, gint64 update
 char *
 seaf_get_trash_repo_owner (const char *repo_id);
 
+GObject *
+seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
+                                    const char *repo_id,
+                                    const char *path,
+                                    int group_id,
+                                    gboolean is_org,
+                                    GError **error);
 #endif

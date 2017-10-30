@@ -3904,3 +3904,77 @@ seaf_get_trash_repo_owner (const char *repo_id)
     char *sql = "SELECT owner_id from RepoTrash WHERE repo_id = ?";
     return seaf_db_statement_get_string(seaf->db, sql, 1, "string", repo_id);
 }
+
+GObject *
+seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
+                                    const char *repo_id,
+                                    const char *path,
+                                    int group_id,
+                                    gboolean is_org,
+                                    GError **error)
+{
+    char *sql;
+    char *real_repo_id = NULL;
+    GList *repo = NULL;
+    GObject *ret = NULL;
+
+    /* If path is not NULL, 'repo_id' represents for the repo we want,
+     * otherwise, 'repo_id' represents for the origin repo,
+     * find virtual repo by path first.
+     */
+    if (path != NULL) {
+        real_repo_id = seaf_repo_manager_get_virtual_repo_id (mgr, repo_id, path, NULL);
+        if (!real_repo_id) {
+            seaf_warning ("Failed to get virtual repo_id by path %s, origin_repo: %s\n", path, repo_id);
+            return NULL;
+        }
+    }
+    if (!real_repo_id)
+        real_repo_id = g_strdup (repo_id);
+
+    if (!is_org)
+        sql = "SELECT RepoGroup.repo_id, VirtualRepo.repo_id, "
+              "group_id, user_name, permission, commit_id, s.size, "
+              "VirtualRepo.origin_repo, VirtualRepo.path "
+              "FROM RepoGroup LEFT JOIN VirtualRepo ON "
+              "RepoGroup.repo_id = VirtualRepo.repo_id "
+              "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
+              "Branch WHERE group_id = ? AND "
+              "RepoGroup.repo_id = Branch.repo_id AND "
+              "RepoGroup.repo_id = ? AND "
+              "Branch.name = 'master'";
+    else
+        sql = "SELECT OrgGroupRepo.repo_id, VirtualRepo.repo_id, "
+              "group_id, owner, permission, commit_id, s.size, "
+              "VirtualRepo.origin_repo, VirtualRepo.path "
+              "FROM OrgGroupRepo LEFT JOIN VirtualRepo ON "
+              "OrgGroupRepo.repo_id = VirtualRepo.repo_id "
+              "LEFT JOIN RepoSize s ON OrgGroupRepo.repo_id = s.repo_id, "
+              "Branch WHERE group_id = ? AND "
+              "OrgGroupRepo.repo_id = Branch.repo_id AND "
+              "OrgGroupRepo.repo_id = ? AND "
+              "Branch.name = 'master'";
+
+    /* The list 'repo' should have only one repo,
+     * use existing api get_group_repos_cb() to get it.
+     */
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, get_group_repos_cb,
+                                       &repo, 2, "int", group_id,
+                                       "string", real_repo_id) < 0) {
+        g_free (real_repo_id);
+        g_list_free (repo);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to get repo by group_id from db.");
+        return NULL;
+    }
+    g_free (real_repo_id);
+
+    if (repo) {
+        seaf_fill_repo_obj_from_commit (&repo);
+        if (repo)
+            ret = (GObject *)(repo->data);
+        g_list_free (repo);
+    }
+
+    return ret;
+}

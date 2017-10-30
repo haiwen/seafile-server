@@ -1069,4 +1069,11 @@ seafile_set_server_config_boolean (const char *group, const char *key, int value
 
 int
 seafile_get_server_config_boolean (const char *group, const char *key, GError **error);
+
+GObject *
+seafile_get_group_shared_repo_by_path (const char *repo_id,
+                                       const char *path,
+                                       int group_id,
+                                       int is_org,
+                                       GError **error);
 #endif
