@@ -56,7 +56,7 @@ function read_seafile_data_dir () {
     fi
     seafile_data_dir=$(cat "${seafile_ini}")
     if [[ ! -d ${seafile_data_dir} ]]; then
-        echo "Your seafile server data directory \"${seafile_data_dir}\" is invalid or doesn't exits."
+        echo "Your seafile server data directory \"${seafile_data_dir}\" is invalid or doesn't exist."
         echo "Please check it first, or create this directory yourself."
         echo ""
         exit 1;
