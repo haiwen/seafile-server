@@ -383,7 +383,7 @@ class SeafileAPI(object):
 
     def get_shared_repo_by_path(self, repo_id, path, shared_to, is_org=False):
         """
-        If path is not NULL, 'repo_id' represents for the repo we want,
+        If path is NULL, 'repo_id' represents for the repo we want,
         otherwise, 'repo_id' represents for the origin repo, return virtual repo
         """
         return seafserv_threaded_rpc.get_shared_repo_by_path(repo_id, path, shared_to, 1 if is_org else 0)
@@ -439,7 +439,7 @@ class SeafileAPI(object):
 
     def get_group_shared_repo_by_path (self, repo_id, path, group_id, is_org=False):
         """
-        If path is not NULL, 'repo_id' represents for the repo we want,
+        If path is NULL, 'repo_id' represents for the repo we want,
         otherwise, 'repo_id' represents for the origin repo, return virtual repo
         """
         return seafserv_threaded_rpc.get_group_shared_repo_by_path(repo_id, path, group_id, 1 if is_org else 0)
