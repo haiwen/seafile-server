@@ -501,6 +501,28 @@ seaf_share_manager_remove_share (SeafShareManager *mgr, const char *repo_id,
 }
 
 int
+seaf_share_manager_unshare_subdir (SeafShareManager* mgr,
+                                   const char *orig_repo_id,
+                                   const char *path,
+                                   const char *from_email,
+                                   const char *to_email)
+{
+    if (seaf_db_statement_query (mgr->seaf->db,
+                                 "DELETE FROM SharedRepo WHERE "
+                                 "from_email = ? AND to_email = ? "
+                                 "AND repo_id IN "
+                                 "(SELECT repo_id FROM VirtualRepo WHERE "
+                                 "origin_repo = ? AND path = ?)",
+                                 4, "string", from_email,
+                                 "string", to_email,
+                                 "string", orig_repo_id,
+                                 "string", path) < 0)
+        return -1;
+
+    return 0;
+}
+
+int
 seaf_share_manager_remove_repo (SeafShareManager *mgr, const char *repo_id)
 {
     if (seaf_db_statement_query (mgr->seaf->db,
@@ -607,4 +629,26 @@ seaf_share_manager_is_repo_shared (SeafShareManager *mgr,
     }
 
     return ret;
+}
+
+int
+seaf_share_manager_unshare_group_subdir (SeafShareManager* mgr,
+                                         const char *repo_id,
+                                         const char *path,
+                                         const char *owner,
+                                         int group_id)
+{
+    if (seaf_db_statement_query (mgr->seaf->db,
+                                 "DELETE FROM RepoGroup WHERE "
+                                 "user_name = ? AND group_id = ? "
+                                 "AND repo_id IN "
+                                 "(SELECT repo_id FROM VirtualRepo WHERE "
+                                 "origin_repo = ? AND path = ?)",
+                                 4, "string", owner,
+                                 "int", group_id,
+                                 "string", repo_id,
+                                 "string", path) < 0)
+        return -1;
+
+    return 0;
 }

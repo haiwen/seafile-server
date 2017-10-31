@@ -57,6 +57,14 @@ int
 seaf_share_manager_remove_share (SeafShareManager *mgr, const char *repo_id,
                                  const char *from_email, const char *to_email);
 
+int
+seaf_share_manager_unshare_subdir (SeafShareManager* mgr,
+                                   const char *orig_repo_id,
+                                   const char *path,
+                                   const char *from_email,
+                                   const char *to_email);
+
+
 /* Remove all share info of a repo. */
 int
 seaf_share_manager_remove_repo (SeafShareManager *mgr, const char *repo_id);
@@ -74,6 +82,13 @@ seaf_share_manager_get_shared_sub_dirs (SeafShareManager *mgr,
 int
 seaf_share_manager_is_repo_shared (SeafShareManager *mgr,
                                    const char *repo_id);
+
+int
+seaf_share_manager_unshare_group_subdir (SeafShareManager* mgr,
+                                         const char *repo_id,
+                                         const char *path,
+                                         const char *owner,
+                                         int group_id);
 
 #endif /* SHARE_MGR_H */
 
