@@ -2463,28 +2463,17 @@ seafile_unshare_subdir_for_user (const char *repo_id,
     }
 
     char *real_path;
-    char *vrepo_id;
     int ret = 0;
 
     real_path = format_dir_path (path);
 
-    vrepo_id = seaf_repo_manager_get_virtual_repo_id (seaf->repo_mgr, repo_id,
-                                                      real_path, owner);
-    if (!vrepo_id) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "Failed to get shared sub repo");
-        ret = -1;
-        goto out;
-    }
-
-    ret = seaf_share_manager_remove_share (seaf->share_mgr, vrepo_id, owner, share_user);
+    ret = seaf_share_manager_unshare_subdir (seaf->share_mgr,
+                                             repo_id, real_path, owner, share_user);
     if (ret < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to unshare subdir for user");
     }
-    g_free (vrepo_id);
 
-out:
     g_free (real_path);
     return ret;
 }
@@ -2752,29 +2741,17 @@ seafile_unshare_subdir_for_group (const char *repo_id,
     }
 
     char *real_path;
-    char *vrepo_id;
     int ret = 0;
 
     real_path = format_dir_path (path);
 
-    vrepo_id = seaf_repo_manager_get_virtual_repo_id (seaf->repo_mgr, repo_id,
-                                                      real_path, owner);
-    if (!vrepo_id) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "Failed to get shared sub repo");
-        ret = -1;
-        goto out;
-    }
-
-    ret = seaf_repo_manager_del_group_repo (seaf->repo_mgr, vrepo_id,
-                                            share_group, error);
+    ret = seaf_share_manager_unshare_group_subdir (seaf->share_mgr, repo_id,
+                                                   real_path, owner, share_group);
     if (ret < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to unshare subdir for group");
     }
-    g_free (vrepo_id);
 
-out:
     g_free (real_path);
     return ret;
 }
