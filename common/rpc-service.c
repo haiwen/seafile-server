@@ -5242,4 +5242,20 @@ seafile_get_group_shared_repo_by_path (const char *repo_id,
 
     return seaf_get_group_shared_repo_by_path (mgr, repo_id, path, group_id, is_org ? TRUE:FALSE, error);
 }
+
+GObject *
+seafile_get_shared_repo_by_path (const char *repo_id,
+                                 const char *path,
+                                 const char *shared_to,
+                                 int is_org,
+                                 GError **error)
+{
+    if (!repo_id || !shared_to) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Arguments error");
+        return NULL;
+    }
+    SeafRepoManager *mgr = seaf->repo_mgr;
+
+    return seaf_get_shared_repo_by_path (mgr, repo_id, path, shared_to, is_org ? TRUE:FALSE, error);
+}
 #endif  /* SEAFILE_SERVER */

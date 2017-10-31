@@ -75,5 +75,13 @@ int
 seaf_share_manager_is_repo_shared (SeafShareManager *mgr,
                                    const char *repo_id);
 
+GObject *
+seaf_get_shared_repo_by_path (SeafRepoManager *mgr,
+                              const char *repo_id,
+                              const char *path,
+                              const char *shared_to,
+                              int is_org,
+                              GError **error);
+
 #endif /* SHARE_MGR_H */
 

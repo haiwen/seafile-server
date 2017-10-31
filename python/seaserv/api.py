@@ -381,6 +381,13 @@ class SeafileAPI(object):
         return seafserv_threaded_rpc.update_share_subdir_perm_for_user(repo_id, path, owner,
                                                                        share_user, permission)
 
+    def get_shared_repo_by_path(self, repo_id, path, shared_to, is_org=False):
+        """
+        If path is not NULL, 'repo_id' represents for the repo we want,
+        otherwise, 'repo_id' represents for the origin repo, return virtual repo
+        """
+        return seafserv_threaded_rpc.get_shared_repo_by_path(repo_id, path, shared_to, 1 if is_org else 0)
+
     def get_share_out_repo_list(self, username, start, limit):
         """
         Get repo list shared by this user.

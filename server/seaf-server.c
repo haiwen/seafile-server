@@ -416,6 +416,11 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      "update_share_subdir_perm_for_user",
                                      searpc_signature_int__string_string_string_string_string());
 
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_shared_repo_by_path,
+                                     "get_shared_repo_by_path",
+                                     searpc_signature_object__string_string_string_int());
+
     /* share repo to group */
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_group_share_repo,

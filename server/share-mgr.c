@@ -608,3 +608,76 @@ seaf_share_manager_is_repo_shared (SeafShareManager *mgr,
 
     return ret;
 }
+
+GObject *
+seaf_get_shared_repo_by_path (SeafRepoManager *mgr,
+                              const char *repo_id,
+                              const char *path,
+                              const char *shared_to,
+                              int is_org,
+                              GError **error)
+{
+    char *sql;
+    char *real_repo_id = NULL;
+    GList *repo = NULL;
+    GObject *ret = NULL;
+
+    /* If path is not NULL, 'repo_id' represents for the repo we want,
+     * otherwise, 'repo_id' represents for the origin repo,
+     * find virtual repo by path first.
+     */
+    if (path != NULL) {
+        real_repo_id = seaf_repo_manager_get_virtual_repo_id (mgr, repo_id, path, NULL);
+        if (!real_repo_id) {
+            seaf_warning ("Failed to get virtual repo_id by path %s, origin_repo: %s\n", path, repo_id);
+            return NULL;
+        }
+    }
+    if (!real_repo_id)
+        real_repo_id = g_strdup (repo_id);
+
+    if (!is_org)
+        sql = "SELECT sh.repo_id, v.repo_id, "
+              "from_email, permission, commit_id, s.size, "
+              "v.origin_repo, v.path, i.name, "
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+              "SharedRepo sh LEFT JOIN VirtualRepo v ON "
+              "sh.repo_id=v.repo_id "
+              "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
+              "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
+              "WHERE to_email=? AND "
+              "sh.repo_id = b.repo_id AND sh.repo_id=? AND "
+              "b.name = 'master' ";
+    else
+        sql = "SELECT sh.repo_id, v.repo_id, "
+              "from_email, permission, commit_id, s.size, "
+              "v.origin_repo, v.path, i.name, "
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+              "OrgSharedRepo sh LEFT JOIN VirtualRepo v ON "
+              "sh.repo_id=v.repo_id "
+              "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
+              "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
+              "WHERE to_email=? AND "
+              "sh.repo_id = b.repo_id AND sh.repo_id=? AND "
+              "b.name = 'master' ";
+
+    /* The list 'repo' should have only one repo,
+     * use existing api collect_repos() to get it.
+     */
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_repos, &repo,
+                                       2, "string", shared_to, "string", real_repo_id) < 0) {
+            g_free (real_repo_id);
+            g_list_free (repo);
+            seaf_warning ("[share mgr] DB error when get shared repo "
+                          "for %s, path:%s\n", shared_to, path);
+            return NULL;
+    }
+    g_free (real_repo_id);
+    if (repo) {
+        ret = (GObject *)(repo->data);
+        g_list_free (repo);
+    }
+
+    return ret;
+}

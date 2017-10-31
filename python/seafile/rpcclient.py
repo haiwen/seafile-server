@@ -566,6 +566,10 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     def update_share_subdir_perm_for_user(repo_id, path, owner, share_user, permission):
         pass
 
+    @searpc_func("object", ["string", "string", "string", "int"])
+    def get_shared_repo_by_path(repo_id, path, shared_to, is_org):
+        pass
+
     @searpc_func("objlist", ["int", "string", "string", "int", "int"])
     def seafile_list_org_share_repos(org_id, email, query_col, start, limit):
         pass

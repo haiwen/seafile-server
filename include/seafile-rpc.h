@@ -1076,4 +1076,11 @@ seafile_get_group_shared_repo_by_path (const char *repo_id,
                                        int group_id,
                                        int is_org,
                                        GError **error);
+
+GObject *
+seafile_get_shared_repo_by_path (const char *repo_id,
+                                 const char *path,
+                                 const char *shared_to,
+                                 int is_org,
+                                 GError **error);
 #endif
