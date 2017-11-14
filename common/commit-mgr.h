@@ -192,4 +192,9 @@ int
 seaf_commit_manager_remove_store (SeafCommitManager *mgr,
                                   const char *store_id);
 
+gint64
+seaf_commit_manager_get_parent_time (SeafCommitManager *mgr,
+                                     const char *repo_id,
+                                     int version,
+                                     const char *commit_id);
 #endif
