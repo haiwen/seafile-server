@@ -18,7 +18,7 @@ For more informations read [Contribution](http://manual.seafile.com/contribution
 License
 =======
 
-The Seafile server core is published under AGPLv3. Other components of Seafile have different licenses. Please refer to the coresponding projects.
+The Seafile server core is published under AGPLv3. Other components of Seafile have different licenses. Please refer to the corresponding projects.
 
 Contact
 =======
