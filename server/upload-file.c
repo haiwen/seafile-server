@@ -700,7 +700,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
     const char *parent_dir, *file_name, *size_str, *replace_str, *commitonly_str;
     GError *error = NULL;
     int error_code = ERROR_INTERNAL;
-    char *blockids_json, *tmp_files_json;
+    char *blockids_json;
     gint64 file_size = -1;
     int replace = 0;
 
@@ -725,10 +725,15 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
     size_str = g_hash_table_lookup (fsm->form_kvs, "file_size");
     if (size_str)
         file_size = atoll(size_str);
+    commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
 
     if (!file_name || !parent_dir || !size_str || file_size < 0) {
         seaf_debug ("[upload-blks] No parent dir or file name given.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
+        return;
+    }
+    if (!commitonly_str) {
+        send_error_reply (req, EVHTP_RES_BADREQ, "Only commit suppported.\n");
         return;
     }
 
@@ -737,52 +742,51 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
 
     char *new_file_id = NULL;
     int rc = 0;
-    commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
-    if (!commitonly_str) {
-        gint64 content_len = get_content_length (req);
-        if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
-                                                       fsm->repo_id,
-                                                       content_len) != 0) {
-            error_code = ERROR_QUOTA;
-            goto error;
-        }
+    /* if (!commitonly_str) { */
+    /*     gint64 content_len = get_content_length (req); */
+    /*     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, */
+    /*                                                    fsm->repo_id, */
+    /*                                                    content_len) != 0) { */
+    /*         error_code = ERROR_QUOTA; */
+    /*         goto error; */
+    /*     } */
 
-        if (!check_tmp_file_list (fsm->files, &error_code))
-            goto error;
-        blockids_json = file_list_to_json (fsm->filenames);
-        tmp_files_json = file_list_to_json (fsm->files);
+    /*     if (!check_tmp_file_list (fsm->files, &error_code)) */
+    /*         goto error; */
+    /*     blockids_json = file_list_to_json (fsm->filenames); */
+    /*     tmp_files_json = file_list_to_json (fsm->files); */
 
-        rc = seaf_repo_manager_post_file_blocks (seaf->repo_mgr,
-                                                 fsm->repo_id,
-                                                 parent_dir,
-                                                 file_name,
-                                                 blockids_json,
-                                                 tmp_files_json,
-                                                 fsm->user,
-                                                 file_size,
-                                                 replace,
-                                                 &new_file_id,
-                                                 &error);
-        g_free (blockids_json);
-        g_free (tmp_files_json);
-    } else {
-        blockids_json = g_hash_table_lookup (fsm->form_kvs, "blockids");
-        if (blockids_json == NULL) {
-            seaf_debug ("[upload-blks] No blockids given.\n");
-            send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
-            return;
-        }
-        rc = seaf_repo_manager_commit_file_blocks (seaf->repo_mgr,
-                                                   fsm->repo_id,
-                                                   parent_dir,
-                                                   file_name,
-                                                   blockids_json,
-                                                   fsm->user,
-                                                   file_size,
-                                                   replace,
-                                                   &new_file_id,
-                                                   &error);
+    /*     rc = seaf_repo_manager_post_file_blocks (seaf->repo_mgr, */
+    /*                                              fsm->repo_id, */
+    /*                                              parent_dir, */
+    /*                                              file_name, */
+    /*                                              blockids_json, */
+    /*                                              tmp_files_json, */
+    /*                                              fsm->user, */
+    /*                                              file_size, */
+    /*                                              replace, */
+    /*                                              &new_file_id, */
+    /*                                              &error); */
+    /*     g_free (blockids_json); */
+    /*     g_free (tmp_files_json); */
+    /* } else { */
+
+    blockids_json = g_hash_table_lookup (fsm->form_kvs, "blockids");
+    if (blockids_json == NULL) {
+        seaf_debug ("[upload-blks] No blockids given.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
+        return;
     }
+    rc = seaf_repo_manager_commit_file_blocks (seaf->repo_mgr,
+                                               fsm->repo_id,
+                                               parent_dir,
+                                               file_name,
+                                               blockids_json,
+                                               fsm->user,
+                                               file_size,
+                                               replace,
+                                               &new_file_id,
+                                               &error);
     if (rc < 0) {
         if (error) {
             if (error->code == POST_FILE_ERR_FILENAME) {
@@ -838,118 +842,118 @@ error:
     }
 }
 
-static void
-upload_blks_ajax_cb(evhtp_request_t *req, void *arg)
-{
-    RecvFSM *fsm = arg;
-    char *parent_dir, *file_name, *size_str;
-    GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
-    char *blockids_json, *tmp_files_json;
-    gint64 file_size = -1;
+/* static void */
+/* upload_blks_ajax_cb(evhtp_request_t *req, void *arg) */
+/* { */
+/*     RecvFSM *fsm = arg; */
+/*     char *parent_dir, *file_name, *size_str; */
+/*     GError *error = NULL; */
+/*     int error_code = ERROR_INTERNAL; */
+/*     char *blockids_json, *tmp_files_json; */
+/*     gint64 file_size = -1; */
 
-    evhtp_headers_add_header (req->headers_out,
-                              evhtp_header_new("Access-Control-Allow-Headers",
-                                               "x-requested-with, content-type, accept, origin, authorization", 1, 1));
-    evhtp_headers_add_header (req->headers_out,
-                              evhtp_header_new("Access-Control-Allow-Methods",
-                                               "GET, POST, PUT, PATCH, DELETE, OPTIONS", 1, 1));
-    evhtp_headers_add_header (req->headers_out,
-                              evhtp_header_new("Access-Control-Allow-Origin",
-                                               "*", 1, 1));
-    evhtp_headers_add_header (req->headers_out,
-                              evhtp_header_new("Access-Control-Max-Age",
-                                               "86400", 1, 1));
+/*     evhtp_headers_add_header (req->headers_out, */
+/*                               evhtp_header_new("Access-Control-Allow-Headers", */
+/*                                                "x-requested-with, content-type, accept, origin, authorization", 1, 1)); */
+/*     evhtp_headers_add_header (req->headers_out, */
+/*                               evhtp_header_new("Access-Control-Allow-Methods", */
+/*                                                "GET, POST, PUT, PATCH, DELETE, OPTIONS", 1, 1)); */
+/*     evhtp_headers_add_header (req->headers_out, */
+/*                               evhtp_header_new("Access-Control-Allow-Origin", */
+/*                                                "*", 1, 1)); */
+/*     evhtp_headers_add_header (req->headers_out, */
+/*                               evhtp_header_new("Access-Control-Max-Age", */
+/*                                                "86400", 1, 1)); */
 
-    if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
-        /* If CORS preflight header, then create an empty body response (200 OK)
-         * and return it.
-         */
-        send_success_reply (req);
-        return;
-    }
+/*     if (evhtp_request_get_method(req) == htp_method_OPTIONS) { */
+/*         /\* If CORS preflight header, then create an empty body response (200 OK) */
+/*          * and return it. */
+/*          *\/ */
+/*         send_success_reply (req); */
+/*         return; */
+/*     } */
 
-    /* After upload_headers_cb() returns an error, libevhtp may still
-     * receive data from the web browser and call into this cb.
-     * In this case fsm will be NULL.
-     */
-    if (!fsm || fsm->state == RECV_ERROR)
-        return;
+/*     /\* After upload_headers_cb() returns an error, libevhtp may still */
+/*      * receive data from the web browser and call into this cb. */
+/*      * In this case fsm will be NULL. */
+/*      *\/ */
+/*     if (!fsm || fsm->state == RECV_ERROR) */
+/*         return; */
 
-    parent_dir = g_hash_table_lookup (fsm->form_kvs, "parent_dir");
-    file_name = g_hash_table_lookup (fsm->form_kvs, "file_name");
-    size_str = g_hash_table_lookup (fsm->form_kvs, "file_size");
-    if (size_str)
-        file_size = atoll(size_str);
-    if (!file_name || !parent_dir || !size_str || file_size < 0) {
-        seaf_debug ("[upload-blks] No parent dir or file name given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
-        return;
-    }
+/*     parent_dir = g_hash_table_lookup (fsm->form_kvs, "parent_dir"); */
+/*     file_name = g_hash_table_lookup (fsm->form_kvs, "file_name"); */
+/*     size_str = g_hash_table_lookup (fsm->form_kvs, "file_size"); */
+/*     if (size_str) */
+/*         file_size = atoll(size_str); */
+/*     if (!file_name || !parent_dir || !size_str || file_size < 0) { */
+/*         seaf_debug ("[upload-blks] No parent dir or file name given.\n"); */
+/*         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n"); */
+/*         return; */
+/*     } */
 
-    if (!check_parent_dir (req, fsm->repo_id, parent_dir))
-        return;
+/*     if (!check_parent_dir (req, fsm->repo_id, parent_dir)) */
+/*         return; */
 
-    if (!check_tmp_file_list (fsm->files, &error_code))
-        goto error;
+/*     if (!check_tmp_file_list (fsm->files, &error_code)) */
+/*         goto error; */
 
-    gint64 content_len = get_content_length (req);
-    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
-                                                   fsm->repo_id,
-                                                   content_len) != 0) {
-        error_code = ERROR_QUOTA;
-        goto error;
-    }
+/*     gint64 content_len = get_content_length (req); */
+/*     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, */
+/*                                                    fsm->repo_id, */
+/*                                                    content_len) != 0) { */
+/*         error_code = ERROR_QUOTA; */
+/*         goto error; */
+/*     } */
 
-    blockids_json = file_list_to_json (fsm->filenames);
-    tmp_files_json = file_list_to_json (fsm->files);
+/*     blockids_json = file_list_to_json (fsm->filenames); */
+/*     tmp_files_json = file_list_to_json (fsm->files); */
 
-    int rc = seaf_repo_manager_post_file_blocks (seaf->repo_mgr,
-                                                 fsm->repo_id,
-                                                 parent_dir,
-                                                 file_name,
-                                                 blockids_json,
-                                                 tmp_files_json,
-                                                 fsm->user,
-                                                 file_size,
-                                                 0,
-                                                 NULL,
-                                                 &error);
-    g_free (blockids_json);
-    g_free (tmp_files_json);
-    if (rc < 0) {
-        if (error) {
-            if (error->code == POST_FILE_ERR_FILENAME) {
-                error_code = ERROR_FILENAME;
-            }
-            g_clear_error (&error);
-        }
-        goto error;
-    }
+/*     int rc = seaf_repo_manager_post_file_blocks (seaf->repo_mgr, */
+/*                                                  fsm->repo_id, */
+/*                                                  parent_dir, */
+/*                                                  file_name, */
+/*                                                  blockids_json, */
+/*                                                  tmp_files_json, */
+/*                                                  fsm->user, */
+/*                                                  file_size, */
+/*                                                  0, */
+/*                                                  NULL, */
+/*                                                  &error); */
+/*     g_free (blockids_json); */
+/*     g_free (tmp_files_json); */
+/*     if (rc < 0) { */
+/*         if (error) { */
+/*             if (error->code == POST_FILE_ERR_FILENAME) { */
+/*                 error_code = ERROR_FILENAME; */
+/*             } */
+/*             g_clear_error (&error); */
+/*         } */
+/*         goto error; */
+/*     } */
 
-    send_success_reply (req);
-    return;
+/*     send_success_reply (req); */
+/*     return; */
 
-error:
-    switch (error_code) {
-    case ERROR_FILENAME:
-        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.");
-        break;
-    case ERROR_EXISTS:
-        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.");
-        break;
-    case ERROR_SIZE:
-        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.");
-        break;
-    case ERROR_QUOTA:
-        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.");
-        break;
-    case ERROR_RECV:
-    case ERROR_INTERNAL:
-        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
-        break;
-    }
-}
+/* error: */
+/*     switch (error_code) { */
+/*     case ERROR_FILENAME: */
+/*         send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename."); */
+/*         break; */
+/*     case ERROR_EXISTS: */
+/*         send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists."); */
+/*         break; */
+/*     case ERROR_SIZE: */
+/*         send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large."); */
+/*         break; */
+/*     case ERROR_QUOTA: */
+/*         send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota."); */
+/*         break; */
+/*     case ERROR_RECV: */
+/*     case ERROR_INTERNAL: */
+/*         send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n"); */
+/*         break; */
+/*     } */
+/* } */
 
 /*
   Handle AJAX file upload.
@@ -1276,11 +1280,10 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
     RecvFSM *fsm = arg;
     char *target_file, *parent_dir = NULL, *filename = NULL, *size_str = NULL;
     const char *commitonly_str;
-    const char *head_id = NULL;
     GError *error = NULL;
     int error_code = ERROR_INTERNAL;
     char *new_file_id = NULL;
-    char *blockids_json, *tmp_files_json;
+    char *blockids_json;
     gint64 file_size = -1;
 
     if (!fsm || fsm->state == RECV_ERROR)
@@ -1293,6 +1296,11 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
         return;
     }
+    commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
+    if (!commitonly_str) {
+        send_error_reply (req, EVHTP_RES_BADREQ, "Only commit supported.\n");
+        return;
+    }
 
     parent_dir = g_path_get_dirname (target_file);
     filename = g_path_get_basename (target_file);
@@ -1300,55 +1308,52 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         return;
 
-    head_id = evhtp_kv_find (req->uri->query, "head");
-
     int rc = 0;
-    commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
-    if (!commitonly_str) {
-        gint64 content_len = get_content_length(req);
-        if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
-                                                       fsm->repo_id,
-                                                       content_len) != 0) {
-            error_code = ERROR_QUOTA;
-            goto error;
-        }
+    /* if (!commitonly_str) { */
+    /*     gint64 content_len = get_content_length(req); */
+    /*     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, */
+    /*                                                    fsm->repo_id, */
+    /*                                                    content_len) != 0) { */
+    /*         error_code = ERROR_QUOTA; */
+    /*         goto error; */
+    /*     } */
 
-        if (!check_tmp_file_list (fsm->files, &error_code))
-            goto error;
+    /*     if (!check_tmp_file_list (fsm->files, &error_code)) */
+    /*         goto error; */
 
-        blockids_json = file_list_to_json (fsm->filenames);
-        tmp_files_json = file_list_to_json (fsm->files);
-        rc = seaf_repo_manager_put_file_blocks (seaf->repo_mgr,
-                                                fsm->repo_id,
-                                                parent_dir,
-                                                filename,
-                                                blockids_json,
-                                                tmp_files_json,
-                                                fsm->user,
-                                                head_id,
-                                                file_size,
-                                                &new_file_id,
-                                                &error);
-        g_free (blockids_json);
-        g_free (tmp_files_json);
-    } else {
-        blockids_json = g_hash_table_lookup (fsm->form_kvs, "blockids");
-        if (blockids_json == NULL) {
-            seaf_debug ("[upload-blks] No blockids given.\n");
-            send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
-            return;
-        }
-        rc = seaf_repo_manager_commit_file_blocks (seaf->repo_mgr,
-                                                   fsm->repo_id,
-                                                   parent_dir,
-                                                   filename,
-                                                   blockids_json,
-                                                   fsm->user,
-                                                   file_size,
-                                                   1,
-                                                   &new_file_id,
-                                                   &error);
+    /*     blockids_json = file_list_to_json (fsm->filenames); */
+    /*     tmp_files_json = file_list_to_json (fsm->files); */
+    /*     rc = seaf_repo_manager_put_file_blocks (seaf->repo_mgr, */
+    /*                                             fsm->repo_id, */
+    /*                                             parent_dir, */
+    /*                                             filename, */
+    /*                                             blockids_json, */
+    /*                                             tmp_files_json, */
+    /*                                             fsm->user, */
+    /*                                             head_id, */
+    /*                                             file_size, */
+    /*                                             &new_file_id, */
+    /*                                             &error); */
+    /*     g_free (blockids_json); */
+    /*     g_free (tmp_files_json); */
+    /* } else { */
+
+    blockids_json = g_hash_table_lookup (fsm->form_kvs, "blockids");
+    if (blockids_json == NULL) {
+        seaf_debug ("[upload-blks] No blockids given.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
+        return;
     }
+    rc = seaf_repo_manager_commit_file_blocks (seaf->repo_mgr,
+                                               fsm->repo_id,
+                                               parent_dir,
+                                               filename,
+                                               blockids_json,
+                                               fsm->user,
+                                               file_size,
+                                               1,
+                                               &new_file_id,
+                                               &error);
     g_free (parent_dir);
     g_free (filename);
 
@@ -1396,124 +1401,124 @@ error:
     }
 }
 
-static void
-update_blks_ajax_cb(evhtp_request_t *req, void *arg)
-{
-    RecvFSM *fsm = arg;
-    char *target_file, *parent_dir = NULL, *filename = NULL, *size_str = NULL;
-    const char *head_id = NULL;
-    GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
-    char *blockids_json, *tmp_files_json;
-    gint64 file_size = -1;
+/* static void */
+/* update_blks_ajax_cb(evhtp_request_t *req, void *arg) */
+/* { */
+/*     RecvFSM *fsm = arg; */
+/*     char *target_file, *parent_dir = NULL, *filename = NULL, *size_str = NULL; */
+/*     const char *head_id = NULL; */
+/*     GError *error = NULL; */
+/*     int error_code = ERROR_INTERNAL; */
+/*     char *blockids_json, *tmp_files_json; */
+/*     gint64 file_size = -1; */
 
-    evhtp_headers_add_header (req->headers_out,
-                              evhtp_header_new("Access-Control-Allow-Headers",
-                                               "x-requested-with, content-type, accept, origin, authorization", 1, 1));
-    evhtp_headers_add_header (req->headers_out,
-                              evhtp_header_new("Access-Control-Allow-Methods",
-                                               "GET, POST, PUT, PATCH, DELETE, OPTIONS", 1, 1));
-    evhtp_headers_add_header (req->headers_out,
-                              evhtp_header_new("Access-Control-Allow-Origin",
-                                               "*", 1, 1));
-    evhtp_headers_add_header (req->headers_out,
-                              evhtp_header_new("Access-Control-Max-Age",
-                                               "86400", 1, 1));
+/*     evhtp_headers_add_header (req->headers_out, */
+/*                               evhtp_header_new("Access-Control-Allow-Headers", */
+/*                                                "x-requested-with, content-type, accept, origin, authorization", 1, 1)); */
+/*     evhtp_headers_add_header (req->headers_out, */
+/*                               evhtp_header_new("Access-Control-Allow-Methods", */
+/*                                                "GET, POST, PUT, PATCH, DELETE, OPTIONS", 1, 1)); */
+/*     evhtp_headers_add_header (req->headers_out, */
+/*                               evhtp_header_new("Access-Control-Allow-Origin", */
+/*                                                "*", 1, 1)); */
+/*     evhtp_headers_add_header (req->headers_out, */
+/*                               evhtp_header_new("Access-Control-Max-Age", */
+/*                                                "86400", 1, 1)); */
 
-    if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
-        /* If CORS preflight header, then create an empty body response (200 OK)
-         * and return it.
-         */
-        send_success_reply (req);
-        return;
-    }
+/*     if (evhtp_request_get_method(req) == htp_method_OPTIONS) { */
+/*         /\* If CORS preflight header, then create an empty body response (200 OK) */
+/*          * and return it. */
+/*          *\/ */
+/*         send_success_reply (req); */
+/*         return; */
+/*     } */
 
-    if (!fsm || fsm->state == RECV_ERROR)
-        return;
-    target_file = g_hash_table_lookup (fsm->form_kvs, "target_file");
-    size_str = g_hash_table_lookup (fsm->form_kvs, "file_size");
-    if (size_str)  file_size = atoll(size_str);
-    if (!target_file || !size_str || file_size < 0) {
-        seaf_debug ("[Update-blks] No target file given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
-        return;
-    }
+/*     if (!fsm || fsm->state == RECV_ERROR) */
+/*         return; */
+/*     target_file = g_hash_table_lookup (fsm->form_kvs, "target_file"); */
+/*     size_str = g_hash_table_lookup (fsm->form_kvs, "file_size"); */
+/*     if (size_str)  file_size = atoll(size_str); */
+/*     if (!target_file || !size_str || file_size < 0) { */
+/*         seaf_debug ("[Update-blks] No target file given.\n"); */
+/*         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n"); */
+/*         return; */
+/*     } */
 
-    parent_dir = g_path_get_dirname (target_file);
-    filename = g_path_get_basename (target_file);
+/*     parent_dir = g_path_get_dirname (target_file); */
+/*     filename = g_path_get_basename (target_file); */
 
-    if (!check_parent_dir (req, fsm->repo_id, parent_dir))
-        return;
+/*     if (!check_parent_dir (req, fsm->repo_id, parent_dir)) */
+/*         return; */
 
-    if (!check_tmp_file_list (fsm->files, &error_code))
-        goto error;
+/*     if (!check_tmp_file_list (fsm->files, &error_code)) */
+/*         goto error; */
 
-    head_id = evhtp_kv_find (req->uri->query, "head");
+/*     head_id = evhtp_kv_find (req->uri->query, "head"); */
 
-    gint64 content_len = get_content_length (req);
-    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
-                                                   fsm->repo_id,
-                                                   content_len) != 0) {
-        error_code = ERROR_QUOTA;
-        goto error;
-    }
+/*     gint64 content_len = get_content_length (req); */
+/*     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, */
+/*                                                    fsm->repo_id, */
+/*                                                    content_len) != 0) { */
+/*         error_code = ERROR_QUOTA; */
+/*         goto error; */
+/*     } */
 
-    blockids_json = file_list_to_json (fsm->filenames);
-    tmp_files_json = file_list_to_json (fsm->files);
-    int rc = seaf_repo_manager_put_file_blocks (seaf->repo_mgr,
-                                                fsm->repo_id,
-                                                parent_dir,
-                                                filename,
-                                                blockids_json,
-                                                tmp_files_json,
-                                                fsm->user,
-                                                head_id,
-                                                file_size,
-                                                NULL,
-                                                &error);
-    g_free (blockids_json);
-    g_free (tmp_files_json);
-    g_free (parent_dir);
-    g_free (filename);
+/*     blockids_json = file_list_to_json (fsm->filenames); */
+/*     tmp_files_json = file_list_to_json (fsm->files); */
+/*     int rc = seaf_repo_manager_put_file_blocks (seaf->repo_mgr, */
+/*                                                 fsm->repo_id, */
+/*                                                 parent_dir, */
+/*                                                 filename, */
+/*                                                 blockids_json, */
+/*                                                 tmp_files_json, */
+/*                                                 fsm->user, */
+/*                                                 head_id, */
+/*                                                 file_size, */
+/*                                                 NULL, */
+/*                                                 &error); */
+/*     g_free (blockids_json); */
+/*     g_free (tmp_files_json); */
+/*     g_free (parent_dir); */
+/*     g_free (filename); */
 
-    if (rc < 0) {
-        if (error) {
-            if (g_strcmp0 (error->message, "file does not exist") == 0) {
-                error_code = ERROR_NOT_EXIST;
-            }
-            g_clear_error (&error);
-        }
-        goto error;
-    }
+/*     if (rc < 0) { */
+/*         if (error) { */
+/*             if (g_strcmp0 (error->message, "file does not exist") == 0) { */
+/*                 error_code = ERROR_NOT_EXIST; */
+/*             } */
+/*             g_clear_error (&error); */
+/*         } */
+/*         goto error; */
+/*     } */
 
-    send_success_reply (req);
+/*     send_success_reply (req); */
 
-    return;
+/*     return; */
 
-error:
-    switch (error_code) {
-    case ERROR_FILENAME:
-        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.\n");
-        break;
-    case ERROR_EXISTS:
-        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.\n");
-        break;
-    case ERROR_SIZE:
-        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.\n");
-        break;
-    case ERROR_QUOTA:
-        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.\n");
-        break;
-    case ERROR_NOT_EXIST:
-        send_error_reply (req, SEAF_HTTP_RES_NOT_EXISTS, "File does not exist.\n");
-        break;
-    case ERROR_RECV:
-    case ERROR_INTERNAL:
-    default:
-        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
-        break;
-    }
-}
+/* error: */
+/*     switch (error_code) { */
+/*     case ERROR_FILENAME: */
+/*         send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.\n"); */
+/*         break; */
+/*     case ERROR_EXISTS: */
+/*         send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.\n"); */
+/*         break; */
+/*     case ERROR_SIZE: */
+/*         send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.\n"); */
+/*         break; */
+/*     case ERROR_QUOTA: */
+/*         send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.\n"); */
+/*         break; */
+/*     case ERROR_NOT_EXIST: */
+/*         send_error_reply (req, SEAF_HTTP_RES_NOT_EXISTS, "File does not exist.\n"); */
+/*         break; */
+/*     case ERROR_RECV: */
+/*     case ERROR_INTERNAL: */
+/*     default: */
+/*         send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n"); */
+/*         break; */
+/*     } */
+/* } */
 
 static char *
 format_update_json_ret (const char *filename, const char *file_id, gint64 size)
@@ -2351,8 +2356,8 @@ upload_file_init (evhtp_t *htp, const char *http_temp_dir)
     cb = evhtp_set_regex_cb (htp, "^/upload-blks-api/.*", upload_blks_api_cb, NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
 
-    cb = evhtp_set_regex_cb (htp, "^/upload-blks-aj/.*", upload_blks_ajax_cb, NULL);
-    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
+    /* cb = evhtp_set_regex_cb (htp, "^/upload-blks-aj/.*", upload_blks_ajax_cb, NULL); */
+    /* evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL); */
 
     cb = evhtp_set_regex_cb (htp, "^/upload-aj/.*", upload_ajax_cb, NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
@@ -2366,8 +2371,8 @@ upload_file_init (evhtp_t *htp, const char *http_temp_dir)
     cb = evhtp_set_regex_cb (htp, "^/update-blks-api/.*", update_blks_api_cb, NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
 
-    cb = evhtp_set_regex_cb (htp, "^/update-blks-aj/.*", update_blks_ajax_cb, NULL);
-    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
+    /* cb = evhtp_set_regex_cb (htp, "^/update-blks-aj/.*", update_blks_ajax_cb, NULL); */
+    /* evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL); */
 
     cb = evhtp_set_regex_cb (htp, "^/update-aj/.*", update_ajax_cb, NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);

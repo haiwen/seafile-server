@@ -3274,67 +3274,67 @@ out:
     return ret;
 }
 
-char *
-seafile_post_file_blocks (const char *repo_id,
-                          const char *parent_dir,
-                          const char *file_name,
-                          const char *blockids_json,
-                          const char *paths_json,
-                          const char *user,
-                          gint64 file_size,
-                          int replace_existed,
-                          GError **error)
-{
-    char *norm_parent_dir = NULL, *norm_file_name = NULL, *rpath = NULL;
-    char *new_id = NULL;
+/* char * */
+/* seafile_post_file_blocks (const char *repo_id, */
+/*                           const char *parent_dir, */
+/*                           const char *file_name, */
+/*                           const char *blockids_json, */
+/*                           const char *paths_json, */
+/*                           const char *user, */
+/*                           gint64 file_size, */
+/*                           int replace_existed, */
+/*                           GError **error) */
+/* { */
+/*     char *norm_parent_dir = NULL, *norm_file_name = NULL, *rpath = NULL; */
+/*     char *new_id = NULL; */
 
-    if (!repo_id || !parent_dir || !file_name
-        || !blockids_json || ! paths_json || !user || file_size < 0) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Argument should not be null");
-        return NULL;
-    }
+/*     if (!repo_id || !parent_dir || !file_name */
+/*         || !blockids_json || ! paths_json || !user || file_size < 0) { */
+/*         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, */
+/*                      "Argument should not be null"); */
+/*         return NULL; */
+/*     } */
 
-    if (!is_uuid_valid (repo_id)) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
-        return NULL;
-    }
+/*     if (!is_uuid_valid (repo_id)) { */
+/*         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id"); */
+/*         return NULL; */
+/*     } */
 
-    norm_parent_dir = normalize_utf8_path (parent_dir);
-    if (!norm_parent_dir) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid UTF8 encoding");
-        goto out;
-    }
+/*     norm_parent_dir = normalize_utf8_path (parent_dir); */
+/*     if (!norm_parent_dir) { */
+/*         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, */
+/*                      "Path is in valid UTF8 encoding"); */
+/*         goto out; */
+/*     } */
 
-    norm_file_name = normalize_utf8_path (file_name);
-    if (!norm_file_name) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid UTF8 encoding");
-        goto out;
-    }
+/*     norm_file_name = normalize_utf8_path (file_name); */
+/*     if (!norm_file_name) { */
+/*         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, */
+/*                      "Path is in valid UTF8 encoding"); */
+/*         goto out; */
+/*     } */
 
-    rpath = format_dir_path (norm_parent_dir);
+/*     rpath = format_dir_path (norm_parent_dir); */
 
-    seaf_repo_manager_post_file_blocks (seaf->repo_mgr,
-                                        repo_id,
-                                        rpath,
-                                        norm_file_name,
-                                        blockids_json,
-                                        paths_json,
-                                        user,
-                                        file_size,
-                                        replace_existed,
-                                        &new_id,
-                                        error);
+/*     seaf_repo_manager_post_file_blocks (seaf->repo_mgr, */
+/*                                         repo_id, */
+/*                                         rpath, */
+/*                                         norm_file_name, */
+/*                                         blockids_json, */
+/*                                         paths_json, */
+/*                                         user, */
+/*                                         file_size, */
+/*                                         replace_existed, */
+/*                                         &new_id, */
+/*                                         error); */
 
-out:
-    g_free (norm_parent_dir);
-    g_free (norm_file_name);
-    g_free (rpath);
+/* out: */
+/*     g_free (norm_parent_dir); */
+/*     g_free (norm_file_name); */
+/*     g_free (rpath); */
 
-    return new_id;
-}
+/*     return new_id; */
+/* } */
 
 char *
 seafile_post_multi_files (const char *repo_id,
@@ -3434,56 +3434,56 @@ out:
     return new_file_id;
 }
 
-char *
-seafile_put_file_blocks (const char *repo_id, const char *parent_dir,
-                         const char *file_name, const char *blockids_json,
-                         const char *paths_json, const char *user,
-                         const char *head_id, gint64 file_size, GError **error)
-{
-    char *norm_parent_dir = NULL, *norm_file_name = NULL, *rpath = NULL;
-    char *new_file_id = NULL;
+/* char * */
+/* seafile_put_file_blocks (const char *repo_id, const char *parent_dir, */
+/*                          const char *file_name, const char *blockids_json, */
+/*                          const char *paths_json, const char *user, */
+/*                          const char *head_id, gint64 file_size, GError **error) */
+/* { */
+/*     char *norm_parent_dir = NULL, *norm_file_name = NULL, *rpath = NULL; */
+/*     char *new_file_id = NULL; */
 
-    if (!repo_id || !parent_dir || !file_name
-        || !blockids_json || ! paths_json || !user) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Argument should not be null");
-        return NULL;
-    }
+/*     if (!repo_id || !parent_dir || !file_name */
+/*         || !blockids_json || ! paths_json || !user) { */
+/*         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, */
+/*                      "Argument should not be null"); */
+/*         return NULL; */
+/*     } */
 
-    if (!is_uuid_valid (repo_id)) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
-        return NULL;
-    }
+/*     if (!is_uuid_valid (repo_id)) { */
+/*         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id"); */
+/*         return NULL; */
+/*     } */
 
-    norm_parent_dir = normalize_utf8_path (parent_dir);
-    if (!norm_parent_dir) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid UTF8 encoding");
-        goto out;
-    }
+/*     norm_parent_dir = normalize_utf8_path (parent_dir); */
+/*     if (!norm_parent_dir) { */
+/*         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, */
+/*                      "Path is in valid UTF8 encoding"); */
+/*         goto out; */
+/*     } */
 
-    norm_file_name = normalize_utf8_path (file_name);
-    if (!norm_file_name) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid UTF8 encoding");
-        goto out;
-    }
+/*     norm_file_name = normalize_utf8_path (file_name); */
+/*     if (!norm_file_name) { */
+/*         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, */
+/*                      "Path is in valid UTF8 encoding"); */
+/*         goto out; */
+/*     } */
 
-    rpath = format_dir_path (norm_parent_dir);
+/*     rpath = format_dir_path (norm_parent_dir); */
 
-    seaf_repo_manager_put_file_blocks (seaf->repo_mgr, repo_id,
-                                       rpath, norm_file_name,
-                                       blockids_json, paths_json,
-                                       user, head_id, file_size,
-                                       &new_file_id, error);
+/*     seaf_repo_manager_put_file_blocks (seaf->repo_mgr, repo_id, */
+/*                                        rpath, norm_file_name, */
+/*                                        blockids_json, paths_json, */
+/*                                        user, head_id, file_size, */
+/*                                        &new_file_id, error); */
 
-out:
-    g_free (norm_parent_dir);
-    g_free (norm_file_name);
-    g_free (rpath);
+/* out: */
+/*     g_free (norm_parent_dir); */
+/*     g_free (norm_file_name); */
+/*     g_free (rpath); */
 
-    return new_file_id;
-}
+/*     return new_file_id; */
+/* } */
 
 int
 seafile_post_dir (const char *repo_id, const char *parent_dir,
