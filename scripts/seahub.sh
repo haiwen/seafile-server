@@ -42,7 +42,7 @@ function usage () {
 
 # Check args
 if [[ $1 != "start" && $1 != "stop" && $1 != "restart" \
-    && $1 != "start-fastcgi" && $1 != "restart-fastcgi" && $1 != "clearsessions" && $1 != "python-env" ]]; then
+    && $1 != "start-fastcgi" && $1 != "restart-fastcgi" && $1 != "clearsessions" && $1 != "python-env" && $1 != "clear-invalid-repo-data" ]]; then
     usage;
     exit 1;
 fi
@@ -119,6 +119,8 @@ if [[ ($1 == "start" || $1 == "restart" || $1 == "start-fastcgi" || $1 == "resta
 elif [[ $1 == "stop" && $# == 1 ]]; then
     dummy=dummy
 elif [[ $1 == "clearsessions" && $# == 1 ]]; then
+    dummy=dummy
+elif [[ $1 == "clear-invalid-repo-data" && $# == 1 ]]; then
     dummy=dummy
 elif [[ $1 == "python-env" ]]; then
     dummy=dummy
@@ -228,6 +230,17 @@ function clear_sessions () {
     echo
 }
 
+function clear_invalid_repo_data () {
+    prepare_env;
+
+    echo "Start clear invalid repo records ..."
+    $PYTHON "${manage_py}" clear_invalid_repo_data
+
+    echo
+    echo "Done"
+    echo
+}
+
 function stop_seahub () {
     if [[ -f ${pidfile} ]]; then
         pid=$(cat "${pidfile}")
@@ -291,6 +304,9 @@ case $1 in
         ;;
     "clearsessions" )
         clear_sessions
+        ;;
+    "clear-invalid-repo-data" )
+        clear_invalid_repo_data
         ;;
 esac
 
