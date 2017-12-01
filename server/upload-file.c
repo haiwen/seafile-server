@@ -2019,7 +2019,7 @@ upload_read_cb (evhtp_request_t *req, evbuf_t *buf, void *arg)
                     free (line);
                     if (g_strcmp0 (fsm->input_name, "file") == 0) {
                         if (open_temp_file (fsm) < 0) {
-                            seaf_warning ("[upload] Failed open temp file.\n");
+                            seaf_warning ("[upload] Failed open temp file, errno:[%d]\n", errno);
                             res = EVHTP_RES_SERVERR;
                             goto out;
                         }
@@ -2053,7 +2053,7 @@ upload_read_cb (evhtp_request_t *req, evbuf_t *buf, void *arg)
 out:
     if (res != EVHTP_RES_OK) {
         /* Don't receive any data before the connection is closed. */
-        evhtp_request_pause (req);
+        //evhtp_request_pause (req);
 
         /* Set keepalive to 0. This will cause evhtp to close the
          * connection after sending the reply.
@@ -2270,7 +2270,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
 
 err:
     /* Don't receive any data before the connection is closed. */
-    evhtp_request_pause (req);
+    //evhtp_request_pause (req);
 
     /* Set keepalive to 0. This will cause evhtp to close the
      * connection after sending the reply.
