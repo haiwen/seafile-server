@@ -1284,6 +1284,21 @@ seafile_get_commit_list (const char *repo_id,
 #ifdef SEAFILE_SERVER
     cp.truncate_time = seaf_repo_manager_get_repo_truncate_time (seaf->repo_mgr,
                                                                  repo_id);
+    /* Keep parent commit */
+    gint64 parent_time = seaf_commit_manager_get_parent_time (seaf->commit_mgr,
+                                                              repo_id, repo->version,
+                                                              commit_id);
+    if (parent_time == -1) {
+        g_free (commit_id);
+        seaf_repo_unref (repo);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_LIST_COMMITS, "Failed to list commits");
+        return NULL;
+    }
+    /* If commit's ctime is equal to truncate_time, this commit will not be kept
+     * so cp.truncate_time = parent_time - 1
+     */
+    if (parent_time != -2 && cp.truncate_time > parent_time)
+        cp.truncate_time = parent_time - 1;
 #endif
 
     ret =

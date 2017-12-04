@@ -892,3 +892,37 @@ seaf_commit_manager_remove_store (SeafCommitManager *mgr,
 {
     return seaf_obj_store_remove_store (mgr->obj_store, store_id);
 }
+
+gint64
+seaf_commit_manager_get_parent_time (SeafCommitManager *mgr,
+                                     const char *repo_id,
+                                     int version,
+                                     const char *commit_id)
+{
+    gint64 ret;
+    SeafCommit *commit;
+    SeafCommit *parent_commit = NULL;
+
+    commit = seaf_commit_manager_get_commit (mgr, repo_id, version, commit_id);
+    if (!commit) {
+        seaf_warning ("Failed to find commit %s.\n", commit_id);
+        return -1;
+    }
+    if (commit->parent_id) {
+        parent_commit = seaf_commit_manager_get_commit (mgr, repo_id, version, commit->parent_id);
+        if (!parent_commit) {
+            seaf_warning ("Failed to find parent commit %s.\n", commit->parent_id);
+            seaf_commit_unref (commit);
+            return -2;
+        }
+    } else {
+        seaf_commit_unref (commit);
+        return -2;
+    }
+    ret = parent_commit->ctime;
+
+    seaf_commit_unref (commit);
+    seaf_commit_unref (parent_commit);
+
+    return ret;
+}
