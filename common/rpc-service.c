@@ -4289,10 +4289,9 @@ seafile_list_dir (const char *repo_id,
 
 GList *
 seafile_list_file_revisions (const char *repo_id,
+                             const char *commit_id,
                              const char *path,
-                             int max_revision,
                              int limit,
-                             int show_days,
                              GError **error)
 {
     if (!repo_id || !path) {
@@ -4310,9 +4309,8 @@ seafile_list_file_revisions (const char *repo_id,
 
     GList *commit_list;
     commit_list = seaf_repo_manager_list_file_revisions (seaf->repo_mgr,
-                                                         repo_id, NULL, rpath,
-                                                         max_revision,
-                                                         limit, show_days, FALSE, error);
+                                                         repo_id, commit_id, rpath,
+                                                         limit, FALSE, FALSE, error);
     g_free (rpath);
 
     return commit_list;

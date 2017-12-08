@@ -509,10 +509,9 @@ seaf_repo_manager_list_file_revisions (SeafRepoManager *mgr,
                                        const char *repo_id,
                                        const char *start_commit_id,
                                        const char *path,
-                                       int max_revision,
                                        int limit,
-                                       int show_days,
                                        gboolean got_latest,
+                                       gboolean got_second,
                                        GError **error);
 
 GList *
