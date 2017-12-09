@@ -66,6 +66,9 @@ public class Commit : Object {
 
 	public string device_name { get; set; }
 	public string client_version { get; set; }
+
+    //Only used for file history pagination
+    public string next_start_commit { get; set; }
 }
 
 } // namespace

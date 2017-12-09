@@ -180,6 +180,7 @@ seaf_commit_manager_traverse_commit_tree_with_limit (SeafCommitManager *mgr,
                                                      CommitTraverseFunc func,
                                                      int limit,
                                                      void *data,
+                                                     char **next_start_commit,
                                                      gboolean skip_errors);
 
 gboolean

@@ -4742,18 +4742,14 @@ struct CollectRevisionParam {
     int n_commits;
     GHashTable *file_info_cache;
     
-    /* 
-     * > 0: stop collect when this amount of revisions are collected.
-     * <= 0: no limit
-     */
-    int max_revision;
-
     /* > 0: keep a period of history;
      * == 0: N/A
      * < 0: keep all history data.
      */
     gint64 truncate_time;
     gboolean got_latest;
+    gboolean got_second;
+    gboolean not_found_file;
 
     GError **error;
 };
@@ -5011,13 +5007,9 @@ collect_file_revisions (SeafCommit *commit, void *vdata, gboolean *stop)
 
     if (data->got_latest &&
         data->truncate_time > 0 &&
-        (gint64)(commit->ctime) < data->truncate_time)
+        (gint64)(commit->ctime) < data->truncate_time &&
+        data->got_second)
     {
-        *stop = TRUE;
-        return TRUE;
-    }
-
-    if (data->max_revision > 0 && data->n_commits > data->max_revision) {
         *stop = TRUE;
         return TRUE;
     }
@@ -5039,6 +5031,7 @@ collect_file_revisions (SeafCommit *commit, void *vdata, gboolean *stop)
          * Deleted files with the same path are not included in history.
          */
         *stop = TRUE;
+        data->not_found_file = TRUE;
         goto out;
     }
 
@@ -5100,9 +5093,12 @@ collect_file_revisions (SeafCommit *commit, void *vdata, gboolean *stop)
         }
     }
 
-    if (!data->got_latest)
+    if (!data->got_latest) {
         data->got_latest = TRUE;
-
+    } else {
+        if (!data->got_second)
+            data->got_second = TRUE;
+    }
     add_revision_info (data, commit, file_info->file_id, file_info->file_size);
 
 out:
@@ -5278,10 +5274,9 @@ seaf_repo_manager_list_file_revisions (SeafRepoManager *mgr,
                                        const char *repo_id,
                                        const char *start_commit_id,
                                        const char *path,
-                                       int max_revision,
                                        int limit,
-                                       int show_days,
                                        gboolean got_latest,
+                                       gboolean got_second,
                                        GError **error)
 {
     SeafRepo *repo = NULL;
@@ -5292,9 +5287,7 @@ seaf_repo_manager_list_file_revisions (SeafRepoManager *mgr,
     const char *head_id;
     gboolean is_renamed = FALSE;
     char *parent_id = NULL, *old_path = NULL;
-    GList *old_revisions = NULL;
-    gint64 truncate_time;
-    gint64 show_time;
+    char *next_start_commit= NULL;
 
     repo = seaf_repo_manager_get_repo (mgr, repo_id);
     if (!repo) {
@@ -5312,21 +5305,15 @@ seaf_repo_manager_list_file_revisions (SeafRepoManager *mgr,
 
     data.path = path;
     data.error = error;
-    data.max_revision = max_revision;
 
-    truncate_time = seaf_repo_manager_get_repo_truncate_time (mgr, repo_id);
-    if (truncate_time == 0) {
-        // Don't keep history
-        data.truncate_time = 0;
-    } else {
-        show_time = show_days > 0 ? time(NULL) - show_days*24*3600 : -1;
-        data.truncate_time = MAX (truncate_time, show_time);
-    }
+    data.truncate_time = seaf_repo_manager_get_repo_truncate_time (mgr, repo_id);
 
     data.wanted_commits = NULL;
     data.file_id_list = NULL;
     data.file_size_list = NULL;
     data.got_latest = got_latest;
+    data.got_second = got_second;
+    data.not_found_file = FALSE;
 
     /* A hash table to cache caculated file info of <path> in <commit> */
     data.file_info_cache = g_hash_table_new_full (g_str_hash, g_str_equal,
@@ -5337,52 +5324,48 @@ seaf_repo_manager_list_file_revisions (SeafRepoManager *mgr,
                                                               repo->version,
                                                               head_id,
                                                               (CommitTraverseFunc)collect_file_revisions,
-                                                              limit, &data, TRUE)) {
+                                                              limit, &data, &next_start_commit, TRUE)) {
         g_clear_error (error);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "failed to traverse commit of repo %s", repo_id);
         goto out;
     }
 
-    if (!data.wanted_commits) {
-        g_clear_error (error);
-        goto out;
-    }
-
-    /* commit list in descending commit time order. */
-    last_commit = data.wanted_commits->data;
-
-    is_renamed = detect_rename_revision (repo,
-                                         last_commit, path, &parent_id, &old_path);
-
-    commit_list = g_list_reverse (data.wanted_commits);
-    file_id_list = g_list_reverse (data.file_id_list);
-    file_size_list = g_list_reverse (data.file_size_list);
-
-    ret = convert_rpc_commit_list (commit_list, file_id_list, file_size_list,
-                                   is_renamed, old_path);
-
-    if (is_renamed) {
-        if (ret) {
-            // if previous scan got revision then set got_latest True for renamend scan
-            /* Get the revisions of the old path, starting from parent commit. */
-            old_revisions = seaf_repo_manager_list_file_revisions (mgr, repo_id,
-                                                                   parent_id, old_path,
-                                                                   -1, -1, show_days,
-                                                                   TRUE, error);
-        } else {
-            /* Get the revisions of the old path, starting from parent commit. */
-            old_revisions = seaf_repo_manager_list_file_revisions (mgr, repo_id,
-                                                                   parent_id, old_path,
-                                                                   -1, -1, show_days,
-                                                                   FALSE, error);
+    if (data.wanted_commits) {
+        last_commit = data.wanted_commits->data;
+        is_renamed = detect_rename_revision (repo,
+                                             last_commit, path, &parent_id, &old_path);
+        if (data.not_found_file && !is_renamed) {   // reached file initial commit.
+            g_free (next_start_commit);
+            next_start_commit = NULL;
+        } else if (is_renamed){    // file renamed.
+            g_free (next_start_commit);
+            next_start_commit = g_strdup (parent_id);
         }
-        ret = g_list_concat (ret, old_revisions);
-        g_free (parent_id);
-        g_free (old_path);
+        commit_list = g_list_reverse (data.wanted_commits);
+        file_id_list = g_list_reverse (data.file_id_list);
+        file_size_list = g_list_reverse (data.file_size_list);
+
+        char *rename_path = NULL;
+        if (old_path && *old_path != '/')
+            rename_path = g_strconcat ("/", old_path, NULL);
+        else
+            rename_path = g_strdup (old_path);
+
+        ret = convert_rpc_commit_list (commit_list, file_id_list, file_size_list,
+                                       is_renamed, rename_path);
+        g_free (rename_path);
+    } else {
+        if (data.not_found_file) {
+            g_free (next_start_commit);
+            next_start_commit = NULL;
+        }
     }
 
-    g_clear_error (error);
+    /* Append one commit that only contains 'next_start_commit' */
+    SeafileCommit *commit = seafile_commit_new ();
+    g_object_set (commit, "next_start_commit", next_start_commit, NULL);
+    ret = g_list_append (ret, commit);
 
 out:
     if (repo)
@@ -5396,6 +5379,9 @@ out:
     g_list_free (file_size_list);
     if (data.file_info_cache)
         g_hash_table_destroy (data.file_info_cache);
+    g_free (old_path);
+    g_free (parent_id);
+    g_free (next_start_commit);
 
     return ret;
 }
@@ -5587,7 +5573,7 @@ seaf_repo_manager_calc_files_last_modified (SeafRepoManager *mgr,
                                                               repo->id, repo->version, 
                                                         repo->head->commit_id,
                                 (CommitTraverseFunc)collect_files_last_modified,
-                                                              limit, &data, FALSE)) {
+                                                              limit, &data, NULL, FALSE)) {
         if (*error)
             seaf_warning ("error when traversing commits: %s\n", (*error)->message);
         else

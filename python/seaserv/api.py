@@ -305,13 +305,12 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.get_deleted(repo_id, show_days, path, scan_stat, limit)
 
-    def get_file_revisions(self, repo_id, path, max_revision, limit, show_days=-1):
+    def get_file_revisions(self, repo_id, commit_id, path, limit):
         """
         Get revisions of a file.
 
-        @max_revision: maximum number of revisions returned
+        @commit_id: start traversing from this commit
         @limit: maximum number of commits to traverse when looking for revisions
-        @show_days: only return revisions in the @show_days
 
         Return a list of Commit objects (lib/commit.vala) related to the revisions.
         A few special attributes are added to the commit object:
@@ -319,10 +318,10 @@ class SeafileAPI(object):
         @rev_file_size: size of the file revision
         @rev_renamed_old_path: set if this revision is made by a rename operation.
                                It's set to the old path before rename.
+        @next_start_commit: commit_id for next page. An extra commit which only contains @next_start_commit
+                            will be appended to the list.
         """
-        return seafserv_threaded_rpc.list_file_revisions(repo_id, path,
-                                                         max_revision, limit,
-                                                         show_days)
+        return seafserv_threaded_rpc.list_file_revisions(repo_id, commit_id, path, limit)
 
     # This api is slow and should only be used for version 0 repos.
     def get_files_last_modified(self, repo_id, parent_dir, limit):
