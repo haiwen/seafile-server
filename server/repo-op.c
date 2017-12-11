@@ -5011,6 +5011,7 @@ collect_file_revisions (SeafCommit *commit, void *vdata, gboolean *stop)
         data->got_second)
     {
         *stop = TRUE;
+        data->not_found_file = TRUE;
         return TRUE;
     }
 
