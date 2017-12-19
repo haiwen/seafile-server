@@ -181,7 +181,7 @@ function start_seahub_fastcgi () {
 
     echo "Starting seahub (fastcgi) at ${address}:${port} ..."
     check_init_admin;
-    $PYTHON "${manage_py}" runfcgi host=$address port=$port pidfile=$pidfile \
+    $PYTHON "${manage_py}" runfcgi maxchildren=8 host=$address port=$port pidfile=$pidfile \
         outlog=${accesslog} errlog=${errorlog}
 
     # Ensure seahub is started successfully
