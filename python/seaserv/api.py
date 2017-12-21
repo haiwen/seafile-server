@@ -848,14 +848,14 @@ class CcnetAPI(object):
         return ccnet_threaded_rpc.get_superusers()
 
     # group management
-    def create_group(self, group_name, user_name, gtype=None):
+    def create_group(self, group_name, user_name, gtype=None, parent_group_id=0):
         """
         For CE, gtype is not used and should always be None.
         """
-        return ccnet_threaded_rpc.create_group(group_name, user_name, gtype)
+        return ccnet_threaded_rpc.create_group(group_name, user_name, gtype, parent_group_id)
 
-    def create_org_group(self, org_id, group_name, user_name):
-        return ccnet_threaded_rpc.create_org_group(org_id, group_name, user_name)
+    def create_org_group(self, org_id, group_name, user_name, parent_group_id=0):
+        return ccnet_threaded_rpc.create_org_group(org_id, group_name, user_name, parent_group_id)
     
     def remove_group(self, group_id):
         """
@@ -897,6 +897,9 @@ class CcnetAPI(object):
         """
         Get all groups the user belongs to.
         Return: a list of Group objects (ccnet/lib/ccnetobj.vala)
+        Since the user may belong to a multi-tier group, the returned list is
+        formated as left-traversal group trees, which separated by an empty object( whose id is -1 )
+        The object, which the user belongs to, has member var 'is_direct' = True.
         """
         return ccnet_threaded_rpc.get_groups(user_name)
 
