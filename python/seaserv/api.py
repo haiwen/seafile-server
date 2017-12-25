@@ -221,6 +221,9 @@ class SeafileAPI(object):
     def get_dir_id_by_commit_and_path(self, repo_id, commit_id, path):
         return seafserv_threaded_rpc.get_dir_id_by_commit_and_path(repo_id, commit_id, path)
 
+    def list_dir_with_perm(self, repo_id, dir_path, dir_id, user, offset=-1, limit=-1):
+        return seafserv_threaded_rpc.list_dir_with_perm (repo_id, dir_path, dir_id, user, offset, limit)
+
     # file/dir operations
 
     def post_file(self, repo_id, tmp_file_path, parent_dir, filename, username):
