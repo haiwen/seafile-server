@@ -2993,8 +2993,10 @@ get_group_repos_cb (SeafDBRow *row, void *data)
         if (vrepo_id) {
             const char *origin_repo_id = seaf_db_row_get_column_text (row, 7);
             const char *origin_path = seaf_db_row_get_column_text (row, 8);
+            const char *origin_repo_name = seaf_db_row_get_column_text (row, 9);
             g_object_set (srepo, "store_id", origin_repo_id,
                           "origin_repo_id", origin_repo_id,
+                          "origin_repo_name", origin_repo_name,
                           "origin_path", origin_path, NULL);
         } else {
             g_object_set (srepo, "store_id", repo_id, NULL);
@@ -3057,10 +3059,11 @@ seaf_repo_manager_get_repos_by_group (SeafRepoManager *mgr,
     GList *repos = NULL;
     GList *p;
 
-    sql = "SELECT RepoGroup.repo_id, VirtualRepo.repo_id, "
+    sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
-        "VirtualRepo.origin_repo, VirtualRepo.path "
-        "FROM RepoGroup LEFT JOIN VirtualRepo ON "
+        "v.origin_repo, v.path ,"
+        "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+        "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
         "RepoGroup.repo_id = VirtualRepo.repo_id "
         "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
         "Branch WHERE group_id = ? AND "
@@ -3092,11 +3095,12 @@ seaf_repo_manager_get_group_repos_by_owner (SeafRepoManager *mgr,
     GList *repos = NULL;
     GList *p;
 
-    sql = "SELECT RepoGroup.repo_id, VirtualRepo.repo_id, "
+    sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
-        "VirtualRepo.origin_repo, VirtualRepo.path "
-        "FROM RepoGroup LEFT JOIN VirtualRepo ON "
-        "RepoGroup.repo_id = VirtualRepo.repo_id "
+        "v.origin_repo, v.path, "
+        "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+        "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
+        "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
         "Branch WHERE user_name = ? AND "
         "RepoGroup.repo_id = Branch.repo_id AND "
@@ -3933,22 +3937,24 @@ seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
         real_repo_id = g_strdup (repo_id);
 
     if (!is_org)
-        sql = "SELECT RepoGroup.repo_id, VirtualRepo.repo_id, "
+        sql = "SELECT RepoGroup.repo_id, v.repo_id, "
               "group_id, user_name, permission, commit_id, s.size, "
-              "VirtualRepo.origin_repo, VirtualRepo.path "
-              "FROM RepoGroup LEFT JOIN VirtualRepo ON "
-              "RepoGroup.repo_id = VirtualRepo.repo_id "
+              "v.origin_repo, v.path, "
+              "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+              "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
+              "RepoGroup.repo_id = v.repo_id "
               "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
               "Branch WHERE group_id = ? AND "
               "RepoGroup.repo_id = Branch.repo_id AND "
               "RepoGroup.repo_id = ? AND "
               "Branch.name = 'master'";
     else
-        sql = "SELECT OrgGroupRepo.repo_id, VirtualRepo.repo_id, "
+        sql = "SELECT OrgGroupRepo.repo_id, v.repo_id, "
               "group_id, owner, permission, commit_id, s.size, "
-              "VirtualRepo.origin_repo, VirtualRepo.path "
-              "FROM OrgGroupRepo LEFT JOIN VirtualRepo ON "
-              "OrgGroupRepo.repo_id = VirtualRepo.repo_id "
+              "v.origin_repo, v.path, "
+              "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+              "FROM OrgGroupRepo LEFT JOIN VirtualRepo v ON "
+              "OrgGroupRepo.repo_id = v.repo_id "
               "LEFT JOIN RepoSize s ON OrgGroupRepo.repo_id = s.repo_id, "
               "Branch WHERE group_id = ? AND "
               "OrgGroupRepo.repo_id = Branch.repo_id AND "
