@@ -996,13 +996,8 @@ start_download_zip_file (evhtp_request_t *req, const char *token,
     evhtp_headers_add_header (req->headers_out,
             evhtp_header_new("Content-Length", file_size, 1, 1));
 
-    if (test_firefox (req)) {
-        snprintf(cont_filename, SEAF_PATH_MAX,
-                 "attachment;filename*=\"utf-8\' \'%s.zip\"", zipname);
-    } else {
-        snprintf(cont_filename, SEAF_PATH_MAX,
-                 "attachment;filename=\"%s.zip\"", zipname);
-    }
+    snprintf(cont_filename, SEAF_PATH_MAX,
+             "attachment;filename=\"%s.zip\"", zipname);
 
     evhtp_headers_add_header(req->headers_out,
             evhtp_header_new("Content-Disposition", cont_filename, 1, 1));
