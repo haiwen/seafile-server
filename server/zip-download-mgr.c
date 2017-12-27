@@ -611,3 +611,14 @@ zip_download_mgr_del_zip_progress (ZipDownloadMgr *mgr,
 {
     remove_progress_by_token (mgr->priv, token);
 }
+
+int
+zip_download_mgr_cancel_zip_task (ZipDownloadMgr *mgr,
+                                  const char *token)
+{
+    Progress *progress = get_progress_obj (mgr->priv, token);
+    if (progress)
+        progress->canceled = TRUE;
+
+    return 0;
+}

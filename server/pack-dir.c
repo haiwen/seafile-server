@@ -326,6 +326,11 @@ archive_dir (PackDirData *data,
     }
 
     for (ptr = dir->entries; ptr; ptr = ptr->next) {
+        if (progress->canceled) {
+            ret = -1;
+            goto out;
+        }
+
         dent = ptr->data;
         if (S_ISREG(dent->mode)) {
             ret = add_file_to_archive (data, dirpath, dent);
@@ -405,6 +410,8 @@ archive_multi (PackDirData *data, GList *dirent_list,
     SeafDirent *dirent;
 
     for (iter = dirent_list; iter; iter = iter->next) {
+        if (progress->canceled)
+            return -1;
         dirent = iter->data;
         if (S_ISREG(dirent->mode)) {
             if (add_file_to_archive (data, "", dirent) < 0) {
@@ -447,13 +454,19 @@ pack_files (const char *store_id,
     if (strcmp (dirname, "") != 0) {
         // Pack dir
         if (archive_dir (data, (char *)internal, "", progress) < 0) {
-            seaf_warning ("Failed to archive dir.\n");
+            if (progress->canceled)
+                seaf_warning ("Zip task for dir %s canceled.\n", dirname);
+            else
+                seaf_warning ("Failed to archive dir %s.\n", dirname);
             ret = -1;
         }
     } else {
         // Pack multi
         if (archive_multi (data, (GList *)internal, progress) < 0) {
-            seaf_warning ("Failed to archive multi files.\n");
+            if (progress->canceled)
+                seaf_warning ("Archiving multi files canceled.\n");
+            else
+                seaf_warning ("Failed to archive multi files.\n");
             ret = -1;
         }
     }

@@ -10,6 +10,7 @@ typedef struct Progress {
     int total;
     char *zip_file_path;
     gint64 expire_ts;
+    gboolean canceled;
 } Progress;
 
 int
