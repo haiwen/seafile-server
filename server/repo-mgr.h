@@ -835,4 +835,10 @@ seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
                                     int group_id,
                                     gboolean is_org,
                                     GError **error);
+
+GList *
+seaf_get_group_repos_by_user (SeafRepoManager *mgr,
+                              const char *user,
+                              int org_id,
+                              GError **error);
 #endif

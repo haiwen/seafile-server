@@ -5233,4 +5233,28 @@ seafile_get_shared_repo_by_path (const char *repo_id,
 
     return seaf_get_shared_repo_by_path (mgr, repo_id, path, shared_to, is_org ? TRUE:FALSE, error);
 }
+
+GList *
+seafile_get_group_repos_by_user (const char *user, GError **error)
+{
+    if (!user) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Arguments error");
+        return NULL;
+    }
+    SeafRepoManager *mgr = seaf->repo_mgr;
+
+    return seaf_get_group_repos_by_user (mgr, user, -1, error);
+}
+
+GList *
+seafile_get_org_group_repos_by_user (const char *user, int org_id, GError **error)
+{
+    if (!user) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Arguments error");
+        return NULL;
+    }
+    SeafRepoManager *mgr = seaf->repo_mgr;
+
+    return seaf_get_group_repos_by_user (mgr, user, org_id, error);
+}
 #endif  /* SEAFILE_SERVER */

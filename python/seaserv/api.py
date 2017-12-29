@@ -446,6 +446,15 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.get_group_shared_repo_by_path(repo_id, path, group_id, 1 if is_org else 0)
 
+    def get_group_repos_by_user (self, user):
+        """
+        Return all the repos in all groups that the @user belongs to.
+        """
+        return seafserv_threaded_rpc.get_group_repos_by_user(user)
+
+    def get_org_group_repos_by_user (self, user, org_id):
+        return seafserv_threaded_rpc.get_org_group_repos_by_user(user, org_id)
+
     def list_repo_shared_group_by_user(self, from_user, repo_id):
         """
         Return: a list of SharedGroup objects (lib/repo.vala)

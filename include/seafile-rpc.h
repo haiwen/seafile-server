@@ -1082,4 +1082,10 @@ seafile_get_shared_repo_by_path (const char *repo_id,
                                  const char *shared_to,
                                  int is_org,
                                  GError **error);
+
+GList *
+seafile_get_group_repos_by_user (const char *user, GError **error);
+
+GList *
+seafile_get_org_group_repos_by_user (const char *user, int org_id, GError **error);
 #endif

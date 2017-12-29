@@ -3978,3 +3978,78 @@ seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
 
     return ret;
 }
+
+GList *
+seaf_get_group_repos_by_user (SeafRepoManager *mgr,
+                              const char *user,
+                              int org_id,
+                              GError **error)
+{
+    CcnetGroup *group;
+    GList *groups = NULL, *p;
+    GList *repos = NULL;
+    SearpcClient *rpc_client;
+    GString *sql = NULL;
+    int group_id = 0;
+
+    rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
+                                                 NULL,
+                                                 "ccnet-threaded-rpcserver");
+    if (!rpc_client)
+        return NULL;
+
+    /* Get the groups this user belongs to. */
+    if (org_id < 0)
+        groups = ccnet_get_groups_by_user (rpc_client, user);
+    else
+        groups = ccnet_get_org_groups_by_user (rpc_client, user, org_id);
+
+    if (!groups) {
+        goto out;
+    }
+
+    sql = g_string_new ("");
+    g_string_printf (sql, "SELECT g.repo_id, v.repo_id, "
+                          "group_id, %s, permission, commit_id, s.size, "
+                          "v.origin_repo, v.path "
+                          "FROM %s g LEFT JOIN VirtualRepo v ON "
+                          "g.repo_id = v.repo_id "
+                          "LEFT JOIN RepoSize s ON g.repo_id = s.repo_id, "
+                          "Branch b WHERE g.repo_id = b.repo_id AND "
+                          "b.name = 'master' AND group_id IN (",
+                          org_id < 0 ? "user_name" : "owner",
+                          org_id < 0 ? "RepoGroup" : "OrgGroupRepo");
+    for (p = groups; p != NULL; p = p->next) {
+        group = p->data;
+        g_object_get (group, "id", &group_id, NULL);
+
+        g_string_append_printf (sql, "%d", group_id);
+        if (p->next)
+            g_string_append_printf (sql, ",");
+    }
+    g_string_append_printf (sql, " ) ORDER BY group_id");
+
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql->str, get_group_repos_cb,
+                                       &repos, 0) < 0) {
+        for (p = repos; p; p = p->next) {
+            g_object_unref (p->data);
+        }
+        g_list_free (repos);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to get user group repos from db.");
+        seaf_warning ("Failed to get user[%s] group repos from db.\n", user);
+        goto out;
+    }
+    seaf_fill_repo_obj_from_commit (&repos);
+
+out:
+    if (sql)
+        g_string_free (sql, TRUE);
+
+    ccnet_rpc_client_free (rpc_client);
+    for (p = groups; p != NULL; p = p->next)
+        g_object_unref ((GObject *)p->data);
+    g_list_free (groups);
+
+    return g_list_reverse (repos);
+}
