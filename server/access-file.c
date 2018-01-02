@@ -1138,7 +1138,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
 
     zip_file_path = zip_download_mgr_get_zip_file_path (seaf->zip_download_mgr, token);
     if (!zip_file_path) {
-        seaf_warning ("Failed to get zip file path.\n");
+        seaf_warning ("Failed to get zip file path for %s, token:[%s].\n", filename, token);
         error = "Invalid token\n";
         error_code = EVHTP_RES_BADREQ;
         goto out;
