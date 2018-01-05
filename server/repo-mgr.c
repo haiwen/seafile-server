@@ -3064,7 +3064,7 @@ seaf_repo_manager_get_repos_by_group (SeafRepoManager *mgr,
         "v.origin_repo, v.path ,"
         "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
         "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
-        "RepoGroup.repo_id = VirtualRepo.repo_id "
+        "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
         "Branch WHERE group_id = ? AND "
         "RepoGroup.repo_id = Branch.repo_id AND "

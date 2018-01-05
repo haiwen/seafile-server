@@ -1112,8 +1112,12 @@ head_commits_multi_cb (evhtp_request_t *req, void *arg)
             g_string_append_printf (id_list_str, ",'%s'", json_string_value(id));
     }
 
-    sql = g_strdup_printf ("SELECT repo_id, commit_id FROM Branch WHERE name='master' AND repo_id IN (%s) LOCK IN SHARE MODE",
-                           id_list_str->str);
+    if (seaf_db_type (seaf->db) == SEAF_DB_TYPE_MYSQL)
+        sql = g_strdup_printf ("SELECT repo_id, commit_id FROM Branch WHERE name='master' AND repo_id IN (%s) LOCK IN SHARE MODE",
+                                id_list_str->str);
+    else
+        sql = g_strdup_printf ("SELECT repo_id, commit_id FROM Branch WHERE name='master' AND repo_id IN (%s)",
+                                id_list_str->str);
     commit_id_map = json_object();
     if (seaf_db_statement_foreach_row (seaf->db, sql,
                                        collect_head_commit_ids, commit_id_map, 0) < 0) {
