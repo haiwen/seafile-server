@@ -2932,6 +2932,24 @@ seaf_repo_manager_set_group_repo_perm (SeafRepoManager *mgr,
                                     "int", group_id);
 }
 
+int
+seaf_repo_manager_set_subdir_group_perm_by_path (SeafRepoManager *mgr,
+                                                 const char *repo_id,
+                                                 const char *username,
+                                                 int group_id,
+                                                 const char *permission,
+                                                 const char *path)
+{
+    return seaf_db_statement_query (mgr->seaf->db,
+                                    "UPDATE RepoGroup SET permission=? WHERE repo_id IN "
+                                    "(SELECT repo_id FROM VirtualRepo WHERE origin_repo=? AND path=?) "
+                                    "AND group_id=? AND user_name=?",
+                                    5, "string", permission,
+                                    "string", repo_id,
+                                    "string", path,
+                                    "int", group_id,
+                                    "string", username);
+}
 static gboolean
 get_group_repoids_cb (SeafDBRow *row, void *data)
 {

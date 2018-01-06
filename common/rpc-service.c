@@ -2518,29 +2518,19 @@ seafile_update_share_subdir_perm_for_user (const char *repo_id,
     }
 
     char *real_path;
-    char *vrepo_id;
     int ret = 0;
 
     real_path = format_dir_path (path);
-    vrepo_id = seaf_repo_manager_get_virtual_repo_id (seaf->repo_mgr, repo_id,
-                                                      real_path, owner);
-    if (!vrepo_id) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "Failed to get shared sub repo");
-        ret = -1;
-        goto out;
-    }
 
-    ret = seaf_share_manager_set_permission (seaf->share_mgr, vrepo_id,
-                                             owner, share_user,
-                                             permission);
+    ret = seaf_share_manager_set_subdir_perm_by_path (seaf->share_mgr,
+                                                      repo_id, owner, share_user,
+                                                      permission, real_path);
+
     if (ret < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to update share subdir permission for user");
     }
-    g_free (vrepo_id);
 
-out:
     g_free (real_path);
     return ret;
 }
@@ -2795,29 +2785,17 @@ seafile_update_share_subdir_perm_for_group (const char *repo_id,
     }
 
     char *real_path;
-    char *vrepo_id;
     int ret = 0;
 
     real_path = format_dir_path (path);
-    vrepo_id = seaf_repo_manager_get_virtual_repo_id (seaf->repo_mgr, repo_id,
-                                                      real_path, owner);
-    if (!vrepo_id) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "Failed to get shared sub repo");
-        ret = -1;
-        goto out;
-    }
-
-    ret = seaf_repo_manager_set_group_repo_perm (seaf->repo_mgr, vrepo_id,
-                                                 share_group, permission,
-                                                 error);
+    ret = seaf_repo_manager_set_subdir_group_perm_by_path (seaf->repo_mgr,
+                                                           repo_id, owner, share_group,
+                                                           permission, real_path);
     if (ret < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to update share subdir permission for group");
     }
-    g_free (vrepo_id);
 
-out:
     g_free (real_path);
     return ret;
 }
