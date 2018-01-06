@@ -591,6 +591,10 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      seafile_query_zip_progress,
                                      "seafile_query_zip_progress",
                                      searpc_signature_string__string());
+    searpc_server_register_function ("seafserv-rpcserver",
+                                     seafile_cancel_zip_task,
+                                     "cancel_zip_task",
+                                     searpc_signature_int__string());
 
     /* Copy task related. */
 

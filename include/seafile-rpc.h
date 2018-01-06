@@ -500,6 +500,9 @@ seafile_web_query_access_token (const char *token, GError **error);
 char *
 seafile_query_zip_progress (const char *token, GError **error);
 
+int
+seafile_cancel_zip_task (const char *token, GError **error);
+
 GObject *
 seafile_get_checkout_task (const char *repo_id, GError **error);
 

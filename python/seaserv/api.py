@@ -49,6 +49,9 @@ class SeafileAPI(object):
         """
         return seafserv_rpc.query_zip_progress(token)
 
+    def cancel_zip_task(self, token):
+        return seafserv_rpc.cancel_zip_task(token)
+
     # password
 
     def is_password_set(self, repo_id, username):

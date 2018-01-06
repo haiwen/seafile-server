@@ -2284,6 +2284,13 @@ seafile_query_zip_progress (const char *token, GError **error)
 }
 
 int
+seafile_cancel_zip_task (const char *token, GError **error)
+{
+    return zip_download_mgr_cancel_zip_task (seaf->zip_download_mgr,
+                                             token);
+}
+
+int
 seafile_add_share (const char *repo_id, const char *from_email,
                    const char *to_email, const char *permission, GError **error)
 {
