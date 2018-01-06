@@ -841,4 +841,12 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
                               const char *user,
                               int org_id,
                               GError **error);
+
+int
+seaf_repo_manager_set_subdir_group_perm_by_path (SeafRepoManager *mgr,
+                                                 const char *repo_id,
+                                                 const char *username,
+                                                 int group_id,
+                                                 const char *permission,
+                                                 const char *path);
 #endif

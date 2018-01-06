@@ -28,6 +28,11 @@ seaf_share_manager_add_share (SeafShareManager *mgr, const char *repo_id,
                               const char *permission);
 
 int
+seaf_share_manager_set_subdir_perm_by_path (SeafShareManager *mgr, const char *repo_id,
+                                            const char *from_email, const char *to_email,
+                                            const char *permission, const char *path);
+
+int
 seaf_share_manager_set_permission (SeafShareManager *mgr, const char *repo_id,
                                    const char *from_email, const char *to_email,
                                    const char *permission);
