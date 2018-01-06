@@ -1082,6 +1082,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
     json_t *info_obj = NULL;
     json_error_t jerror;
     char *filename = NULL;
+    char *repo_id = NULL;
     char *zip_file_path;
     const char *error = NULL;
     int error_code;
@@ -1138,7 +1139,9 @@ access_zip_cb (evhtp_request_t *req, void *arg)
 
     zip_file_path = zip_download_mgr_get_zip_file_path (seaf->zip_download_mgr, token);
     if (!zip_file_path) {
-        seaf_warning ("Failed to get zip file path for %s, token:[%s].\n", filename, token);
+        g_object_get (info, "repo_id", &repo_id, NULL);
+        seaf_warning ("Failed to get zip file path for %s in repo %.8s, token:[%s].\n",
+                      filename, repo_id, token);
         error = "Invalid token\n";
         error_code = EVHTP_RES_BADREQ;
         goto out;
@@ -1166,6 +1169,8 @@ out:
         json_decref (info_obj);
     if (filename)
         g_free (filename);
+    if (repo_id)
+        g_free (repo_id);
 
     if (error) {
         evbuffer_add_printf(req->buffer_out, "%s\n", error);

@@ -445,7 +445,8 @@ pack_files (const char *store_id,
     data = pack_dir_data_new (store_id, repo_version, dirname,
                               crypt, is_windows);
     if (!data) {
-        seaf_warning ("Failed to create pack dir data.\n");
+        seaf_warning ("Failed to create pack dir data for %s.\n",
+                      strcmp (dirname, "")==0 ? "multi files" : dirname);
         return -1;
     }
 
@@ -455,24 +456,25 @@ pack_files (const char *store_id,
         // Pack dir
         if (archive_dir (data, (char *)internal, "", progress) < 0) {
             if (progress->canceled)
-                seaf_warning ("Zip task for dir %s canceled.\n", dirname);
+                seaf_warning ("Zip task for dir %s in repo %.8s canceled.\n", dirname, store_id);
             else
-                seaf_warning ("Failed to archive dir %s.\n", dirname);
+                seaf_warning ("Failed to archive dir %s in repo %.8s.\n", dirname, store_id);
             ret = -1;
         }
     } else {
         // Pack multi
         if (archive_multi (data, (GList *)internal, progress) < 0) {
             if (progress->canceled)
-                seaf_warning ("Archiving multi files canceled.\n");
+                seaf_warning ("Archiving multi files in repo %.8s canceled.\n", store_id);
             else
-                seaf_warning ("Failed to archive multi files.\n");
+                seaf_warning ("Failed to archive multi files in repo %.8s.\n", store_id);
             ret = -1;
         }
     }
 
     if (archive_write_finish(data->a) < 0) {
-        seaf_warning ("Failed to archive write finish.\n");
+        seaf_warning ("Failed to archive write finish for %s in repo %.8s.\n",
+                      strcmp (dirname, "")==0 ? "multi files" : dirname, store_id);
         ret = -1;
     }
 
