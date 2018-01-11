@@ -96,6 +96,7 @@ public class Repo : Object {
     public string permission { get; set; }
     public string user { get; set; } // share from or share to
     public int group_id { get; set; } // used when shared to group
+    public string group_name { get; set; } // used when shared to group
 
     // For list_owned_repo
     public bool is_shared { get; set; }

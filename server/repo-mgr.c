@@ -4010,8 +4010,9 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
                               GError **error)
 {
     CcnetGroup *group;
-    GList *groups = NULL, *p;
+    GList *groups = NULL, *p, *q;
     GList *repos = NULL;
+    SeafileRepo *repo = NULL;
     SearpcClient *rpc_client;
     GString *sql = NULL;
     int group_id = 0;
@@ -4035,7 +4036,8 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
     sql = g_string_new ("");
     g_string_printf (sql, "SELECT g.repo_id, v.repo_id, "
                           "group_id, %s, permission, commit_id, s.size, "
-                          "v.origin_repo, v.path "
+                          "v.origin_repo, v.path, "
+                          "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo)"
                           "FROM %s g LEFT JOIN VirtualRepo v ON "
                           "g.repo_id = v.repo_id "
                           "LEFT JOIN RepoSize s ON g.repo_id = s.repo_id, "
@@ -4064,6 +4066,31 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
         seaf_warning ("Failed to get user[%s] group repos from db.\n", user);
         goto out;
     }
+
+    int repo_group_id = 0;
+    char *group_name = NULL;
+    groups = g_list_reverse (groups);
+    q = repos;
+
+    /* Add group_name to repo. Both groups and repos are listed by group_id in descending order */
+    for (p = groups; p; p = p->next) {
+        group = p->data;
+        g_object_get (group, "id", &group_id, NULL);
+        g_object_get (group, "group_name", &group_name, NULL);
+
+        for (; q; q = q->next) {
+            repo = q->data;
+            g_object_get (repo, "group_id", &repo_group_id, NULL);
+            if (repo_group_id == group_id)
+                g_object_set (repo, "group_name", group_name, NULL);
+            else
+                break;
+        }
+        g_free (group_name);
+        if (q == NULL)
+            break;
+    }
+
     seaf_fill_repo_obj_from_commit (&repos);
 
 out:
