@@ -28,8 +28,6 @@ struct _BHandle {
 };
 
 typedef struct {
-    char          *v0_block_dir;
-    int            v0_block_dir_len;
     char          *block_dir;
     int            block_dir_len;
     char          *tmp_dir;
@@ -270,8 +268,6 @@ block_backend_fs_foreach_block (BlockBackend *bend,
 #if defined MIGRATION
     if (version > 0)
         block_dir = g_build_filename (priv->block_dir, store_id, NULL);
-    else
-        block_dir = g_strdup(priv->v0_block_dir);
 #else
     block_dir = g_build_filename (priv->block_dir, store_id, NULL);
 #endif
@@ -415,10 +411,6 @@ get_block_path (BlockBackend *bend,
     if (version > 0) {
         n = snprintf (path, SEAF_PATH_MAX, "%s/%s/", priv->block_dir, store_id);
         pos += n;
-    } else {
-        memcpy (pos, priv->v0_block_dir, priv->v0_block_dir_len);
-        pos[priv->v0_block_dir_len] = '/';
-        pos += priv->v0_block_dir_len + 1;
     }
 #else
     n = snprintf (path, SEAF_PATH_MAX, "%s/%s/", priv->block_dir, store_id);
@@ -459,9 +451,6 @@ block_backend_fs_new (const char *seaf_dir, const char *tmp_dir)
     bend = g_new0(BlockBackend, 1);
     priv = g_new0(FsPriv, 1);
     bend->be_priv = priv;
-
-    priv->v0_block_dir = g_build_filename (seaf_dir, "blocks", NULL);
-    priv->v0_block_dir_len = strlen(priv->v0_block_dir);
 
     priv->block_dir = g_build_filename (seaf_dir, "storage", "blocks", NULL);
     priv->block_dir_len = strlen (priv->block_dir);
