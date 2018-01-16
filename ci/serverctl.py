@@ -3,6 +3,7 @@
 
 import argparse
 import glob
+import logging
 import os
 import re
 import sys
@@ -11,12 +12,13 @@ from contextlib import contextmanager
 from os.path import abspath, basename, dirname, exists, join
 
 import requests
-from pexpect import spawn
+from tenacity import TryAgain, retry, stop_after_attempt, wait_fixed
 
 from utils import (
-    cd, chdir, create_dir, debug, green, info, red, setup_logging, shell,
-    warning
+    cd, chdir, debug, green, info, mkdirs, red, setup_logging, shell, warning
 )
+
+logger = logging.getLogger(__name__)
 
 MYSQL_ROOT_PASSWD = 's123'
 
@@ -26,11 +28,11 @@ class ServerCtl(object):
         self.db = db
         self.datadir = datadir
         self.central_conf_dir = join(datadir, 'conf')
-        self.seafile_data_dir = join(datadir, 'seafile-data')
+        self.seafile_conf_dir = join(datadir, 'seafile-data')
         self.ccnet_conf_dir = join(datadir, 'ccnet')
-        self.log_dir = join(datadir, 'logs')
-        create_dir(self.log_dir)
 
+        self.log_dir = join(datadir, 'logs')
+        mkdirs(self.log_dir)
         self.ccnet_log = join(self.log_dir, 'ccnet.log')
         self.seafile_log = join(self.log_dir, 'seafile.log')
 
@@ -64,7 +66,7 @@ class ServerCtl(object):
             '--central-config-dir',
             self.central_conf_dir,
             '--seafile-dir',
-            self.seafile_data_dir,
+            self.seafile_conf_dir,
             '--fileserver-port',
             '8082',
         ]
@@ -76,46 +78,71 @@ class ServerCtl(object):
         try:
             self.start()
             yield self
+        except:
+            self.print_logs()
+            raise
         finally:
             self.stop()
-            for logfile in self.ccnet_log, self.seafile_log:
-                shell('echo {0}; cat {0}'.format(logfile))
+
+    def print_logs(self):
+        for logfile in self.ccnet_log, self.seafile_log:
+            if exists(logfile):
+                shell('cat {0}'.format(logfile))
+
+    @retry(wait=wait_fixed(1), stop=stop_after_attempt(10))
+    def wait_ccnet_ready(self):
+        if not exists(join(self.ccnet_conf_dir, 'ccnet.sock')):
+            raise TryAgain
 
     def start(self):
+        logger.info('Starting ccnet server')
         self.start_ccnet()
+        self.wait_ccnet_ready()
+        logger.info('Starting seafile server')
         self.start_seafile()
 
     def start_ccnet(self):
         cmd = [
             "ccnet-server",
             "-F",
-            self.central_config_dir,
+            self.central_conf_dir,
             "-c",
             self.ccnet_conf_dir,
             "-f",
             self.ccnet_log,
         ]
-        self.ccnet_proc = shell(cmd)
+        self.ccnet_proc = shell(cmd, wait=False)
 
     def start_seafile(self):
         cmd = [
-            "seafile-server",
+            "seaf-server",
             "-F",
-            self.central_config_dir,
+            self.central_conf_dir,
             "-c",
-            self.seafile_conf_dir,
+            self.ccnet_conf_dir,
             "-d",
-            self.seafile_data_dir,
+            self.seafile_conf_dir,
             "-l",
             self.seafile_log,
         ]
-        self.seafile_proc = shell(cmd)
+        self.seafile_proc = shell(cmd, wait=False)
 
     def stop(self):
         if self.ccnet_proc:
+            logger.info('Stopping ccnet server')
             self.ccnet_proc.terminate()
         if self.seafile_proc:
+            logger.info('Stopping seafile server')
             self.seafile_proc.terminate()
+
+    def get_seaserv_envs(self):
+        envs = dict(os.environ)
+        envs.update({
+            'SEAFILE_CENTRAL_CONF_DIR': self.central_conf_dir,
+            'CCNET_CONF_DIR': self.ccnet_conf_dir,
+            'SEAFILE_CONF_DIR': self.seafile_conf_dir,
+        })
+        return envs
 
 
 def create_mysql_dbs():

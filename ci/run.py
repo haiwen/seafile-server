@@ -4,6 +4,7 @@ Install dir: ~/opt/local
 Data dir: /tmp/haiwen
 """
 
+import argparse
 import glob
 import json
 import logging
@@ -14,24 +15,21 @@ from os.path import abspath, basename, exists, expanduser, join
 
 import requests
 import termcolor
-from pexpect import spawn
 
 from serverctl import MYSQL_ROOT_PASSWD, ServerCtl
 from utils import (
-    cd, chdir, debug, green, info, lru_cache, mkdirs, red, setup_logging, shell,
-    warning
+    cd, chdir, debug, green, info, lru_cache, mkdirs, on_travis, red,
+    setup_logging, shell, warning
 )
 
+logger = logging.getLogger(__name__)
+
 TOPDIR = abspath(join(os.getcwd(), '..'))
-PREFIX = expanduser('~/opt/local')
-SRCDIR = '/tmp/src'
-INSTALLDIR = '/tmp/haiwen'
-THIRDPARTDIR = expanduser('~/thirdpart')
-
-logger = logging.getLogger(__file__)
-seafile_version = ''
-
-TRAVIS_BRANCH = os.environ.get('TRAVIS_BRANCH', 'master')
+if on_travis():
+    PREFIX = expanduser('~/opt/local')
+else:
+    PREFIX = os.environ.get('SEAFILE_INSTALL_PREFIX', '/usr/local')
+INSTALLDIR = '/tmp/seafile-tests'
 
 
 def num_jobs():
@@ -50,16 +48,17 @@ def make_build_env():
 
     _env_add('CPPFLAGS', '-I%s' % join(PREFIX, 'include'), seperator=' ')
 
-    _env_add('LDFLAGS', '-L%s' % os.path.join(PREFIX, 'lib'), seperator=' ')
+    _env_add('LDFLAGS', '-L%s' % join(PREFIX, 'lib'), seperator=' ')
 
-    _env_add('LDFLAGS', '-L%s' % os.path.join(PREFIX, 'lib64'), seperator=' ')
+    _env_add('LDFLAGS', '-L%s' % join(PREFIX, 'lib64'), seperator=' ')
 
-    _env_add('PATH', os.path.join(PREFIX, 'bin'))
-    _env_add('PATH', THIRDPARTDIR)
-    _env_add('PKG_CONFIG_PATH', os.path.join(PREFIX, 'lib', 'pkgconfig'))
-    _env_add('PKG_CONFIG_PATH', os.path.join(PREFIX, 'lib64', 'pkgconfig'))
+    _env_add('PATH', join(PREFIX, 'bin'))
+    _env_add('PYTHONPATH', join(PREFIX, 'lib/python2.7/site-packages'))
+    _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib', 'pkgconfig'))
+    _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib64', 'pkgconfig'))
     _env_add('PKG_CONFIG_PATH', libsearpc_dir)
     _env_add('PKG_CONFIG_PATH', ccnet_dir)
+    _env_add('LD_LIBRARY_PATH', join(PREFIX, 'lib'))
 
     for key in ('PATH', 'PKG_CONFIG_PATH', 'CPPFLAGS', 'LDFLAGS', 'PYTHONPATH'):
         info('%s: %s', key, env.get(key, ''))
@@ -85,10 +84,11 @@ def get_branch_json_file():
 
 
 def get_project_branch(project, default_branch='master'):
+    travis_branch = os.environ.get('TRAVIS_BRANCH', 'master')
     if project.name == 'seafile-server':
-        return TRAVIS_BRANCH
+        return travis_branch
     conf = get_branch_json_file()
-    return conf.get(TRAVIS_BRANCH, {}).get(project.name, default_branch)
+    return conf.get(travis_branch, {}).get(project.name, default_branch)
 
 
 class Project(object):
@@ -163,18 +163,24 @@ def fetch_and_build():
     seafile.compile_and_install()
 
 
+def parse_args():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('-v', '--verbose', action='store_true')
+    ap.add_argument('-t', '--test-only', action='store_true')
+
+    return ap.parse_args()
+
+
 def main():
-    mkdirs(SRCDIR, INSTALLDIR)
-    setup_logging()
+    mkdirs(INSTALLDIR)
     os.environ.update(make_build_env())
-    fetch_and_build()
+    args = parse_args()
+    if on_travis() and not args.test_only:
+        fetch_and_build()
     # for db in ('sqlite3', 'mysql'):
     for db in ('sqlite3', ):
         shell('rm -rf {}/*'.format(INSTALLDIR))
         start_and_test_with_db(db)
-
-
-pytest_script = join(SeafileServer().projectdir, 'run_tests.sh')
 
 
 def start_and_test_with_db(db):
@@ -183,11 +189,11 @@ def start_and_test_with_db(db):
     server.setup()
     with server.run():
         info('Testing with %s database', db)
-        shell(pytest_script)
+        with cd(SeafileServer().projectdir):
+            shell('py.test', env=server.get_seaserv_envs())
 
 
 if __name__ == '__main__':
     os.chdir(TOPDIR)
-    # Add the location where libevhtp is installed so ldd can know it.
-    prepend_env_value('LD_LIBRARY_PATH', os.path.expanduser('~/opt/local/lib'))
+    setup_logging()
     main()

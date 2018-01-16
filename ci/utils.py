@@ -10,14 +10,13 @@ from subprocess import PIPE, CalledProcessError, Popen
 
 import requests
 import termcolor
-from pexpect import spawn
 
 try:
     from functools import lru_cache
 except ImportError:
     from backports.functools_lru_cache import lru_cache
 
-logger = logging.getLogger(__file__)
+logger = logging.getLogger(__name__)
 
 
 def _color(s, color):
@@ -95,3 +94,16 @@ def mkdirs(*paths):
     for path in paths:
         if not exists(path):
             os.mkdir(path)
+
+def on_travis():
+    return 'TRAVIS_BUILD_NUMBER' in os.environ
+
+@contextmanager
+def cd(path):
+    path = expanduser(path)
+    olddir = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(olddir)

@@ -93,3 +93,5 @@ tests/conf/PeerMgr
 /test-driver
 *.dmp
 /symbols
+__pycache__/
+.cache/

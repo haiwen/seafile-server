@@ -1,10 +1,12 @@
 #!/bin/bash
 
-set -e -x
+set -e
 
 SCRIPT=${BASH_SOURCE[0]}
-TESTS_DIR=$(dirname "${SCRIPT}")
+PROJECT_DIR=$(dirname "${SCRIPT}")
 
-cd $TESTS_DIR
+cd $PROJECT_DIR
 
-py.test "$@"
+export PYTHONPATH=$PROJECT_DIR:$PYTHONPATH
+
+ci/run.py --test-only
