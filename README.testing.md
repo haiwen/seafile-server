@@ -8,8 +8,20 @@ To run the tests, you need to install pytest first:
 pip install -r ci/requirements.txt
 ```
 
+Compile and install ccnet-server and seafile-server
+```
+cd ccnet-server
+make
+sudo make install
+
+cd seafile-server
+make
+sudo make install
+```
+
 Then run the tests with
 ```sh
+cd seafile-server
 ./run_tests.sh
 ```
 
