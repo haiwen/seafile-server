@@ -123,7 +123,7 @@ class Project(object):
         cmds = [
             './autogen.sh',
             './configure --prefix={}'.format(PREFIX),
-            'make -j{}'.format(num_jobs()),
+            'make -j{} V=0'.format(num_jobs()),
             'make install',
         ]
         for cmd in cmds:
