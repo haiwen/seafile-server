@@ -1,6 +1,5 @@
 termcolor>=1.1.0
 requests>=2.8.0
-httpie>=0.9.9
 pytest>=3.3.2
 backports.functools_lru_cache>=1.4
 tenacity>=4.8.0
