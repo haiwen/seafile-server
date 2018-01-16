@@ -1,8 +1,8 @@
-Pillow==4.1.0
 termcolor==1.1.0
 prettytable==0.7.2
 pexpect==4.0
 requests==2.8.0
-httpie
-django-constance[database]
+httpie==0.9.9
 MySQL-python==1.2.5
+pytest==3.3.2
+backports.functools_lru_cache==1.4
