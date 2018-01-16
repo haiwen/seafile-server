@@ -4,7 +4,6 @@ sudo: false
 language: python
 compiler:
  - gcc
- - clang
 addons:
   apt:
     packages:
@@ -21,11 +20,10 @@ cache:
   directories:
     - $HOME/.cache/pip
     - $HOME/.ccache
-    - $HOME/downloads
 before_install:
   - ccache -s
   - export PATH=/usr/lib/ccache:${PATH}
 install:
- - ./integration-tests/install-deps.sh
+ - ./ci/install-deps.sh
 script:
- - ./integration-tests/run.py
+ - ./ci/run.py
