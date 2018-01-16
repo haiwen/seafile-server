@@ -17,3 +17,6 @@ def test_share_repo(repo, permission):
     r = repos[0]
     assert r.id == repo.id
     assert r.permission == permission
+
+    api.remove_share(repo.id, USER, USER2)
+    assert api.check_permission(repo.id, USER2) is None
