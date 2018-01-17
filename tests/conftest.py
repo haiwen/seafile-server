@@ -9,7 +9,7 @@ from tests.config import (
     ADMIN_PASSWORD, ADMIN_USER, INACTIVE_PASSWORD, INACTIVE_USER, PASSWORD,
     PASSWORD2, USER, USER2
 )
-from tests.utils import create_and_get_repo, randstring
+from tests.utils import create_and_get_repo, randstring, create_and_get_group
 
 from seaserv import ccnet_api, seafile_api
 
@@ -49,3 +49,17 @@ def repo():
         if seafile_api.get_repo(repo.id):
             # The repo may be deleted in the test case
             seafile_api.remove_repo(repo.id)
+
+@pytest.yield_fixture(scope='function')
+def group():
+    group = create_and_get_group(
+            'test_group测试-{}'.format(randstring(10)), USER, gtype=None
+    )
+    try:
+        yield group
+    finally:
+        if ccnet_api.get_group(group.id):
+            ccnet_api.remove_group(group.id)
+
+
+
