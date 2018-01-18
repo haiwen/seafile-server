@@ -54,3 +54,17 @@ def test_share_repo_to_group(repo, group, permission):
     assert len(repos) == 0
 
     assert api.check_permission(repo.id, USER2) is None
+
+@pytest.mark.parametrize('permission', ['r', 'rw'])
+def test_share_org_repo_to_user(repo, org, permission):
+    assert api.check_permission(repo.id, USER) == 'rw'
+
+
+
+
+
+
+
+
+
+

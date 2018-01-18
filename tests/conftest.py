@@ -9,7 +9,7 @@ from tests.config import (
     ADMIN_PASSWORD, ADMIN_USER, INACTIVE_PASSWORD, INACTIVE_USER, PASSWORD,
     PASSWORD2, USER, USER2
 )
-from tests.utils import create_and_get_repo, randstring, create_and_get_group
+from tests.utils import create_and_get_repo, randstring, create_and_get_group, create_and_get_org
 
 from seaserv import ccnet_api, seafile_api
 
@@ -60,6 +60,21 @@ def group():
     finally:
         if ccnet_api.get_group(group.id):
             ccnet_api.remove_group(group.id)
+
+@pytest.yield_fixture(scope='function')
+def org():
+    org = create_and_get_org(
+            'testorg测试-{}'.format(randstring(10)), 'seafile_org', 'seatest'
+    )
+    try:
+        yield org
+    finally:
+        if ccnet_api.get_org_by_id(org.id):
+            ccnet_api.remove_org(org.id)
+
+
+
+
 
 
 

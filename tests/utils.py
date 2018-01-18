@@ -25,3 +25,8 @@ def assert_repo_with_permission(r1, r2, permission):
         r2 = r2[0]
     assert r2.id == r1.id
     assert r2.permission == permission
+
+def create_and_get_org(*a, **kw):
+    org_id = ccnet_api.create_org(*a, **kw)
+    org = ccnet_api.get_org_by_id(org_id)
+    return org
