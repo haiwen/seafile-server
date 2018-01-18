@@ -20,8 +20,6 @@ from utils import (
 
 logger = logging.getLogger(__name__)
 
-MYSQL_ROOT_PASSWD = 's123'
-
 
 class ServerCtl(object):
     def __init__(self, datadir, db='sqlite3'):
@@ -59,6 +57,24 @@ class ServerCtl(object):
             'test.seafile.com',
         ]
         shell(cmd)
+        if self.db == 'mysql':
+            self.add_ccnet_db_conf()
+
+    def add_ccnet_db_conf(self):
+        ccnet_conf = join(self.central_conf_dir, 'ccnet.conf')
+        ccnet_db_conf = '''\
+[Database]
+ENGINE = mysql
+HOST = 127.0.0.1
+PORT = 3306
+USER = seafile
+PASSWD = seafile
+DB = ccnet
+CONNECTION_CHARSET = utf8
+'''
+        with open(ccnet_conf, 'a+') as fp:
+            fp.write('\n')
+            fp.write(ccnet_db_conf)
 
     def init_seafile(self):
         cmd = [
@@ -72,6 +88,24 @@ class ServerCtl(object):
         ]
 
         shell(cmd)
+        if self.db == 'mysql':
+            self.add_seafile_db_conf()
+
+    def add_seafile_db_conf(self):
+        seafile_conf = join(self.central_conf_dir, 'seafile.conf')
+        seafile_db_conf = '''\
+[database]
+type = mysql
+host = 127.0.0.1
+port = 3306
+user = seafile
+password = seafile
+db_name = seafile
+connection_charset = utf8
+'''
+        with open(seafile_conf, 'a+') as fp:
+            fp.write('\n')
+            fp.write(seafile_db_conf)
 
     @contextmanager
     def run(self):
@@ -146,17 +180,14 @@ class ServerCtl(object):
 
 
 def create_mysql_dbs():
-    shell('mysqladmin -u root password %s' % MYSQL_ROOT_PASSWD)
     sql = '''\
-create database `ccnet-existing` character set = 'utf8';
-create database `seafile-existing` character set = 'utf8';
-create database `seahub-existing` character set = 'utf8';
+create database `ccnet` character set = 'utf8';
+create database `seafile` character set = 'utf8';
 
 create user 'seafile'@'localhost' identified by 'seafile';
 
-GRANT ALL PRIVILEGES ON `ccnet-existing`.* to `seafile`@localhost;
-GRANT ALL PRIVILEGES ON `seafile-existing`.* to `seafile`@localhost;
-GRANT ALL PRIVILEGES ON `seahub-existing`.* to `seafile`@localhost;
+GRANT ALL PRIVILEGES ON `ccnet`.* to `seafile`@localhost;
+GRANT ALL PRIVILEGES ON `seafile`.* to `seafile`@localhost;
     '''
 
-    shell('mysql -u root -p%s' % MYSQL_ROOT_PASSWD, inputdata=sql)
+    shell('mysql -u root', inputdata=sql)

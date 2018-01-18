@@ -16,7 +16,7 @@ from os.path import abspath, basename, exists, expanduser, join
 import requests
 import termcolor
 
-from serverctl import MYSQL_ROOT_PASSWD, ServerCtl
+from serverctl import ServerCtl
 from utils import (
     cd, chdir, debug, green, info, lru_cache, mkdirs, on_travis, red,
     setup_logging, shell, warning
@@ -177,8 +177,11 @@ def main():
     args = parse_args()
     if on_travis() and not args.test_only:
         fetch_and_build()
-    # for db in ('sqlite3', 'mysql'):
-    for db in ('sqlite3', ):
+    if on_travis():
+        dbs = ('sqlite3', 'mysql')
+    else:
+        dbs = ('sqlite3',)
+    for db in dbs:
         shell('rm -rf {}/*'.format(INSTALLDIR))
         start_and_test_with_db(db)
 
