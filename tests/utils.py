@@ -6,8 +6,15 @@ from seaserv import ccnet_api, seafile_api
 
 
 def create_and_get_repo(*a, **kw):
+    repo_id = 0
     repo_id = seafile_api.create_repo(*a, **kw)
+    assert repo_id != 0
+
+    repo = 0
     repo = seafile_api.get_repo(repo_id)
+    assert repo != 0
+    assert repo.id == repo_id
+
     return repo
 
 

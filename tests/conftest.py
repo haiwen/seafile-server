@@ -7,7 +7,7 @@ import pytest
 from tenacity import retry, stop_after_attempt, wait_fixed
 from tests.config import (
     ADMIN_PASSWORD, ADMIN_USER, INACTIVE_PASSWORD, INACTIVE_USER, PASSWORD,
-    PASSWORD2, USER, USER2
+    PASSWORD2, USER, USER2, ORG_PREFIX, ORG_CREATOR
 )
 from tests.utils import create_and_get_repo, randstring, create_and_get_group, create_and_get_org
 
@@ -60,17 +60,18 @@ def group():
     finally:
         if ccnet_api.get_group(group.id):
             ccnet_api.remove_group(group.id)
+            assert ccnet_api.get_group(group.id) is None
 
 @pytest.yield_fixture(scope='function')
 def org():
     org = create_and_get_org(
-            'testorg测试-{}'.format(randstring(10)), 'seafile_org', 'seatest'
+            'testorg测试-{}'.format(randstring(10)), ORG_PREFIX, ORG_CREATOR
     )
     try:
         yield org
     finally:
-        if ccnet_api.get_org_by_id(org.id):
-            ccnet_api.remove_org(org.id)
+        if ccnet_api.get_org_by_id(org.org_id):
+            ccnet_api.remove_org(org.org_id)
 
 
 

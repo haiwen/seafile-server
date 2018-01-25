@@ -7,3 +7,6 @@ ADMIN_PASSWORD = 'adminuser'
 
 INACTIVE_USER = 'inactiveuser@test.seafile.com'
 INACTIVE_PASSWORD = 'inactiveuser'
+
+ORG_PREFIX = 'seafile_org'
+ORG_CREATOR = 'org_user'
