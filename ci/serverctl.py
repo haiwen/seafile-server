@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class ServerCtl(object):
-    def __init__(self, datadir, db='sqlite3'):
+    def __init__(self, datadir, db='sqlite3', seaf_server_bin='seaf-server', ccnet_server_bin='ccnet-server'):
         self.db = db
         self.datadir = datadir
         self.central_conf_dir = join(datadir, 'conf')
@@ -33,6 +33,9 @@ class ServerCtl(object):
         mkdirs(self.log_dir)
         self.ccnet_log = join(self.log_dir, 'ccnet.log')
         self.seafile_log = join(self.log_dir, 'seafile.log')
+
+        self.ccnet_server_bin = ccnet_server_bin
+        self.seaf_server_bin = seaf_server_bin
 
         self.ccnet_proc = None
         self.seafile_proc = None
@@ -137,7 +140,7 @@ connection_charset = utf8
 
     def start_ccnet(self):
         cmd = [
-            "ccnet-server",
+            self.ccnet_server_bin,
             "-F",
             self.central_conf_dir,
             "-c",
@@ -149,7 +152,7 @@ connection_charset = utf8
 
     def start_seafile(self):
         cmd = [
-            "seaf-server",
+            self.seaf_server_bin,
             "-F",
             self.central_conf_dir,
             "-c",

@@ -188,7 +188,12 @@ def main():
 
 def start_and_test_with_db(db):
     info('Setting up seafile server with %s database', db)
-    server = ServerCtl(INSTALLDIR, db)
+    server = ServerCtl(
+        INSTALLDIR,
+        db=db,
+        # Use the newly built seaf-server (to avoid "make install" each time when developping locally)
+        seaf_server_bin=join(SeafileServer().projectdir, 'server/seaf-server')
+    )
     server.setup()
     with server.run():
         info('Testing with %s database', db)
