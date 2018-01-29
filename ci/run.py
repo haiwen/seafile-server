@@ -60,6 +60,10 @@ def make_build_env():
     _env_add('PKG_CONFIG_PATH', ccnet_dir)
     _env_add('LD_LIBRARY_PATH', join(PREFIX, 'lib'))
 
+    # Prepend the seafile-server/python to PYTHONPATH so we don't need to "make
+    # install" each time after editing python files.
+    _env_add('PYTHONPATH', join(SeafileServer().projectdir, 'python'))
+
     for key in ('PATH', 'PKG_CONFIG_PATH', 'CPPFLAGS', 'LDFLAGS', 'PYTHONPATH'):
         info('%s: %s', key, env.get(key, ''))
     return env
