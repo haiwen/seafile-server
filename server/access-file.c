@@ -128,6 +128,8 @@ static struct file_type_map ftmap[] = {
     { "PNG", "image/png" },
     { "gif", "image/gif" },
     { "GIF", "image/gif" },
+    { "svg", "image/svg+xml" },
+    { "SVG", "image/svg+xml" },
     { NULL, NULL },
 };
 
