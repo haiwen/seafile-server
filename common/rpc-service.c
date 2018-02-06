@@ -3361,6 +3361,7 @@ seafile_post_multi_files (const char *repo_id,
                                         user,
                                         replace_existed,
                                         &ret_json,
+                                        NULL,
                                         error);
 
 out:

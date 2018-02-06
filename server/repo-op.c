@@ -38,6 +38,17 @@ should_ignore_file(const char *filename, void *data);
 static gboolean
 is_virtual_repo_and_origin (SeafRepo *repo1, SeafRepo *repo2);
 
+int
+post_files_and_gen_commit (GList *filenames,
+                          SeafRepo *repo,
+                          const char *user,
+                          char **ret_json,
+                          int replace_existed,
+                          const char *canon_path,
+                          GList *id_list,
+                          GList *size_list,
+                          GError **error);
+
 /*
  * Repo operations.
  */
@@ -668,7 +679,7 @@ seaf_repo_manager_post_file (SeafRepoManager *mgr,
     if (seaf_fs_manager_index_blocks (seaf->fs_mgr,
                                       repo->store_id, repo->version,
                                       temp_file_path,
-                                      sha1, &size, crypt, TRUE, FALSE) < 0) {
+                                      sha1, &size, crypt, TRUE, FALSE, NULL) < 0) {
         seaf_warning ("failed to index blocks");
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to index blocks");
@@ -986,23 +997,19 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                     const char *user,
                                     int replace_existed,
                                     char **ret_json,
+                                    char **task_id,
                                     GError **error)
 {
     SeafRepo *repo = NULL;
-    SeafCommit *head_commit = NULL;
     char *canon_path = NULL;
-    GList *filenames = NULL, *paths = NULL, *id_list = NULL, *name_list = NULL,
-        *size_list = NULL, *ptr;
+    GList *filenames = NULL, *paths = NULL, *id_list = NULL, *size_list = NULL, *ptr;
     char *filename, *path;
     unsigned char sha1[20];
-    GString *buf = g_string_new (NULL);
-    char *root_id = NULL;
     SeafileCrypt *crypt = NULL;
     char hex[41];
     int ret = 0;
 
     GET_REPO_OR_FAIL(repo, repo_id);
-    GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
 
     canon_path = get_canonical_path (parent_dir);
 
@@ -1051,27 +1058,84 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
         crypt = seafile_crypt_new (repo->enc_version, key, iv);
     }
 
-    gint64 *size;
-    for (ptr = paths; ptr; ptr = ptr->next) {
-        path = ptr->data;
+    if (!task_id) {
+        gint64 *size;
+        for (ptr = paths; ptr; ptr = ptr->next) {
+            path = ptr->data;
 
-        size = g_new (gint64, 1);
-        if (seaf_fs_manager_index_blocks (seaf->fs_mgr,
-                                          repo->store_id, repo->version,
-                                          path, sha1, size, crypt, TRUE, FALSE) < 0) {
-            seaf_warning ("failed to index blocks");
-            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                         "Failed to index blocks");
-            ret = -1;
-            goto out;
+            size = g_new (gint64, 1);
+            if (seaf_fs_manager_index_blocks (seaf->fs_mgr,
+                                              repo->store_id, repo->version,
+                                              path, sha1, size, crypt, TRUE, FALSE, NULL) < 0) {
+                seaf_warning ("failed to index blocks");
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                             "Failed to index blocks");
+                ret = -1;
+                goto out;
+            }
+
+            rawdata_to_hex(sha1, hex, 20);
+            id_list = g_list_prepend (id_list, g_strdup(hex));
+            size_list = g_list_prepend (size_list, size);
         }
+        id_list = g_list_reverse (id_list);
+        size_list = g_list_reverse (size_list);
 
-        rawdata_to_hex(sha1, hex, 20);
-        id_list = g_list_prepend (id_list, g_strdup(hex));
-        size_list = g_list_prepend (size_list, size);
+        ret = post_files_and_gen_commit (filenames,
+                                         repo,
+                                         user,
+                                         ret_json,
+                                         replace_existed,
+                                         canon_path,
+                                         id_list,
+                                         size_list,
+                                         error);
+    } else {
+        ret = index_blocks_mgr_start_index (seaf->index_blocks_mgr,
+                                            filenames,
+                                            paths,
+                                            repo_id,
+                                            user,
+                                            replace_existed,
+                                            ret_json == NULL ? FALSE : TRUE,
+                                            canon_path,
+                                            crypt,
+                                            task_id);
     }
-    id_list = g_list_reverse (id_list);
-    size_list = g_list_reverse (size_list);
+
+out:
+    if (repo)
+        seaf_repo_unref (repo);
+    string_list_free (filenames);
+    string_list_free (paths);
+    string_list_free (id_list);
+    for (ptr = size_list; ptr; ptr = ptr->next)
+        g_free (ptr->data);
+    g_list_free (size_list);
+    g_free (canon_path);
+    g_free (crypt);
+
+    return ret;
+}
+
+int
+post_files_and_gen_commit (GList *filenames,
+                           SeafRepo *repo,
+                           const char *user,
+                           char **ret_json,
+                           int replace_existed,
+                           const char *canon_path,
+                           GList *id_list,
+                           GList *size_list,
+                           GError **error)
+{
+    GList *name_list = NULL;
+    GString *buf = g_string_new (NULL);
+    SeafCommit *head_commit = NULL;
+    char *root_id = NULL;
+    int ret = 0;
+
+    GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
 
     /* Add the files to parent dir and commit. */
     root_id = do_post_multi_files (repo, head_commit->root_id, canon_path,
@@ -1085,7 +1149,6 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
         ret = -1;
         goto out;
     }
-
     guint len = g_list_length (filenames);
     if (len > 1)
         g_string_printf (buf, "Added \"%s\" and %u more files.",
@@ -1093,36 +1156,25 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
     else
         g_string_printf (buf, "Added \"%s\".", (char *)(filenames->data));
 
-    if (gen_new_commit (repo_id, head_commit, root_id,
+    if (gen_new_commit (repo->id, head_commit, root_id,
                         user, buf->str, NULL, error) < 0) {
         ret = -1;
         goto out;
     }
 
-    seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
+    seaf_repo_manager_merge_virtual_repo (seaf->repo_mgr, repo->id, NULL);
 
     if (ret_json)
         *ret_json = format_json_ret (name_list, id_list, size_list);
 
+    update_repo_size(repo->id);
+
 out:
-    if (repo)
-        seaf_repo_unref (repo);
     if (head_commit)
         seaf_commit_unref(head_commit);
-    string_list_free (filenames);
-    string_list_free (paths);
-    string_list_free (id_list);
     string_list_free (name_list);
-    for (ptr = size_list; ptr; ptr = ptr->next)
-        g_free (ptr->data);
-    g_list_free (size_list);
     g_string_free (buf, TRUE);
     g_free (root_id);
-    g_free (canon_path);
-    g_free (crypt);
-
-    if (ret == 0)
-        update_repo_size(repo_id);
 
     return ret;
 }
@@ -3846,7 +3898,7 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
     if (seaf_fs_manager_index_blocks (seaf->fs_mgr,
                                       repo->store_id, repo->version,
                                       temp_file_path,
-                                      sha1, &size, crypt, TRUE, FALSE) < 0) {
+                                      sha1, &size, crypt, TRUE, FALSE, NULL) < 0) {
         seaf_warning ("failed to index blocks");
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to index blocks");

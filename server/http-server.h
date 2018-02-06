@@ -20,6 +20,7 @@ struct _HttpServerStruct {
     int web_token_expire_time;
     int max_indexing_threads;
     int worker_threads;
+    int max_index_processing_threads;
 };
 
 typedef struct _HttpServerStruct HttpServerStruct;
