@@ -318,6 +318,7 @@ error:
         g_unlink (ptr->data);
 
     free_index_para (idx_para);
+    g_free (progress);
 
     return -1;
 }
