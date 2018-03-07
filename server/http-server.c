@@ -33,6 +33,7 @@
 #define DEFAULT_WORKER_THREADS 10
 #define DEFAULT_MAX_DOWNLOAD_DIR_SIZE 100 * ((gint64)1 << 20) /* 100MB */
 #define DEFAULT_MAX_INDEXING_THREADS 1
+#define DEFAULT_MAX_INDEX_PROCESSING_THREADS 3
 #define DEFAULT_FIXED_BLOCK_SIZE ((gint64)1 << 23) /* 8MB */
 
 #define HOST "host"
@@ -118,6 +119,7 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     int fixed_block_size_mb;
     char *encoding;
     int max_indexing_threads;
+    int max_index_processing_threads;
 
     host = fileserver_config_get_string (session->config, HOST, &error);
     if (!error) {
@@ -204,6 +206,21 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     }
     seaf_message ("fileserver: max_indexing_threads = %d\n",
                   htp_server->max_indexing_threads);
+
+    max_index_processing_threads = fileserver_config_get_integer (session->config,
+                                                                  "max_index_processing_threads",
+                                                                  &error);
+    if (error) {
+        htp_server->max_index_processing_threads = DEFAULT_MAX_INDEX_PROCESSING_THREADS;
+        g_clear_error (&error);
+    } else {
+        if (max_index_processing_threads <= 0)
+            htp_server->max_index_processing_threads = DEFAULT_MAX_INDEX_PROCESSING_THREADS;
+        else
+            htp_server->max_index_processing_threads = max_index_processing_threads;
+    }
+    seaf_message ("fileserver: max_index_processing_threads= %d\n",
+                  htp_server->max_index_processing_threads);
 
     encoding = g_key_file_get_string (session->config,
                                       "zip", "windows_encoding",

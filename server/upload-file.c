@@ -73,6 +73,8 @@ typedef struct RecvFSM {
     /* For upload progress. */
     char *progress_id;
     Progress *progress;
+
+    gboolean need_idx_progress;
 } RecvFSM;
 
 #define MAX_CONTENT_LINE 10240
@@ -454,6 +456,7 @@ upload_cb(evhtp_request_t *req, void *arg)
                                                  fsm->user,
                                                  0,
                                                  NULL,
+                                                 NULL,
                                                  &error);
     g_free (filenames_json);
     g_free (tmp_files_json);
@@ -572,6 +575,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     tmp_files_json = file_list_to_json (fsm->files);
 
     char *ret_json = NULL;
+    char *task_id = NULL;
     int rc = seaf_repo_manager_post_multi_files (seaf->repo_mgr,
                                                  fsm->repo_id,
                                                  parent_dir,
@@ -580,6 +584,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
                                                  fsm->user,
                                                  replace,
                                                  &ret_json,
+                                                 fsm->need_idx_progress ? &task_id : NULL,
                                                  &error);
     g_free (filenames_json);
     g_free (tmp_files_json);
@@ -593,14 +598,19 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         goto error;
     }
 
-    const char *use_json = evhtp_kv_find (req->uri->query, "ret-json");
-    if (use_json) {
-        evbuffer_add (req->buffer_out, ret_json, strlen(ret_json));
+    if (task_id) {
+        evbuffer_add (req->buffer_out, task_id, strlen(task_id));
+        g_free (task_id);
     } else {
-        char *new_ids = file_id_list_from_json (ret_json);
-        if (new_ids)
-            evbuffer_add (req->buffer_out, new_ids, strlen(new_ids));
-        g_free (new_ids);
+        const char *use_json = evhtp_kv_find (req->uri->query, "ret-json");
+        if (use_json) {
+            evbuffer_add (req->buffer_out, ret_json, strlen(ret_json));
+        } else {
+            char *new_ids = file_id_list_from_json (ret_json);
+            if (new_ids)
+                evbuffer_add (req->buffer_out, new_ids, strlen(new_ids));
+            g_free (new_ids);
+        }
     }
     g_free (ret_json);
 
@@ -1036,6 +1046,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     tmp_files_json = file_list_to_json (fsm->files);
 
     char *ret_json = NULL;
+    char *task_id = NULL;
     rc = seaf_repo_manager_post_multi_files (seaf->repo_mgr,
                                              fsm->repo_id,
                                              parent_dir,
@@ -1044,6 +1055,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
                                              fsm->user,
                                              0,
                                              &ret_json,
+                                             fsm->need_idx_progress ? &task_id : NULL,
                                              &error);
     if (abs_path)
         g_free (abs_path);
@@ -1059,7 +1071,12 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
         goto error;
     }
 
-    evbuffer_add (req->buffer_out, ret_json, strlen(ret_json));
+    if (task_id) {
+        evbuffer_add (req->buffer_out, task_id, strlen(task_id));
+        g_free (task_id);
+    } else {
+        evbuffer_add (req->buffer_out, ret_json, strlen(ret_json));
+    }
     g_free (ret_json);
 
     // send_success_reply (req);
@@ -1703,8 +1720,10 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
     }
     g_free (fsm->tmp_file);
 
-    for (ptr = fsm->tmp_files; ptr; ptr = ptr->next)
-        g_unlink ((char *)(ptr->data));
+    if (!fsm->need_idx_progress) {
+        for (ptr = fsm->tmp_files; ptr; ptr = ptr->next)
+            g_unlink ((char *)(ptr->data));
+    }
     string_list_free (fsm->tmp_files);
     string_list_free (fsm->filenames);
     string_list_free (fsm->files);
@@ -2246,6 +2265,9 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     fsm->line = evbuffer_new ();
     fsm->form_kvs = g_hash_table_new_full (g_str_hash, g_str_equal,
                                            g_free, g_free);
+    const char *need_idx_progress = evhtp_kv_find (req->uri->query, "need_idx_progress");
+    if (g_strcmp0(need_idx_progress, "true") == 0)
+        fsm->need_idx_progress = TRUE;
 
     if (progress_id != NULL) {
         progress = g_new0 (Progress, 1);
@@ -2284,6 +2306,29 @@ err:
     g_free (progress_id);
     g_strfreev (parts);
     return EVHTP_RES_OK;
+}
+
+static void
+idx_progress_cb(evhtp_request_t *req, void *arg)
+{
+    const char *progress_id;
+
+    progress_id = evhtp_kv_find (req->uri->query, "task_id");
+    if (!progress_id) {
+        seaf_debug ("[get pg] Index task id not found in url.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "task id not found");
+        return;
+    }
+    char *progress_info = index_blocks_mgr_query_progress (seaf->index_blocks_mgr,
+                                                           progress_id, NULL);
+    if (!progress_info) {
+        send_error_reply (req, EVHTP_RES_NOTFOUND, "Failed to get index progress");
+        return;
+    }
+    evbuffer_add (req->buffer_out, progress_info, strlen(progress_info));
+    send_success_reply (req);
+
+    g_free (progress_info);
 }
 
 static void
@@ -2378,6 +2423,8 @@ upload_file_init (evhtp_t *htp, const char *http_temp_dir)
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
 
     evhtp_set_regex_cb (htp, "^/upload_progress.*", upload_progress_cb, NULL);
+
+    evhtp_set_regex_cb (htp, "^/idx_progress.*", idx_progress_cb, NULL);
 
     upload_progress = g_hash_table_new_full (g_str_hash, g_str_equal,
                                              g_free, g_free);
