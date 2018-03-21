@@ -357,13 +357,19 @@ seaf_repo_manager_get_virtual_repo_id (SeafRepoManager *mgr,
     char *sql;
     char *ret;
 
-    sql = "SELECT RepoOwner.repo_id FROM RepoOwner, VirtualRepo "
-        "WHERE owner_id=? AND origin_repo=? AND path=? "
-        "AND RepoOwner.repo_id = VirtualRepo.repo_id";
-
-    ret = seaf_db_statement_get_string (mgr->seaf->db, sql,
-                                        3, "string", owner, "string", origin_repo,
-                                        "string", path);
+    if (owner) {
+        sql = "SELECT RepoOwner.repo_id FROM RepoOwner, VirtualRepo "
+              "WHERE owner_id=? AND origin_repo=? AND path=? "
+              "AND RepoOwner.repo_id = VirtualRepo.repo_id";
+        ret = seaf_db_statement_get_string (mgr->seaf->db, sql,
+                                            3, "string", owner,
+                                            "string", origin_repo, "string", path);
+    } else {
+        sql = "SELECT repo_id FROM VirtualRepo "
+              "WHERE origin_repo=? AND path=? ";
+        ret = seaf_db_statement_get_string (mgr->seaf->db, sql,
+                                            2, "string", origin_repo, "string", path);
+    }
 
     return ret;
 }

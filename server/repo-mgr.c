@@ -2932,6 +2932,24 @@ seaf_repo_manager_set_group_repo_perm (SeafRepoManager *mgr,
                                     "int", group_id);
 }
 
+int
+seaf_repo_manager_set_subdir_group_perm_by_path (SeafRepoManager *mgr,
+                                                 const char *repo_id,
+                                                 const char *username,
+                                                 int group_id,
+                                                 const char *permission,
+                                                 const char *path)
+{
+    return seaf_db_statement_query (mgr->seaf->db,
+                                    "UPDATE RepoGroup SET permission=? WHERE repo_id IN "
+                                    "(SELECT repo_id FROM VirtualRepo WHERE origin_repo=? AND path=?) "
+                                    "AND group_id=? AND user_name=?",
+                                    5, "string", permission,
+                                    "string", repo_id,
+                                    "string", path,
+                                    "int", group_id,
+                                    "string", username);
+}
 static gboolean
 get_group_repoids_cb (SeafDBRow *row, void *data)
 {
@@ -2993,8 +3011,10 @@ get_group_repos_cb (SeafDBRow *row, void *data)
         if (vrepo_id) {
             const char *origin_repo_id = seaf_db_row_get_column_text (row, 7);
             const char *origin_path = seaf_db_row_get_column_text (row, 8);
+            const char *origin_repo_name = seaf_db_row_get_column_text (row, 9);
             g_object_set (srepo, "store_id", origin_repo_id,
                           "origin_repo_id", origin_repo_id,
+                          "origin_repo_name", origin_repo_name,
                           "origin_path", origin_path, NULL);
         } else {
             g_object_set (srepo, "store_id", repo_id, NULL);
@@ -3057,11 +3077,12 @@ seaf_repo_manager_get_repos_by_group (SeafRepoManager *mgr,
     GList *repos = NULL;
     GList *p;
 
-    sql = "SELECT RepoGroup.repo_id, VirtualRepo.repo_id, "
+    sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
-        "VirtualRepo.origin_repo, VirtualRepo.path "
-        "FROM RepoGroup LEFT JOIN VirtualRepo ON "
-        "RepoGroup.repo_id = VirtualRepo.repo_id "
+        "v.origin_repo, v.path ,"
+        "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+        "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
+        "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
         "Branch WHERE group_id = ? AND "
         "RepoGroup.repo_id = Branch.repo_id AND "
@@ -3092,11 +3113,12 @@ seaf_repo_manager_get_group_repos_by_owner (SeafRepoManager *mgr,
     GList *repos = NULL;
     GList *p;
 
-    sql = "SELECT RepoGroup.repo_id, VirtualRepo.repo_id, "
+    sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
-        "VirtualRepo.origin_repo, VirtualRepo.path "
-        "FROM RepoGroup LEFT JOIN VirtualRepo ON "
-        "RepoGroup.repo_id = VirtualRepo.repo_id "
+        "v.origin_repo, v.path, "
+        "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+        "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
+        "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
         "Branch WHERE user_name = ? AND "
         "RepoGroup.repo_id = Branch.repo_id AND "
@@ -3903,4 +3925,182 @@ seaf_get_trash_repo_owner (const char *repo_id)
 {
     char *sql = "SELECT owner_id from RepoTrash WHERE repo_id = ?";
     return seaf_db_statement_get_string(seaf->db, sql, 1, "string", repo_id);
+}
+
+GObject *
+seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
+                                    const char *repo_id,
+                                    const char *path,
+                                    int group_id,
+                                    gboolean is_org,
+                                    GError **error)
+{
+    char *sql;
+    char *real_repo_id = NULL;
+    GList *repo = NULL;
+    GObject *ret = NULL;
+
+    /* If path is not NULL, 'repo_id' represents for the repo we want,
+     * otherwise, 'repo_id' represents for the origin repo,
+     * find virtual repo by path first.
+     */
+    if (path != NULL) {
+        real_repo_id = seaf_repo_manager_get_virtual_repo_id (mgr, repo_id, path, NULL);
+        if (!real_repo_id) {
+            seaf_warning ("Failed to get virtual repo_id by path %s, origin_repo: %s\n", path, repo_id);
+            return NULL;
+        }
+    }
+    if (!real_repo_id)
+        real_repo_id = g_strdup (repo_id);
+
+    if (!is_org)
+        sql = "SELECT RepoGroup.repo_id, v.repo_id, "
+              "group_id, user_name, permission, commit_id, s.size, "
+              "v.origin_repo, v.path, "
+              "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+              "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
+              "RepoGroup.repo_id = v.repo_id "
+              "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
+              "Branch WHERE group_id = ? AND "
+              "RepoGroup.repo_id = Branch.repo_id AND "
+              "RepoGroup.repo_id = ? AND "
+              "Branch.name = 'master'";
+    else
+        sql = "SELECT OrgGroupRepo.repo_id, v.repo_id, "
+              "group_id, owner, permission, commit_id, s.size, "
+              "v.origin_repo, v.path, "
+              "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+              "FROM OrgGroupRepo LEFT JOIN VirtualRepo v ON "
+              "OrgGroupRepo.repo_id = v.repo_id "
+              "LEFT JOIN RepoSize s ON OrgGroupRepo.repo_id = s.repo_id, "
+              "Branch WHERE group_id = ? AND "
+              "OrgGroupRepo.repo_id = Branch.repo_id AND "
+              "OrgGroupRepo.repo_id = ? AND "
+              "Branch.name = 'master'";
+
+    /* The list 'repo' should have only one repo,
+     * use existing api get_group_repos_cb() to get it.
+     */
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, get_group_repos_cb,
+                                       &repo, 2, "int", group_id,
+                                       "string", real_repo_id) < 0) {
+        g_free (real_repo_id);
+        g_list_free (repo);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to get repo by group_id from db.");
+        return NULL;
+    }
+    g_free (real_repo_id);
+
+    if (repo) {
+        seaf_fill_repo_obj_from_commit (&repo);
+        if (repo)
+            ret = (GObject *)(repo->data);
+        g_list_free (repo);
+    }
+
+    return ret;
+}
+
+GList *
+seaf_get_group_repos_by_user (SeafRepoManager *mgr,
+                              const char *user,
+                              int org_id,
+                              GError **error)
+{
+    CcnetGroup *group;
+    GList *groups = NULL, *p, *q;
+    GList *repos = NULL;
+    SeafileRepo *repo = NULL;
+    SearpcClient *rpc_client;
+    GString *sql = NULL;
+    int group_id = 0;
+
+    rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
+                                                 NULL,
+                                                 "ccnet-threaded-rpcserver");
+    if (!rpc_client)
+        return NULL;
+
+    /* Get the groups this user belongs to. */
+    if (org_id < 0)
+        groups = ccnet_get_groups_by_user (rpc_client, user);
+    else
+        groups = ccnet_get_org_groups_by_user (rpc_client, user, org_id);
+
+    if (!groups) {
+        goto out;
+    }
+
+    sql = g_string_new ("");
+    g_string_printf (sql, "SELECT g.repo_id, v.repo_id, "
+                          "group_id, %s, permission, commit_id, s.size, "
+                          "v.origin_repo, v.path, "
+                          "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo)"
+                          "FROM %s g LEFT JOIN VirtualRepo v ON "
+                          "g.repo_id = v.repo_id "
+                          "LEFT JOIN RepoSize s ON g.repo_id = s.repo_id, "
+                          "Branch b WHERE g.repo_id = b.repo_id AND "
+                          "b.name = 'master' AND group_id IN (",
+                          org_id < 0 ? "user_name" : "owner",
+                          org_id < 0 ? "RepoGroup" : "OrgGroupRepo");
+    for (p = groups; p != NULL; p = p->next) {
+        group = p->data;
+        g_object_get (group, "id", &group_id, NULL);
+
+        g_string_append_printf (sql, "%d", group_id);
+        if (p->next)
+            g_string_append_printf (sql, ",");
+    }
+    g_string_append_printf (sql, " ) ORDER BY group_id");
+
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql->str, get_group_repos_cb,
+                                       &repos, 0) < 0) {
+        for (p = repos; p; p = p->next) {
+            g_object_unref (p->data);
+        }
+        g_list_free (repos);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to get user group repos from db.");
+        seaf_warning ("Failed to get user[%s] group repos from db.\n", user);
+        goto out;
+    }
+
+    int repo_group_id = 0;
+    char *group_name = NULL;
+    groups = g_list_reverse (groups);
+    q = repos;
+
+    /* Add group_name to repo. Both groups and repos are listed by group_id in descending order */
+    for (p = groups; p; p = p->next) {
+        group = p->data;
+        g_object_get (group, "id", &group_id, NULL);
+        g_object_get (group, "group_name", &group_name, NULL);
+
+        for (; q; q = q->next) {
+            repo = q->data;
+            g_object_get (repo, "group_id", &repo_group_id, NULL);
+            if (repo_group_id == group_id)
+                g_object_set (repo, "group_name", group_name, NULL);
+            else
+                break;
+        }
+        g_free (group_name);
+        if (q == NULL)
+            break;
+    }
+
+    seaf_fill_repo_obj_from_commit (&repos);
+
+out:
+    if (sql)
+        g_string_free (sql, TRUE);
+
+    ccnet_rpc_client_free (rpc_client);
+    for (p = groups; p != NULL; p = p->next)
+        g_object_unref ((GObject *)p->data);
+    g_list_free (groups);
+
+    return g_list_reverse (repos);
 }

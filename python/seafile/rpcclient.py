@@ -280,6 +280,10 @@ class SeafServerRpcClient(ccnet.RpcClientBase):
         pass
     query_zip_progress = seafile_query_zip_progress
 
+    @searpc_func("int", ["string"])
+    def cancel_zip_task(token):
+        pass
+
     ###### GC    ####################
     @searpc_func("int", [])
     def seafile_gc():
@@ -509,8 +513,8 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
         pass
     get_dirent_by_path = seafile_get_dirent_by_path
 
-    @searpc_func("objlist", ["string", "string", "int", "int", "int"])
-    def seafile_list_file_revisions(repo_id, path, max_revision, limit, show_days):
+    @searpc_func("objlist", ["string", "string", "string", "int"])
+    def seafile_list_file_revisions(repo_id, commit_id, path, limit):
         pass
     list_file_revisions = seafile_list_file_revisions
 
@@ -566,6 +570,10 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     def update_share_subdir_perm_for_user(repo_id, path, owner, share_user, permission):
         pass
 
+    @searpc_func("object", ["string", "string", "string", "int"])
+    def get_shared_repo_by_path(repo_id, path, shared_to, is_org):
+        pass
+
     @searpc_func("objlist", ["int", "string", "string", "int", "int"])
     def seafile_list_org_share_repos(org_id, email, query_col, start, limit):
         pass
@@ -600,6 +608,18 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     def seafile_list_repo_shared_group(from_user, repo_id):
         pass
     list_repo_shared_group = seafile_list_repo_shared_group
+
+    @searpc_func("object", ["string", "string", "int", "int"])
+    def get_group_shared_repo_by_path(repo_id, path, group_id, is_org):
+        pass
+
+    @searpc_func("objlist", ["string"])
+    def get_group_repos_by_user (user):
+        pass
+
+    @searpc_func("objlist", ["string", "int"])
+    def get_org_group_repos_by_user (user, org_id):
+        pass
 
     @searpc_func("objlist", ["string", "string", "string"])
     def seafile_get_shared_users_for_subdir(repo_id, path, from_user):

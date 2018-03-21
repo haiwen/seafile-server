@@ -28,6 +28,11 @@ seaf_share_manager_add_share (SeafShareManager *mgr, const char *repo_id,
                               const char *permission);
 
 int
+seaf_share_manager_set_subdir_perm_by_path (SeafShareManager *mgr, const char *repo_id,
+                                            const char *from_email, const char *to_email,
+                                            const char *permission, const char *path);
+
+int
 seaf_share_manager_set_permission (SeafShareManager *mgr, const char *repo_id,
                                    const char *from_email, const char *to_email,
                                    const char *permission);
@@ -57,6 +62,14 @@ int
 seaf_share_manager_remove_share (SeafShareManager *mgr, const char *repo_id,
                                  const char *from_email, const char *to_email);
 
+int
+seaf_share_manager_unshare_subdir (SeafShareManager* mgr,
+                                   const char *orig_repo_id,
+                                   const char *path,
+                                   const char *from_email,
+                                   const char *to_email);
+
+
 /* Remove all share info of a repo. */
 int
 seaf_share_manager_remove_repo (SeafShareManager *mgr, const char *repo_id);
@@ -74,6 +87,20 @@ seaf_share_manager_get_shared_sub_dirs (SeafShareManager *mgr,
 int
 seaf_share_manager_is_repo_shared (SeafShareManager *mgr,
                                    const char *repo_id);
+
+GObject *
+seaf_get_shared_repo_by_path (SeafRepoManager *mgr,
+                              const char *repo_id,
+                              const char *path,
+                              const char *shared_to,
+                              int is_org,
+                              GError **error);
+int
+seaf_share_manager_unshare_group_subdir (SeafShareManager* mgr,
+                                         const char *repo_id,
+                                         const char *path,
+                                         const char *owner,
+                                         int group_id);
 
 #endif /* SHARE_MGR_H */
 

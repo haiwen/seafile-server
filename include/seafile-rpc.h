@@ -500,6 +500,9 @@ seafile_web_query_access_token (const char *token, GError **error);
 char *
 seafile_query_zip_progress (const char *token, GError **error);
 
+int
+seafile_cancel_zip_task (const char *token, GError **error);
+
 GObject *
 seafile_get_checkout_task (const char *repo_id, GError **error);
 
@@ -683,16 +686,16 @@ seafile_post_multi_files (const char *repo_id,
  * @blocks_json: json array of block ids
  * @paths_json: json array of temp file paths
  */
-char *
-seafile_post_file_blocks (const char *repo_id,
-                          const char *parent_dir,
-                          const char *file_name,
-                          const char *blockids_json,
-                          const char *paths_json,
-                          const char *user,
-                          gint64 file_size,
-                          int replace_existed,
-                          GError **error);
+/* char * */
+/* seafile_post_file_blocks (const char *repo_id, */
+/*                           const char *parent_dir, */
+/*                           const char *file_name, */
+/*                           const char *blockids_json, */
+/*                           const char *paths_json, */
+/*                           const char *user, */
+/*                           gint64 file_size, */
+/*                           int replace_existed, */
+/*                           GError **error); */
 
 
 int
@@ -719,11 +722,11 @@ seafile_put_file (const char *repo_id, const char *temp_file_path,
  * @blocks_json: json array of block ids
  * @paths_json: json array of temp file paths
  */
-char *
-seafile_put_file_blocks (const char *repo_id, const char *parent_dir,
-                         const char *file_name, const char *blockids_json,
-                         const char *paths_json, const char *user,
-                         const char *head_id, gint64 file_size, GError **error);
+/* char * */
+/* seafile_put_file_blocks (const char *repo_id, const char *parent_dir, */
+/*                          const char *file_name, const char *blockids_json, */
+/*                          const char *paths_json, const char *user, */
+/*                          const char *head_id, gint64 file_size, GError **error); */
 
 
 int
@@ -827,10 +830,9 @@ seafile_get_dirent_by_path (const char *repo_id, const char *path,
  */
 GList *
 seafile_list_file_revisions (const char *repo_id,
+                             const char *commit_id,
                              const char *path,
-                             int max_revision,
                              int limit,
-                             int show_days,
                              GError **error);
 
 GList *
@@ -1069,4 +1071,24 @@ seafile_set_server_config_boolean (const char *group, const char *key, int value
 
 int
 seafile_get_server_config_boolean (const char *group, const char *key, GError **error);
+
+GObject *
+seafile_get_group_shared_repo_by_path (const char *repo_id,
+                                       const char *path,
+                                       int group_id,
+                                       int is_org,
+                                       GError **error);
+
+GObject *
+seafile_get_shared_repo_by_path (const char *repo_id,
+                                 const char *path,
+                                 const char *shared_to,
+                                 int is_org,
+                                 GError **error);
+
+GList *
+seafile_get_group_repos_by_user (const char *user, GError **error);
+
+GList *
+seafile_get_org_group_repos_by_user (const char *user, int org_id, GError **error);
 #endif

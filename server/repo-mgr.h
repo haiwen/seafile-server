@@ -316,20 +316,22 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                     const char *user,
                                     int replace_existed,
                                     char **new_ids,
+                                    char **task_id,
                                     GError **error);
 
-int
-seaf_repo_manager_post_file_blocks (SeafRepoManager *mgr,
-                                    const char *repo_id,
-                                    const char *parent_dir,
-                                    const char *file_name,
-                                    const char *blockids_json,
-                                    const char *paths_json,
-                                    const char *user,
-                                    gint64 file_size,
-                                    int replace_existed,
-                                    char **new_id,
-                                    GError **error);
+/* int */
+/* seaf_repo_manager_post_file_blocks (SeafRepoManager *mgr, */
+/*                                     const char *repo_id, */
+/*                                     const char *parent_dir, */
+/*                                     const char *file_name, */
+/*                                     const char *blockids_json, */
+/*                                     const char *paths_json, */
+/*                                     const char *user, */
+/*                                     gint64 file_size, */
+/*                                     int replace_existed, */
+/*                                     char **new_id, */
+/*                                     GError **error); */
+
 int
 seaf_repo_manager_post_blocks (SeafRepoManager *mgr,
                                const char *repo_id,
@@ -392,18 +394,18 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
                             char **new_file_id,                            
                             GError **error);
 
-int
-seaf_repo_manager_put_file_blocks (SeafRepoManager *mgr,
-                                   const char *repo_id,
-                                   const char *parent_dir,
-                                   const char *file_name,
-                                   const char *blockids_json,
-                                   const char *paths_json,
-                                   const char *user,
-                                   const char *head_id,
-                                   gint64 file_size,
-                                   char **new_file_id,
-                                   GError **error);
+/* int */
+/* seaf_repo_manager_put_file_blocks (SeafRepoManager *mgr, */
+/*                                    const char *repo_id, */
+/*                                    const char *parent_dir, */
+/*                                    const char *file_name, */
+/*                                    const char *blockids_json, */
+/*                                    const char *paths_json, */
+/*                                    const char *user, */
+/*                                    const char *head_id, */
+/*                                    gint64 file_size, */
+/*                                    char **new_file_id, */
+/*                                    GError **error); */
 
 int
 seaf_repo_manager_del_file (SeafRepoManager *mgr,
@@ -509,10 +511,9 @@ seaf_repo_manager_list_file_revisions (SeafRepoManager *mgr,
                                        const char *repo_id,
                                        const char *start_commit_id,
                                        const char *path,
-                                       int max_revision,
                                        int limit,
-                                       int show_days,
                                        gboolean got_latest,
+                                       gboolean got_second,
                                        GError **error);
 
 GList *
@@ -828,4 +829,36 @@ set_repo_commit_to_db (const char *repo_id, const char *repo_name, gint64 update
 char *
 seaf_get_trash_repo_owner (const char *repo_id);
 
+GObject *
+seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
+                                    const char *repo_id,
+                                    const char *path,
+                                    int group_id,
+                                    gboolean is_org,
+                                    GError **error);
+
+GList *
+seaf_get_group_repos_by_user (SeafRepoManager *mgr,
+                              const char *user,
+                              int org_id,
+                              GError **error);
+
+int
+seaf_repo_manager_set_subdir_group_perm_by_path (SeafRepoManager *mgr,
+                                                 const char *repo_id,
+                                                 const char *username,
+                                                 int group_id,
+                                                 const char *permission,
+                                                 const char *path);
+
+int
+post_files_and_gen_commit (GList *filenames,
+                          SeafRepo *repo,
+                          const char *user,
+                          char **ret_json,
+                          int replace_existed,
+                          const char *canon_path,
+                          GList *id_list,
+                          GList *size_list,
+                          GError **error);
 #endif

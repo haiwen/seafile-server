@@ -49,6 +49,9 @@ class SeafileAPI(object):
         """
         return seafserv_rpc.query_zip_progress(token)
 
+    def cancel_zip_task(self, token):
+        return seafserv_rpc.cancel_zip_task(token)
+
     # password
 
     def is_password_set(self, repo_id, username):
@@ -221,6 +224,9 @@ class SeafileAPI(object):
     def get_dir_id_by_commit_and_path(self, repo_id, commit_id, path):
         return seafserv_threaded_rpc.get_dir_id_by_commit_and_path(repo_id, commit_id, path)
 
+    def list_dir_with_perm(self, repo_id, dir_path, dir_id, user, offset=-1, limit=-1):
+        return seafserv_threaded_rpc.list_dir_with_perm (repo_id, dir_path, dir_id, user, offset, limit)
+
     # file/dir operations
 
     def post_file(self, repo_id, tmp_file_path, parent_dir, filename, username):
@@ -305,13 +311,12 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.get_deleted(repo_id, show_days, path, scan_stat, limit)
 
-    def get_file_revisions(self, repo_id, path, max_revision, limit, show_days=-1):
+    def get_file_revisions(self, repo_id, commit_id, path, limit):
         """
         Get revisions of a file.
 
-        @max_revision: maximum number of revisions returned
+        @commit_id: start traversing from this commit
         @limit: maximum number of commits to traverse when looking for revisions
-        @show_days: only return revisions in the @show_days
 
         Return a list of Commit objects (lib/commit.vala) related to the revisions.
         A few special attributes are added to the commit object:
@@ -319,10 +324,10 @@ class SeafileAPI(object):
         @rev_file_size: size of the file revision
         @rev_renamed_old_path: set if this revision is made by a rename operation.
                                It's set to the old path before rename.
+        @next_start_commit: commit_id for next page. An extra commit which only contains @next_start_commit
+                            will be appended to the list.
         """
-        return seafserv_threaded_rpc.list_file_revisions(repo_id, path,
-                                                         max_revision, limit,
-                                                         show_days)
+        return seafserv_threaded_rpc.list_file_revisions(repo_id, commit_id, path, limit)
 
     # This api is slow and should only be used for version 0 repos.
     def get_files_last_modified(self, repo_id, parent_dir, limit):
@@ -381,6 +386,13 @@ class SeafileAPI(object):
         return seafserv_threaded_rpc.update_share_subdir_perm_for_user(repo_id, path, owner,
                                                                        share_user, permission)
 
+    def get_shared_repo_by_path(self, repo_id, path, shared_to, is_org=False):
+        """
+        If path is NULL, 'repo_id' represents for the repo we want,
+        otherwise, 'repo_id' represents for the origin repo, return virtual repo
+        """
+        return seafserv_threaded_rpc.get_shared_repo_by_path(repo_id, path, shared_to, 1 if is_org else 0)
+
     def get_share_out_repo_list(self, username, start, limit):
         """
         Get repo list shared by this user.
@@ -429,6 +441,22 @@ class SeafileAPI(object):
     def list_repo_shared_group(self, from_user, repo_id):
         # deprecated, use list_repo_shared_group_by_user instead.
         return seafserv_threaded_rpc.list_repo_shared_group(from_user, repo_id)
+
+    def get_group_shared_repo_by_path (self, repo_id, path, group_id, is_org=False):
+        """
+        If path is NULL, 'repo_id' represents for the repo we want,
+        otherwise, 'repo_id' represents for the origin repo, return virtual repo
+        """
+        return seafserv_threaded_rpc.get_group_shared_repo_by_path(repo_id, path, group_id, 1 if is_org else 0)
+
+    def get_group_repos_by_user (self, user):
+        """
+        Return all the repos in all groups that the @user belongs to.
+        """
+        return seafserv_threaded_rpc.get_group_repos_by_user(user)
+
+    def get_org_group_repos_by_user (self, user, org_id):
+        return seafserv_threaded_rpc.get_org_group_repos_by_user(user, org_id)
 
     def list_repo_shared_group_by_user(self, from_user, repo_id):
         """
@@ -706,6 +734,9 @@ class SeafileAPI(object):
         i_value = 1 if bool(value) else 0
         return seafserv_threaded_rpc.set_server_config_boolean (group, key, i_value)
 
+    def del_org_group_repo(self, repo_id, org_id, group_id):
+        seafserv_threaded_rpc.del_org_group_repo(repo_id, org_id, group_id)
+
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):
@@ -795,7 +826,7 @@ class CcnetAPI(object):
         """
         Search for users whose name contains @keyword directly from LDAP server.
         """
-        return ccnet_threaded_rpc.search_ladpusers(keyword, start, limit)
+        return ccnet_threaded_rpc.search_ldapusers(keyword, start, limit)
     
     def count_emailusers(self, source):
         """

@@ -115,6 +115,31 @@ out:
 }
 
 int
+seaf_share_manager_set_subdir_perm_by_path (SeafShareManager *mgr, const char *repo_id,
+                                           const char *from_email, const char *to_email,
+                                           const char *permission, const char *path)
+{
+    char *sql;
+    int ret;
+
+    char *from_email_l = g_ascii_strdown (from_email, -1);
+    char *to_email_l = g_ascii_strdown (to_email, -1);
+    sql = "UPDATE SharedRepo SET permission=? WHERE repo_id IN "
+          "(SELECT repo_id FROM VirtualRepo WHERE origin_repo=? AND path=?) "
+          "AND from_email=? AND to_email=?";
+
+    ret = seaf_db_statement_query (mgr->seaf->db, sql,
+                                   5, "string", permission,
+                                   "string", repo_id,
+                                   "string", path,
+                                   "string", from_email_l,
+                                   "string", to_email_l);
+    g_free (from_email_l);
+    g_free (to_email_l);
+    return ret;
+}
+
+int
 seaf_share_manager_set_permission (SeafShareManager *mgr, const char *repo_id,
                                    const char *from_email, const char *to_email,
                                    const char *permission)
@@ -159,6 +184,7 @@ collect_repos (SeafDBRow *row, void *data)
     int version = seaf_db_row_get_column_int (row, 10); 
     gboolean is_encrypted = seaf_db_row_get_column_int (row, 11) ? TRUE : FALSE;
     const char *last_modifier = seaf_db_row_get_column_text (row, 12);
+    const char *origin_repo_name = seaf_db_row_get_column_text (row, 13);
 
     char *email_l = g_ascii_strdown (email, -1);
 
@@ -180,6 +206,7 @@ collect_repos (SeafDBRow *row, void *data)
             const char *origin_path = seaf_db_row_get_column_text (row, 7);
             g_object_set (repo, "store_id", origin_repo_id,
                           "origin_repo_id", origin_repo_id,
+                          "origin_repo_name", origin_repo_name,
                           "origin_path", origin_path, NULL);
         } else {
             g_object_set (repo, "store_id", repo_id, NULL);
@@ -269,7 +296,8 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "to_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier, "
+                "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
@@ -282,7 +310,8 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "from_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+                "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
@@ -313,7 +342,8 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "to_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+                "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
@@ -327,7 +357,8 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "from_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier FROM "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+                "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
                 "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
@@ -501,6 +532,28 @@ seaf_share_manager_remove_share (SeafShareManager *mgr, const char *repo_id,
 }
 
 int
+seaf_share_manager_unshare_subdir (SeafShareManager* mgr,
+                                   const char *orig_repo_id,
+                                   const char *path,
+                                   const char *from_email,
+                                   const char *to_email)
+{
+    if (seaf_db_statement_query (mgr->seaf->db,
+                                 "DELETE FROM SharedRepo WHERE "
+                                 "from_email = ? AND to_email = ? "
+                                 "AND repo_id IN "
+                                 "(SELECT repo_id FROM VirtualRepo WHERE "
+                                 "origin_repo = ? AND path = ?)",
+                                 4, "string", from_email,
+                                 "string", to_email,
+                                 "string", orig_repo_id,
+                                 "string", path) < 0)
+        return -1;
+
+    return 0;
+}
+
+int
 seaf_share_manager_remove_repo (SeafShareManager *mgr, const char *repo_id)
 {
     if (seaf_db_statement_query (mgr->seaf->db,
@@ -607,4 +660,101 @@ seaf_share_manager_is_repo_shared (SeafShareManager *mgr,
     }
 
     return ret;
+}
+
+GObject *
+seaf_get_shared_repo_by_path (SeafRepoManager *mgr,
+                              const char *repo_id,
+                              const char *path,
+                              const char *shared_to,
+                              int is_org,
+                              GError **error)
+{
+    char *sql;
+    char *real_repo_id = NULL;
+    GList *repo = NULL;
+    GObject *ret = NULL;
+
+    /* If path is not NULL, 'repo_id' represents for the repo we want,
+     * otherwise, 'repo_id' represents for the origin repo,
+     * find virtual repo by path first.
+     */
+    if (path != NULL) {
+        real_repo_id = seaf_repo_manager_get_virtual_repo_id (mgr, repo_id, path, NULL);
+        if (!real_repo_id) {
+            seaf_warning ("Failed to get virtual repo_id by path %s, origin_repo: %s\n", path, repo_id);
+            return NULL;
+        }
+    }
+    if (!real_repo_id)
+        real_repo_id = g_strdup (repo_id);
+
+    if (!is_org)
+        sql = "SELECT sh.repo_id, v.repo_id, "
+              "from_email, permission, commit_id, s.size, "
+              "v.origin_repo, v.path, i.name, "
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+              "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
+              "SharedRepo sh LEFT JOIN VirtualRepo v ON "
+              "sh.repo_id=v.repo_id "
+              "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
+              "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
+              "WHERE to_email=? AND "
+              "sh.repo_id = b.repo_id AND sh.repo_id=? AND "
+              "b.name = 'master' ";
+    else
+        sql = "SELECT sh.repo_id, v.repo_id, "
+              "from_email, permission, commit_id, s.size, "
+              "v.origin_repo, v.path, i.name, "
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+              "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
+              "OrgSharedRepo sh LEFT JOIN VirtualRepo v ON "
+              "sh.repo_id=v.repo_id "
+              "LEFT JOIN RepoSize s ON sh.repo_id = s.repo_id "
+              "LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b "
+              "WHERE to_email=? AND "
+              "sh.repo_id = b.repo_id AND sh.repo_id=? AND "
+              "b.name = 'master' ";
+
+    /* The list 'repo' should have only one repo,
+     * use existing api collect_repos() to get it.
+     */
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_repos, &repo,
+                                       2, "string", shared_to, "string", real_repo_id) < 0) {
+            g_free (real_repo_id);
+            g_list_free (repo);
+            seaf_warning ("[share mgr] DB error when get shared repo "
+                          "for %s, path:%s\n", shared_to, path);
+            return NULL;
+    }
+    g_free (real_repo_id);
+    if (repo) {
+        ret = (GObject *)(repo->data);
+        g_list_free (repo);
+    }
+
+    return ret;
+}
+
+int
+seaf_share_manager_unshare_group_subdir (SeafShareManager* mgr,
+                                         const char *repo_id,
+                                         const char *path,
+                                         const char *owner,
+                                         int group_id)
+{
+    if (seaf_db_statement_query (mgr->seaf->db,
+                                 "DELETE FROM RepoGroup WHERE "
+                                 "user_name = ? AND group_id = ? "
+                                 "AND repo_id IN "
+                                 "(SELECT repo_id FROM VirtualRepo WHERE "
+                                 "origin_repo = ? AND path = ?)",
+                                 4, "string", owner,
+                                 "int", group_id,
+                                 "string", repo_id,
+                                 "string", path) < 0)
+        return -1;
+
+    return 0;
 }
