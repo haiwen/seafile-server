@@ -2034,7 +2034,8 @@ http_request_init (HttpServerStruct *server)
     access_file_init (priv->evhtp);
 
     /* Web upload file */
-    upload_file_init (priv->evhtp, server->http_temp_dir);
+    if (upload_file_init (priv->evhtp, server->http_temp_dir) < 0)
+        exit(-1);
 }
 
 static void
