@@ -4024,11 +4024,7 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
         return NULL;
 
     /* Get the groups this user belongs to. */
-    if (org_id < 0)
-        groups = ccnet_get_groups_by_user (rpc_client, user);
-    else
-        groups = ccnet_get_org_groups_by_user (rpc_client, user, org_id);
-
+    groups = ccnet_get_groups_by_user (rpc_client, user);
     if (!groups) {
         goto out;
     }
