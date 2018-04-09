@@ -140,6 +140,21 @@ try_kill_process(int which)
     }
 }
 
+static void
+kill_by_force (int which)
+{
+    if (which < 0 || which >= N_PID)
+        return;
+
+    char *pidfile = ctl->pidfile[which];
+    int pid = read_pid_from_pidfile(pidfile);
+    if (pid > 0) {
+        // if SIGKILL send success, then remove related pid file
+        if (kill ((pid_t)pid, SIGKILL) == 0) {
+            g_unlink (pidfile);
+        }
+    }
+}
 
 //
 // Utility functions End
@@ -404,6 +419,7 @@ need_restart (int which)
         if (g_file_test (buf, G_FILE_TEST_IS_DIR)) {
             return FALSE;
         } else {
+            seaf_warning ("path /proc/%d doesn't exist, restart progress [%d]\n", pid, which);
             return TRUE;
         }
     }
@@ -414,7 +430,7 @@ check_process (void *data)
 {
     if (need_restart(PID_SERVER)) {
         seaf_message ("seaf-server need restart...\n");
-        start_seaf_server ();
+        kill_by_force (PID_CCNET);
     }
 
     if (ctl->seafdav_config.enabled) {
@@ -567,9 +583,9 @@ stop_ccnet_server ()
     GError *error = NULL;
     ccnet_client_send_cmd (ctl->sync_client, "shutdown", &error);
 
-    try_kill_process(PID_CCNET);
-    try_kill_process(PID_SERVER);
-    try_kill_process(PID_SEAFDAV);
+    kill_by_force(PID_CCNET);
+    kill_by_force(PID_SERVER);
+    kill_by_force(PID_SEAFDAV);
 }
 
 static void
