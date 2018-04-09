@@ -822,6 +822,15 @@ class CcnetAPI(object):
         """
         return ccnet_threaded_rpc.search_groups(group_patt, start, limit)
 
+    def get_top_groups(self):
+        return ccnet_threaded_rpc.get_top_groups()
+
+    def get_child_groups(self, group_id):
+        return ccnet_threaded_rpc.get_child_groups(group_id)
+
+    def get_ancestor_groups(self, group_id):
+        return ccnet_threaded_rpc.get_ancestor_groups(group_id)
+
     def search_ldapusers(self, keyword, start, limit):
         """
         Search for users whose name contains @keyword directly from LDAP server.
@@ -863,14 +872,14 @@ class CcnetAPI(object):
         return ccnet_threaded_rpc.get_superusers()
 
     # group management
-    def create_group(self, group_name, user_name, gtype=None):
+    def create_group(self, group_name, user_name, gtype=None, parent_group_id=0):
         """
         For CE, gtype is not used and should always be None.
         """
-        return ccnet_threaded_rpc.create_group(group_name, user_name, gtype)
+        return ccnet_threaded_rpc.create_group(group_name, user_name, gtype, parent_group_id)
 
-    def create_org_group(self, org_id, group_name, user_name):
-        return ccnet_threaded_rpc.create_org_group(org_id, group_name, user_name)
+    def create_org_group(self, org_id, group_name, user_name, parent_group_id=0):
+        return ccnet_threaded_rpc.create_org_group(org_id, group_name, user_name, parent_group_id)
     
     def remove_group(self, group_id):
         """
@@ -908,12 +917,12 @@ class CcnetAPI(object):
     def quit_group(self, group_id, user_name):
         return ccnet_threaded_rpc.quit_group(group_id, user_name)
 
-    def get_groups(self, user_name):
+    def get_groups(self, user_name, return_ancestors=False):
         """
         Get all groups the user belongs to.
         Return: a list of Group objects (ccnet/lib/ccnetobj.vala)
         """
-        return ccnet_threaded_rpc.get_groups(user_name)
+        return ccnet_threaded_rpc.get_groups(user_name, 1 if return_ancestors else 0)
 
     def get_all_groups(self, start, limit, source=None):
         """
@@ -1009,6 +1018,9 @@ class CcnetAPI(object):
         """
         return ccnet_threaded_rpc.get_org_groups(org_id, start, limit)
     
+    def get_org_top_groups(self, org_id):
+        return ccnet_threaded_rpc.get_org_top_groups(org_id)
+
     def org_user_exists(self, org_id, email):
         """
         Return non-zero if True, otherwise 0.
