@@ -6,6 +6,8 @@ INSTALLPATH=$(dirname "$UPGRADE_DIR") # haiwen/seafile-server-1.3.0/
 TOPDIR=$(dirname "${INSTALLPATH}") # haiwen/
 default_ccnet_conf_dir=${TOPDIR}/ccnet
 default_conf_dir=${TOPDIR}/conf
+default_pids_dir=${TOPDIR}/pids
+default_logs_dir=${TOPDIR}/logs
 seafile_server_symlink=${TOPDIR}/seafile-server-latest
 seahub_data_dir=${TOPDIR}/seahub-data
 seahub_settings_py=${TOPDIR}/seahub_settings.py
@@ -188,6 +190,34 @@ function move_old_customdir_outside() {
     cp -rf "${old_customdir}" "${seahub_data_dir}/"
 }
 
+function add_gunicorn_conf() {
+    gunicorn_conf=${default_conf_dir}/gunicorn.conf
+    if ! $(cat > ${gunicorn_conf} <<EOF
+import os
+
+daemon = True
+workers = 5
+
+# default localhost:8000
+bind = "0.0.0.0:8000"
+
+# Pid
+pids_dir = '$default_pids_dir'
+pidfile = os.path.join(pids_dir, 'seahub.pid')
+
+# Logging
+logs_dir = '$default_logs_dir'
+errorlog = os.path.join(logs_dir, 'gunicorn_error.log')
+accesslog = os.path.join(logs_dir, 'gunicorn_access.log')
+
+# for file upload, we need a longer timeout value (default is only 30s, too short)
+timeout = 1200
+EOF
+); then
+    echo "failed to generate gunicorn.conf";
+fi
+}
+
 #################
 # The main execution flow of the script
 ################
@@ -202,6 +232,8 @@ migrate_avatars;
 move_old_customdir_outside;
 make_media_custom_symlink;
 upgrade_seafile_server_latest_symlink;
+
+add_gunicorn_conf;
 
 echo
 echo "-----------------------------------------------------------------"
