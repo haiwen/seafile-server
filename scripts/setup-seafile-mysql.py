@@ -303,6 +303,8 @@ class EnvManager(object):
         self.top_dir = os.path.dirname(self.install_path)
         self.bin_dir = os.path.join(self.install_path, 'seafile', 'bin')
         self.central_config_dir = os.path.join(self.top_dir, 'conf')
+        self.central_pids_dir = os.path.join(self.top_dir, 'pids')
+        self.central_logs_dir = os.path.join(self.top_dir, 'logs')
         Utils.must_mkdir(self.central_config_dir)
 
     def check_pre_condiction(self):
@@ -1165,6 +1167,44 @@ share_name = /
         with open(self.seafdav_conf, 'w') as fp:
             fp.write(text)
 
+class GunicornConfigurator(AbstractConfigurator):
+    def __init__(self):
+        AbstractConfigurator.__init__(self)
+        self.gunicorn_conf = None
+
+    def ask_questions(self):
+        pass
+
+    def generate(self):
+        self.gunicorn_conf = os.path.join(env_mgr.central_config_dir, 'gunicorn.conf')
+        template = '''
+import os
+
+daemon = True
+workers = 5
+
+# default localhost:8000
+bind = "0.0.0.0:8000"
+
+# Pid
+pids_dir = '%(pids_dir)s'
+pidfile = os.path.join(pids_dir, 'seahub.pid')
+
+# Logging
+logs_dir = '%(logs_dir)s'
+errorlog = os.path.join(logs_dir, 'gunicorn_error.log')
+accesslog = os.path.join(logs_dir, 'gunicorn_access.log')
+
+# for file upload, we need a longer timeout value (default is only 30s, too short)
+timeout = 1200
+'''
+
+        text = template % dict(pids_dir=env_mgr.central_pids_dir,
+                               logs_dir=env_mgr.central_logs_dir)
+
+        with open(self.gunicorn_conf, 'w') as fp:
+            fp.write(text)
+
 class UserManualHandler(object):
     def __init__(self):
         self.src_docs_dir = os.path.join(env_mgr.install_path, 'seafile', 'docs')
@@ -1260,6 +1300,7 @@ env_mgr = EnvManager()
 ccnet_config = CcnetConfigurator()
 seafile_config = SeafileConfigurator()
 seafdav_config = SeafDavConfigurator()
+gunicorn_config = GunicornConfigurator()
 seahub_config = SeahubConfigurator()
 user_manuals_handler = UserManualHandler()
 # Would be created after AbstractDBConfigurator.ask_use_existing_db()
@@ -1424,6 +1465,7 @@ def main():
     ccnet_config.generate()
     seafile_config.generate()
     seafdav_config.generate()
+    gunicorn_config.generate()
     seahub_config.generate()
 
     seahub_config.do_syncdb()

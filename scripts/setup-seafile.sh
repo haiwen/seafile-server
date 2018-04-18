@@ -7,6 +7,8 @@ default_ccnet_conf_dir=${TOPDIR}/ccnet
 default_seafile_data_dir=${TOPDIR}/seafile-data
 default_seahub_db=${TOPDIR}/seahub.db
 default_conf_dir=${TOPDIR}/conf
+default_pids_dir=${TOPDIR}/pids
+default_logs_dir=${TOPDIR}/logs
 
 export SEAFILE_LD_LIBRARY_PATH=${INSTALLPATH}/seafile/lib/:${INSTALLPATH}/seafile/lib64:${LD_LIBRARY_PATH}
 
@@ -300,6 +302,36 @@ function get_seafile_data_dir () {
     echo
 }
 
+function gen_gunicorn_conf () {
+    mkdir -p ${default_conf_dir}
+    gunicorn_conf=${default_conf_dir}/gunicorn.conf
+    if ! $(cat > ${gunicorn_conf} <<EOF
+import os
+
+daemon = True
+workers = 5
+
+# default localhost:8000
+bind = "0.0.0.0:8000"
+
+# Pid
+pids_dir = '$default_pids_dir'
+pidfile = os.path.join(pids_dir, 'seahub.pid')
+
+# Logging
+logs_dir = '$default_logs_dir'
+errorlog = os.path.join(logs_dir, 'gunicorn_error.log')
+accesslog = os.path.join(logs_dir, 'gunicorn_access.log')
+
+# for file upload, we need a longer timeout value (default is only 30s, too short)
+timeout = 1200
+EOF
+); then
+    echo "failed to generate gunicorn.conf";
+    err_and_quit
+fi
+}
+
 function gen_seafdav_conf () {
     mkdir -p ${default_conf_dir}
     seafdav_conf=${default_conf_dir}/seafdav.conf
@@ -516,6 +548,12 @@ fi
 # -------------------------------------------
 
 echo "${seafile_data_dir}" > "${default_ccnet_conf_dir}/seafile.ini"
+
+# -------------------------------------------
+# Generate gunicorn.conf
+# -------------------------------------------
+
+gen_gunicorn_conf;
 
 # -------------------------------------------
 # Generate seafevents.conf
