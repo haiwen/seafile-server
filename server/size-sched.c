@@ -156,7 +156,7 @@ set_repo_size_and_file_count (SeafDB *db,
 
     if (n == 0) {
         /* Size not set before. */
-        sql = "INSERT INTO RepoSize VALUES (?, ?, ?)";
+        sql = "INSERT INTO RepoSize (repo_id, size, head_id) VALUES (?, ?, ?)";
         if (seaf_db_trans_query (trans, sql, 3, "string", repo_id, "int64", size,
                                  "string", new_head_id) < 0) {
             ret = -1;

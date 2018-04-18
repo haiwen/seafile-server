@@ -439,14 +439,14 @@ seaf_repo_manager_set_repo_history_limit (SeafRepoManager *mgr,
                      "WHERE repo_id='%s'", days, repo_id);
         else
             snprintf(sql, sizeof(sql),
-                     "INSERT INTO RepoHistoryLimit VALUES "
+                     "INSERT INTO RepoHistoryLimit (repo_id, days) VALUES "
                      "('%s', %d)", repo_id, days);
         if (err)
             return -1;
         return seaf_db_query(db, sql);
     } else {
         snprintf (sql, sizeof(sql),
-                  "REPLACE INTO RepoHistoryLimit VALUES ('%s', %d)",
+                  "REPLACE INTO RepoHistoryLimit (repo_id, days) VALUES ('%s', %d)",
                   repo_id, days);
         if (seaf_db_query (db, sql) < 0)
             return -1;
@@ -524,7 +524,7 @@ seaf_repo_manager_set_repo_valid_since (SeafRepoManager *mgr,
                      " WHERE repo_id='%s'", timestamp, repo_id);
         else
             snprintf(sql, sizeof(sql),
-                     "INSERT INTO RepoValidSince VALUES "
+                     "INSERT INTO RepoValidSince (repo_id, timestamp) VALUES "
                      "('%s', %"G_GINT64_FORMAT")", repo_id, timestamp);
         if (err)
             return -1;
@@ -532,7 +532,7 @@ seaf_repo_manager_set_repo_valid_since (SeafRepoManager *mgr,
             return -1;
     } else {
         snprintf (sql, sizeof(sql),
-                  "REPLACE INTO RepoValidSince VALUES ('%s', %"G_GINT64_FORMAT")",
+                  "REPLACE INTO RepoValidSince (repo_id, timestamp) VALUES ('%s', %"G_GINT64_FORMAT")",
                   repo_id, timestamp);
         if (seaf_db_query (db, sql) < 0)
             return -1;

@@ -31,7 +31,7 @@ seaf_share_manager_start (SeafShareManager *mgr)
     int db_type = seaf_db_type (db);
     if (db_type == SEAF_DB_TYPE_MYSQL) {
         sql = "CREATE TABLE IF NOT EXISTS SharedRepo "
-            "(id INTEGER NOT NULL PRIMARY KEY AUTO_INCREMENT,"
+            "(id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,"
             "repo_id CHAR(37) , from_email VARCHAR(255), to_email VARCHAR(255), "
             "permission CHAR(15), INDEX (repo_id), "
             "INDEX(from_email), INDEX(to_email)) ENGINE=INNODB";
