@@ -302,7 +302,7 @@ set_system_default_repo_id (SeafileSession *session, const char *repo_id)
 {
     char sql[256];
     snprintf (sql, sizeof(sql),
-              "INSERT INTO SystemInfo VALUES ('default_repo_id', '%s')",
+              "INSERT INTO SystemInfo (info_key, info_value) VALUES ('default_repo_id', '%s')",
               repo_id);
     return seaf_db_query (session->db, sql);
 }
@@ -425,7 +425,8 @@ void
 schedule_create_system_default_repo (SeafileSession *session)
 {
     char *sql = "CREATE TABLE IF NOT EXISTS SystemInfo "
-        "(info_key VARCHAR(256), info_value VARCHAR(1024))";
+        "(id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "info_key VARCHAR(256), info_value VARCHAR(1024))";
     if (seaf_db_query (session->db, sql) < 0)
         return;
 

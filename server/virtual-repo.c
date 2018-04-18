@@ -54,7 +54,7 @@ save_virtual_repo_info (SeafRepoManager *mgr,
     int ret = 0;
 
     if (seaf_db_statement_query (mgr->seaf->db,
-                       "INSERT INTO VirtualRepo VALUES (?, ?, ?, ?)",
+                       "INSERT INTO VirtualRepo (repo_id, origin_repo, path, base_commit) VALUES (?, ?, ?, ?)",
                        4, "string", repo_id, "string", origin_repo_id,
                        "string", path, "string", base_commit) < 0)
         ret = -1;

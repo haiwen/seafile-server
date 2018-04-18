@@ -155,8 +155,9 @@ open_db (SeafBranchManager *mgr)
     switch (seaf_db_type (mgr->seaf->db)) {
     case SEAF_DB_TYPE_MYSQL:
         sql = "CREATE TABLE IF NOT EXISTS Branch ("
+            "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
             "name VARCHAR(10), repo_id CHAR(41), commit_id CHAR(41),"
-            "PRIMARY KEY (repo_id, name)) ENGINE = INNODB";
+            "UNIQUE INDEX(repo_id, name)) ENGINE = INNODB";
         if (seaf_db_query (mgr->seaf->db, sql) < 0)
             return -1;
         break;
@@ -199,7 +200,7 @@ seaf_branch_manager_add_branch (SeafBranchManager *mgr, SeafBranch *branch)
                           branch->commit_id, branch->name, branch->repo_id);
     else
         sqlite3_snprintf (sizeof(sql), sql,
-                          "INSERT INTO Branch VALUES (%Q, %Q, %Q)",
+                          "INSERT INTO Branch (name, repo_id, commit_id) VALUES (%Q, %Q, %Q)",
                           branch->name, branch->repo_id, branch->commit_id);
 
     sqlite_query_exec (mgr->priv->db, sql);
@@ -231,7 +232,7 @@ seaf_branch_manager_add_branch (SeafBranchManager *mgr, SeafBranch *branch)
                                           "string", branch->repo_id);
         else
             rc = seaf_db_statement_query (db,
-                                          "INSERT INTO Branch VALUES (?, ?, ?)",
+                                          "INSERT INTO Branch (name, repo_id, commit_id) VALUES (?, ?, ?)",
                                           3, "string", branch->name,
                                           "string", branch->repo_id,
                                           "string", branch->commit_id);
@@ -239,7 +240,7 @@ seaf_branch_manager_add_branch (SeafBranchManager *mgr, SeafBranch *branch)
             return -1;
     } else {
         int rc = seaf_db_statement_query (db,
-                                 "REPLACE INTO Branch VALUES (?, ?, ?)",
+                                 "REPLACE INTO Branch (name, repo_id, commit_id) VALUES (?, ?, ?)",
                                  3, "string", branch->name,
                                  "string", branch->repo_id,
                                  "string", branch->commit_id);

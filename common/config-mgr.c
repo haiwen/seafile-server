@@ -10,7 +10,8 @@ seaf_cfg_manager_init (SeafCfgManager *mgr)
     int db_type = seaf_db_type(mgr->db);
 
     if (db_type == SEAF_DB_TYPE_MYSQL)
-        sql = "CREATE TABLE IF NOT EXISTS SeafileConf (cfg_group VARCHAR(255) NOT NULL,"
+        sql = "CREATE TABLE IF NOT EXISTS SeafileConf ("
+              "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, cfg_group VARCHAR(255) NOT NULL,"
               "cfg_key VARCHAR(255) NOT NULL, value VARCHAR(255), property INTEGER) ENGINE=INNODB";
     else
         sql = "CREATE TABLE IF NOT EXISTS SeafileConf (cfg_group VARCHAR(255) NOT NULL,"
