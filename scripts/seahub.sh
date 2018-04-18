@@ -19,12 +19,11 @@ default_ccnet_conf_dir=${TOPDIR}/ccnet
 central_config_dir=${TOPDIR}/conf
 
 manage_py=${INSTALLPATH}/seahub/manage.py
-gunicorn_conf=${INSTALLPATH}/runtime/seahub.conf
-pidfile=${INSTALLPATH}/runtime/seahub.pid
-errorlog=${INSTALLPATH}/runtime/error.log
-accesslog=${INSTALLPATH}/runtime/access.log
+gunicorn_conf=${TOPDIR}/conf/gunicorn.conf
+pidfile=${TOPDIR}/pids/seahub.pid
+errorlog=${TOPDIR}/logs/gunicorn_error.log
+accesslog=${TOPDIR}/logs/gunicorn_access.log
 gunicorn_exe=${INSTALLPATH}/seahub/thirdpart/gunicorn
-
 
 script_name=$0
 function usage () {
@@ -158,7 +157,7 @@ function start_seahub () {
     before_start;
     echo "Starting seahub at port ${port} ..."
     check_init_admin;
-    $PYTHON $gunicorn_exe seahub.wsgi:application -c "${gunicorn_conf}" -b "0.0.0.0:${port}" --preload
+    $PYTHON $gunicorn_exe seahub.wsgi:application -c "${gunicorn_conf}" --preload
 
     # Ensure seahub is started successfully
     sleep 5
