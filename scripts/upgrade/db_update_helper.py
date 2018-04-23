@@ -1,4 +1,4 @@
-#coding: UTF-8
+# coding: UTF-8
 
 import sys
 import os
@@ -106,6 +106,7 @@ class DBUpdater(object):
         ccnet_sql = os.path.join(self.sql_dir, 'ccnet.sql')
         seafile_sql = os.path.join(self.sql_dir, 'seafile.sql')
         seahub_sql = os.path.join(self.sql_dir, 'seahub.sql')
+        seafevents_sql = os.path.join(self.sql_dir, 'seafevents.sql')
 
         if os.path.exists(ccnet_sql):
             Utils.info('updating ccnet database...')
@@ -118,6 +119,9 @@ class DBUpdater(object):
         if os.path.exists(seahub_sql):
             Utils.info('updating seahub database...')
             self.update_seahub_sql(seahub_sql)
+
+        if os.path.exists(seafevents_sql):
+            self.update_seafevents_sql(seafevents_sql)
 
     @staticmethod
     def get_ccnet_mysql_info(version):
@@ -231,6 +235,9 @@ class DBUpdater(object):
     def update_seahub_sql(self, seahub_sql):
         raise NotImplementedError
 
+    def update_seafevents_sql(self, seafevents_sql):
+        raise NotImplementedError
+
 class CcnetSQLiteDB(object):
     def __init__(self, ccnet_dir):
         self.ccnet_dir = ccnet_dir
@@ -254,6 +261,10 @@ class SQLiteDBUpdater(DBUpdater):
         self.ccnet_db = CcnetSQLiteDB(env_mgr.ccnet_dir)
         self.seafile_db = os.path.join(env_mgr.seafile_dir, 'seafile.db')
         self.seahub_db = os.path.join(env_mgr.top_dir, 'seahub.db')
+        self.seafevents_db = os.path.join(env_mgr.top_dir, 'seafevents.db')
+
+    def is_pro(self):
+        return os.path.exists(self.seafevents_db)
 
     def update_db(self):
         super(SQLiteDBUpdater, self).update_db()
@@ -282,6 +293,11 @@ class SQLiteDBUpdater(DBUpdater):
     def update_seahub_sql(self, sql_path):
         self.apply_sqls(self.seahub_db, sql_path)
 
+    def update_seafevents_sql(self, sql_path):
+        if self.is_pro():
+            Utils.info('updating seafevents database...')
+            self.apply_sqls(self.seafevents_db, sql_path)
+
 
 class MySQLDBUpdater(DBUpdater):
     def __init__(self, version, ccnet_db_info, seafile_db_info, seahub_db_info):
@@ -298,6 +314,11 @@ class MySQLDBUpdater(DBUpdater):
 
     def update_seahub_sql(self, seahub_sql):
         self.apply_sqls(self.seahub_db_info, seahub_sql)
+
+    def update_seafevents_sql(self, seafevents_sql):
+        if self.is_pro(self.seahub_db_info):
+            Utils.info('updating seafevents database...')
+            self.apply_sqls(self.seahub_db_info, seahub_sql)
 
     def get_conn(self, info):
         kw = dict(
@@ -346,6 +367,14 @@ class MySQLDBUpdater(DBUpdater):
                 continue
             else:
                 self.execute_sql(conn, line)
+
+    def is_pro(self, info):
+        conn = self.get_conn(info)
+        cursor = conn.cursor()
+        text = "select count(1) from information_schema.tables where table_schema=%s and table_name=%s"
+        cursor.execute(text, (info.db, 'Event'))
+        res = cursor.fetchone()
+        return res[0] == 1
 
 
 def main():
