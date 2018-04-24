@@ -21,8 +21,6 @@
 #include "log.h"
 
 typedef struct FsPriv {
-    char *v0_obj_dir;
-    int v0_dir_len;
     char *obj_dir;
     int   dir_len;
 } FsPriv;
@@ -38,10 +36,6 @@ id_to_path (FsPriv *priv, const char *obj_id, char path[],
     if (version > 0) {
         n = snprintf (path, SEAF_PATH_MAX, "%s/%s/", priv->obj_dir, repo_id);
         pos += n;
-    } else {
-        memcpy (pos, priv->v0_obj_dir, priv->v0_dir_len);
-        pos[priv->v0_dir_len] = '/';
-        pos += priv->v0_dir_len + 1;
     }
 #else
     n = snprintf (path, SEAF_PATH_MAX, "%s/%s/", priv->obj_dir, repo_id);
@@ -372,8 +366,6 @@ obj_backend_fs_foreach_obj (ObjBackend *bend,
 #if defined MIGRATION || defined SEAFILE_CLIENT
     if (version > 0)
         obj_dir = g_build_filename (priv->obj_dir, repo_id, NULL);
-    else
-        obj_dir = g_strdup(priv->v0_obj_dir);
 #else
     obj_dir = g_build_filename (priv->obj_dir, repo_id, NULL);
 #endif
@@ -512,17 +504,8 @@ obj_backend_fs_new (const char *seaf_dir, const char *obj_type)
     priv = g_new0(FsPriv, 1);
     bend->priv = priv;
 
-    priv->v0_obj_dir = g_build_filename (seaf_dir, obj_type, NULL);
-    priv->v0_dir_len = strlen(priv->v0_obj_dir);
-
     priv->obj_dir = g_build_filename (seaf_dir, "storage", obj_type, NULL);
     priv->dir_len = strlen (priv->obj_dir);
-
-    if (g_mkdir_with_parents (priv->v0_obj_dir, 0777) < 0) {
-        seaf_warning ("[Obj Backend] Objects dir %s does not exist and"
-                   " is unable to create\n", priv->v0_obj_dir);
-        goto onerror;
-    }
 
     if (g_mkdir_with_parents (priv->obj_dir, 0777) < 0) {
         seaf_warning ("[Obj Backend] Objects dir %s does not exist and"
@@ -541,7 +524,6 @@ obj_backend_fs_new (const char *seaf_dir, const char *obj_type)
     return bend;
 
 onerror:
-    g_free (priv->v0_obj_dir);
     g_free (priv->obj_dir);
     g_free (priv);
     g_free (bend);
