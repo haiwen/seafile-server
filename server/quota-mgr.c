@@ -181,7 +181,7 @@ seaf_quota_manager_set_user_quota (SeafQuotaManager *mgr,
                                           2, "int64", quota, "string", user);
         else
             rc = seaf_db_statement_query (db,
-                                          "INSERT INTO UserQuota (user, quota) VALUES "
+                                          "INSERT INTO UserQuota (\"user\", quota) VALUES "
                                           "(?, ?)",
                                           2, "string", user, "int64", quota);
         return rc;
@@ -290,7 +290,7 @@ seaf_quota_manager_set_org_user_quota (SeafQuotaManager *mgr,
                                           "string", user);
         else
             rc = seaf_db_statement_query (db,
-                                          "INSERT INTO OrgUserQuota (org_id, user, quota) VALUES "
+                                          "INSERT INTO OrgUserQuota (org_id, \"user\", quota) VALUES "
                                           "(?, ?, ?)",
                                           3, "int", org_id, "string", user,
                                           "int64", quota);
