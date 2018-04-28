@@ -4081,7 +4081,6 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
 
     int repo_group_id = 0;
     char *group_name = NULL;
-    groups = g_list_reverse (groups);
     q = repos;
 
     /* Add group_name to repo. Both groups and repos are listed by group_id in descending order */
