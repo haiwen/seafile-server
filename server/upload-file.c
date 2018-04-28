@@ -519,6 +519,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     int error_code = ERROR_INTERNAL;
     char *filenames_json, *tmp_files_json;
     int replace = 0;
+    int rc;
 
      if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
         /* If CORS preflight header, then create an empty body response (200 OK)
@@ -574,18 +575,28 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     filenames_json = file_list_to_json (fsm->filenames);
     tmp_files_json = file_list_to_json (fsm->files);
 
+    char *abs_path = NULL;
+    rc = create_relative_path (fsm, parent_dir, &abs_path);
+    if (rc < 0) {
+        goto error;
+    } else if (abs_path) {
+        parent_dir = abs_path;
+    }
+
     char *ret_json = NULL;
     char *task_id = NULL;
-    int rc = seaf_repo_manager_post_multi_files (seaf->repo_mgr,
-                                                 fsm->repo_id,
-                                                 parent_dir,
-                                                 filenames_json,
-                                                 tmp_files_json,
-                                                 fsm->user,
-                                                 replace,
-                                                 &ret_json,
-                                                 fsm->need_idx_progress ? &task_id : NULL,
-                                                 &error);
+    rc = seaf_repo_manager_post_multi_files (seaf->repo_mgr,
+                                             fsm->repo_id,
+                                             parent_dir,
+                                             filenames_json,
+                                             tmp_files_json,
+                                             fsm->user,
+                                             replace,
+                                             &ret_json,
+                                             fsm->need_idx_progress ? &task_id : NULL,
+                                             &error);
+    if (abs_path)
+        g_free (abs_path);
     g_free (filenames_json);
     g_free (tmp_files_json);
     if (rc < 0) {
