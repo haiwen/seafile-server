@@ -502,6 +502,11 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      "seafile_get_shared_groups_for_subdir",
                                      searpc_signature_objlist__string_string_string());
 
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_repo_has_been_shared,
+                                     "repo_has_been_shared",
+                                     searpc_signature_int__string_int());
+
     /* branch and commit */
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_branch_gets,

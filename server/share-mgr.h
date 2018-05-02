@@ -102,5 +102,9 @@ seaf_share_manager_unshare_group_subdir (SeafShareManager* mgr,
                                          const char *owner,
                                          int group_id);
 
+gboolean
+seaf_share_manager_repo_has_been_shared (SeafShareManager* mgr,
+                                         const char *repo_id,
+                                         gboolean including_groups);
 #endif /* SHARE_MGR_H */
 

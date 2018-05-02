@@ -758,3 +758,29 @@ seaf_share_manager_unshare_group_subdir (SeafShareManager* mgr,
 
     return 0;
 }
+
+gboolean
+seaf_share_manager_repo_has_been_shared (SeafShareManager* mgr,
+                                         const char *repo_id,
+                                         gboolean including_groups)
+{
+    gboolean exists;
+    gboolean db_err = FALSE;
+    char *sql;
+
+    sql = "SELECT 1 FROM SharedRepo WHERE repo_id=?";
+    exists = seaf_db_statement_exists (mgr->seaf->db, sql, &db_err,
+                                       1, "string", repo_id);
+    if (db_err) {
+        seaf_warning ("DB error when check repo exist in SharedRepo and RepoGroup.\n");
+        return FALSE;
+    }
+
+    if (!exists && including_groups) {
+        sql = "SELECT 1 FROM RepoGroup WHERE repo_id=?";
+        exists = seaf_db_statement_exists (mgr->seaf->db, sql, &db_err,
+                                           1, "string", repo_id);
+    }
+
+    return exists;
+}
