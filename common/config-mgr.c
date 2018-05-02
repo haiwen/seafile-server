@@ -127,7 +127,7 @@ seaf_cfg_manager_get_config_int (SeafCfgManager *mgr, const char *group, const c
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
     if (!value)
-        ret = -1;
+        ret = g_key_file_get_integer (mgr->config, group, key, NULL);
     else {
         ret = strtol (value, &invalid, 10);
         if (*invalid != '\0') {
@@ -148,7 +148,7 @@ seaf_cfg_manager_get_config_int64 (SeafCfgManager *mgr, const char *group, const
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
     if (!value)
-        ret = -1;
+        ret = g_key_file_get_int64(mgr->config, group, key, NULL);
     else {
         ret = strtoll (value, &invalid, 10);
         if (*invalid != '\0') {
@@ -168,8 +168,13 @@ seaf_cfg_manager_get_config_boolean (SeafCfgManager *mgr, const char *group, con
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
     if (!value) {
-        seaf_warning ("Config [%s:%s] not set, default is false.\n", group, key);
-        ret = FALSE;
+        GError *err = NULL;
+        ret = g_key_file_get_boolean(mgr->config, group, key, &err);
+        if (err) {
+            seaf_warning ("Config [%s:%s] not set, default is false.\n", group, key);
+            ret = FALSE;
+            g_clear_error(&err);
+        }
     } else {
         if (strcmp ("true", value) == 0)
             ret = TRUE;
@@ -188,7 +193,7 @@ seaf_cfg_manager_get_config_string (SeafCfgManager *mgr, const char *group, cons
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
     if (!value)
-        ret = NULL;
+        ret = g_key_file_get_string (mgr->config, group, key, NULL);
     else {
         ret = value;
     }
@@ -202,9 +207,6 @@ seaf_cfg_manager_get_config (SeafCfgManager *mgr, const char *group, const char 
     char *sql = "SELECT value FROM SeafileConf WHERE cfg_group=? AND cfg_key=?";
     char *value = seaf_db_statement_get_string(mgr->db, sql, 
                                                2, "string", group, "string", key);
-    if (!value) {
-        value = g_key_file_get_string (mgr->config, group, key, NULL);
-    }
 
     return value;
 }
