@@ -948,11 +948,11 @@ class CcnetAPI(object):
     def remove_group_user(self, username):
         return ccnet_threaded_rpc.remove_group_user(username)
     
-    def is_group_user(self, group_id, user):
+    def is_group_user(self, group_id, user, in_structure=False):
         """
         Return non-zero value if true, 0 if not true
         """
-        return ccnet_threaded_rpc.is_group_user(group_id, user)
+        return ccnet_threaded_rpc.is_group_user(group_id, user, 1 if in_structure else 0)
 
     def set_group_creator(self, group_id, user_name):
         return ccnet_threaded_rpc.set_group_creator(group_id, user_name)
