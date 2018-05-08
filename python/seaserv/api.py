@@ -831,6 +831,9 @@ class CcnetAPI(object):
     def get_child_groups(self, group_id):
         return ccnet_threaded_rpc.get_child_groups(group_id)
 
+    def get_child_groups_recursively(self, group_id):
+        return ccnet_threaded_rpc.get_child_groups_recursively(group_id)
+
     def get_ancestor_groups(self, group_id):
         return ccnet_threaded_rpc.get_ancestor_groups(group_id)
 
@@ -941,6 +944,12 @@ class CcnetAPI(object):
         Return a list of GroupUser objects (ccnet/lib/ccnetobj.vala)
         """
         return ccnet_threaded_rpc.get_group_members(group_id)
+
+    def get_structure_members_with_start_group(self, group_id):
+        """
+        Return a list of GroupUser objects, including child groups under @group_id
+        """
+        return ccnet_threaded_rpc.get_structure_members_with_start_group(group_id)
 
     def check_group_staff(self, group_id, username):
         """
