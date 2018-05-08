@@ -5243,4 +5243,17 @@ seafile_get_org_group_repos_by_user (const char *user, int org_id, GError **erro
 
     return seaf_get_group_repos_by_user (mgr, user, org_id, error);
 }
+
+int
+seafile_repo_has_been_shared (const char *repo_id, int including_groups, GError **error)
+{
+    if (!repo_id) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Arguments error");
+        return FALSE;
+    }
+
+    gboolean exists = seaf_share_manager_repo_has_been_shared (seaf->share_mgr, repo_id,
+                                                               including_groups ? TRUE : FALSE);
+    return exists ? 1 : 0;
+}
 #endif  /* SEAFILE_SERVER */
