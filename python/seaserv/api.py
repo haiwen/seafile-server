@@ -737,6 +737,12 @@ class SeafileAPI(object):
     def del_org_group_repo(self, repo_id, org_id, group_id):
         seafserv_threaded_rpc.del_org_group_repo(repo_id, org_id, group_id)
 
+    def get_shared_users_by_repo(self, repo_id):
+        return seafserv_threaded_rpc.get_shared_users_by_repo (repo_id)
+
+    def org_get_shared_users_by_repo(self, org_id, repo_id):
+        return seafserv_threaded_rpc.org_get_shared_users_by_repo(org_id, repo_id)
+
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):

@@ -1025,3 +1025,11 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     @searpc_func("int", ["string", "string", "int"])
     def set_server_config_boolean (group, key, value):
         pass
+
+    @searpc_func("objlist", ["string"])
+    def get_shared_users_by_repo (repo_id):
+        pass
+
+    @searpc_func("objlist", ["int", "string"])
+    def org_get_shared_users_by_repo (org_id, repo_id):
+        pass
