@@ -960,9 +960,10 @@ class CcnetAPI(object):
     def remove_group_user(self, username):
         return ccnet_threaded_rpc.remove_group_user(username)
     
-    def is_group_user(self, group_id, user, in_structure=False):
+    def is_group_user(self, group_id, user, in_structure=True):
         """
         Return non-zero value if true, 0 if not true
+        If @in_structure is true, return whether user is in descendants groups and @group_id it self 
         """
         return ccnet_threaded_rpc.is_group_user(group_id, user, 1 if in_structure else 0)
 
