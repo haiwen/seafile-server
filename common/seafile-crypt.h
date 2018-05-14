@@ -98,7 +98,7 @@ seafile_decrypt (char **data_out,
                  SeafileCrypt *crypt);
 
 int
-seafile_decrypt_init (EVP_CIPHER_CTX *ctx,
+seafile_decrypt_init (EVP_CIPHER_CTX **ctx,
                       int version,
                       const unsigned char *key,
                       const unsigned char *iv);
