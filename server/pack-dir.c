@@ -86,7 +86,7 @@ add_file_to_archive (PackDirData *data,
     BlockMetadata *bmd = NULL;
     char *blk_id = NULL;
     uint32_t remain = 0;
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
     gboolean enc_init = FALSE;
     char *dec_out = NULL;
     int dec_out_len = -1;
@@ -196,7 +196,7 @@ add_file_to_archive (PackDirData *data,
                     goto out;
                 }
 
-                int r = EVP_DecryptUpdate (&ctx,
+                int r = EVP_DecryptUpdate (ctx,
                                            (unsigned char *)dec_out,
                                            &dec_out_len,
                                            (unsigned char *)buf,
@@ -221,7 +221,7 @@ add_file_to_archive (PackDirData *data,
                 /* If it's the last piece of a block, call decrypt_final()
                  * to decrypt the possible partial block. */
                 if (remain == 0) {
-                    r = EVP_DecryptFinal_ex (&ctx,
+                    r = EVP_DecryptFinal_ex (ctx,
                                              (unsigned char *)dec_out,
                                              &dec_out_len);
                     if (r != 1) {
@@ -264,7 +264,7 @@ out:
         seaf_block_manager_block_handle_free(seaf->block_mgr, handle);
     }
     if (crypt != NULL && enc_init)
-        EVP_CIPHER_CTX_cleanup (&ctx);
+        EVP_CIPHER_CTX_free (ctx);
     g_free (dec_out);
 
     return ret;

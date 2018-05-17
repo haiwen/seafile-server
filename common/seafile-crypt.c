@@ -254,35 +254,36 @@ seafile_encrypt (char **data_out,
         return -1;
     }
 
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
     int ret;
     int blks;
 
     /* Prepare CTX for encryption. */
-    EVP_CIPHER_CTX_init (&ctx);
+    ctx = EVP_CIPHER_CTX_new ();
 
     if (crypt->version == 2)
-        ret = EVP_EncryptInit_ex (&ctx,
+        ret = EVP_EncryptInit_ex (ctx,
                                   EVP_aes_256_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
     else if (crypt->version == 1)
-        ret = EVP_EncryptInit_ex (&ctx,
+        ret = EVP_EncryptInit_ex (ctx,
                                   EVP_aes_128_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
     else
-        ret = EVP_EncryptInit_ex (&ctx,
+        ret = EVP_EncryptInit_ex (ctx,
                                   EVP_aes_128_ecb(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
 
-    if (ret == ENC_FAILURE)
+    if (ret == ENC_FAILURE) {
+        EVP_CIPHER_CTX_free (ctx);
         return -1;
-
+    }
     /* Allocating output buffer. */
     
     /*
@@ -303,7 +304,7 @@ seafile_encrypt (char **data_out,
     int update_len, final_len;
 
     /* Do the encryption. */
-    ret = EVP_EncryptUpdate (&ctx,
+    ret = EVP_EncryptUpdate (ctx,
                              (unsigned char*)*data_out,
                              &update_len,
                              (unsigned char*)data_in,
@@ -314,7 +315,7 @@ seafile_encrypt (char **data_out,
 
 
     /* Finish the possible partial block. */
-    ret = EVP_EncryptFinal_ex (&ctx,
+    ret = EVP_EncryptFinal_ex (ctx,
                                (unsigned char*)*data_out + update_len,
                                &final_len);
 
@@ -324,13 +325,13 @@ seafile_encrypt (char **data_out,
     if (ret == ENC_FAILURE || *out_len != (blks * BLK_SIZE))
         goto enc_error;
     
-    EVP_CIPHER_CTX_cleanup (&ctx);
+    EVP_CIPHER_CTX_free (ctx);
 
     return 0;
 
 enc_error:
 
-    EVP_CIPHER_CTX_cleanup (&ctx);
+    EVP_CIPHER_CTX_free (ctx);
 
     *out_len = -1;
 
@@ -365,34 +366,35 @@ seafile_decrypt (char **data_out,
         return -1;
     }
 
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
     int ret;
 
     /* Prepare CTX for decryption. */
-    EVP_CIPHER_CTX_init (&ctx);
+    ctx = EVP_CIPHER_CTX_new ();
 
     if (crypt->version == 2)
-        ret = EVP_DecryptInit_ex (&ctx,
+       ret = EVP_DecryptInit_ex (ctx,
                                   EVP_aes_256_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
     else if (crypt->version == 1)
-        ret = EVP_DecryptInit_ex (&ctx,
+        ret = EVP_DecryptInit_ex (ctx,
                                   EVP_aes_128_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
     else
-        ret = EVP_DecryptInit_ex (&ctx,
+        ret = EVP_DecryptInit_ex (ctx,
                                   EVP_aes_128_ecb(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
 
-    if (ret == DEC_FAILURE)
+    if (ret == DEC_FAILURE) {
+        EVP_CIPHER_CTX_free (ctx);
         return -1;
-
+    }
     /* Allocating output buffer. */
     
     *data_out = (char *)g_malloc (in_len);
@@ -405,7 +407,7 @@ seafile_decrypt (char **data_out,
     int update_len, final_len;
 
     /* Do the decryption. */
-    ret = EVP_DecryptUpdate (&ctx,
+    ret = EVP_DecryptUpdate (ctx,
                              (unsigned char*)*data_out,
                              &update_len,
                              (unsigned char*)data_in,
@@ -416,7 +418,7 @@ seafile_decrypt (char **data_out,
 
 
     /* Finish the possible partial block. */
-    ret = EVP_DecryptFinal_ex (&ctx,
+    ret = EVP_DecryptFinal_ex (ctx,
                                (unsigned char*)*data_out + update_len,
                                &final_len);
 
@@ -426,13 +428,13 @@ seafile_decrypt (char **data_out,
     if (ret == DEC_FAILURE || *out_len > in_len)
         goto dec_error;
 
-    EVP_CIPHER_CTX_cleanup (&ctx);
+    EVP_CIPHER_CTX_free (ctx);
     
     return 0;
 
 dec_error:
 
-    EVP_CIPHER_CTX_cleanup (&ctx);
+    EVP_CIPHER_CTX_free (ctx);
 
     *out_len = -1;
     if (*data_out != NULL)
@@ -445,7 +447,7 @@ dec_error:
 }
 
 int
-seafile_decrypt_init (EVP_CIPHER_CTX *ctx,
+seafile_decrypt_init (EVP_CIPHER_CTX **ctx,
                       int version,
                       const unsigned char *key,
                       const unsigned char *iv)
@@ -453,22 +455,22 @@ seafile_decrypt_init (EVP_CIPHER_CTX *ctx,
     int ret;
 
     /* Prepare CTX for decryption. */
-    EVP_CIPHER_CTX_init (ctx);
+    *ctx = EVP_CIPHER_CTX_new ();
 
     if (version == 2)
-        ret = EVP_DecryptInit_ex (ctx,
+        ret = EVP_DecryptInit_ex (*ctx,
                                   EVP_aes_256_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   key,  /* derived key */
                                   iv);  /* initial vector */
     else if (version == 1)
-        ret = EVP_DecryptInit_ex (ctx,
+        ret = EVP_DecryptInit_ex (*ctx,
                                   EVP_aes_128_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   key,  /* derived key */
                                   iv);  /* initial vector */
     else
-        ret = EVP_DecryptInit_ex (ctx,
+        ret = EVP_DecryptInit_ex (*ctx,
                                   EVP_aes_128_ecb(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   key,  /* derived key */

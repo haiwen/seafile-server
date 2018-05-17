@@ -58,7 +58,7 @@ typedef struct SendfileData {
     Seafile *file;
     SeafileCrypt *crypt;
     gboolean enc_init;
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
     BlockHandle *handle;
     size_t remain;
     int idx;
@@ -154,7 +154,7 @@ free_sendfile_data (SendfileData *data)
     }
 
     if (data->enc_init)
-        EVP_CIPHER_CTX_cleanup (&data->ctx);
+        EVP_CIPHER_CTX_free (data->ctx);
 
     seafile_unref (data->file);
     g_free (data->crypt);
@@ -301,7 +301,7 @@ next:
         seaf_block_manager_block_handle_free (seaf->block_mgr, handle);
         data->handle = NULL;
         if (data->crypt != NULL) {
-            EVP_CIPHER_CTX_cleanup (&data->ctx);
+            EVP_CIPHER_CTX_free (data->ctx);
             data->enc_init = FALSE;
         }
 
@@ -337,7 +337,7 @@ next:
             goto err;
         }
 
-        int ret = EVP_DecryptUpdate (&data->ctx,
+        int ret = EVP_DecryptUpdate (data->ctx,
                                      (unsigned char *)dec_out,
                                      &dec_out_len,
                                      (unsigned char *)buf,
@@ -355,7 +355,7 @@ next:
         /* If it's the last piece of a block, call decrypt_final()
          * to decrypt the possible partial block. */
         if (data->remain == 0) {
-            ret = EVP_DecryptFinal_ex (&data->ctx,
+            ret = EVP_DecryptFinal_ex (data->ctx,
                                        (unsigned char *)dec_out,
                                        &dec_out_len);
             if (ret == 0) {
