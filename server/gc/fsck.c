@@ -682,7 +682,7 @@ write_enc_block_to_file (const char *repo_id,
     char buf[64 * 1024];
     int n;
     int remain;
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
     char *dec_out;
     int dec_out_len;
     gboolean ret = TRUE;
@@ -704,7 +704,7 @@ write_enc_block_to_file (const char *repo_id,
         return FALSE;
     }
 
-    if (seafile_decrypt_init (&ctx, crypt->version,
+    if (seafile_decrypt_init (ctx, crypt->version,
                               crypt->key, crypt->iv) < 0) {
         seaf_warning ("Failed to init decrypt.\n");
         ret = FALSE;
@@ -730,7 +730,7 @@ write_enc_block_to_file (const char *repo_id,
             break;
         }
 
-        if (EVP_DecryptUpdate (&ctx,
+        if (EVP_DecryptUpdate (ctx,
                                (unsigned char *)dec_out,
                                &dec_out_len,
                                (unsigned char *)buf,
@@ -750,7 +750,7 @@ write_enc_block_to_file (const char *repo_id,
         }
 
         if (remain == 0) {
-            if (EVP_DecryptFinal_ex (&ctx,
+            if (EVP_DecryptFinal_ex (ctx,
                                      (unsigned char *)dec_out,
                                      &dec_out_len) == 0) {
                 seaf_warning ("Failed to decrypt block %s .\n", block_id);
@@ -772,7 +772,7 @@ write_enc_block_to_file (const char *repo_id,
         g_free (dec_out);
     }
 
-    EVP_CIPHER_CTX_cleanup (&ctx);
+    EVP_CIPHER_CTX_free (ctx);
 
 out:
     g_free (bmd);
