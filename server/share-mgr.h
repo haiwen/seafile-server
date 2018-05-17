@@ -102,5 +102,14 @@ seaf_share_manager_unshare_group_subdir (SeafShareManager* mgr,
                                          const char *owner,
                                          int group_id);
 
+
+GList *
+seaf_share_manager_org_get_shared_users_by_repo (SeafShareManager* mgr,
+                                                 int org_id,
+                                                 const char *repo_id);
+
+GList *
+seaf_share_manager_get_shared_users_by_repo (SeafShareManager* mgr,
+                                             const char *repo_id);
 #endif /* SHARE_MGR_H */
 

@@ -758,3 +758,61 @@ seaf_share_manager_unshare_group_subdir (SeafShareManager* mgr,
 
     return 0;
 }
+
+gboolean
+get_shared_users_cb (SeafDBRow *row, void *data)
+{
+    GList **users = data;
+    const char *repo_id = seaf_db_row_get_column_text (row, 0);
+    const char *user = seaf_db_row_get_column_text (row, 1);
+    const char *perm = seaf_db_row_get_column_text (row, 2);
+    SeafileSharedUser *uobj = g_object_new (SEAFILE_TYPE_SHARED_USER,
+                                            "repo_id", repo_id,
+                                            "user", user,
+                                            "perm", perm,
+                                            NULL);
+    *users = g_list_append (*users, uobj);
+
+    return TRUE;
+}
+
+GList *
+seaf_share_manager_org_get_shared_users_by_repo (SeafShareManager* mgr,
+                                                 int org_id,
+                                                 const char *repo_id)
+{
+    GList *users = NULL;
+    char *sql = "SELECT repo_id, to_email, permission FROM OrgSharedRepo WHERE org_id=? AND "
+                "repo_id=?";
+
+    int ret = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                             get_shared_users_cb, &users,
+                                             2, "int", org_id, "string", repo_id);
+    if (ret < 0) {
+        seaf_warning("Failed to get users by repo_id[%s], org_id[%d]\n",
+                     repo_id, org_id);
+        return NULL;
+    }
+
+    return users;
+}
+
+
+GList *
+seaf_share_manager_get_shared_users_by_repo(SeafShareManager* mgr,
+                                            const char *repo_id)
+{
+    GList *users = NULL;
+    char *sql = "SELECT repo_id, to_email, permission FROM SharedRepo WHERE "
+                "repo_id=?";
+
+    int ret = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                             get_shared_users_cb, &users,
+                                             1, "string", repo_id);
+    if (ret < 0) {
+        seaf_warning("Failed to get users by repo_id[%s]\n", repo_id);
+        return NULL;
+    }
+
+    return users;
+}
