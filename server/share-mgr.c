@@ -785,6 +785,7 @@ seaf_share_manager_repo_has_been_shared (SeafShareManager* mgr,
     return exists;
 }
 
+gboolean
 get_shared_users_cb (SeafDBRow *row, void *data)
 {
     GList **users = data;
