@@ -1094,4 +1094,12 @@ seafile_get_org_group_repos_by_user (const char *user, int org_id, GError **erro
 
 int
 seafile_repo_has_been_shared (const char *repo_id, int including_groups, GError **error);
+
+GList *
+seafile_get_shared_users_by_repo (const char *repo_id, GError **error);
+
+GList *
+seafile_org_get_shared_users_by_repo (int org_id,
+                                      const char *repo_id,
+                                      GError **error);
 #endif

@@ -106,5 +106,14 @@ gboolean
 seaf_share_manager_repo_has_been_shared (SeafShareManager* mgr,
                                          const char *repo_id,
                                          gboolean including_groups);
+
+GList *
+seaf_share_manager_org_get_shared_users_by_repo (SeafShareManager* mgr,
+                                                 int org_id,
+                                                 const char *repo_id);
+
+GList *
+seaf_share_manager_get_shared_users_by_repo (SeafShareManager* mgr,
+                                             const char *repo_id);
 #endif /* SHARE_MGR_H */
 

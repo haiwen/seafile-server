@@ -740,6 +740,12 @@ class SeafileAPI(object):
     def repo_has_been_shared(self, repo_id, including_groups=False):
         return True if seafserv_threaded_rpc.repo_has_been_shared(repo_id, 1 if including_groups else 0) else False
 
+    def get_shared_users_by_repo(self, repo_id):
+        return seafserv_threaded_rpc.get_shared_users_by_repo (repo_id)
+
+    def org_get_shared_users_by_repo(self, org_id, repo_id):
+        return seafserv_threaded_rpc.org_get_shared_users_by_repo(org_id, repo_id)
+
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):

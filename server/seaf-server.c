@@ -420,6 +420,14 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      seafile_get_shared_repo_by_path,
                                      "get_shared_repo_by_path",
                                      searpc_signature_object__string_string_string_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_shared_users_by_repo,
+                                     "get_shared_users_by_repo",
+                                     searpc_signature_objlist__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_org_get_shared_users_by_repo,
+                                     "org_get_shared_users_by_repo",
+                                     searpc_signature_objlist__int_string());
 
     /* share repo to group */
     searpc_server_register_function ("seafserv-threaded-rpcserver",
