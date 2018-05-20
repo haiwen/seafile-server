@@ -126,9 +126,14 @@ seaf_cfg_manager_get_config_int (SeafCfgManager *mgr, const char *group, const c
     char *invalid = NULL;
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
-    if (!value)
-        ret = g_key_file_get_integer (mgr->config, group, key, NULL);
-    else {
+    if (!value) {
+        GError *err = NULL;
+        ret = g_key_file_get_integer (mgr->config, group, key, &err);
+        if (err) {
+            ret = -1;
+            g_clear_error(&err);
+        }
+    } else {
         ret = strtol (value, &invalid, 10);
         if (*invalid != '\0') {
             ret = -1;
@@ -147,9 +152,14 @@ seaf_cfg_manager_get_config_int64 (SeafCfgManager *mgr, const char *group, const
     char *invalid = NULL;
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
-    if (!value)
-        ret = g_key_file_get_int64(mgr->config, group, key, NULL);
-    else {
+    if (!value) {
+        GError *err = NULL;
+        ret = g_key_file_get_int64(mgr->config, group, key, &err);
+        if (err) {
+            ret = -1;
+            g_clear_error(&err);
+        }
+    } else {
         ret = strtoll (value, &invalid, 10);
         if (*invalid != '\0') {
             seaf_warning ("Value of config [%s:%s] is invalid: [%s]\n", group, key, value);
