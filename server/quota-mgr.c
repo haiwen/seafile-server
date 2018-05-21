@@ -26,7 +26,7 @@ get_default_quota (SeafCfgManager *mgr)
     gint64 multiplier = GB;
     gint64 quota;
 
-    quota_str = seaf_cfg_manager_get_config (mgr, "quota", "default");
+    quota_str = seaf_cfg_manager_get_config_string (mgr, "quota", "default");
     if (!quota_str)
         return INFINITE_QUOTA;
 

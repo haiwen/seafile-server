@@ -126,9 +126,14 @@ seaf_cfg_manager_get_config_int (SeafCfgManager *mgr, const char *group, const c
     char *invalid = NULL;
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
-    if (!value)
-        ret = g_key_file_get_integer (mgr->config, group, key, NULL);
-    else {
+    if (!value) {
+        GError *err = NULL;
+        ret = g_key_file_get_integer (mgr->config, group, key, &err);
+        if (err) {
+            ret = -1;
+            g_clear_error(&err);
+        }
+    } else {
         ret = strtol (value, &invalid, 10);
         if (*invalid != '\0') {
             ret = -1;
@@ -147,9 +152,14 @@ seaf_cfg_manager_get_config_int64 (SeafCfgManager *mgr, const char *group, const
     char *invalid = NULL;
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
-    if (!value)
-        ret = g_key_file_get_int64(mgr->config, group, key, NULL);
-    else {
+    if (!value) {
+        GError *err = NULL;
+        ret = g_key_file_get_int64(mgr->config, group, key, &err);
+        if (err) {
+            ret = -1;
+            g_clear_error(&err);
+        }
+    } else {
         ret = strtoll (value, &invalid, 10);
         if (*invalid != '\0') {
             seaf_warning ("Value of config [%s:%s] is invalid: [%s]\n", group, key, value);
@@ -192,9 +202,11 @@ seaf_cfg_manager_get_config_string (SeafCfgManager *mgr, const char *group, cons
     char *ret = NULL;
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
-    if (!value)
+    if (!value) {
         ret = g_key_file_get_string (mgr->config, group, key, NULL);
-    else {
+        if (ret != NULL)
+            ret = g_strstrip(ret);
+    } else {
         ret = value;
     }
 
@@ -207,6 +219,8 @@ seaf_cfg_manager_get_config (SeafCfgManager *mgr, const char *group, const char 
     char *sql = "SELECT value FROM SeafileConf WHERE cfg_group=? AND cfg_key=?";
     char *value = seaf_db_statement_get_string(mgr->db, sql, 
                                                2, "string", group, "string", key);
+    if (value != NULL)
+        value = g_strstrip(value);
 
     return value;
 }
