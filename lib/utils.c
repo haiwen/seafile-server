@@ -1676,9 +1676,10 @@ ccnet_decrypt (char **data_out,
                               key,  /* derived key */
                               iv);  /* initial vector */
 
-    if (ret == DEC_FAILURE)
+    if (ret == DEC_FAILURE){
         return -1;
-
+        EVP_CIPHER_CTX_free (ctx);
+    }
     /* Allocating output buffer. */
     
     *data_out = (char *)g_malloc (in_len);
