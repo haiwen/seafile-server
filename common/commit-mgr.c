@@ -87,7 +87,7 @@ seaf_commit_new (const char *commit_id,
     commit->creator_id[40] = '\0';
 
     commit->desc = g_strdup (desc);
-    
+
     if (ctime == 0) {
         /* TODO: use more precise timer */
         commit->ctime = (gint64)time(NULL);
