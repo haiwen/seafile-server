@@ -55,7 +55,7 @@ check_group_permission_by_user (SeafRepoManager *mgr,
         return NULL;
 
     /* Get the groups this user belongs to. */
-    groups = ccnet_get_groups_by_user (rpc_client, user_name);
+    groups = ccnet_get_groups_by_user (rpc_client, user_name, 1);
     if (!groups) {
         goto out;
     }
@@ -124,6 +124,7 @@ check_virtual_repo_permission (SeafRepoManager *mgr,
     /* If I'm the owner of origin repo, I have full access to sub-repos. */
     owner = seaf_repo_manager_get_repo_owner (mgr, origin_repo_id);
     if (g_strcmp0 (user, owner) == 0) {
+        g_free (owner);
         permission = g_strdup("rw");
         return permission;
     }

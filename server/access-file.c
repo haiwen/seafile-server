@@ -58,7 +58,7 @@ typedef struct SendfileData {
     Seafile *file;
     SeafileCrypt *crypt;
     gboolean enc_init;
-    EVP_CIPHER_CTX ctx;
+    EVP_CIPHER_CTX *ctx;
     BlockHandle *handle;
     size_t remain;
     int idx;
@@ -128,6 +128,8 @@ static struct file_type_map ftmap[] = {
     { "PNG", "image/png" },
     { "gif", "image/gif" },
     { "GIF", "image/gif" },
+    { "svg", "image/svg+xml" },
+    { "SVG", "image/svg+xml" },
     { NULL, NULL },
 };
 
@@ -152,7 +154,7 @@ free_sendfile_data (SendfileData *data)
     }
 
     if (data->enc_init)
-        EVP_CIPHER_CTX_cleanup (&data->ctx);
+        EVP_CIPHER_CTX_free (data->ctx);
 
     seafile_unref (data->file);
     g_free (data->crypt);
@@ -299,7 +301,7 @@ next:
         seaf_block_manager_block_handle_free (seaf->block_mgr, handle);
         data->handle = NULL;
         if (data->crypt != NULL) {
-            EVP_CIPHER_CTX_cleanup (&data->ctx);
+            EVP_CIPHER_CTX_free (data->ctx);
             data->enc_init = FALSE;
         }
 
@@ -335,7 +337,7 @@ next:
             goto err;
         }
 
-        int ret = EVP_DecryptUpdate (&data->ctx,
+        int ret = EVP_DecryptUpdate (data->ctx,
                                      (unsigned char *)dec_out,
                                      &dec_out_len,
                                      (unsigned char *)buf,
@@ -353,7 +355,7 @@ next:
         /* If it's the last piece of a block, call decrypt_final()
          * to decrypt the possible partial block. */
         if (data->remain == 0) {
-            ret = EVP_DecryptFinal_ex (&data->ctx,
+            ret = EVP_DecryptFinal_ex (data->ctx,
                                        (unsigned char *)dec_out,
                                        &dec_out_len);
             if (ret == 0) {
@@ -996,13 +998,8 @@ start_download_zip_file (evhtp_request_t *req, const char *token,
     evhtp_headers_add_header (req->headers_out,
             evhtp_header_new("Content-Length", file_size, 1, 1));
 
-    if (test_firefox (req)) {
-        snprintf(cont_filename, SEAF_PATH_MAX,
-                 "attachment;filename*=\"utf-8\' \'%s.zip\"", zipname);
-    } else {
-        snprintf(cont_filename, SEAF_PATH_MAX,
-                 "attachment;filename=\"%s.zip\"", zipname);
-    }
+    snprintf(cont_filename, SEAF_PATH_MAX,
+             "attachment;filename=\"%s.zip\"", zipname);
 
     evhtp_headers_add_header(req->headers_out,
             evhtp_header_new("Content-Disposition", cont_filename, 1, 1));
@@ -1087,6 +1084,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
     json_t *info_obj = NULL;
     json_error_t jerror;
     char *filename = NULL;
+    char *repo_id = NULL;
     char *zip_file_path;
     const char *error = NULL;
     int error_code;
@@ -1143,7 +1141,9 @@ access_zip_cb (evhtp_request_t *req, void *arg)
 
     zip_file_path = zip_download_mgr_get_zip_file_path (seaf->zip_download_mgr, token);
     if (!zip_file_path) {
-        seaf_warning ("Failed to get zip file path.\n");
+        g_object_get (info, "repo_id", &repo_id, NULL);
+        seaf_warning ("Failed to get zip file path for %s in repo %.8s, token:[%s].\n",
+                      filename, repo_id, token);
         error = "Invalid token\n";
         error_code = EVHTP_RES_BADREQ;
         goto out;
@@ -1171,6 +1171,8 @@ out:
         json_decref (info_obj);
     if (filename)
         g_free (filename);
+    if (repo_id)
+        g_free (repo_id);
 
     if (error) {
         evbuffer_add_printf(req->buffer_out, "%s\n", error);

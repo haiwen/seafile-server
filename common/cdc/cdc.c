@@ -112,7 +112,8 @@ do {                                                         \
 int file_chunk_cdc(int fd_src,
                    CDCFileDescriptor *file_descr,
                    SeafileCrypt *crypt,
-                   gboolean write_data)
+                   gboolean write_data,
+                   gint64 *indexed)
 {
     char *buf;
     uint32_t buf_sz;
@@ -180,7 +181,10 @@ int file_chunk_cdc(int fd_src,
                     free (buf);
                     return -1;
                 }
+                gint64 idx_size = tail;
                 WRITE_CDC_BLOCK (tail, write_data);
+                if (indexed)
+                    *indexed += idx_size;
             }
             break;
         }
@@ -206,8 +210,10 @@ int file_chunk_cdc(int fd_src,
                     free (buf);
                     return -1;
                 }
-
+                gint64 idx_size = cur + 1;
                 WRITE_CDC_BLOCK (cur + 1, write_data);
+                if (indexed)
+                    *indexed += idx_size;
                 break;
             } else {
                 cur ++;
@@ -225,7 +231,8 @@ int file_chunk_cdc(int fd_src,
 int filename_chunk_cdc(const char *filename,
                        CDCFileDescriptor *file_descr,
                        SeafileCrypt *crypt,
-                       gboolean write_data)
+                       gboolean write_data,
+                       gint64 *indexed)
 {
     int fd_src = seaf_util_open (filename, O_RDONLY | O_BINARY);
     if (fd_src < 0) {
@@ -233,7 +240,7 @@ int filename_chunk_cdc(const char *filename,
         return -1;
     }
 
-    int ret = file_chunk_cdc (fd_src, file_descr, crypt, write_data);
+    int ret = file_chunk_cdc (fd_src, file_descr, crypt, write_data, indexed);
     close (fd_src);
     return ret;
 }

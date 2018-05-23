@@ -30,4 +30,8 @@ void
 zip_download_mgr_del_zip_progress (ZipDownloadMgr *mgr,
                                    const char *token);
 
+int
+zip_download_mgr_cancel_zip_task (ZipDownloadMgr *mgr,
+                                  const char *token);
+
 #endif

@@ -335,7 +335,7 @@ mysql_result_set_get_string (ResultSet *vr, int i, GError **error)
     }
 
     ret = r->bind[i].buffer;
-    ret[r->bind[i].buffer_length] = 0;
+    ret[*(r->bind[i].length)] = 0;
     return ret;
 }
 

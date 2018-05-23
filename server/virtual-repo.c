@@ -54,7 +54,7 @@ save_virtual_repo_info (SeafRepoManager *mgr,
     int ret = 0;
 
     if (seaf_db_statement_query (mgr->seaf->db,
-                       "INSERT INTO VirtualRepo VALUES (?, ?, ?, ?)",
+                       "INSERT INTO VirtualRepo (repo_id, origin_repo, path, base_commit) VALUES (?, ?, ?, ?)",
                        4, "string", repo_id, "string", origin_repo_id,
                        "string", path, "string", base_commit) < 0)
         ret = -1;
@@ -357,13 +357,19 @@ seaf_repo_manager_get_virtual_repo_id (SeafRepoManager *mgr,
     char *sql;
     char *ret;
 
-    sql = "SELECT RepoOwner.repo_id FROM RepoOwner, VirtualRepo "
-        "WHERE owner_id=? AND origin_repo=? AND path=? "
-        "AND RepoOwner.repo_id = VirtualRepo.repo_id";
-
-    ret = seaf_db_statement_get_string (mgr->seaf->db, sql,
-                                        3, "string", owner, "string", origin_repo,
-                                        "string", path);
+    if (owner) {
+        sql = "SELECT RepoOwner.repo_id FROM RepoOwner, VirtualRepo "
+              "WHERE owner_id=? AND origin_repo=? AND path=? "
+              "AND RepoOwner.repo_id = VirtualRepo.repo_id";
+        ret = seaf_db_statement_get_string (mgr->seaf->db, sql,
+                                            3, "string", owner,
+                                            "string", origin_repo, "string", path);
+    } else {
+        sql = "SELECT repo_id FROM VirtualRepo "
+              "WHERE origin_repo=? AND path=? ";
+        ret = seaf_db_statement_get_string (mgr->seaf->db, sql,
+                                            2, "string", origin_repo, "string", path);
+    }
 
     return ret;
 }

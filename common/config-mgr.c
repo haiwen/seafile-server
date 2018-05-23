@@ -10,7 +10,8 @@ seaf_cfg_manager_init (SeafCfgManager *mgr)
     int db_type = seaf_db_type(mgr->db);
 
     if (db_type == SEAF_DB_TYPE_MYSQL)
-        sql = "CREATE TABLE IF NOT EXISTS SeafileConf (cfg_group VARCHAR(255) NOT NULL,"
+        sql = "CREATE TABLE IF NOT EXISTS SeafileConf ("
+              "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, cfg_group VARCHAR(255) NOT NULL,"
               "cfg_key VARCHAR(255) NOT NULL, value VARCHAR(255), property INTEGER) ENGINE=INNODB";
     else
         sql = "CREATE TABLE IF NOT EXISTS SeafileConf (cfg_group VARCHAR(255) NOT NULL,"
@@ -125,9 +126,14 @@ seaf_cfg_manager_get_config_int (SeafCfgManager *mgr, const char *group, const c
     char *invalid = NULL;
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
-    if (!value)
-        ret = -1;
-    else {
+    if (!value) {
+        GError *err = NULL;
+        ret = g_key_file_get_integer (mgr->config, group, key, &err);
+        if (err) {
+            ret = -1;
+            g_clear_error(&err);
+        }
+    } else {
         ret = strtol (value, &invalid, 10);
         if (*invalid != '\0') {
             ret = -1;
@@ -146,9 +152,14 @@ seaf_cfg_manager_get_config_int64 (SeafCfgManager *mgr, const char *group, const
     char *invalid = NULL;
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
-    if (!value)
-        ret = -1;
-    else {
+    if (!value) {
+        GError *err = NULL;
+        ret = g_key_file_get_int64(mgr->config, group, key, &err);
+        if (err) {
+            ret = -1;
+            g_clear_error(&err);
+        }
+    } else {
         ret = strtoll (value, &invalid, 10);
         if (*invalid != '\0') {
             seaf_warning ("Value of config [%s:%s] is invalid: [%s]\n", group, key, value);
@@ -167,8 +178,13 @@ seaf_cfg_manager_get_config_boolean (SeafCfgManager *mgr, const char *group, con
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
     if (!value) {
-        seaf_warning ("Config [%s:%s] not set, default is false.\n", group, key);
-        ret = FALSE;
+        GError *err = NULL;
+        ret = g_key_file_get_boolean(mgr->config, group, key, &err);
+        if (err) {
+            seaf_warning ("Config [%s:%s] not set, default is false.\n", group, key);
+            ret = FALSE;
+            g_clear_error(&err);
+        }
     } else {
         if (strcmp ("true", value) == 0)
             ret = TRUE;
@@ -186,9 +202,11 @@ seaf_cfg_manager_get_config_string (SeafCfgManager *mgr, const char *group, cons
     char *ret = NULL;
 
     char *value = seaf_cfg_manager_get_config (mgr, group, key);
-    if (!value)
-        ret = NULL;
-    else {
+    if (!value) {
+        ret = g_key_file_get_string (mgr->config, group, key, NULL);
+        if (ret != NULL)
+            ret = g_strstrip(ret);
+    } else {
         ret = value;
     }
 
@@ -201,9 +219,8 @@ seaf_cfg_manager_get_config (SeafCfgManager *mgr, const char *group, const char 
     char *sql = "SELECT value FROM SeafileConf WHERE cfg_group=? AND cfg_key=?";
     char *value = seaf_db_statement_get_string(mgr->db, sql, 
                                                2, "string", group, "string", key);
-    if (!value) {
-        value = g_key_file_get_string (mgr->config, group, key, NULL);
-    }
+    if (value != NULL)
+        value = g_strstrip(value);
 
     return value;
 }

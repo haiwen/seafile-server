@@ -26,7 +26,7 @@ get_default_quota (SeafCfgManager *mgr)
     gint64 multiplier = GB;
     gint64 quota;
 
-    quota_str = seaf_cfg_manager_get_config (mgr, "quota", "default");
+    quota_str = seaf_cfg_manager_get_config_string (mgr, "quota", "default");
     if (!quota_str)
         return INFINITE_QUOTA;
 
@@ -127,23 +127,27 @@ seaf_quota_manager_init (SeafQuotaManager *mgr)
 
         break;
     case SEAF_DB_TYPE_MYSQL:
-        sql = "CREATE TABLE IF NOT EXISTS UserQuota (user VARCHAR(255) PRIMARY KEY,"
-            "quota BIGINT) ENGINE=INNODB";
+        sql = "CREATE TABLE IF NOT EXISTS UserQuota (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "user VARCHAR(255),"
+            "quota BIGINT, UNIQUE INDEX(user)) ENGINE=INNODB";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS UserShareQuota (user VARCHAR(255) PRIMARY KEY,"
-            "quota BIGINT) ENGINE=INNODB";
+        sql = "CREATE TABLE IF NOT EXISTS UserShareQuota (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "user VARCHAR(255),"
+            "quota BIGINT, UNIQUE INDEX(user)) ENGINE=INNODB";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS OrgQuota (org_id INTEGER PRIMARY KEY,"
-            "quota BIGINT) ENGINE=INNODB";
+        sql = "CREATE TABLE IF NOT EXISTS OrgQuota (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "org_id INTEGER,"
+            "quota BIGINT, UNIQUE INDEX(org_id)) ENGINE=INNODB";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS OrgUserQuota (org_id INTEGER,"
-            "user VARCHAR(255), quota BIGINT, PRIMARY KEY (org_id, user))"
+        sql = "CREATE TABLE IF NOT EXISTS OrgUserQuota (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "org_id INTEGER,"
+            "user VARCHAR(255), quota BIGINT, UNIQUE INDEX(org_id, user))"
             "ENGINE=INNODB";
         if (seaf_db_query (db, sql) < 0)
             return -1;
@@ -177,14 +181,14 @@ seaf_quota_manager_set_user_quota (SeafQuotaManager *mgr,
                                           2, "int64", quota, "string", user);
         else
             rc = seaf_db_statement_query (db,
-                                          "INSERT INTO UserQuota VALUES "
+                                          "INSERT INTO UserQuota (\"user\", quota) VALUES "
                                           "(?, ?)",
                                           2, "string", user, "int64", quota);
         return rc;
     } else {
         int rc;
         rc = seaf_db_statement_query (db,
-                                      "REPLACE INTO UserQuota VALUES (?, ?)",
+                                      "REPLACE INTO UserQuota (user, quota) VALUES (?, ?)",
                                       2, "string", user, "int64", quota);
         return rc;
     }
@@ -233,12 +237,12 @@ seaf_quota_manager_set_org_quota (SeafQuotaManager *mgr,
                                           2, "int64", quota, "int", org_id);
         else
             rc = seaf_db_statement_query (db,
-                                          "INSERT INTO OrgQuota VALUES (?, ?)",
+                                          "INSERT INTO OrgQuota (org_id, quota) VALUES (?, ?)",
                                           2, "int", org_id, "int64", quota);
         return rc;
     } else {
         int rc = seaf_db_statement_query (db,
-                                          "REPLACE INTO OrgQuota VALUES (?, ?)",
+                                          "REPLACE INTO OrgQuota (org_id, quota) VALUES (?, ?)",
                                           2, "int", org_id, "int64", quota);
         return rc;
     }
@@ -286,14 +290,14 @@ seaf_quota_manager_set_org_user_quota (SeafQuotaManager *mgr,
                                           "string", user);
         else
             rc = seaf_db_statement_query (db,
-                                          "INSERT INTO OrgQuota VALUES "
+                                          "INSERT INTO OrgUserQuota (org_id, \"user\", quota) VALUES "
                                           "(?, ?, ?)",
                                           3, "int", org_id, "string", user,
                                           "int64", quota);
         return rc;
     } else {
         rc = seaf_db_statement_query (db,
-                                      "REPLACE INTO OrgUserQuota VALUES (?, ?, ?)",
+                                      "REPLACE INTO OrgUserQuota (org_id, user, quota) VALUES (?, ?, ?)",
                                       3, "int", org_id, "string", user, "int64", quota);
         return rc;
     }

@@ -352,7 +352,7 @@ seaf_repo_manager_add_repo (SeafRepoManager *manager,
 {
     SeafDB *db = manager->seaf->db;
 
-    if (seaf_db_statement_query (db, "INSERT INTO Repo VALUES (?)",
+    if (seaf_db_statement_query (db, "INSERT INTO Repo (repo_id) VALUES (?)",
                                  1, "string", repo->id) < 0)
         return -1;
 
@@ -376,14 +376,14 @@ add_deleted_repo_record (SeafRepoManager *mgr, const char *repo_id)
 
         if (!exists) {
             return seaf_db_statement_query(seaf->db,
-                                           "INSERT INTO GarbageRepos VALUES (?)",
+                                           "INSERT INTO GarbageRepos (repo_id) VALUES (?)",
                                            1, "string", repo_id);
         }
 
         return 0;
     } else {
         return seaf_db_statement_query (seaf->db,
-                                        "REPLACE INTO GarbageRepos VALUES (?)",
+                                        "REPLACE INTO GarbageRepos (repo_id) VALUES (?)",
                                         1, "string", repo_id);
     }
 }
@@ -792,13 +792,13 @@ save_branch_repo_map (SeafRepoManager *manager, SeafBranch *branch)
                                           "string", branch->repo_id);
         else
             rc = seaf_db_statement_query (seaf->db,
-                                          "INSERT INTO RepoHead VALUES (?, ?)",
+                                          "INSERT INTO RepoHead (repo_id, branch_name) VALUES (?, ?)",
                                           2, "string", branch->repo_id,
                                           "string", branch->name);
         return rc;
     } else {
         return seaf_db_statement_query (seaf->db,
-                                        "REPLACE INTO RepoHead VALUES (?, ?)",
+                                        "REPLACE INTO RepoHead (repo_id, branch_name) VALUES (?, ?)",
                                         2, "string", branch->repo_id,
                                         "string", branch->name);
     }
@@ -933,20 +933,23 @@ create_tables_mysql (SeafRepoManager *mgr)
     SeafDB *db = mgr->seaf->db;
     char *sql;
 
-    sql = "CREATE TABLE IF NOT EXISTS Repo (repo_id CHAR(37) PRIMARY KEY)"
+    sql = "CREATE TABLE IF NOT EXISTS Repo (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+          "repo_id CHAR(37), UNIQUE INDEX (repo_id))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoOwner ("
-        "repo_id CHAR(37) PRIMARY KEY, "
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(37), "
         "owner_id VARCHAR(255),"
-        "INDEX (owner_id))"
+        "UNIQUE INDEX (repo_id), INDEX (owner_id))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
-    sql = "CREATE TABLE IF NOT EXISTS RepoGroup (repo_id CHAR(37), "
+    sql = "CREATE TABLE IF NOT EXISTS RepoGroup (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,"
+        "repo_id CHAR(37), "
         "group_id INTEGER, user_name VARCHAR(255), permission CHAR(15), "
         "UNIQUE INDEX (group_id, repo_id), "
         "INDEX (repo_id), INDEX (user_name))"
@@ -955,13 +958,15 @@ create_tables_mysql (SeafRepoManager *mgr)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS InnerPubRepo ("
-        "repo_id CHAR(37) PRIMARY KEY,"
-        "permission CHAR(15))"
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(37),"
+        "permission CHAR(15), UNIQUE INDEX (repo_id))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoUserToken ("
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
         "repo_id CHAR(37), "
         "email VARCHAR(255), "
         "token CHAR(41), "
@@ -971,74 +976,85 @@ create_tables_mysql (SeafRepoManager *mgr)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo ("
-        "token CHAR(41) PRIMARY KEY, "
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "token CHAR(41), "
         "peer_id CHAR(41), "
         "peer_ip VARCHAR(41), "
         "peer_name VARCHAR(255), "
         "sync_time BIGINT, "
-        "client_ver VARCHAR(20))"
+        "client_ver VARCHAR(20), UNIQUE INDEX(token))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoHead ("
-        "repo_id CHAR(37) PRIMARY KEY, branch_name VARCHAR(10))"
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(37), branch_name VARCHAR(10), UNIQUE INDEX(repo_id))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoSize ("
-        "repo_id CHAR(37) PRIMARY KEY,"
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(37),"
         "size BIGINT UNSIGNED,"
-        "head_id CHAR(41))"
+        "head_id CHAR(41), UNIQUE INDEX (repo_id))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoHistoryLimit ("
-        "repo_id CHAR(37) PRIMARY KEY, days INTEGER)"
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(37), days INTEGER, UNIQUE INDEX(repo_id))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoValidSince ("
-        "repo_id CHAR(37) PRIMARY KEY, timestamp BIGINT)"
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(37), timestamp BIGINT, UNIQUE INDEX(repo_id))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
-    sql = "CREATE TABLE IF NOT EXISTS WebAP (repo_id CHAR(37) PRIMARY KEY, "
-        "access_property CHAR(10))"
+    sql = "CREATE TABLE IF NOT EXISTS WebAP (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(37), "
+        "access_property CHAR(10), UNIQUE INDEX(repo_id))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
-    sql = "CREATE TABLE IF NOT EXISTS VirtualRepo (repo_id CHAR(36) PRIMARY KEY,"
-        "origin_repo CHAR(36), path TEXT, base_commit CHAR(40), INDEX(origin_repo))"
+    sql = "CREATE TABLE IF NOT EXISTS VirtualRepo (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(36),"
+        "origin_repo CHAR(36), path TEXT, base_commit CHAR(40), UNIQUE INDEX(repo_id), INDEX(origin_repo))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
-    sql = "CREATE TABLE IF NOT EXISTS GarbageRepos (repo_id CHAR(36) PRIMARY KEY)";
+    sql = "CREATE TABLE IF NOT EXISTS GarbageRepos (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+          "repo_id CHAR(36), UNIQUE INDEX(repo_id))";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
-    sql = "CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY,"
+    sql = "CREATE TABLE IF NOT EXISTS RepoTrash (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(36),"
         "repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255),"
         "size BIGINT(20), org_id INTEGER, del_time BIGINT, "
-        "INDEX(owner_id), INDEX(org_id))ENGINE=INNODB";
+        "UNIQUE INDEX(repo_id), INDEX(owner_id), INDEX(org_id))ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoFileCount ("
-        "repo_id CHAR(36) PRIMARY KEY,"
-        "file_count BIGINT UNSIGNED)ENGINE=INNODB";
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(36),"
+        "file_count BIGINT UNSIGNED, UNIQUE INDEX(repo_id))ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
-    sql = "CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, "
+    sql = "CREATE TABLE IF NOT EXISTS RepoInfo (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id CHAR(36), "
         "name VARCHAR(255) NOT NULL, update_time BIGINT, version INTEGER, "
-        "is_encrypted INTEGER, last_modifier VARCHAR(255)) ENGINE=INNODB";
+        "is_encrypted INTEGER, last_modifier VARCHAR(255), UNIQUE INDEX(repo_id)) ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
@@ -1384,7 +1400,7 @@ add_repo_token (SeafRepoManager *mgr,
                 GError **error)
 {
     int rc = seaf_db_statement_query (mgr->seaf->db,
-                                      "INSERT INTO RepoUserToken VALUES (?, ?, ?)",
+                                      "INSERT INTO RepoUserToken (repo_id, email, token) VALUES (?, ?, ?)",
                                       3, "string", repo_id, "string", email,
                                       "string", token);
 
@@ -1425,8 +1441,8 @@ seaf_repo_manager_add_token_peer_info (SeafRepoManager *mgr,
     int ret = 0;
 
     if (seaf_db_statement_query (mgr->seaf->db,
-                                 "INSERT INTO RepoTokenPeerInfo VALUES ("
-                                 "?, ?, ?, ?, ?, ?)",
+                                 "INSERT INTO RepoTokenPeerInfo (token, peer_id, peer_ip, peer_name, sync_time, client_ver)"
+                                 "VALUES (?, ?, ?, ?, ?, ?)",
                                  6, "string", token,
                                  "string", peer_id,
                                  "string", peer_ip,
@@ -1886,13 +1902,13 @@ seaf_repo_manager_set_repo_history_limit (SeafRepoManager *mgr,
                                           2, "int", days, "string", repo_id);
         else
             rc = seaf_db_statement_query (db,
-                                          "INSERT INTO RepoHistoryLimit VALUES "
+                                          "INSERT INTO RepoHistoryLimit (repo_id, days) VALUES "
                                           "(?, ?)",
                                           2, "string", repo_id, "int", days);
         return rc;
     } else {
         if (seaf_db_statement_query (db,
-                                     "REPLACE INTO RepoHistoryLimit VALUES (?, ?)",
+                                     "REPLACE INTO RepoHistoryLimit (repo_id, days) VALUES (?, ?)",
                                      2, "string", repo_id, "int", days) < 0)
             return -1;
     }
@@ -1967,14 +1983,14 @@ seaf_repo_manager_set_repo_valid_since (SeafRepoManager *mgr,
                                           2, "int64", timestamp, "string", repo_id);
         else
             rc = seaf_db_statement_query (db,
-                                          "INSERT INTO RepoValidSince VALUES "
+                                          "INSERT INTO RepoValidSince (repo_id, timestamp) VALUES "
                                           "(?, ?)", 2, "string", repo_id,
                                           "int64", timestamp);
         if (rc < 0)
             return -1;
     } else {
         if (seaf_db_statement_query (db,
-                           "REPLACE INTO RepoValidSince VALUES (?, ?)",
+                           "REPLACE INTO RepoValidSince (repo_id, timestamp) VALUES (?, ?)",
                            2, "string", repo_id, "int64", timestamp) < 0)
             return -1;
     }
@@ -2043,7 +2059,7 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
                      "repo_id='%s'", email, repo_id);
         else
             snprintf(sql, sizeof(sql),
-                     "INSERT INTO RepoOwner VALUES ('%s', '%s')",
+                     "INSERT INTO RepoOwner (repo_id, owner_id) VALUES ('%s', '%s')",
                      repo_id, email);
         if (err) {
             ret = -1;
@@ -2055,7 +2071,7 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
             goto out;
         }
     } else {
-        if (seaf_db_statement_query (db, "REPLACE INTO RepoOwner VALUES (?, ?)",
+        if (seaf_db_statement_query (db, "REPLACE INTO RepoOwner (repo_id, owner_id) VALUES (?, ?)",
                                      2, "string", repo_id, "string", email) < 0) {
             ret = -1;
             goto out;
@@ -2676,7 +2692,7 @@ seaf_repo_manager_restore_repo_from_trash (SeafRepoManager *mgr,
 
     if (!exists) {
         ret = seaf_db_trans_query (trans,
-                                   "INSERT INTO RepoOwner VALUES (?, ?)",
+                                   "INSERT INTO RepoOwner (repo_id, owner_id) VALUES (?, ?)",
                                    2, "string", repo_id,
                                    "string", seafile_trash_repo_get_owner_id(repo));
         if (ret < 0) {
@@ -2693,7 +2709,7 @@ seaf_repo_manager_restore_repo_from_trash (SeafRepoManager *mgr,
                                                 &db_err, 1, "string", repo_id);
     if (!exists) {
         ret = seaf_db_trans_query (trans,
-                                   "INSERT INTO Branch VALUES ('master', ?, ?)",
+                                   "INSERT INTO Branch (name, repo_id, commit_id) VALUES ('master', ?, ?)",
                                    2, "string", repo_id,
                                    "string", seafile_trash_repo_get_head_id(repo));
         if (ret < 0) {
@@ -2710,7 +2726,7 @@ seaf_repo_manager_restore_repo_from_trash (SeafRepoManager *mgr,
                                                 &db_err, 1, "string", repo_id);
     if (!exists) {
         ret = seaf_db_trans_query (trans,
-                                   "INSERT INTO RepoHead VALUES (?, 'master')",
+                                   "INSERT INTO RepoHead (repo_id, branch_name) VALUES (?, 'master')",
                                    1, "string", repo_id);
         if (ret < 0) {
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
@@ -2728,7 +2744,7 @@ seaf_repo_manager_restore_repo_from_trash (SeafRepoManager *mgr,
 
     if (!exists) {
         ret = seaf_db_trans_query (trans,
-                                   "INSERT INTO RepoSize VALUES (?, ?, ?)",
+                                   "INSERT INTO RepoSize (repo_id, size, head_id) VALUES (?, ?, ?)",
                                    3, "string", repo_id,
                                    "int64", seafile_trash_repo_get_size (repo),
                                    "string", seafile_trash_repo_get_head_id (repo));
@@ -2776,7 +2792,7 @@ seaf_repo_manager_set_access_property (SeafRepoManager *mgr, const char *repo_id
 
     if (seaf_repo_manager_query_access_property (mgr, repo_id) == NULL) {
         rc = seaf_db_statement_query (mgr->seaf->db,
-                                      "INSERT INTO WebAP VALUES (?, ?)",
+                                      "INSERT INTO WebAP (repo_id, access_property) VALUES (?, ?)",
                                       2, "string", repo_id, "string", ap);
     } else {
         rc = seaf_db_statement_query (mgr->seaf->db,
@@ -2831,7 +2847,7 @@ seaf_repo_manager_add_group_repo (SeafRepoManager *mgr,
                                   GError **error)
 {
     if (seaf_db_statement_query (mgr->seaf->db,
-                                 "INSERT INTO RepoGroup VALUES (?, ?, ?, ?)",
+                                 "INSERT INTO RepoGroup (repo_id, group_id, user_name, permission) VALUES (?, ?, ?, ?)",
                                  4, "string", repo_id, "int", group_id,
                                  "string", owner, "string", permission) < 0)
         return -1;
@@ -2932,6 +2948,24 @@ seaf_repo_manager_set_group_repo_perm (SeafRepoManager *mgr,
                                     "int", group_id);
 }
 
+int
+seaf_repo_manager_set_subdir_group_perm_by_path (SeafRepoManager *mgr,
+                                                 const char *repo_id,
+                                                 const char *username,
+                                                 int group_id,
+                                                 const char *permission,
+                                                 const char *path)
+{
+    return seaf_db_statement_query (mgr->seaf->db,
+                                    "UPDATE RepoGroup SET permission=? WHERE repo_id IN "
+                                    "(SELECT repo_id FROM VirtualRepo WHERE origin_repo=? AND path=?) "
+                                    "AND group_id=? AND user_name=?",
+                                    5, "string", permission,
+                                    "string", repo_id,
+                                    "string", path,
+                                    "int", group_id,
+                                    "string", username);
+}
 static gboolean
 get_group_repoids_cb (SeafDBRow *row, void *data)
 {
@@ -2993,8 +3027,10 @@ get_group_repos_cb (SeafDBRow *row, void *data)
         if (vrepo_id) {
             const char *origin_repo_id = seaf_db_row_get_column_text (row, 7);
             const char *origin_path = seaf_db_row_get_column_text (row, 8);
+            const char *origin_repo_name = seaf_db_row_get_column_text (row, 9);
             g_object_set (srepo, "store_id", origin_repo_id,
                           "origin_repo_id", origin_repo_id,
+                          "origin_repo_name", origin_repo_name,
                           "origin_path", origin_path, NULL);
         } else {
             g_object_set (srepo, "store_id", repo_id, NULL);
@@ -3057,11 +3093,12 @@ seaf_repo_manager_get_repos_by_group (SeafRepoManager *mgr,
     GList *repos = NULL;
     GList *p;
 
-    sql = "SELECT RepoGroup.repo_id, VirtualRepo.repo_id, "
+    sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
-        "VirtualRepo.origin_repo, VirtualRepo.path "
-        "FROM RepoGroup LEFT JOIN VirtualRepo ON "
-        "RepoGroup.repo_id = VirtualRepo.repo_id "
+        "v.origin_repo, v.path ,"
+        "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+        "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
+        "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
         "Branch WHERE group_id = ? AND "
         "RepoGroup.repo_id = Branch.repo_id AND "
@@ -3092,11 +3129,12 @@ seaf_repo_manager_get_group_repos_by_owner (SeafRepoManager *mgr,
     GList *repos = NULL;
     GList *p;
 
-    sql = "SELECT RepoGroup.repo_id, VirtualRepo.repo_id, "
+    sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
-        "VirtualRepo.origin_repo, VirtualRepo.path "
-        "FROM RepoGroup LEFT JOIN VirtualRepo ON "
-        "RepoGroup.repo_id = VirtualRepo.repo_id "
+        "v.origin_repo, v.path, "
+        "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+        "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
+        "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
         "Branch WHERE user_name = ? AND "
         "RepoGroup.repo_id = Branch.repo_id AND "
@@ -3189,14 +3227,14 @@ seaf_repo_manager_set_inner_pub_repo (SeafRepoManager *mgr,
                      "WHERE repo_id='%s'", permission, repo_id);
         else
             snprintf(sql, sizeof(sql),
-                     "INSERT INTO InnerPubRepo VALUES "
+                     "INSERT INTO InnerPubRepo (repo_id, permission) VALUES "
                      "('%s', '%s')", repo_id, permission);
         if (err)
             return -1;
         return seaf_db_query (db, sql);
     } else {
         return seaf_db_statement_query (db,
-                                        "REPLACE INTO InnerPubRepo VALUES (?, ?)",
+                                        "REPLACE INTO InnerPubRepo (repo_id, permission) VALUES (?, ?)",
                                         2, "string", repo_id, "string", permission);
     }
 
@@ -3903,4 +3941,177 @@ seaf_get_trash_repo_owner (const char *repo_id)
 {
     char *sql = "SELECT owner_id from RepoTrash WHERE repo_id = ?";
     return seaf_db_statement_get_string(seaf->db, sql, 1, "string", repo_id);
+}
+
+GObject *
+seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
+                                    const char *repo_id,
+                                    const char *path,
+                                    int group_id,
+                                    gboolean is_org,
+                                    GError **error)
+{
+    char *sql;
+    char *real_repo_id = NULL;
+    GList *repo = NULL;
+    GObject *ret = NULL;
+
+    /* If path is not NULL, 'repo_id' represents for the repo we want,
+     * otherwise, 'repo_id' represents for the origin repo,
+     * find virtual repo by path first.
+     */
+    if (path != NULL) {
+        real_repo_id = seaf_repo_manager_get_virtual_repo_id (mgr, repo_id, path, NULL);
+        if (!real_repo_id) {
+            seaf_warning ("Failed to get virtual repo_id by path %s, origin_repo: %s\n", path, repo_id);
+            return NULL;
+        }
+    }
+    if (!real_repo_id)
+        real_repo_id = g_strdup (repo_id);
+
+    if (!is_org)
+        sql = "SELECT RepoGroup.repo_id, v.repo_id, "
+              "group_id, user_name, permission, commit_id, s.size, "
+              "v.origin_repo, v.path, "
+              "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+              "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
+              "RepoGroup.repo_id = v.repo_id "
+              "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
+              "Branch WHERE group_id = ? AND "
+              "RepoGroup.repo_id = Branch.repo_id AND "
+              "RepoGroup.repo_id = ? AND "
+              "Branch.name = 'master'";
+    else
+        sql = "SELECT OrgGroupRepo.repo_id, v.repo_id, "
+              "group_id, owner, permission, commit_id, s.size, "
+              "v.origin_repo, v.path, "
+              "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+              "FROM OrgGroupRepo LEFT JOIN VirtualRepo v ON "
+              "OrgGroupRepo.repo_id = v.repo_id "
+              "LEFT JOIN RepoSize s ON OrgGroupRepo.repo_id = s.repo_id, "
+              "Branch WHERE group_id = ? AND "
+              "OrgGroupRepo.repo_id = Branch.repo_id AND "
+              "OrgGroupRepo.repo_id = ? AND "
+              "Branch.name = 'master'";
+
+    /* The list 'repo' should have only one repo,
+     * use existing api get_group_repos_cb() to get it.
+     */
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, get_group_repos_cb,
+                                       &repo, 2, "int", group_id,
+                                       "string", real_repo_id) < 0) {
+        g_free (real_repo_id);
+        g_list_free (repo);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to get repo by group_id from db.");
+        return NULL;
+    }
+    g_free (real_repo_id);
+
+    if (repo) {
+        seaf_fill_repo_obj_from_commit (&repo);
+        if (repo)
+            ret = (GObject *)(repo->data);
+        g_list_free (repo);
+    }
+
+    return ret;
+}
+
+GList *
+seaf_get_group_repos_by_user (SeafRepoManager *mgr,
+                              const char *user,
+                              int org_id,
+                              GError **error)
+{
+    CcnetGroup *group;
+    GList *groups = NULL, *p, *q;
+    GList *repos = NULL;
+    SeafileRepo *repo = NULL;
+    SearpcClient *rpc_client;
+    GString *sql = NULL;
+    int group_id = 0;
+
+    rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
+                                                 NULL,
+                                                 "ccnet-threaded-rpcserver");
+    if (!rpc_client)
+        return NULL;
+
+    /* Get the groups this user belongs to. */
+    groups = ccnet_get_groups_by_user (rpc_client, user, 1);
+    if (!groups) {
+        goto out;
+    }
+
+    sql = g_string_new ("");
+    g_string_printf (sql, "SELECT g.repo_id, v.repo_id, "
+                          "group_id, %s, permission, commit_id, s.size, "
+                          "v.origin_repo, v.path, "
+                          "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo)"
+                          "FROM %s g LEFT JOIN VirtualRepo v ON "
+                          "g.repo_id = v.repo_id "
+                          "LEFT JOIN RepoSize s ON g.repo_id = s.repo_id, "
+                          "Branch b WHERE g.repo_id = b.repo_id AND "
+                          "b.name = 'master' AND group_id IN (",
+                          org_id < 0 ? "user_name" : "owner",
+                          org_id < 0 ? "RepoGroup" : "OrgGroupRepo");
+    for (p = groups; p != NULL; p = p->next) {
+        group = p->data;
+        g_object_get (group, "id", &group_id, NULL);
+
+        g_string_append_printf (sql, "%d", group_id);
+        if (p->next)
+            g_string_append_printf (sql, ",");
+    }
+    g_string_append_printf (sql, " ) ORDER BY group_id");
+
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql->str, get_group_repos_cb,
+                                       &repos, 0) < 0) {
+        for (p = repos; p; p = p->next) {
+            g_object_unref (p->data);
+        }
+        g_list_free (repos);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to get user group repos from db.");
+        seaf_warning ("Failed to get user[%s] group repos from db.\n", user);
+        goto out;
+    }
+
+    int repo_group_id = 0;
+    char *group_name = NULL;
+    q = repos;
+
+    /* Add group_name to repo. Both groups and repos are listed by group_id in descending order */
+    for (p = groups; p; p = p->next) {
+        group = p->data;
+        g_object_get (group, "id", &group_id, NULL);
+        g_object_get (group, "group_name", &group_name, NULL);
+
+        for (; q; q = q->next) {
+            repo = q->data;
+            g_object_get (repo, "group_id", &repo_group_id, NULL);
+            if (repo_group_id == group_id)
+                g_object_set (repo, "group_name", group_name, NULL);
+            else
+                break;
+        }
+        g_free (group_name);
+        if (q == NULL)
+            break;
+    }
+
+    seaf_fill_repo_obj_from_commit (&repos);
+
+out:
+    if (sql)
+        g_string_free (sql, TRUE);
+
+    ccnet_rpc_client_free (rpc_client);
+    for (p = groups; p != NULL; p = p->next)
+        g_object_unref ((GObject *)p->data);
+    g_list_free (groups);
+
+    return g_list_reverse (repos);
 }

@@ -60,12 +60,14 @@ typedef struct _CDCDescriptor {
 int file_chunk_cdc(int fd_src,
                    CDCFileDescriptor *file_descr,
                    struct SeafileCrypt *crypt,
-                   gboolean write_data);
+                   gboolean write_data,
+                   gint64 *indexed);
 
 int filename_chunk_cdc(const char *filename,
                        CDCFileDescriptor *file_descr,
                        struct SeafileCrypt *crypt,
-                       gboolean write_data);
+                       gboolean write_data,
+                       gint64 *indexed);
 
 void cdc_init ();
 

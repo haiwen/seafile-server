@@ -1,18 +1,23 @@
 #coding: UTF-8
 
-import os
-from os.path import abspath, basename, exists, expanduser, join
-import sys
-import re
 import logging
+import os
+import re
+import sys
 from contextlib import contextmanager
-from subprocess import Popen, PIPE, CalledProcessError
+from os.path import abspath, basename, exists, expanduser, join
+from subprocess import PIPE, CalledProcessError, Popen
 
-import termcolor
 import requests
-from pexpect import spawn
+import termcolor
 
-logger = logging.getLogger(__file__)
+try:
+    from functools import lru_cache
+except ImportError:
+    from backports.functools_lru_cache import lru_cache
+
+logger = logging.getLogger(__name__)
+
 
 def _color(s, color):
     return s if not os.isatty(sys.stdout.fileno()) \
@@ -39,16 +44,19 @@ def warning(fmt, *a):
     logger.warn(red(fmt), *a)
 
 
-def shell(cmd, inputdata=None, **kw):
+def shell(cmd, inputdata=None, wait=True, **kw):
     info('calling "%s" in %s', cmd, kw.get('cwd', os.getcwd()))
     kw['shell'] = not isinstance(cmd, list)
     kw['stdin'] = PIPE if inputdata else None
     p = Popen(cmd, **kw)
     if inputdata:
         p.communicate(inputdata)
-    p.wait()
-    if p.returncode:
-        raise CalledProcessError(p.returncode, cmd)
+    if wait:
+        p.wait()
+        if p.returncode:
+            raise CalledProcessError(p.returncode, cmd)
+    else:
+        return p
 
 
 @contextmanager
@@ -68,6 +76,7 @@ def chdir(func):
 
     return wrapped
 
+
 def setup_logging():
     kw = {
         'format': '[%(asctime)s][%(module)s]: %(message)s',
@@ -77,5 +86,24 @@ def setup_logging():
     }
 
     logging.basicConfig(**kw)
-    logging.getLogger('requests.packages.urllib3.connectionpool').setLevel(
-        logging.WARNING)
+    logging.getLogger('requests.packages.urllib3.connectionpool'
+                      ).setLevel(logging.WARNING)
+
+
+def mkdirs(*paths):
+    for path in paths:
+        if not exists(path):
+            os.mkdir(path)
+
+def on_travis():
+    return 'TRAVIS_BUILD_NUMBER' in os.environ
+
+@contextmanager
+def cd(path):
+    path = expanduser(path)
+    olddir = os.getcwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(olddir)

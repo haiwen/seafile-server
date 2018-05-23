@@ -30,6 +30,7 @@
 
 #include "http-server.h"
 #include "zip-download-mgr.h"
+#include "index-blocks-mgr.h"
 
 #include <searpc-client.h>
 
@@ -89,6 +90,7 @@ struct _SeafileSession {
 
     HttpServerStruct    *http_server;
     ZipDownloadMgr      *zip_download_mgr;
+    IndexBlksMgr        *index_blocks_mgr;
 };
 
 extern SeafileSession *seaf;

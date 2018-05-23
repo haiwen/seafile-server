@@ -678,7 +678,8 @@ split_file_to_block (const char *repo_id,
                      gint64 file_size,
                      SeafileCrypt *crypt,
                      CDCFileDescriptor *cdc,
-                     gboolean write_data)
+                     gboolean write_data,
+                     gint64 *indexed)
 {
     int n_blocks;
     uint8_t *block_sha1s = NULL;
@@ -739,9 +740,14 @@ split_file_to_block (const char *repo_id,
             ret = -1;
             goto out;
         }
+        if (indexed)
+            *indexed += seaf->http_server->fixed_block_size;
 
-        if ((--n_pending) <= 0)
+        if ((--n_pending) <= 0) {
+            if (indexed)
+                *indexed = (guint64)file_size;
             break;
+        }
     }
 
     cdc->block_nr = n_blocks;
@@ -774,7 +780,8 @@ seaf_fs_manager_index_blocks (SeafFSManager *mgr,
                               gint64 *size,
                               SeafileCrypt *crypt,
                               gboolean write_data,
-                              gboolean use_cdc)
+                              gboolean use_cdc,
+                              gint64 *indexed)
 {
     SeafStat sb;
     CDCFileDescriptor cdc;
@@ -792,7 +799,6 @@ seaf_fs_manager_index_blocks (SeafFSManager *mgr,
         create_cdc_for_empty_file (&cdc);
     } else {
         memset (&cdc, 0, sizeof(cdc));
-
 #if defined SEAFILE_SERVER && defined FULL_FEATURE
         if (use_cdc || version == 0) {
             cdc.block_sz = CDC_AVERAGE_BLOCK_SIZE;
@@ -801,7 +807,7 @@ seaf_fs_manager_index_blocks (SeafFSManager *mgr,
             cdc.write_block = seafile_write_chunk;
             memcpy (cdc.repo_id, repo_id, 36);
             cdc.version = version;
-            if (filename_chunk_cdc (file_path, &cdc, crypt, write_data) < 0) {
+            if (filename_chunk_cdc (file_path, &cdc, crypt, write_data, indexed) < 0) {
                 seaf_warning ("Failed to chunk file with CDC.\n");
                 return -1;
             }
@@ -810,7 +816,7 @@ seaf_fs_manager_index_blocks (SeafFSManager *mgr,
             cdc.version = version;
             cdc.file_size = sb.st_size;
             if (split_file_to_block (repo_id, version, file_path, sb.st_size,
-                                     crypt, &cdc, write_data) < 0) {
+                                     crypt, &cdc, write_data, indexed) < 0) {
                 return -1;
             }
         }
@@ -821,7 +827,7 @@ seaf_fs_manager_index_blocks (SeafFSManager *mgr,
         cdc.write_block = seafile_write_chunk;
         memcpy (cdc.repo_id, repo_id, 36);
         cdc.version = version;
-        if (filename_chunk_cdc (file_path, &cdc, crypt, write_data) < 0) {
+        if (filename_chunk_cdc (file_path, &cdc, crypt, write_data, indexed) < 0) {
             seaf_warning ("Failed to chunk file with CDC.\n");
             return -1;
         }

@@ -840,7 +840,7 @@ seaf_db_rollback (SeafDBTrans *trans)
     DBConnection *conn = trans->conn;
     GError *error = NULL;
 
-    if (!db_connection_commit (conn, &error)) {
+    if (!db_connection_rollback (conn, &error)) {
         seaf_warning ("Rollback failed: %s.\n", error->message);
         g_clear_error (&error);
         return -1;
