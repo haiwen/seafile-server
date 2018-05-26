@@ -25,6 +25,7 @@ static const struct option long_opts[] = {
     { "config-file", required_argument, NULL, 'c', },
     { "central-config-dir", required_argument, NULL, 'F' },
     { "seafdir", required_argument, NULL, 'd', },
+    { 0, 0, 0, 0, },
 };
 
 static int
