@@ -28,6 +28,7 @@ static const struct option long_opts[] = {
     { "verbose", no_argument, NULL, 'V' },
     { "dry-run", no_argument, NULL, 'D' },
     { "rm-deleted", no_argument, NULL, 'r' },
+    { 0, 0, 0, 0 },
 };
 
 static void usage ()
