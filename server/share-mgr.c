@@ -675,7 +675,7 @@ seaf_get_shared_repo_by_path (SeafRepoManager *mgr,
     GList *repo = NULL;
     GObject *ret = NULL;
 
-    /* If path is not NULL, 'repo_id' represents for the repo we want,
+    /* If path is NULL, 'repo_id' represents for the repo we want,
      * otherwise, 'repo_id' represents for the origin repo,
      * find virtual repo by path first.
      */
