@@ -499,8 +499,8 @@ def init_seahub():
     # create seahub_settings.py
     create_seahub_settings_py()
 
-    argv = [PYTHON, 'manage.py', 'syncdb']
-    # Set proper PYTHONPATH before run django syncdb command
+    argv = [PYTHON, 'manage.py', 'migrate']
+    # Set proper PYTHONPATH before run django migrate command
     env = get_seahub_env()
 
     print
@@ -509,7 +509,7 @@ def init_seahub():
     print
 
     if run_argv(argv, cwd=seahub_dir, env=env) != 0:
-        error('Seahub syncdb failed')
+        error('Seahub migrate failed')
 
     info('done')
 
