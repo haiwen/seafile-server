@@ -3454,7 +3454,7 @@ create_repo_common (SeafRepoManager *mgr,
                               EMPTY_SHA1, /* root id */
                               user, /* creator */
                               EMPTY_SHA1, /* creator id */
-                              repo_desc,  /* description */
+                              "Created library",  /* description */
                               0);         /* ctime */
 
     seaf_repo_to_commit (repo, commit);
