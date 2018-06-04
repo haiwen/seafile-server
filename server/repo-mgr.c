@@ -2574,7 +2574,8 @@ seaf_repo_manager_get_repo_from_trash (SeafRepoManager *mgr,
         return NULL;
 
     /* There should be only one results, since repo_id is a PK. */
-    ret = trash_repos->data;
+    if (trash_repos)
+        ret = trash_repos->data;
 
     g_list_free (trash_repos);
     return ret;
