@@ -325,6 +325,8 @@ accesslog = os.path.join(logs_dir, 'gunicorn_access.log')
 
 # for file upload, we need a longer timeout value (default is only 30s, too short)
 timeout = 1200
+
+limit_request_line = 8190
 EOF
 ); then
     echo "failed to generate gunicorn.conf";
