@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS `wiki_wiki` (
   `slug` varchar(255) NOT NULL,
   `repo_id` varchar(36) NOT NULL,
   `permission` varchar(50) NOT NULL,
-  `created_at` datetime(6) NOT NULL,
+  `created_at` datetime NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `slug` (`slug`),
   UNIQUE KEY `wiki_wiki_username_3c0f83e1b93de663_uniq` (`username`,`repo_id`),
