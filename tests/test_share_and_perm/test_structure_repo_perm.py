@@ -10,11 +10,12 @@ def test_repo_perm_in_structure (repo, permission):
     id2 = ccnet_api.create_group('group2', USER, parent_group_id = id1)
     assert id1 != -1 and id2 != -1
 
+    # USER2 in child group (id2) has permission to access repo in parent group (id1) #
     assert ccnet_api.group_add_member(id2, USER, USER2) != -1
-    assert api.group_share_repo(repo.id, id1, USER2, permission) != -1
+    assert api.group_share_repo(repo.id, id1, USER, permission) != -1
     assert api.check_permission(repo.id, USER2) == permission
 
-    assert api.group_unshare_repo(repo.id, id1, USER2) != -1
+    assert api.group_unshare_repo(repo.id, id1, USER) != -1
     assert api.check_permission(repo.id, USER2) == None
 
     assert ccnet_api.remove_group(id2) != -1

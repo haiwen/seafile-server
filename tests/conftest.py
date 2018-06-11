@@ -41,9 +41,11 @@ def create_users():
 @pytest.yield_fixture(scope='function')
 def repo():
     repo = create_and_get_repo(
-        'testrepo测试-{}'.format(randstring(10)), '', USER, passwd=None
+        'test_repo_{}'.format(randstring(10)), '', USER, passwd=None
     )
     try:
+        seafile_api.post_dir(repo.id, '/', 'dir1', USER)
+        seafile_api.post_dir(repo.id, '/', 'dir2', USER)
         yield repo
     finally:
         if seafile_api.get_repo(repo.id):
@@ -53,7 +55,7 @@ def repo():
 @pytest.yield_fixture(scope='function')
 def group():
     group = create_and_get_group(
-            'test_group测试-{}'.format(randstring(10)), USER, gtype=None
+            'test_group_{}'.format(randstring(10)), USER, gtype=None
     )
     try:
         yield group
