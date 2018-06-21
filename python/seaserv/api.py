@@ -960,11 +960,11 @@ class CcnetAPI(object):
         """
         return ccnet_threaded_rpc.get_members_with_prefix(group_id, prefix)
 
-    def check_group_staff(self, group_id, username):
+    def check_group_staff(self, group_id, username, in_structure=False):
         """
         Return non-zero value if true, 0 if not true
         """
-        return ccnet_threaded_rpc.check_group_staff(group_id, username)
+        return ccnet_threaded_rpc.check_group_staff(group_id, username, 1 if in_structure else 0)
 
     def remove_group_user(self, username):
         return ccnet_threaded_rpc.remove_group_user(username)
