@@ -44,6 +44,10 @@ class Utils(object):
         print Utils.highlight('[INFO] ') + msg
 
     @staticmethod
+    def warning(msg):
+        print Utils.highlight('[WARNING] ') + msg
+
+    @staticmethod
     def error(msg):
         print Utils.highlight('[ERROR] ') + msg
         sys.exit(1)
@@ -350,10 +354,10 @@ class MySQLDBUpdater(DBUpdater):
         except Exception, e:
             if isinstance(e, MySQLdb.OperationalError):
                 msg = str(e.args[1])
+                Utils.error('Failed to execute sql: %s' % msg)
             else:
                 msg = str(e)
-
-            Utils.error('Failed to execute sql: %s' % msg)
+                Utils.warning('Failed to execute sql: %s' % msg)
 
     def apply_sqls(self, info, sql_path):
         with open(sql_path, 'r') as fp:
