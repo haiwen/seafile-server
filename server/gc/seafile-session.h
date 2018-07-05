@@ -33,6 +33,7 @@ struct _SeafileSession {
     SeafRepoManager     *repo_mgr;
     SeafCfgManager      *cfg_mgr;
 
+    gboolean create_tables;
 };
 
 extern SeafileSession *seaf;

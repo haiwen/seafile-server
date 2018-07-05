@@ -91,6 +91,8 @@ struct _SeafileSession {
     HttpServerStruct    *http_server;
     ZipDownloadMgr      *zip_download_mgr;
     IndexBlksMgr        *index_blocks_mgr;
+
+    gboolean create_tables;
 };
 
 extern SeafileSession *seaf;

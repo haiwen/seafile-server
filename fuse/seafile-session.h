@@ -34,6 +34,8 @@ struct _SeafileSession {
     SeafBranchManager   *branch_mgr;
     SeafCommitManager   *commit_mgr;
     SeafRepoManager     *repo_mgr;
+
+    gboolean create_tables;
 };
 
 extern SeafileSession *seaf;

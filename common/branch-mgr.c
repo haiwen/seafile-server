@@ -127,6 +127,8 @@ seaf_branch_manager_init (SeafBranchManager *mgr)
 static int
 open_db (SeafBranchManager *mgr)
 {
+    if (!mgr->seaf->create_tables)
+        return 0;
 #ifndef SEAFILE_SERVER
 
     char *db_path;

@@ -78,6 +78,10 @@ seaf_quota_manager_new (struct _SeafileSession *session)
 int
 seaf_quota_manager_init (SeafQuotaManager *mgr)
 {
+
+    if (!mgr->session->create_tables)
+        return 0;
+
     SeafDB *db = mgr->session->db;
     const char *sql;
 

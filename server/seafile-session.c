@@ -192,17 +192,25 @@ seafile_session_init (SeafileSession *session)
     if (seaf_fs_manager_init (session->fs_mgr) < 0)
         return -1;
 
-    if (seaf_branch_manager_init (session->branch_mgr) < 0)
+    if (seaf_branch_manager_init (session->branch_mgr) < 0) {
+        seaf_warning ("Failed to init branch manager.\n");
         return -1;
+    }
 
-    if (seaf_repo_manager_init (session->repo_mgr) < 0)
+    if (seaf_repo_manager_init (session->repo_mgr) < 0) {
+        seaf_warning ("Failed to init repo manager.\n");
         return -1;
+    }
 
-    if (seaf_quota_manager_init (session->quota_mgr) < 0)
+    if (seaf_quota_manager_init (session->quota_mgr) < 0) {
+        seaf_warning ("Failed to init quota manager.\n");
         return -1;
+    }
 
-    if (seaf_cfg_manager_init (session->cfg_mgr) < 0)
+    if (session->create_tables && seaf_cfg_manager_init (session->cfg_mgr) < 0) {
+        seaf_warning ("Failed to init config manager.\n");
         return -1;
+    }
 
     seaf_mq_manager_init (session->mq_mgr);
 
@@ -435,7 +443,7 @@ schedule_create_system_default_repo (SeafileSession *session)
         sql = "CREATE TABLE IF NOT EXISTS SystemInfo( "
         "info_key VARCHAR(256), info_value VARCHAR(1024))";
 
-    if (seaf_db_query (session->db, sql) < 0)
+    if (session->create_tables && seaf_db_query (session->db, sql) < 0)
         return;
 
     ccnet_job_manager_schedule_job (session->job_mgr,

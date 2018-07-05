@@ -25,6 +25,9 @@ seaf_share_manager_new (SeafileSession *seaf)
 int
 seaf_share_manager_start (SeafShareManager *mgr)
 {
+    if (!mgr->seaf->create_tables)
+        return 0;
+
     SeafDB *db = mgr->seaf->db;
     const char *sql;
 
