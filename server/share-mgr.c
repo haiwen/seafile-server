@@ -25,7 +25,7 @@ seaf_share_manager_new (SeafileSession *seaf)
 int
 seaf_share_manager_start (SeafShareManager *mgr)
 {
-    if (!mgr->seaf->create_tables)
+    if (!mgr->seaf->create_tables && seaf_db_type (mgr->seaf->db) == SEAF_DB_TYPE_MYSQL)
         return 0;
 
     SeafDB *db = mgr->seaf->db;
