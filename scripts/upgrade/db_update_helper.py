@@ -352,12 +352,8 @@ class MySQLDBUpdater(DBUpdater):
             cursor.execute(sql)
             conn.commit()
         except Exception, e:
-            if isinstance(e, MySQLdb.OperationalError):
-                msg = str(e.args[1])
-                Utils.error('Failed to execute sql: %s' % msg)
-            else:
-                msg = str(e)
-                Utils.warning('Failed to execute sql: %s' % msg)
+            msg = str(e)
+            Utils.warning('Failed to execute sql: %s' % msg)
 
     def apply_sqls(self, info, sql_path):
         with open(sql_path, 'r') as fp:
