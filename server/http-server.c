@@ -1454,6 +1454,8 @@ get_block_cb (evhtp_request_t *req, void *arg)
     char *store_id = NULL;
     HttpServer *htp_server = arg;
     BlockMetadata *blk_meta = NULL;
+    guint64 start;
+    guint64 end;
 
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     repo_id = parts[1];
@@ -1487,21 +1489,58 @@ get_block_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
-    void *block_con = g_new0 (char, blk_meta->size);
+    guint64 nsize;
+    const char *byte_ranges = evhtp_kv_find (req->headers_in, "Range");
+    if (byte_ranges) {
+        if (!parse_range_val (byte_ranges, &start, &end, blk_meta->size)) {
+            char *con_range = g_strdup_printf ("bytes */%u", blk_meta->size);
+            evhtp_headers_add_header (req->headers_out,
+                                      evhtp_header_new("Content-Range", con_range, 0, 1));
+            g_free (con_range);
+            evhtp_send_reply (req, EVHTP_RES_RANGENOTSC);
+            goto free_handle;
+        }
+
+        char *tmp = (char *)malloc(sizeof(*tmp) * start);
+        int n = seaf_block_manager_read_block (seaf->block_mgr, blk_handle,
+                                               tmp, start);
+        if (n != start) {
+            free(tmp);
+            seaf_warning ("Failed to read block %.8s:%s\n", store_id, store_id);
+            goto free_handle;
+        }
+        free(tmp);
+
+        evhtp_headers_add_header (req->headers_out,
+                                  evhtp_header_new ("Accept-Ranges", "bytes", 0, 0));
+        char *con_range = g_strdup_printf ("bytes %"G_GUINT64_FORMAT
+                                           "-%"G_GUINT64_FORMAT"/%u",
+                                           start, end, blk_meta->size);
+        evhtp_headers_add_header (req->headers_out,
+                                  evhtp_header_new ("Content-Range", con_range, 0, 1));
+        g_free (con_range);
+        
+        nsize = end - start + 1;
+    } else {
+        nsize = blk_meta->size;
+    }
+    
+    void *block_con = g_new0 (char, nsize);
     if (!block_con) {
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
-        seaf_warning ("Failed to allocate %d bytes memeory.\n", blk_meta->size);
+        seaf_warning ("Failed to allocate %"G_GUINT64_FORMAT
+                      " bytes memeory.\n", nsize);
         goto free_handle;
     }
-
+    
     int rsize = seaf_block_manager_read_block (seaf->block_mgr,
                                                blk_handle, block_con,
-                                               blk_meta->size);
-    if (rsize != blk_meta->size) {
+                                               nsize);
+    if (rsize != nsize) {
         seaf_warning ("Failed to read block %.8s:%s.\n", store_id, block_id);
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
     } else {
-        evbuffer_add (req->buffer_out, block_con, blk_meta->size);
+        evbuffer_add (req->buffer_out, block_con, nsize);
         evhtp_send_reply (req, EVHTP_RES_OK);
     }
     g_free (block_con);
@@ -1614,7 +1653,7 @@ block_oper_cb (evhtp_request_t *req, void *arg)
 {
     htp_method req_method = evhtp_request_get_method (req);
 
-    if (req_method == htp_method_GET) {
+    if (req_method == htp_method_GET || req_method == htp_method_HEAD) {
         get_block_cb (req, arg);
     } else if (req_method == htp_method_PUT) {
         put_send_block_cb (req, arg);

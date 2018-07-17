@@ -769,7 +769,7 @@ err:
 }
 
 // parse range offset, only support single range (-num, num-num, num-)
-static gboolean
+gboolean
 parse_range_val (const char *byte_ranges, guint64 *pstart, guint64 *pend,
                  guint64 fsize)
 {
