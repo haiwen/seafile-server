@@ -1102,4 +1102,11 @@ GList *
 seafile_org_get_shared_users_by_repo (int org_id,
                                       const char *repo_id,
                                       GError **error);
+
+char *
+seafile_convert_repo_path (const char *repo_id,
+                           const char *path,
+                           const char *user,
+                           int is_org,
+                           GError **error);
 #endif

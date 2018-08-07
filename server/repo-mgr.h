@@ -861,4 +861,12 @@ post_files_and_gen_commit (GList *filenames,
                           GList *id_list,
                           GList *size_list,
                           GError **error);
+
+char *
+seaf_repo_manager_convert_repo_path (SeafRepoManager *mgr,
+                                     const char *repo_id,
+                                     const char *path,
+                                     const char *user,
+                                     gboolean is_org,
+                                     GError **error);
 #endif

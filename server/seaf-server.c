@@ -378,6 +378,11 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      "get_trash_repo_owner",
                                      searpc_signature_string__string());
 
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_convert_repo_path,
+                                     "convert_repo_path",
+                                     searpc_signature_string__string_string_string_int());
+
     /* share repo to user */
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_add_share,

@@ -798,6 +798,9 @@ class SeafileAPI(object):
     def list_org_inner_pub_repos(self, org_id):
         return seafserv_threaded_rpc.list_org_inner_pub_repos(org_id)
 
+    def convert_repo_path(self, repo_id, path, user, is_org=False):
+        return seafserv_threaded_rpc.convert_repo_path(repo_id, path, user, 1 if is_org else 0)
+
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):

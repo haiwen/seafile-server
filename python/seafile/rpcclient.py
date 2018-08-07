@@ -1037,3 +1037,7 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     @searpc_func("objlist", ["int", "string"])
     def org_get_shared_users_by_repo (org_id, repo_id):
         pass
+
+    @searpc_func("string", ["string", "string", "string", "int"])
+    def convert_repo_path(repo_id, path, user, is_org):
+        pass
