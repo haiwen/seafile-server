@@ -138,3 +138,13 @@ seaf_mq_manager_publish_event (SeafMqManager *mgr, const char *content)
     ccnet_message_free (msg);
 }
 
+void
+seaf_mq_manager_publish_stats_event (SeafMqManager *mgr, const char *content)
+{
+    static const char *app = "seaf_server.stats";
+
+    CcnetMessage *msg = create_message (mgr, app, content, 0);
+    _send_message (mgr, msg);
+
+    ccnet_message_free (msg);
+}
