@@ -62,20 +62,10 @@ struct _HttpServer {
     pthread_mutex_t vir_repo_info_cache_lock;
 
     uint32_t cevent_id;         /* Used for sending activity events. */
-    uint32_t stats_event_id;         /* Used for sending events for statistics. */
 
     event_t *reap_timer;
 };
 typedef struct _HttpServer HttpServer;
-
-struct _StatsEventData {
-    char *etype;
-    char *user;
-    char *operation;
-    char repo_id[37];
-    guint64 bytes;
-};
-typedef struct _StatsEventData StatsEventData;
 
 typedef struct TokenInfo {
     char *repo_id;
@@ -482,18 +472,6 @@ free_repo_event_data (RepoEventData *data)
 }
 
 static void
-free_stats_event_data (StatsEventData *data)
-{
-    if (!data)
-        return;
-
-    g_free (data->etype);
-    g_free (data->user);
-    g_free (data->operation);
-    g_free (data);
-}
-
-static void
 publish_repo_event (CEvent *event, void *data)
 {
     RepoEventData *rdata = event->data;
@@ -508,22 +486,6 @@ publish_repo_event (CEvent *event, void *data)
 
     g_string_free (buf, TRUE);
     free_repo_event_data (rdata);
-}
-
-static void
-publish_stats_event (CEvent *event, void *data)
-{
-    StatsEventData *rdata = event->data;
-
-    GString *buf = g_string_new (NULL);
-    g_string_printf (buf, "%s\t%s\t%s\t%"G_GUINT64_FORMAT,
-                     rdata->etype, rdata->user,
-                     rdata->repo_id, rdata->bytes);
-
-    seaf_mq_manager_publish_stats_event (seaf->mq_mgr, buf->str);
-
-    g_string_free (buf, TRUE);
-    free_stats_event_data (rdata);
 }
 
 static void
@@ -550,19 +512,6 @@ on_repo_oper (HttpServer *htp_server, const char *etype,
         g_free (vinfo->path);
         g_free (vinfo);
     }
-}
-
-void
-send_statistic_msg (const char *repo_id, char *user, char *operation, guint64 bytes)
-{
-    StatsEventData *rdata = g_new0 (StatsEventData, 1);
-
-    memcpy (rdata->repo_id, repo_id, 36);
-    rdata->etype = g_strdup (operation);
-    rdata->user = g_strdup (user);
-    rdata->bytes = bytes;
-
-    cevent_manager_add_event (seaf->ev_mgr, seaf->http_server->priv->stats_event_id, rdata);
 }
 
 char *
@@ -1505,13 +1454,12 @@ get_block_cb (evhtp_request_t *req, void *arg)
     char *store_id = NULL;
     HttpServer *htp_server = arg;
     BlockMetadata *blk_meta = NULL;
-    char *username = NULL;
 
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     repo_id = parts[1];
     block_id = parts[3];
 
-    int token_status = validate_token (htp_server, req, repo_id, &username, FALSE);
+    int token_status = validate_token (htp_server, req, repo_id, NULL, FALSE);
     if (token_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, token_status);
         goto out;
@@ -1557,14 +1505,12 @@ get_block_cb (evhtp_request_t *req, void *arg)
         evhtp_send_reply (req, EVHTP_RES_OK);
     }
     g_free (block_con);
-    send_statistic_msg (store_id, username, "sync-file-download", (guint64)rsize);
 
 free_handle:
     seaf_block_manager_close_block (seaf->block_mgr, blk_handle);
     seaf_block_manager_block_handle_free (seaf->block_mgr, blk_handle);
 
 out:
-    g_free (username);
     g_free (blk_meta);
     g_free (store_id);
     g_strfreev (parts);
@@ -1655,8 +1601,6 @@ put_send_block_cb (evhtp_request_t *req, void *arg)
     seaf_block_manager_block_handle_free (seaf->block_mgr, blk_handle);
 
     evhtp_send_reply (req, EVHTP_RES_OK);
-
-    send_statistic_msg (store_id, username, "sync-file-upload", (guint64)blk_len);
 
 out:
     g_free (username);
@@ -2253,10 +2197,6 @@ seaf_http_server_start (HttpServerStruct *server)
 {
     server->priv->cevent_id = cevent_manager_register (seaf->ev_mgr,
                                     (cevent_handler)publish_repo_event,
-                                                       NULL);
-
-    server->priv->stats_event_id = cevent_manager_register (seaf->ev_mgr,
-                                    (cevent_handler)publish_stats_event,
                                                        NULL);
 
    int ret = pthread_create (&server->priv->thread_id, NULL, http_server_run, server);

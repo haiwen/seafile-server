@@ -497,8 +497,7 @@ zip_download_mgr_start_zip_task (ZipDownloadMgr *mgr,
     obj->repo = repo;
     obj->user = g_strdup (seafile_web_access_get_username (info));
 
-    if (strcmp (operation, "download-dir") == 0 ||
-        strcmp (operation, "download-dir-link") == 0) {
+    if (strcmp (operation, "download-dir") == 0) {
         obj->type = DOWNLOAD_DIR;
         ret = parse_download_dir_data (obj, data);
         if (ret < 0) {

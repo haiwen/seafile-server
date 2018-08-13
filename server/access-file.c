@@ -27,7 +27,6 @@
 #include "seafile-session.h"
 #include "access-file.h"
 #include "zip-download-mgr.h"
-#include "http-server.h"
 
 #define FILE_TYPE_MAP_DEFAULT_LEN 1
 #define BUFFER_SIZE 1024 * 64
@@ -48,8 +47,6 @@ typedef struct SendBlockData {
     char store_id[37];
     int repo_version;
 
-    char *user;
-
     bufferevent_data_cb saved_read_cb;
     bufferevent_data_cb saved_write_cb;
     bufferevent_event_cb saved_event_cb;
@@ -69,9 +66,6 @@ typedef struct SendfileData {
     char store_id[37];
     int repo_version;
 
-    char *user;
-    char *token_type;
-
     bufferevent_data_cb saved_read_cb;
     bufferevent_data_cb saved_write_cb;
     bufferevent_event_cb saved_event_cb;
@@ -89,9 +83,6 @@ typedef struct SendFileRangeData {
     char store_id[37];
     int repo_version;
 
-    char *user;
-    char *token_type;
-
     bufferevent_data_cb saved_read_cb;
     bufferevent_data_cb saved_write_cb;
     bufferevent_event_cb saved_event_cb;
@@ -101,14 +92,10 @@ typedef struct SendFileRangeData {
 typedef struct SendDirData {
     evhtp_request_t *req;
     size_t remain;
-    guint64 total_size;
 
     int zipfd;
     char *zipfile;
     char *token;
-    char *user;
-    char *token_type;
-    char repo_id[37];
 
     bufferevent_data_cb saved_read_cb;
     bufferevent_data_cb saved_write_cb;
@@ -155,7 +142,6 @@ free_sendblock_data (SendBlockData *data)
     }
 
     g_free (data->block_id);
-    g_free (data->user);
     g_free (data);
 }
 
@@ -171,8 +157,6 @@ free_sendfile_data (SendfileData *data)
         EVP_CIPHER_CTX_free (data->ctx);
 
     seafile_unref (data->file);
-    g_free (data->user);
-    g_free (data->token_type);
     g_free (data->crypt);
     g_free (data);
 }
@@ -186,8 +170,6 @@ free_send_file_range_data (SendFileRangeData *data)
     }
 
     seafile_unref (data->file);
-    g_free (data->user);
-    g_free (data->token_type);
     g_free (data);
 }
 
@@ -198,8 +180,6 @@ free_senddir_data (SendDirData *data)
 
     zip_download_mgr_del_zip_progress (seaf->zip_download_mgr, data->token);
 
-    g_free (data->user);
-    g_free (data->token_type);
     g_free (data->token);
     g_free (data);
 }
@@ -251,8 +231,6 @@ write_block_data_cb (struct bufferevent *bev, void *ctx)
         evhtp_request_resume (data->req);
 
         evhtp_send_reply_end (data->req);
-
-        send_statistic_msg (data->store_id, data->user, "web-file-download", (guint64)data->bsize);
 
         free_sendblock_data (data);
         return;
@@ -338,15 +316,6 @@ next:
             evhtp_request_resume (data->req);
 
             evhtp_send_reply_end (data->req);
-
-            if (g_strcmp0(data->token_type, "view") != 0) {
-                char *oper = "web-file-download";
-                if (g_strcmp0(data->token_type, "download-link") == 0)
-                    oper = "link-file-download";
-
-                send_statistic_msg(data->store_id, data->user, oper,
-                                   (guint64)data->file->file_size);
-            }
 
             free_sendfile_data (data);
             return;
@@ -445,13 +414,6 @@ write_dir_data_cb (struct bufferevent *bev, void *ctx)
 
             evhtp_send_reply_end (data->req);
 
-            char *oper = "web-file-download";
-            if (g_strcmp0(data->token_type, "download-dir-link") == 0 ||
-                g_strcmp0(data->token_type, "download-multi-link") == 0)
-                oper = "link-file-download";
-
-            send_statistic_msg(data->repo_id, data->user, oper, data->total_size);
-
             free_senddir_data (data);
             return;
         }
@@ -541,7 +503,7 @@ test_firefox (evhtp_request_t *req)
 static int
 do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
         const char *filename, const char *operation,
-        SeafileCryptKey *crypt_key, const char *user)
+        SeafileCryptKey *crypt_key)
 {
     Seafile *file;
     char *type = NULL;
@@ -599,8 +561,7 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
     evhtp_headers_add_header (req->headers_out,
                               evhtp_header_new("Content-Length", file_size, 1, 1));
 
-    if (strcmp(operation, "download") == 0 ||
-        strcmp(operation, "download-link") == 0) {
+    if (strcmp(operation, "download") == 0) {
         /* Safari doesn't support 'utf8', 'utf-8' is compatible with most of browsers. */
         snprintf(cont_filename, SEAF_PATH_MAX,
                  "attachment;filename*=\"utf-8\' \'%s\"", filename);
@@ -639,8 +600,6 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
     data->req = req;
     data->file = file;
     data->crypt = crypt;
-    data->user = g_strdup(user);
-    data->token_type = g_strdup (operation);
 
     memcpy (data->store_id, repo->store_id, 36);
     data->repo_version = repo->version;
@@ -799,14 +758,6 @@ next:
 
     bufferevent_write (bev, buf, n);
     if (data->range_remain == 0) {
-        if (data->start_off + n >= data->file->file_size) {
-            char *oper = "web-file-download";
-            if (g_strcmp0(data->token_type, "download-link") == 0)
-                oper = "link-file-download";
-
-            send_statistic_msg (data->store_id, data->user, oper,
-                                (guint64)data->file->file_size);
-        }
         finish_file_range_request (bev, data);
     }
 
@@ -917,8 +868,7 @@ set_resp_disposition (evhtp_request_t *req, const char *operation,
 
 static int
 do_file_range (evhtp_request_t *req, SeafRepo *repo, const char *file_id,
-               const char *filename, const char *operation, const char *byte_ranges,
-               const char *user)
+               const char *filename, const char *operation, const char *byte_ranges)
 {
     Seafile *file;
     SendFileRangeData *data = NULL;
@@ -997,8 +947,6 @@ do_file_range (evhtp_request_t *req, SeafRepo *repo, const char *file_id,
     data->blk_idx = -1;
     data->start_off = start;
     data->range_remain = end-start+1;
-    data->user = g_strdup(user);
-    data->token_type = g_strdup (operation);
 
     memcpy (data->store_id, repo->store_id, 36);
     data->repo_version = repo->version;
@@ -1031,8 +979,7 @@ do_file_range (evhtp_request_t *req, SeafRepo *repo, const char *file_id,
 
 static int
 start_download_zip_file (evhtp_request_t *req, const char *token,
-                         const char *zipname, char *zipfile,
-                         const char *repo_id, const char *user, const char *token_type)
+                         const char *zipname, char *zipfile)
 {
     SeafStat st;
     char file_size[255];
@@ -1070,10 +1017,6 @@ start_download_zip_file (evhtp_request_t *req, const char *token,
     data->zipfile = zipfile;
     data->token = g_strdup (token);
     data->remain = st.st_size;
-    data->total_size = (guint64)st.st_size;
-    data->user = g_strdup (user);
-    data->token_type = g_strdup (token_type);
-    snprintf(data->repo_id, sizeof(data->repo_id), "%s", repo_id);
 
     /* We need to overwrite evhtp's callback functions to
      * write file data piece by piece.
@@ -1142,9 +1085,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
     json_error_t jerror;
     char *filename = NULL;
     char *repo_id = NULL;
-    char *user = NULL;
     char *zip_file_path;
-    char *token_type = NULL;
     const char *error = NULL;
     int error_code;
 
@@ -1214,10 +1155,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
-    g_object_get (info, "username", &user, NULL);
-    g_object_get (info, "repo_id", &repo_id, NULL);
-    g_object_get (info, "op", &token_type, NULL);
-    int ret = start_download_zip_file (req, token, filename, zip_file_path, repo_id, user, token_type);
+    int ret = start_download_zip_file (req, token, filename, zip_file_path);
     if (ret < 0) {
         error = "Internal server error\n";
         error_code = EVHTP_RES_SERVERR;
@@ -1235,10 +1173,6 @@ out:
         g_free (filename);
     if (repo_id)
         g_free (repo_id);
-    if (user)
-        g_free (user);
-    if (token_type)
-        g_free (token_type);
 
     if (error) {
         evbuffer_add_printf(req->buffer_out, "%s\n", error);
@@ -1285,8 +1219,7 @@ access_cb(evhtp_request_t *req, void *arg)
     user = seafile_web_access_get_username (webaccess);
 
     if (strcmp(operation, "view") != 0 &&
-        strcmp(operation, "download") != 0 &&
-        strcmp(operation, "download-link") != 0) {
+        strcmp(operation, "download") != 0) {
         error = "Bad access token";
         goto bad_req;
     }
@@ -1319,11 +1252,11 @@ access_cb(evhtp_request_t *req, void *arg)
     }
 
     if (!repo->encrypted && byte_ranges) {
-        if (do_file_range (req, repo, data, filename, operation, byte_ranges, user) < 0) {
+        if (do_file_range (req, repo, data, filename, operation, byte_ranges) < 0) {
             error = "Internal server error\n";
             goto bad_req;
         }
-    } else if (do_file(req, repo, data, filename, operation, key, user) < 0) {
+    } else if (do_file(req, repo, data, filename, operation, key) < 0) {
         error = "Internal server error\n";
         goto bad_req;
     }
@@ -1353,7 +1286,7 @@ bad_req:
 }
 
 static int
-do_block(evhtp_request_t *req, SeafRepo *repo, const char *user, const char *file_id,
+do_block(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
          const char *blk_id)
 {
     Seafile *file;
@@ -1413,7 +1346,6 @@ do_block(evhtp_request_t *req, SeafRepo *repo, const char *user, const char *fil
     data = g_new0 (SendBlockData, 1);
     data->req = req;
     data->block_id = g_strdup(blk_id);
-    data->user = g_strdup(user);
 
     memcpy (data->store_id, repo->store_id, 36);
     data->repo_version = repo->version;
@@ -1453,7 +1385,6 @@ access_blks_cb(evhtp_request_t *req, void *arg)
     const char *repo_id = NULL;
     const char *id = NULL;
     const char *operation = NULL;
-    const char *user = NULL;
 
     char *repo_role = NULL;
     SeafileWebAccess *webaccess = NULL;
@@ -1496,7 +1427,7 @@ access_blks_cb(evhtp_request_t *req, void *arg)
     }
 
     if (strcmp(operation, "downloadblks") == 0) {
-        if (do_block(req, repo, user, id, blkid) < 0) {
+        if (do_block(req, repo, id, blkid) < 0) {
             error = "Internal server error\n";
             goto bad_req;
         }

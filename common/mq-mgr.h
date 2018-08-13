@@ -56,7 +56,4 @@ seaf_mq_manager_publish_notification (SeafMqManager *mgr,
 void
 seaf_mq_manager_publish_event (SeafMqManager *mgr, const char *content);
 
-void
-seaf_mq_manager_publish_stats_event (SeafMqManager *mgr, const char *content);
-
 #endif
