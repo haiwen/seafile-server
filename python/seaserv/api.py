@@ -67,6 +67,21 @@ class SeafileAPI(object):
         """
         return seafserv_rpc.get_decrypt_key(repo_id, username)
 
+    def change_repo_passwd(self, repo_id, old_passwd, new_passwd, user):
+        return seafserv_threaded_rpc.change_repo_passwd(repo_id, old_passwd,
+                                                        new_passwd, user)
+    def check_passwd(self, repo_id, magic):
+        return seafserv_threaded_rpc.check_passwd(repo_id, magic)
+
+    def set_passwd(self, repo_id, user, passwd):
+        return seafserv_threaded_rpc.set_passwd(repo_id, user, passwd)
+
+    def unset_passwd(self, repo_id, user, passwd):
+        return seafserv_threaded_rpc.unset_passwd(repo_id, user, passwd)
+
+    def generate_magic_and_random_key(self, enc_version, repo_id, password):
+        return seafserv_threaded_rpc.generate_magic_and_random_key(enc_version, repo_id, password)
+
     # repo manipulation
 
     def create_repo(self, name, desc, username, passwd):
@@ -148,9 +163,8 @@ class SeafileAPI(object):
             ret = None
         return ret
 
-    def change_repo_passwd(self, repo_id, old_passwd, new_passwd, user):
-        return seafserv_threaded_rpc.change_repo_passwd(repo_id, old_passwd,
-                                                        new_passwd, user)
+    def get_system_default_repo_id (self):
+        return seafserv_threaded_rpc.get_system_default_repo_id()
 
     # File property and dir listing
 
@@ -227,6 +241,18 @@ class SeafileAPI(object):
 
     def list_dir_with_perm(self, repo_id, dir_path, dir_id, user, offset=-1, limit=-1):
         return seafserv_threaded_rpc.list_dir_with_perm (repo_id, dir_path, dir_id, user, offset, limit)
+
+    def mkdir_with_parents (self, repo_id, parent_dir, relative_path, username):
+        return seafserv_threaded_rpc.mkdir_with_parents(repo_id, parent_dir, relative_path, username)
+
+    def get_file_count_info_by_path(self, repo_id, path):
+        return seafserv_threaded_rpc.get_file_count_info_by_path(repo_id, path)
+
+    def get_total_storage (self):
+        return seafserv_threaded_rpc.get_total_storage()
+
+    def get_total_file_number (self):
+        return seafserv_threaded_rpc.get_total_file_number()
 
     # file/dir operations
 
@@ -416,6 +442,9 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.list_repo_shared_to(from_user, repo_id)
 
+    def repo_has_been_shared(self, repo_id, including_groups=False):
+        return True if seafserv_threaded_rpc.repo_has_been_shared(repo_id, 1 if including_groups else 0) else False
+
     # share repo to group
     def group_share_repo(self, repo_id, group_id, username, permission):
         # deprecated, use ``set_group_repo``
@@ -546,6 +575,33 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.get_shared_groups_for_subdir(repo_id, path, from_user)
 
+    def get_shared_users_by_repo(self, repo_id):
+        users = []
+        # get users that the repo is shared to
+        shared_users = seafserv_threaded_rpc.get_shared_users_by_repo (repo_id)
+        for user in shared_users:
+            users.append(user.user)
+
+        # get users in groups that the repo is shared to
+        group_ids = seafserv_threaded_rpc.get_shared_groups_by_repo(repo_id)
+        if not group_ids:
+            return users
+
+        ids = []
+        for group_id in group_ids.split('\n'):
+            if not group_id:
+                continue
+            ids.append(int(group_id))
+
+        json_ids = json.dumps(ids)
+        group_users = ccnet_threaded_rpc.get_groups_members(json_ids)
+
+        for user in group_users:
+            if user.user_name not in users:
+                users.append(user.user_name)
+
+        return users
+
     # organization wide repo
     def add_inner_pub_repo(self, repo_id, permission):
         return seafserv_threaded_rpc.set_inner_pub_repo(repo_id, permission)
@@ -640,19 +696,6 @@ class SeafileAPI(object):
     def check_quota(self, repo_id, delta=0):
         return seafserv_threaded_rpc.check_quota(repo_id, delta)
 
-    # encrypted repo password management
-    def check_passwd(self, repo_id, magic):
-        return seafserv_threaded_rpc.check_passwd(repo_id, magic)
-
-    def set_passwd(self, repo_id, user, passwd):
-        return seafserv_threaded_rpc.set_passwd(repo_id, user, passwd)
-
-    def unset_passwd(self, repo_id, user, passwd):
-        return seafserv_threaded_rpc.unset_passwd(repo_id, user, passwd)
-
-    def generate_magic_and_random_key(self, enc_version, repo_id, password):
-        return seafserv_threaded_rpc.generate_magic_and_random_key(enc_version, repo_id, password)
-
     # virtual repo
     def create_virtual_repo(self, origin_repo_id, path, repo_name, repo_desc, owner, passwd=''):
         return seafserv_threaded_rpc.create_virtual_repo(origin_repo_id,
@@ -686,30 +729,16 @@ class SeafileAPI(object):
     def get_trash_repos_by_owner(self, owner):
         return seafserv_threaded_rpc.get_trash_repos_by_owner(owner)
 
+    def get_trash_repo_owner (self, repo_id):
+        return seafserv_threaded_rpc.get_trash_repo_owner(repo_id)
+
     def empty_repo_trash(self):
         return seafserv_threaded_rpc.empty_repo_trash()
 
     def empty_repo_trash_by_owner(self, owner):
         return seafserv_threaded_rpc.empty_repo_trash_by_owner(owner)
 
-    def get_total_file_number (self):
-        return seafserv_threaded_rpc.get_total_file_number()
-
-    def get_total_storage (self):
-        return seafserv_threaded_rpc.get_total_storage()
-
-    def get_system_default_repo_id (self):
-        return seafserv_threaded_rpc.get_system_default_repo_id()
-
-    def get_file_count_info_by_path(self, repo_id, path):
-        return seafserv_threaded_rpc.get_file_count_info_by_path(repo_id, path)
-
-    def get_trash_repo_owner (self, repo_id):
-        return seafserv_threaded_rpc.get_trash_repo_owner(repo_id)
-
-    def mkdir_with_parents (self, repo_id, parent_dir, relative_path, username):
-        return seafserv_threaded_rpc.mkdir_with_parents(repo_id, parent_dir, relative_path, username)
-
+    # Server config
     def get_server_config_int (self, group, key):
         return seafserv_threaded_rpc.get_server_config_int (group, key)
 
@@ -737,36 +766,6 @@ class SeafileAPI(object):
 
     def del_org_group_repo(self, repo_id, org_id, group_id):
         seafserv_threaded_rpc.del_org_group_repo(repo_id, org_id, group_id)
-
-    def repo_has_been_shared(self, repo_id, including_groups=False):
-        return True if seafserv_threaded_rpc.repo_has_been_shared(repo_id, 1 if including_groups else 0) else False
-
-    def get_shared_users_by_repo(self, repo_id):
-        users = []
-        # get users that the repo is shared to
-        shared_users = seafserv_threaded_rpc.get_shared_users_by_repo (repo_id)
-        for user in shared_users:
-            users.append(user.user)
-
-        # get users in groups that the repo is shared to
-        group_ids = seafserv_threaded_rpc.get_shared_groups_by_repo(repo_id)
-        if not group_ids:
-            return users
-
-        ids = []
-        for group_id in group_ids.split('\n'):
-            if not group_id:
-                continue
-            ids.append(int(group_id))
-
-        json_ids = json.dumps(ids)
-        group_users = ccnet_threaded_rpc.get_groups_members(json_ids)
-
-        for user in group_users:
-            if user.user_name not in users:
-                users.append(user.user_name)
-
-        return users
 
     def org_get_shared_users_by_repo(self, org_id, repo_id):
         users = []
