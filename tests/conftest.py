@@ -37,6 +37,21 @@ def create_users():
         ADMIN_USER, ADMIN_PASSWORD, is_staff=True, is_active=True
     )
 
+@pytest.yield_fixture(scope='function')
+def encrypted_repo():
+    repo = create_and_get_repo(
+        'test_repo_{}'.format(randstring(10)), '', USER, passwd='123'
+    )
+    try:
+        seafile_api.post_dir(repo.id, '/', 'dir1', USER)
+        seafile_api.post_dir(repo.id, '/', 'dir2', USER)
+        seafile_api.post_dir(repo.id, '/dir1', 'subdir1', USER)
+        seafile_api.post_dir(repo.id, '/dir2', 'subdir2', USER)
+        yield repo
+    finally:
+        if seafile_api.get_repo(repo.id):
+            # The repo may be deleted in the test case
+            seafile_api.remove_repo(repo.id)
 
 @pytest.yield_fixture(scope='function')
 def repo():
@@ -62,6 +77,3 @@ def group():
     finally:
         if ccnet_api.get_group(group.id):
             ccnet_api.remove_group(group.id)
-
-
-
