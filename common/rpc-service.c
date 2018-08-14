@@ -5282,4 +5282,23 @@ seafile_org_get_shared_users_by_repo (int org_id,
     return seaf_share_manager_org_get_shared_users_by_repo (seaf->share_mgr,
                                                             org_id, repo_id);
 }
+
+char *
+seafile_convert_repo_path (const char *repo_id,
+                           const char *path,
+                           const char *user,
+                           int is_org,
+                           GError **error)
+{
+    if (!is_uuid_valid(repo_id) || !path || !user) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Arguments error");
+        return NULL;
+    }
+
+    char *rpath = format_dir_path (path);
+    char *ret = seaf_repo_manager_convert_repo_path(seaf->repo_mgr, repo_id, rpath, user, is_org ? TRUE : FALSE, error);
+    g_free(rpath);
+
+    return ret;
+}
 #endif  /* SEAFILE_SERVER */

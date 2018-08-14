@@ -1,6 +1,7 @@
 
 from service import seafserv_rpc, seafserv_threaded_rpc, ccnet_threaded_rpc
 from pysearpc import SearpcError
+import json
 
 """
 General rules for return values and exception handling of Seafile python API:
@@ -741,13 +742,64 @@ class SeafileAPI(object):
         return True if seafserv_threaded_rpc.repo_has_been_shared(repo_id, 1 if including_groups else 0) else False
 
     def get_shared_users_by_repo(self, repo_id):
-        return seafserv_threaded_rpc.get_shared_users_by_repo (repo_id)
+        users = []
+        # get users that the repo is shared to
+        shared_users = seafserv_threaded_rpc.get_shared_users_by_repo (repo_id)
+        for user in shared_users:
+            users.append(user.user)
+
+        # get users in groups that the repo is shared to
+        group_ids = seafserv_threaded_rpc.get_shared_groups_by_repo(repo_id)
+        if not group_ids:
+            return users
+
+        ids = []
+        for group_id in group_ids.split('\n'):
+            if not group_id:
+                continue
+            ids.append(int(group_id))
+
+        json_ids = json.dumps(ids)
+        group_users = ccnet_threaded_rpc.get_groups_members(json_ids)
+
+        for user in group_users:
+            if user.user_name not in users:
+                users.append(user.user_name)
+
+        return users
 
     def org_get_shared_users_by_repo(self, org_id, repo_id):
-        return seafserv_threaded_rpc.org_get_shared_users_by_repo(org_id, repo_id)
+        users = []
+        # get users that the repo is shared to
+        shared_users = seafserv_threaded_rpc.org_get_shared_users_by_repo(org_id, repo_id)
+        for user in shared_users:
+            users.append(user.user)
+
+        # get users in groups that the repo is shared to
+        group_ids = seafserv_threaded_rpc.get_org_groups_by_repo(org_id, repo_id)
+        if not group_ids:
+            return users
+
+        ids = []
+        for group_id in group_ids.split('\n'):
+            if not group_id:
+                continue
+            ids.append(int(group_id))
+
+        json_ids = json.dumps(ids)
+        group_users = ccnet_threaded_rpc.get_groups_members(json_ids)
+
+        for user in group_users:
+            if user.user_name not in users:
+                users.append(user.user_name)
+
+        return users
 
     def list_org_inner_pub_repos(self, org_id):
         return seafserv_threaded_rpc.list_org_inner_pub_repos(org_id)
+
+    def convert_repo_path(self, repo_id, path, user, is_org=False):
+        return seafserv_threaded_rpc.convert_repo_path(repo_id, path, user, 1 if is_org else 0)
 
 seafile_api = SeafileAPI()
 
@@ -1069,5 +1121,11 @@ class CcnetAPI(object):
 
     def set_reference_id (self, primary_id, reference_id):
         return ccnet_threaded_rpc.set_reference_id(primary_id, reference_id)
+
+    def get_groups_members(self, group_ids):
+        """
+        @group_ids: json '[id1, id2, id3,...]'
+        """
+        return ccnet_threaded_rpc.get_groups_members(group_ids)
 
 ccnet_api = CcnetAPI()

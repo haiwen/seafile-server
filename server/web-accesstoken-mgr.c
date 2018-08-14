@@ -142,8 +142,12 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
         strcmp(op, "downloadblks") != 0 &&
         strcmp(op, "download-dir") != 0 &&
         strcmp(op, "download-multi") != 0 &&
+        strcmp(op, "download-link") != 0 &&
+        strcmp(op, "download-dir-link") != 0 &&
+        strcmp(op, "download-multi-link") != 0 &&
         strcmp(op, "upload") != 0 &&
         strcmp(op, "update") != 0 &&
+        strcmp(op, "upload-link") != 0 &&
         strcmp(op, "upload-blks-api") != 0 &&
         strcmp(op, "upload-blks-aj") != 0 &&
         strcmp(op, "update-blks-api") != 0 &&
@@ -173,7 +177,9 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
     pthread_mutex_unlock (&mgr->priv->lock);
 
     if (strcmp(op, "download-dir") == 0 ||
-        strcmp(op, "download-multi") == 0) {
+        strcmp(op, "download-multi") == 0 ||
+        strcmp(op, "download-dir-link") == 0 ||
+        strcmp(op, "download-multi-link") == 0) {
 
         webaccess = g_object_new (SEAFILE_TYPE_WEB_ACCESS,
                                   "repo_id", info->repo_id,

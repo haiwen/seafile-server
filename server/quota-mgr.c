@@ -79,7 +79,7 @@ int
 seaf_quota_manager_init (SeafQuotaManager *mgr)
 {
 
-    if (!mgr->session->create_tables)
+    if (!mgr->session->create_tables && seaf_db_type (mgr->session->db) == SEAF_DB_TYPE_MYSQL)
         return 0;
 
     SeafDB *db = mgr->session->db;

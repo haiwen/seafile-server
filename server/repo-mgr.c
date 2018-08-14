@@ -1356,7 +1356,7 @@ create_tables_pgsql (SeafRepoManager *mgr)
 static int
 create_db_tables_if_not_exist (SeafRepoManager *mgr)
 {
-    if (!mgr->seaf->create_tables)
+    if (!mgr->seaf->create_tables && seaf_db_type (mgr->seaf->db) == SEAF_DB_TYPE_MYSQL)
         return 0;
 
     SeafDB *db = mgr->seaf->db;
@@ -4119,3 +4119,182 @@ out:
 
     return g_list_reverse (repos);
 }
+
+typedef struct RepoPath {
+    char *repo_id;
+    char *path;
+    int group_id;
+} RepoPath;
+
+
+gboolean
+convert_repo_path_cb (SeafDBRow *row, void *data)
+{
+    GList **repo_paths = data;
+
+    const char *repo_id = seaf_db_row_get_column_text (row, 0);
+    const char *path = seaf_db_row_get_column_text (row, 1);
+    int group_id = seaf_db_row_get_column_int (row, 2);
+
+    RepoPath *rp = g_new0(RepoPath, 1);
+    rp->repo_id = g_strdup(repo_id);
+    rp->path = g_strdup(path);
+    rp->group_id = group_id;
+    *repo_paths = g_list_append (*repo_paths, rp);
+
+    return TRUE;
+}
+
+static void
+free_repo_path (gpointer data)
+{
+    if (!data)
+        return;
+
+    RepoPath *rp = data;
+    g_free (rp->repo_id);
+    g_free (rp->path);
+    g_free (rp);
+}
+
+static char *
+filter_path (GList *repo_paths, const char *path)
+{
+    GList *ptr = NULL;
+    int len;
+    const char *relative_path;
+    char *ret = NULL;
+    RepoPath *rp = NULL, res;
+    res.repo_id = NULL;
+    res.path = NULL;
+    res.group_id = 0;
+
+    /* Find nearest item which contains @path, */
+    for (ptr = repo_paths; ptr; ptr = ptr->next) {
+        rp = ptr->data;
+        len = strlen(rp->path);
+        if (strncmp(rp->path, path, len) == 0 && (path[len] == '/' || path[len] == '\0')) {
+
+            if (g_strcmp0(rp->path, res.path) > 0) {
+                res.path = rp->path;
+                res.repo_id = rp->repo_id;
+                res.group_id = rp->group_id;
+            }
+        }
+    }
+    if (res.repo_id && res.path) {
+        relative_path = path + strlen(res.path);
+        if (relative_path[0] == '\0')
+            relative_path = "/";
+
+        json_t *json = json_object ();
+        json_object_set_string_member(json, "repo_id", res.repo_id);
+        json_object_set_string_member(json, "path", relative_path);
+        if (res.group_id > 0)
+            json_object_set_int_member(json, "group_id", res.group_id);
+        ret = json_dumps (json, 0);
+        json_decref (json);
+    }
+
+    return ret;
+}
+
+/* Convert origin repo and path to virtual repo and relative path */
+char *
+seaf_repo_manager_convert_repo_path (SeafRepoManager *mgr,
+                                     const char *repo_id,
+                                     const char *path,
+                                     const char *user,
+                                     gboolean is_org,
+                                     GError **error)
+{
+    char *ret = NULL;
+    int rc;
+    int group_id;
+    GString *sql;
+    SearpcClient *rpc_client = NULL;
+    CcnetGroup *group;
+    GList *groups = NULL, *p1;
+    GList *repo_paths = NULL;
+    SeafVirtRepo *vinfo = NULL;
+    const char *r_repo_id = repo_id;
+    char *r_path = NULL;
+
+    vinfo = seaf_repo_manager_get_virtual_repo_info (mgr, repo_id);
+    if (vinfo) {
+        r_repo_id = vinfo->origin_repo_id;
+        r_path = g_strconcat (vinfo->path, path, NULL);
+    } else {
+        r_path = g_strdup(path);
+    }
+
+    sql = g_string_new ("");
+    g_string_printf (sql, "SELECT v.repo_id, path, 0 FROM VirtualRepo v, %s s WHERE "
+                     "v.origin_repo=? AND v.repo_id=s.repo_id AND s.to_email=?",
+                     is_org ? "OrgSharedRepo" : "SharedRepo");
+    rc = seaf_db_statement_foreach_row (seaf->db,
+                                        sql->str, convert_repo_path_cb,
+                                        &repo_paths, 2,
+                                        "string", r_repo_id, "string", user);
+    if (rc < 0) {
+        seaf_warning("Failed to convert repo path [%s:%s] to virtual repo path, db_error.\n",
+                     repo_id, path);
+        goto out;
+    }
+    ret = filter_path(repo_paths, r_path);
+    g_list_free_full(repo_paths, free_repo_path);
+    repo_paths = NULL;
+    if (ret)
+        goto out;
+
+    rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
+                                                 NULL,
+                                                 "ccnet-threaded-rpcserver");
+    if (!rpc_client)
+        goto out;
+
+    /* Get the groups this user belongs to. */
+    groups = ccnet_get_groups_by_user (rpc_client, user, 1);
+    if (!groups) {
+        goto out;
+    }
+
+    g_string_printf (sql, "SELECT v.repo_id, path, r.group_id FROM VirtualRepo v, %s r WHERE "
+                     "v.origin_repo=? AND v.repo_id=r.repo_id AND r.group_id IN(",
+                     is_org ? "OrgGroupRepo" : "RepoGroup");
+    for (p1 = groups; p1 != NULL; p1 = p1->next) {
+        group = p1->data;
+        g_object_get (group, "id", &group_id, NULL);
+
+        g_string_append_printf (sql, "%d", group_id);
+        if (p1->next)
+            g_string_append_printf (sql, ",");
+    }
+    g_string_append_printf (sql, ")");
+
+    rc = seaf_db_statement_foreach_row (seaf->db,
+                                        sql->str, convert_repo_path_cb,
+                                        &repo_paths, 1,
+                                        "string", r_repo_id);
+    if (rc < 0) {
+        seaf_warning("Failed to convert repo path [%s:%s] to virtual repo path, db error.\n",
+                     repo_id, path);
+        g_string_free (sql, TRUE);
+        goto out;
+    }
+    ret = filter_path(repo_paths, r_path);
+    g_list_free_full(repo_paths, free_repo_path);
+
+out:
+    g_free (r_path);
+    if (vinfo)
+        seaf_virtual_repo_info_free (vinfo);
+    g_string_free (sql, TRUE);
+    ccnet_rpc_client_free (rpc_client);
+    for (p1 = groups; p1 != NULL; p1 = p1->next)
+        g_object_unref ((GObject *)p1->data);
+    g_list_free (groups);
+
+    return ret;
+}
+
