@@ -885,8 +885,8 @@ class CcnetAPI(object):
         """
         return ccnet_threaded_rpc.search_groups(group_patt, start, limit)
 
-    def get_top_groups(self):
-        return ccnet_threaded_rpc.get_top_groups()
+    def get_top_groups(self, including_org=False):
+        return ccnet_threaded_rpc.get_top_groups(1 if including_org else 0)
 
     def get_child_groups(self, group_id):
         return ccnet_threaded_rpc.get_child_groups(group_id)
