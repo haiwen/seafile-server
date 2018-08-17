@@ -469,31 +469,19 @@ seaf_quota_manager_check_quota (SeafQuotaManager *mgr,
     return ret;
 }
 
-static gboolean
-get_total_size (SeafDBRow *row, void *vpsize)
-{
-    gint64 *psize = vpsize;
-
-    *psize += seaf_db_row_get_column_int64 (row, 0);
-
-    return TRUE;
-}
-
 gint64
 seaf_quota_manager_get_user_usage (SeafQuotaManager *mgr, const char *user)
 {
     char *sql;
-    gint64 total = 0;
 
-    sql = "SELECT size FROM "
+    sql = "SELECT SUM(size) FROM "
         "RepoOwner o LEFT JOIN VirtualRepo v ON o.repo_id=v.repo_id, "
         "RepoSize WHERE "
         "owner_id=? AND o.repo_id=RepoSize.repo_id "
         "AND v.repo_id IS NULL";
-    if (seaf_db_statement_foreach_row (mgr->session->db, sql,
-                                       get_total_size, &total,
-                                       1, "string", user) < 0)
-        return -1;
+
+    return seaf_db_statement_get_int64 (mgr->session->db, sql,
+                                        1, "string", user);
 
     /* Add size of repos in trash. */
     /* sql = "SELECT size FROM RepoTrash WHERE owner_id = ?"; */
@@ -501,8 +489,6 @@ seaf_quota_manager_get_user_usage (SeafQuotaManager *mgr, const char *user)
     /*                                    get_total_size, &total, */
     /*                                    1, "string", user) < 0) */
     /*     return -1; */
-
-    return total;
 }
 
 static gint64
@@ -557,16 +543,12 @@ gint64
 seaf_quota_manager_get_org_usage (SeafQuotaManager *mgr, int org_id)
 {
     char *sql;
-    gint64 ret = 0;
 
-    sql = "SELECT size FROM OrgRepo, RepoSize WHERE "
+    sql = "SELECT SUM(size) FROM OrgRepo, RepoSize WHERE "
         "org_id=? AND OrgRepo.repo_id=RepoSize.repo_id";
-    if (seaf_db_statement_foreach_row (mgr->session->db, sql,
-                                       get_total_size, &ret,
-                                       1, "int", org_id) < 0)
-        return -1;
 
-    return ret;
+    return seaf_db_statement_get_int64 (mgr->session->db, sql,
+                                        1, "int", org_id);
 }
 
 gint64
@@ -575,14 +557,10 @@ seaf_quota_manager_get_org_user_usage (SeafQuotaManager *mgr,
                                        const char *user)
 {
     char *sql;
-    gint64 ret = 0;
 
-    sql = "SELECT size FROM OrgRepo, RepoSize WHERE "
+    sql = "SELECT SUM(size) FROM OrgRepo, RepoSize WHERE "
         "org_id=? AND user = ? AND OrgRepo.repo_id=RepoSize.repo_id";
-    if (seaf_db_statement_foreach_row (mgr->session->db, sql,
-                                       get_total_size, &ret,
-                                       2, "int", org_id, "string", user) < 0)
-        return -1;
 
-    return ret;
+    return seaf_db_statement_get_int64 (mgr->session->db, sql,
+                                        2, "int", org_id, "string", user);
 }
