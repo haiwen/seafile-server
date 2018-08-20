@@ -25,6 +25,7 @@
 #include "seafile-session.h"
 #include "upload-file.h"
 #include "http-status-codes.h"
+#include "http-server.h"
 
 #include "seafile-error.h"
 
@@ -73,6 +74,8 @@ typedef struct RecvFSM {
     /* For upload progress. */
     char *progress_id;
     Progress *progress;
+
+    char *token_type; /* For sending statistic type */
 
     gboolean need_idx_progress;
 } RecvFSM;
@@ -639,6 +642,12 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     g_free (ret_json);
 
     send_success_reply (req);
+
+    char *oper = "web-file-upload";
+    if (g_strcmp0(fsm->token_type, "upload-link") == 0)
+        oper = "link-file-upload";
+    send_statistic_msg(fsm->repo_id, fsm->user, oper, (guint64)content_len);
+
     return;
 
 error:
@@ -701,6 +710,8 @@ upload_raw_blks_api_cb(evhtp_request_t *req, void *arg)
         }
         goto error;
     }
+    guint64 content_len = (guint64)get_content_length(req);
+    send_statistic_msg(fsm->repo_id, fsm->user, "web-file-upload", content_len);
 
     evbuffer_add (req->buffer_out, "\"OK\"", 4);
     send_success_reply (req);
@@ -1118,6 +1129,11 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     }
     evhtp_send_reply (req, EVHTP_RES_OK);
 
+    char *oper = "web-file-upload";
+    if (g_strcmp0(fsm->token_type, "upload-link") == 0)
+        oper = "link-file-upload";
+    send_statistic_msg(fsm->repo_id, fsm->user, oper, (guint64)content_len);
+
     return;
 
 error:
@@ -1307,6 +1323,8 @@ update_api_cb(evhtp_request_t *req, void *arg)
     /* Send back the new file id, so that the mobile client can update local cache */
     evbuffer_add(req->buffer_out, new_file_id, strlen(new_file_id));
     send_success_reply (req);
+
+    send_statistic_msg(fsm->repo_id, fsm->user, "web-file-upload", (guint64)content_len);
 
     g_free (new_file_id);
     return;
@@ -1701,11 +1719,13 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
         }
         goto error;
     }
+    send_statistic_msg(fsm->repo_id, fsm->user, "web-file-upload", (guint64)content_len);
 
     char *json_ret = format_update_json_ret (filename, new_file_id, size);
 
     evbuffer_add (req->buffer_out, json_ret, strlen(json_ret));
     send_success_reply (req);
+
 
     g_free (new_file_id);
     g_free (filename);
@@ -1756,6 +1776,7 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
     g_free (fsm->user);
     g_free (fsm->boundary);
     g_free (fsm->input_name);
+    g_free (fsm->token_type);
 
     g_hash_table_destroy (fsm->form_kvs);
 
@@ -2197,7 +2218,8 @@ static int
 check_access_token (const char *token,
                     const char *url_op,
                     char **repo_id,
-                    char **user)
+                    char **user,
+                    char **token_type)
 {
     SeafileWebAccess *webaccess;
     const char *op;
@@ -2211,6 +2233,12 @@ check_access_token (const char *token,
      * token with op = "update" can only be used for "update-*" operations.
      */
     op = seafile_web_access_get_op (webaccess);
+    if (token_type)
+        *token_type = g_strdup (op);
+
+    if (g_strcmp0(op, "upload-link") == 0)
+        op = "upload";
+
     if (strncmp (url_op, op, strlen(op)) != 0) {
         g_object_unref (webaccess);
         return -1;
@@ -2258,6 +2286,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     gint64 content_len;
     char *progress_id = NULL;
     char *err_msg = NULL;
+    char *token_type = NULL;
     RecvFSM *fsm = NULL;
     Progress *progress = NULL;
 
@@ -2280,7 +2309,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     }
     char *url_op = parts[0];
 
-    if (check_access_token (token, url_op, &repo_id, &user) < 0) {
+    if (check_access_token (token, url_op, &repo_id, &user, &token_type) < 0) {
         err_msg = "Access denied";
         goto err;
     }
@@ -2307,6 +2336,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     fsm->boundary = boundary;
     fsm->repo_id = repo_id;
     fsm->user = user;
+    fsm->token_type = token_type;
     fsm->line = evbuffer_new ();
     fsm->form_kvs = g_hash_table_new_full (g_str_hash, g_str_equal,
                                            g_free, g_free);
@@ -2348,6 +2378,7 @@ err:
     g_free (repo_id);
     g_free (user);
     g_free (boundary);
+    g_free (token_type);
     g_free (progress_id);
     g_strfreev (parts);
     return EVHTP_RES_OK;
