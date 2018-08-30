@@ -143,8 +143,8 @@ start_index_task (gpointer data, gpointer user_data)
     IndexPara *idx_para = data;
     SeafRepo *repo = idx_para->repo;
     GList *ptr = NULL, *id_list = NULL, *size_list = NULL;
-    char *path;
-    char *ret_json;
+    char *path = NULL;
+    char *ret_json = NULL;
     char hex[41];
     unsigned char sha1[20];
     int ret = 0;
