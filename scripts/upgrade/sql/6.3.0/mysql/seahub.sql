@@ -139,3 +139,4 @@ ALTER TABLE notifications_notification ADD INDEX `notifications_notification_386
 
 ALTER TABLE institutions_institutionadmin ADD INDEX `institutions_institutionadmin_user_7560167c8413ff0e_uniq` (`user`);
 
+ALTER TABLE `post_office_attachment` add column `mimetype` varchar(255) NOT NULL;

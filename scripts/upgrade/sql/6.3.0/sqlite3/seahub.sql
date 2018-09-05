@@ -23,3 +23,9 @@ CREATE INDEX IF NOT EXISTS "wiki_wiki_fde81f11" ON "wiki_wiki" ("created_at");
 
 CREATE INDEX IF NOT EXISTS "notifications_notification_386bba5a" ON "notifications_notification" ("primary");
 CREATE INDEX IF NOT EXISTS "institutions_institutionadmin_ee11cbb1" ON "institutions_institutionadmin" ("user");
+
+CREATE INDEX IF NOT EXISTS "organizations_orgmemberquota_944dadb6" ON "organizations_orgmemberquota" ("org_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "django_cas_ng_proxygrantingticket_session_key_user_8a4ec2bc_uniq" ON "django_cas_ng_proxygrantingticket" ("session_key", "user");
+CREATE INDEX IF NOT EXISTS "django_cas_ng_proxygrantingticket_user_1f42619d" ON "django_cas_ng_proxygrantingticket" ("user");
+
+ALTER TABLE "post_office_attachment" add column "mimetype" varchar(255);
