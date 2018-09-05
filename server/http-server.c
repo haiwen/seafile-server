@@ -1066,7 +1066,7 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
     if (!base) {
         seaf_warning ("Failed to get commit %s for repo %s.\n",
                       new_commit->parent_id, repo->id);
-        evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        evhtp_send_reply (req, EVHTP_RES_BADREQ);
         goto out;
     }
 
