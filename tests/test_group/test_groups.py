@@ -37,7 +37,7 @@ def test_multi_tier_groups(repo):
         assert g.id == order[i]
         i = i + 1
 
-    top_groups = ccnet_api.get_top_groups()
+    top_groups = ccnet_api.get_top_groups(True)
     assert len(top_groups) == 1
     for g in top_groups:
         assert g.parent_group_id == -1
