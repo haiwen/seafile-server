@@ -5,6 +5,14 @@ CREATE TABLE IF NOT EXISTS "auth_user_user_permissions" ("id" integer NOT NULL P
 CREATE TABLE IF NOT EXISTS "auth_permission" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "content_type_id" integer NOT NULL REFERENCES "django_content_type" ("id"), "codename" varchar(100) NOT NULL, "name" varchar(255) NOT NULL);
 CREATE TABLE IF NOT EXISTS "auth_user" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "password" varchar(128) NOT NULL, "last_login" datetime NULL, "is_superuser" bool NOT NULL, "first_name" varchar(30) NOT NULL, "last_name" varchar(30) NOT NULL, "email" varchar(254) NOT NULL, "is_staff" bool NOT NULL, "is_active" bool NOT NULL, "date_joined" datetime NOT NULL, "username" varchar(150) NOT NULL UNIQUE);
 
+CREATE TABLE IF NOT EXISTS "organizations_orgmemberquota" (
+    "id" integer NOT NULL PRIMARY KEY,
+    "org_id" integer NOT NULL,
+    "quota" integer NOT NULL
+);
+CREATE TABLE IF NOT EXISTS "django_cas_ng_sessionticket" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "session_key" varchar(255) NOT NULL, "ticket" varchar(255) NOT NULL);
+CREATE TABLE IF NOT EXISTS "django_cas_ng_proxygrantingticket" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "session_key" varchar(255) NULL, "pgtiou" varchar(255) NULL, "pgt" varchar(255) NULL, "date" datetime NOT NULL, "user" varchar(255) NOT NULL);
+
 CREATE UNIQUE INDEX IF NOT EXISTS "auth_group_permissions_group_id_permission_id_0cd325b0_uniq" ON "auth_group_permissions" ("group_id", "permission_id");
 CREATE INDEX IF NOT EXISTS "auth_group_permissions_group_id_b120cbf9" ON "auth_group_permissions" ("group_id");
 CREATE INDEX IF NOT EXISTS "auth_group_permissions_permission_id_84c5c92e" ON "auth_group_permissions" ("permission_id");

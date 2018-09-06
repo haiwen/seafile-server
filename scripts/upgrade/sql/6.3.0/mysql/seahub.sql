@@ -134,6 +134,34 @@ CREATE TABLE IF NOT EXISTS `wiki_wiki` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
+CREATE TABLE IF NOT EXISTS `django_cas_ng_proxygrantingticket` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `session_key` varchar(255) DEFAULT NULL,
+  `pgtiou` varchar(255) DEFAULT NULL,
+  `pgt` varchar(255) DEFAULT NULL,
+  `date` datetime NOT NULL,
+  `user` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `django_cas_ng_proxygrant_session_key_user_id_4cd2ea19_uniq` (`session_key`,`user`),
+  KEY `django_cas_ng_proxyg_user_id_f833edd2_fk_auth_user` (`user`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+CREATE TABLE IF NOT EXISTS `django_cas_ng_sessionticket` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `session_key` varchar(255) NOT NULL,
+  `ticket` varchar(255) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE IF NOT EXISTS `organizations_orgmemberquota` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `org_id` int(11) NOT NULL,
+  `quota` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `organizations_orgmemberquota_org_id_93dde51d` (`org_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 
 ALTER TABLE notifications_notification ADD INDEX `notifications_notification_386bba5a` (`primary`);
 
