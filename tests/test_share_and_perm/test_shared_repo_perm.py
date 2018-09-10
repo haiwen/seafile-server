@@ -52,7 +52,7 @@ def test_share_repo_to_group(repo, group, permission):
     assert_repo_with_permission(repo, repos, permission)
 
     group_ids = api.get_shared_group_ids_by_repo(repo.id)
-    assert group_ids and group_ids[len (group_ids) - 1] == '\n'
+    assert group_ids[0] == str(group.id)
 
     group_list = api.list_repo_shared_group_by_user(USER, repo.id)
     assert len(group_list) == 1
