@@ -463,10 +463,17 @@ class SeafileAPI(object):
         return seafserv_threaded_rpc.group_unshare_repo(repo_id, group_id, username)
 
     def get_shared_group_ids_by_repo(self, repo_id):
-        """
-        Return: a string containing list of group ids. Each id is seperated by '\n'
-        """
-        return seafserv_threaded_rpc.get_shared_groups_by_repo(repo_id)
+        group_ids = seafserv_threaded_rpc.get_shared_groups_by_repo(repo_id)
+
+        if not group_ids:
+            return []
+
+        ret = []
+        for group_id in group_ids.split('\n'):
+            if not group_id:
+                continue
+            ret.append(group_id)
+        return ret
 
     def list_repo_shared_group(self, from_user, repo_id):
         # deprecated, use list_repo_shared_group_by_user instead.
