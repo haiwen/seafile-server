@@ -166,6 +166,9 @@ class SeafileAPI(object):
     def get_system_default_repo_id (self):
         return seafserv_threaded_rpc.get_system_default_repo_id()
 
+    def get_org_id_by_repo_id (self, repo_id):
+        return seafserv_threaded_rpc.get_org_id_by_repo_id(repo_id)
+
     # File property and dir listing
 
     def is_valid_filename(self, repo_id, filename):
