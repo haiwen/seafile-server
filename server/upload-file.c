@@ -127,6 +127,13 @@ set_content_length_header (evhtp_request_t *req)
 static gint64
 get_content_length (evhtp_request_t *req)
 {
+    /* Try to get the size of whole file, not block size  */
+    const char *content_range_str = evhtp_kv_find (req->headers_in, "Content-Range");
+    if (content_range_str != NULL && strstr(content_range_str, "/") != NULL) {
+        char *len_str = strstr(content_range_str, "/") + 1;
+        return strtoll (len_str, NULL, 10);
+    }
+
     const char *content_len_str = evhtp_kv_find (req->headers_in, "Content-Length");
     if (!content_len_str) {
         return -1;
