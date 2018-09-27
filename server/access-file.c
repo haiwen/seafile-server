@@ -1482,6 +1482,7 @@ access_blks_cb(evhtp_request_t *req, void *arg)
     repo_id = seafile_web_access_get_repo_id (webaccess);
     id = seafile_web_access_get_obj_id (webaccess);
     operation = seafile_web_access_get_op (webaccess);
+    user = seafile_web_access_get_username (webaccess);
 
     repo = seaf_repo_manager_get_repo(seaf->repo_mgr, repo_id);
     if (!repo) {
