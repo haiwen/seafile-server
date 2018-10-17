@@ -10,12 +10,8 @@
 #include "log.h"
 
 typedef struct SizeSchedulerPriv {
-    pthread_mutex_t q_lock;
-    GQueue *repo_size_job_queue;
-    int n_running_repo_size_jobs;
-    gint64 last_print_queue_size_time;
-
-    CcnetTimer *sched_timer;
+    pthread_t thread_id;
+    GThreadPool *compute_repo_size_thread_pool;
 } SizeSchedulerPriv;
 
 typedef struct RepoSizeJob {
@@ -23,20 +19,21 @@ typedef struct RepoSizeJob {
     char repo_id[37];
 } RepoSizeJob;
 
-#define SCHEDULER_INTV 1000    /* 1s */
-#define CONCURRENT_JOBS 1
-
-static int
-schedule_pulse (void *vscheduler);
 static void*
 compute_repo_size (void *vjob);
 static void
-compute_repo_size_done (void *vjob);
+compute_task (void *data, void *user_data);
+static void*
+log_unprocessed_task_thread (void *arg);
+
+#define DEFAULT_SCHEDULE_THREAD_NUMBER 1;
 
 SizeScheduler *
 size_scheduler_new (SeafileSession *session)
 {
+    GError *error = NULL;
     SizeScheduler *sched = g_new0 (SizeScheduler, 1);
+    int sched_thread_num;
 
     if (!sched)
         return NULL;
@@ -49,9 +46,25 @@ size_scheduler_new (SeafileSession *session)
 
     sched->seaf = session;
 
-    pthread_mutex_init (&sched->priv->q_lock, NULL);
+    sched_thread_num = g_key_file_get_integer (session->config, "scheduler", "size_sched_thread_num", NULL);
 
-    sched->priv->repo_size_job_queue = g_queue_new ();
+    if (sched_thread_num == 0)
+        sched_thread_num = DEFAULT_SCHEDULE_THREAD_NUMBER;
+
+    sched->priv->compute_repo_size_thread_pool = g_thread_pool_new (compute_task, NULL,
+                                                                    sched_thread_num, FALSE, &error);
+    if (!sched->priv->compute_repo_size_thread_pool) {
+        if (error) {
+            seaf_warning ("Failed to create compute repo size thread pool: %s.\n", error->message);
+        } else {
+            seaf_warning ("Failed to create repo size thread pool.\n");
+        }
+
+        g_clear_error (&error);
+        g_free (sched->priv);
+        g_free (sched);
+        return NULL;
+    }
 
     return sched;
 }
@@ -59,9 +72,12 @@ size_scheduler_new (SeafileSession *session)
 int
 size_scheduler_start (SizeScheduler *scheduler)
 {
-    scheduler->priv->sched_timer = ccnet_timer_new (schedule_pulse,
-                                              scheduler,
-                                              SCHEDULER_INTV);
+    int ret = pthread_create (&scheduler->priv->thread_id, NULL, log_unprocessed_task_thread, scheduler);
+    if (ret < 0) {
+        seaf_warning ("Failed to create log unprocessed task thread.\n");
+        return -1;
+    }
+    pthread_detach (scheduler->priv->thread_id);
 
     return 0;
 }
@@ -74,46 +90,37 @@ schedule_repo_size_computation (SizeScheduler *scheduler, const char *repo_id)
     job->sched = scheduler;
     memcpy (job->repo_id, repo_id, 37);
 
-    pthread_mutex_lock (&scheduler->priv->q_lock);
-    g_queue_push_tail (scheduler->priv->repo_size_job_queue, job);
-    pthread_mutex_unlock (&scheduler->priv->q_lock);
+    g_thread_pool_push (scheduler->priv->compute_repo_size_thread_pool, job, NULL);
 }
 
-#define PRINT_QUEUE_SIZE_INTERVAL 300
+#define PRINT_UNPROCESSED_TASKS_INTERVAL 30
 
-static int
-schedule_pulse (void *vscheduler)
+void *log_unprocessed_task_thread (void *arg)
 {
-    SizeScheduler *sched = vscheduler;
-    RepoSizeJob *job;
+    SizeScheduler *sched = arg;
+    guint unprocessed_num;
 
-    while (sched->priv->n_running_repo_size_jobs < CONCURRENT_JOBS) {
-        gint64 now = (gint64)time(NULL);
-        pthread_mutex_lock (&sched->priv->q_lock);
-        job = (RepoSizeJob *)g_queue_pop_head (sched->priv->repo_size_job_queue);
-        if (now - sched->priv->last_print_queue_size_time >= PRINT_QUEUE_SIZE_INTERVAL) {
-            seaf_message ("Repo size compute queue size is %u\n",
-                          sched->priv->repo_size_job_queue->length);
-            sched->priv->last_print_queue_size_time = now;
-        }
-        pthread_mutex_unlock (&sched->priv->q_lock);
+    while (1) {
+        unprocessed_num = g_thread_pool_unprocessed (sched->priv->compute_repo_size_thread_pool);
 
-        if (!job)
-            break;
+        if (unprocessed_num > 10)
+            seaf_message ("The number of repo size update tasks in queue is %u\n",
+                          unprocessed_num);
 
-        int ret = ccnet_job_manager_schedule_job (sched->seaf->job_mgr,
-                                                  compute_repo_size,
-                                                  compute_repo_size_done,
-                                                  job);
-        if (ret < 0) {
-            seaf_warning ("[scheduler] failed to start compute job.\n");
-            g_free (job);
-            break;
-        }
-        ++(sched->priv->n_running_repo_size_jobs);
+        sleep (PRINT_UNPROCESSED_TASKS_INTERVAL);
     }
 
-    return 1;
+    return NULL;
+}
+
+static void
+compute_task (void *data, void *user_data)
+{
+    RepoSizeJob *job = data;
+
+    compute_repo_size (job);
+
+    g_free (job);
 }
 
 static gboolean get_head_id (SeafDBRow *row, void *data)
@@ -222,6 +229,7 @@ get_cached_head_id (SeafDB *db, const char *repo_id)
     return seaf_db_statement_get_string (db, sql, 1, "string", repo_id);
 }
 
+
 static void*
 compute_repo_size (void *vjob)
 {
@@ -230,8 +238,11 @@ compute_repo_size (void *vjob)
     SeafRepo *repo = NULL;
     SeafCommit *head = NULL;
     char *cached_head_id = NULL;
+    GObject *file_count_info = NULL;
     gint64 size = 0;
     gint64 file_count = 0;
+    GError **error = NULL;
+    int ret;
 
     repo = seaf_repo_manager_get_repo (sched->seaf->repo_mgr, job->repo_id);
     if (!repo) {
@@ -252,29 +263,28 @@ compute_repo_size (void *vjob)
         goto out;
     }
 
-    size = seaf_fs_manager_get_fs_size (sched->seaf->fs_mgr,
-                                        repo->store_id, repo->version,
-                                        head->root_id);
-    if (size < 0) {
-        seaf_warning ("[scheduler] Failed to compute size of repo %.8s.\n",
-                   repo->id);
+    file_count_info = seaf_fs_manager_get_file_count_info_by_path (seaf->fs_mgr,
+                                                                   repo->store_id,
+                                                                   repo->version,
+                                                                   repo->root_id,
+                                                                   "/", error);
+
+    if (!file_count_info) {
+        seaf_warning ("[scheduler] failed to get file count info.\n");
+        g_clear_error (error);
         goto out;
     }
 
-    file_count = seaf_fs_manager_count_fs_files (sched->seaf->fs_mgr,
-                                                 repo->store_id, repo->version,
-                                                 head->root_id);
-    if (file_count < 0) {
-        seaf_warning ("[scheduler] Failed to compute file count for repo %s.\n",
-                      repo->id);
-        goto out;
-    }
+    g_object_get (file_count_info, "file_count", &file_count, "size", &size, NULL);
 
-    int ret = set_repo_size_and_file_count (sched->seaf->db,
-                                            job->repo_id,
-                                            repo->head->commit_id,
-                                            size,
-                                            file_count);
+    ret = set_repo_size_and_file_count (sched->seaf->db,
+                                        job->repo_id,
+                                        repo->head->commit_id,
+                                        size,
+                                        file_count);
+
+    g_object_unref (file_count_info);
+
     if (ret < 0) {
         seaf_warning ("[scheduler] failed to store repo size and file count %s.\n", job->repo_id);
         goto out;
@@ -288,10 +298,3 @@ out:
     return vjob;
 }
 
-static void
-compute_repo_size_done (void *vjob)
-{
-    RepoSizeJob *job = vjob;
-    --(job->sched->priv->n_running_repo_size_jobs);
-    g_free (job);
-}
