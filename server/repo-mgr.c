@@ -3840,6 +3840,8 @@ retry:
         goto retry;
     }
 
+    seaf_repo_manager_update_repo_info (seaf->repo_mgr, repo_id, repo->head->commit_id);
+
 out:
     seaf_commit_unref (commit);
     seaf_commit_unref (parent);
