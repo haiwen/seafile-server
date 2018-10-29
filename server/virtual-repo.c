@@ -599,6 +599,7 @@ handle_missing_virtual_repo (SeafRepoManager *mgr,
                         g_clear_error (&error);
                     }
                     is_renamed = TRUE;
+                    g_free (new_path);
                     break;
                 }
             }

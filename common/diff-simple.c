@@ -569,33 +569,74 @@ diff_merge_roots (const char *store_id, int version,
 void
 diff_resolve_renames (GList **diff_entries)
 {
-    GHashTable *deleted;
+    GHashTable *deleted_files = NULL, *deleted_dirs = NULL;
     GList *p;
     GList *added = NULL;
     DiffEntry *de;
     unsigned char empty_sha1[20];
+    unsigned int deleted_empty_count = 0, deleted_empty_dir_count = 0;
+    unsigned int added_empty_count = 0, added_empty_dir_count = 0;
+    gboolean check_empty_dir, check_empty_file;
 
     memset (empty_sha1, 0, 20);
 
     /* Hash and equal functions for raw sha1. */
-    deleted = g_hash_table_new (ccnet_sha1_hash, ccnet_sha1_equal);
+    deleted_dirs = g_hash_table_new (ccnet_sha1_hash, ccnet_sha1_equal);
+    deleted_files = g_hash_table_new (ccnet_sha1_hash, ccnet_sha1_equal);
+
+    /* Count deleted and added entries of which content is empty. */
+    for (p = *diff_entries; p != NULL; p = p->next) {
+        de = p->data;
+        if (memcmp (de->sha1, empty_sha1, 20) == 0) {
+            if (de->status == DIFF_STATUS_DELETED)
+                deleted_empty_count++;
+            if (de->status == DIFF_STATUS_DIR_DELETED)
+                deleted_empty_dir_count++;
+            if (de->status == DIFF_STATUS_ADDED)
+                added_empty_count++;
+            if (de->status == DIFF_STATUS_DIR_ADDED)
+                added_empty_dir_count++;
+        }
+    }
+
+    check_empty_dir = (deleted_empty_dir_count == 1 && added_empty_dir_count == 1);
+    check_empty_file = (deleted_empty_count == 1 && added_empty_count == 1);
 
     /* Collect all "deleted" entries. */
     for (p = *diff_entries; p != NULL; p = p->next) {
         de = p->data;
-        if ((de->status == DIFF_STATUS_DELETED ||
-             de->status == DIFF_STATUS_DIR_DELETED) &&
-            memcmp (de->sha1, empty_sha1, 20) != 0)
-            g_hash_table_insert (deleted, de->sha1, p);
+        if (de->status == DIFF_STATUS_DELETED) {
+            if (memcmp (de->sha1, empty_sha1, 20) == 0 &&
+                check_empty_file == FALSE)
+                continue;
+
+            g_hash_table_insert (deleted_files, de->sha1, p);
+        }
+
+        if (de->status == DIFF_STATUS_DIR_DELETED) {
+            if (memcmp (de->sha1, empty_sha1, 20) == 0 &&
+                check_empty_dir == FALSE)
+                continue;
+
+            g_hash_table_insert (deleted_dirs, de->sha1, p);
+        }
     }
 
     /* Collect all "added" entries into a separate list. */
     for (p = *diff_entries; p != NULL; p = p->next) {
         de = p->data;
-        if ((de->status == DIFF_STATUS_ADDED ||
-             de->status == DIFF_STATUS_DIR_ADDED) &&
-            memcmp (de->sha1, empty_sha1, 20) != 0)
-            added = g_list_prepend (added, p);
+        if (de->status == DIFF_STATUS_ADDED) {
+            if (memcmp (de->sha1, empty_sha1, 20) == 0 &&
+                check_empty_file == 0)
+                continue;
+        }
+
+        if (de->status == DIFF_STATUS_DIR_ADDED) {
+            if (memcmp (de->sha1, empty_sha1, 20) == 0 &&
+                check_empty_dir == 0)
+                continue;
+        }
+        added = g_list_prepend (added, p);
     }
 
     /* For each "added" entry, if we find a "deleted" entry with
@@ -610,7 +651,11 @@ diff_resolve_renames (GList **diff_entries)
         p_add = p->data;
         de_add = p_add->data;
 
-        p_del = g_hash_table_lookup (deleted, de_add->sha1);
+        if (de_add->status == DIFF_STATUS_ADDED)
+            p_del = g_hash_table_lookup (deleted_files, de_add->sha1);
+        else
+            p_del = g_hash_table_lookup (deleted_dirs, de_add->sha1);
+
         if (p_del) {
             de_del = p_del->data;
 
@@ -627,7 +672,10 @@ diff_resolve_renames (GList **diff_entries)
             *diff_entries = g_list_delete_link (*diff_entries, p_del);
             *diff_entries = g_list_prepend (*diff_entries, de_rename);
 
-            g_hash_table_remove (deleted, de_add->sha1);
+            if (de_del->status == DIFF_STATUS_DIR_DELETED)
+                g_hash_table_remove (deleted_dirs, de_add->sha1);
+            else
+                g_hash_table_remove (deleted_files, de_add->sha1);
 
             diff_entry_free (de_add);
             diff_entry_free (de_del);
@@ -636,7 +684,8 @@ diff_resolve_renames (GList **diff_entries)
         p = g_list_delete_link (p, p);
     }
 
-    g_hash_table_destroy (deleted);
+    g_hash_table_destroy (deleted_dirs);
+    g_hash_table_destroy (deleted_files);
 }
 
 static gboolean
