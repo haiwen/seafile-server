@@ -44,7 +44,7 @@ function validate_running_user () {
 
     if [[ "${running_user}" != "${data_dir_owner}" ]]; then
         echo "Error: the user running the script (\"${running_user}\") is not the owner of \"${real_data_dir}\" folder, you should use the user \"${data_dir_owner}\" to run the script."
-        exit -1;
+        exit 1;
     fi
 }
 
@@ -53,7 +53,7 @@ function validate_ccnet_conf_dir () {
         echo "Error: there is no ccnet config directory."
         echo "Have you run setup-seafile.sh before this?"
         echo ""
-        exit -1;
+        exit 1;
     fi
 }
 
@@ -62,7 +62,7 @@ function validate_central_conf_dir () {
         echo "Error: there is no conf/ directory."
         echo "Have you run setup-seafile.sh before this?"
         echo ""
-        exit -1;
+        exit 1;
     fi
 }
 
@@ -91,30 +91,19 @@ function test_config() {
 }
 
 function check_component_running() {
-    name=$1
-    cmd=$2
+    local pid name=$1 cmd=$2
     if pid=$(pgrep -f "$cmd" 2>/dev/null); then
-        echo "[$name] is running, pid $pid. You can stop it by: "
-        echo
-        echo "        kill $pid"
-        echo
-        echo "Stop it and try again."
-        echo
-        exit
+        echo "Error: [$name] is still running, pid $pid. You can try to stop it with 'kill $pid', or force stop it with 'kill -9 $pid'." >&2
+        exit 2
     fi
 }
 
 function validate_already_running () {
-    if pid=$(pgrep -f "seafile-controller -c ${default_ccnet_conf_dir}" 2>/dev/null); then
-        echo "Seafile controller is already running, pid $pid"
-        echo
-        exit 1;
-    fi
-
-    check_component_running "ccnet-server" "ccnet-server -c ${default_ccnet_conf_dir}"
-    check_component_running "seaf-server" "seaf-server -c ${default_ccnet_conf_dir}"
-    check_component_running "fileserver" "fileserver -c ${default_ccnet_conf_dir}"
-    check_component_running "seafdav" "wsgidav.server.run_server"
+    check_component_running "seafile-controller" "seafile-controller -c ${default_ccnet_conf_dir}"
+    check_component_running "ccnet-server" "ccnet-server -c ${default_ccnet_conf_dir}" $noerr
+    check_component_running "seaf-server" "seaf-server -c ${default_ccnet_conf_dir}" $noerr
+    check_component_running "fileserver" "fileserver -c ${default_ccnet_conf_dir}" $noerr
+    check_component_running "seafdav" "wsgidav.server.run_server" $noerr
 }
 
 function start_seafile_server () {
@@ -148,7 +137,7 @@ function start_seafile_server () {
 function stop_seafile_server () {
     if ! pgrep -f "seafile-controller -c ${default_ccnet_conf_dir}" 2>/dev/null 1>&2; then
         echo "seafile server not running yet"
-        return 1;
+        exit 1;
     fi
 
     echo "Stopping seafile server ..."
@@ -158,7 +147,8 @@ function stop_seafile_server () {
     pkill -f "fileserver -c ${default_ccnet_conf_dir}"
     pkill -f "soffice.*--invisible --nocrashreport"
     pkill -f  "wsgidav.server.run_server"
-    return 0
+    sleep 1
+    validate_already_running
 }
 
 function restart_seafile_server () {
