@@ -215,11 +215,6 @@ seaf_repo_manager_list_dir_with_perm (SeafRepoManager *mgr,
     GList *res = NULL;
     GList *p;
 
-    if (!repo_id || !is_uuid_valid(repo_id) || dir_id == NULL || !user) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_DIR_ID, "Bad dir id");
-        return NULL;
-    }
-
     perm = seaf_repo_manager_check_permission (mgr, repo_id, user, error);
     if (!perm) {
         if (*error == NULL)

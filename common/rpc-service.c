@@ -4645,8 +4645,18 @@ seafile_list_dir_with_perm (const char *repo_id,
         return NULL;
     }
 
+    if (!path) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid path");
+        return NULL;
+    }
+
     if (!dir_id || !is_object_id_valid (dir_id)) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid dir id");
+        return NULL;
+    }
+
+    if (!user) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid user");
         return NULL;
     }
 
