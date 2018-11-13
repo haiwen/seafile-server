@@ -947,6 +947,12 @@ class CcnetAPI(object):
         """
         return ccnet_threaded_rpc.get_superusers()
 
+    def get_emailusers_in_list(self, user_list):
+        """
+        @user_list: json '[user1, user2, user3,...]'
+        """
+        return ccnet_threaded_rpc.get_emailusers_in_list(user_list)
+
     # group management
     def create_group(self, group_name, user_name, gtype=None, parent_group_id=0):
         """
