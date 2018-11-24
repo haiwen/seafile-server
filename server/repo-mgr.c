@@ -2096,11 +2096,6 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
                                  1, "string", repo_id);
     }
 
-    /* Remove all tokens except for the new owner. */
-    seaf_db_statement_query (mgr->seaf->db,
-                             "DELETE FROM RepoUserToken WHERE repo_id = ? AND email != ?",
-                             2, "string", repo_id, "string", email);
-
     /* Remove virtual repos when repo ownership changes. */
     GList *vrepos, *ptr;
     vrepos = seaf_repo_manager_get_virtual_repo_ids_by_origin (mgr, repo_id);
