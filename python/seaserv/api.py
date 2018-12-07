@@ -645,6 +645,12 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.check_permission_by_path(repo_id, path, user)
 
+    def is_repo_syncable(self, repo_id, user, repo_perm):
+        """
+        Check if the permission of the repo is syncable.
+        """
+        return '{"is_syncable":true}'
+
     # token
     def generate_repo_token(self, repo_id, username):
         """Generate a token for sync a repo
