@@ -892,7 +892,7 @@ fast_forward_or_merge (const char *repo_id,
                        SeafCommit *base,
                        SeafCommit *new_commit)
 {
-#define MAX_RETRY_COUNT 10
+#define MAX_RETRY_COUNT 3
 
     SeafRepo *repo = NULL;
     SeafCommit *current_head = NULL, *merged_commit = NULL;

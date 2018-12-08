@@ -2340,9 +2340,10 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     fsm->line = evbuffer_new ();
     fsm->form_kvs = g_hash_table_new_full (g_str_hash, g_str_equal,
                                            g_free, g_free);
-    const char *need_idx_progress = evhtp_kv_find (req->uri->query, "need_idx_progress");
-    if (g_strcmp0(need_idx_progress, "true") == 0)
-        fsm->need_idx_progress = TRUE;
+    /* const char *need_idx_progress = evhtp_kv_find (req->uri->query, "need_idx_progress"); */
+    /* if (g_strcmp0(need_idx_progress, "true") == 0) */
+    /*     fsm->need_idx_progress = TRUE; */
+    fsm->need_idx_progress = FALSE;
 
     if (progress_id != NULL) {
         progress = g_new0 (Progress, 1);

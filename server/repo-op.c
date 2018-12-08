@@ -453,7 +453,7 @@ gen_new_commit (const char *repo_id,
                 char *new_commit_id,
                 GError **error)
 {
-#define MAX_RETRY_COUNT 10
+#define MAX_RETRY_COUNT 3
 
     SeafRepo *repo = NULL;
     SeafCommit *new_commit = NULL, *current_head = NULL, *merged_commit = NULL;
@@ -585,8 +585,7 @@ retry:
 
             goto retry;
         } else {
-            seaf_warning ("Too many retries for concurrent update on repo %s. Stop retrying.\n",
-                          repo_id);
+            seaf_warning ("Stop updating repo %s after %d retries.\n", repo_id, MAX_RETRY_COUNT);
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL, "Concurrent update");
             ret = -1;
             goto out;
