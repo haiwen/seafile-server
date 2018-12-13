@@ -629,14 +629,17 @@ diff_resolve_renames (GList **diff_entries)
             if (memcmp (de->sha1, empty_sha1, 20) == 0 &&
                 check_empty_file == 0)
                 continue;
+
+            added = g_list_prepend (added, p);
         }
 
         if (de->status == DIFF_STATUS_DIR_ADDED) {
             if (memcmp (de->sha1, empty_sha1, 20) == 0 &&
                 check_empty_dir == 0)
                 continue;
+
+            added = g_list_prepend (added, p);
         }
-        added = g_list_prepend (added, p);
     }
 
     /* For each "added" entry, if we find a "deleted" entry with
