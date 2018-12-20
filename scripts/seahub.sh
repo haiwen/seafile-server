@@ -231,7 +231,11 @@ function stop_seahub () {
     if [[ -f ${pidfile} ]]; then
         pid=$(cat "${pidfile}")
         echo "Stopping seahub ..."
-        kill ${pid}
+        ps -ef | grep ${pid} | awk '{print $2}' | xargs kill -9
+        if ps "${pid}" 2>/dev/null 1>&2 ; then
+            echo 'Failed to stop seahub.'
+            exit -1
+        fi
         rm -f ${pidfile}
         return 0
     else
