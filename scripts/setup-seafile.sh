@@ -23,7 +23,7 @@ function welcome () {
     echo -e "\nMake sure you have read seafile server manual at \n\n\t${server_manual_http}\n"
     echo -e "Note: This script will guide your to setup seafile server using sqlite3,"
     echo "which may have problems if your disk is on a NFS/CIFS/USB."
-    echo "In these cases, we sugguest you setup seafile server using MySQL."
+    echo "In these cases, we suggest you setup seafile server using MySQL."
     echo
     echo "Press [ENTER] to continue"
     echo "-----------------------------------------------------------------"
