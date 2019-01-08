@@ -29,7 +29,7 @@
 #define CONNECT_INTERVAL_MSEC 10 * 1000
 
 #define DEFAULT_THREAD_POOL_SIZE 500
-#define DEFAULT_RPC_THREAD_POOL_SIZE 50
+#define DEFAULT_RPC_THREAD_POOL_SIZE 10
 
 static int
 load_thread_pool_config (SeafileSession *session);

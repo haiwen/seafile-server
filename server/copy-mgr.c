@@ -15,7 +15,7 @@
 
 #include "log.h"
 
-#define DEFAULT_MAX_THREADS 50
+#define DEFAULT_MAX_THREADS 5
 
 struct _SeafCopyManagerPriv {
     GHashTable *copy_tasks;
