@@ -26,6 +26,7 @@ enum {
     PID_CCNET = 0,
     PID_SERVER,
     PID_SEAFDAV,
+    PID_SEAFEVENTS,
     N_PID
 };
 
@@ -56,5 +57,7 @@ struct _SeafileController {
     char                *pidfile[N_PID];
 
     SeafDavConfig       seafdav_config;
+
+    gboolean            has_seafevents;
 };
 #endif
