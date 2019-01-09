@@ -73,8 +73,8 @@ def test_share_repo_to_group(repo, group, permission):
 
     assert api.check_permission(repo.id, USER2) == permission
 
-    group_list = api.get_group_repos_by_user (USER)
-    assert len(group_list) == 1
+    repos = api.get_group_repos_by_user (USER)
+    assert len(repos) == 1
 
     repoids = api.get_group_repoids(group.id)
     assert len(repoids) == 1
