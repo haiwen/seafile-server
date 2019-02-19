@@ -35,6 +35,7 @@
 #define DEFAULT_MAX_INDEXING_THREADS 1
 #define DEFAULT_MAX_INDEX_PROCESSING_THREADS 3
 #define DEFAULT_FIXED_BLOCK_SIZE ((gint64)1 << 23) /* 8MB */
+#define DEFAULT_CLUSTER_SHARED_TEMP_FILE_MODE 0600
 
 #define HOST "host"
 #define PORT "port"
@@ -130,6 +131,7 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     char *encoding;
     int max_indexing_threads;
     int max_index_processing_threads;
+    char *cluster_shared_temp_file_mode = NULL;
 
     host = fileserver_config_get_string (session->config, HOST, &error);
     if (!error) {
@@ -231,6 +233,28 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     }
     seaf_message ("fileserver: max_index_processing_threads= %d\n",
                   htp_server->max_index_processing_threads);
+
+    cluster_shared_temp_file_mode = fileserver_config_get_string (session->config,
+                                                                  "cluster_shared_temp_file_mode",
+                                                                  &error);
+    if (error) {
+        htp_server->cluster_shared_temp_file_mode = DEFAULT_CLUSTER_SHARED_TEMP_FILE_MODE;
+        g_clear_error (&error);
+    } else {
+        if (!cluster_shared_temp_file_mode) {
+            htp_server->cluster_shared_temp_file_mode = DEFAULT_CLUSTER_SHARED_TEMP_FILE_MODE;
+        } else {
+            htp_server->cluster_shared_temp_file_mode = strtol(cluster_shared_temp_file_mode, NULL, 8);
+
+            if (htp_server->cluster_shared_temp_file_mode < 0001 ||
+                htp_server->cluster_shared_temp_file_mode > 0777)
+                htp_server->cluster_shared_temp_file_mode = DEFAULT_CLUSTER_SHARED_TEMP_FILE_MODE;
+
+            g_free (cluster_shared_temp_file_mode);
+        }
+    }
+    seaf_message ("fileserver: cluster_shared_temp_file_mode = %o\n",
+                  htp_server->cluster_shared_temp_file_mode);
 
     encoding = g_key_file_get_string (session->config,
                                       "zip", "windows_encoding",

@@ -818,6 +818,31 @@ seaf_get_total_file_number (GError **error);
 gint64
 seaf_get_total_storage (GError **error);
 
+int
+seaf_repo_manager_add_upload_tmp_file (SeafRepoManager *mgr,
+                                       const char *repo_id,
+                                       const char *file_path,
+                                       const char *tmp_file,
+                                       GError **error);
+
+int
+seaf_repo_manager_del_upload_tmp_file (SeafRepoManager *mgr,
+                                       const char *repo_id,
+                                       const char *file_path,
+                                       GError **error);
+
+char *
+seaf_repo_manager_get_upload_tmp_file (SeafRepoManager *mgr,
+                                       const char *repo_id,
+                                       const char *file_path,
+                                       GError **error);
+
+gint64
+seaf_repo_manager_get_upload_tmp_file_offset (SeafRepoManager *mgr,
+                                              const char *repo_id,
+                                              const char *file_path,
+                                              GError **error);
+
 void
 seaf_repo_manager_update_repo_info (SeafRepoManager *mgr,
                                     const char *repo_id,

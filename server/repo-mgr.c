@@ -1058,6 +1058,12 @@ create_tables_mysql (SeafRepoManager *mgr)
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
+    sql = "CREATE TABLE IF NOT EXISTS WebUploadTempFiles ( "
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, repo_id CHAR(40) NOT NULL, "
+        "file_path TEXT NOT NULL, tmp_file_path TEXT NOT NULL) ENGINE=INNODB";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+
     return 0;
 }
 
@@ -1206,6 +1212,11 @@ create_tables_sqlite (SeafRepoManager *mgr)
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
+    sql = "CREATE TABLE IF NOT EXISTS WebUploadTempFiles (repo_id CHAR(40) NOT NULL, "
+        "file_path TEXT NOT NULL, tmp_file_path TEXT NOT NULL)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+
     return 0;
 }
 
@@ -1341,6 +1352,11 @@ create_tables_pgsql (SeafRepoManager *mgr)
     sql = "CREATE TABLE IF NOT EXISTS RepoFileCount ("
         "repo_id CHAR(36) PRIMARY KEY,"
         "file_count BIGINT)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+
+    sql = "CREATE TABLE IF NOT EXISTS WebUploadTempFiles (repo_id CHAR(40) NOT NULL, "
+        "file_path TEXT NOT NULL, tmp_file_path TEXT NOT NULL)";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
@@ -3916,6 +3932,119 @@ seaf_get_total_storage (GError **error)
     }
 
     return size;
+}
+
+int
+seaf_repo_manager_add_upload_tmp_file (SeafRepoManager *mgr,
+                                       const char *repo_id,
+                                       const char *file_path,
+                                       const char *tmp_file,
+                                       GError **error)
+{
+    int ret = seaf_db_statement_query (mgr->seaf->db,
+                                       "INSERT INTO WebUploadTempFiles "
+                                       "(repo_id, file_path, tmp_file_path) "
+                                       "VALUES (?, ?, ?)", 3, "string", repo_id,
+                                       "string", file_path, "string", tmp_file);
+
+    if (ret < 0) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to add upload tmp file record to db.");
+    }
+
+    return ret;
+}
+
+int
+seaf_repo_manager_del_upload_tmp_file (SeafRepoManager *mgr,
+                                       const char *repo_id,
+                                       const char *file_path,
+                                       GError **error)
+{
+    int ret = seaf_db_statement_query (mgr->seaf->db,
+                                       "DELETE FROM WebUploadTempFiles WHERE "
+                                       "repo_id = ? AND file_path = ?",
+                                       2, "string", repo_id, "string", file_path);
+    if (ret < 0) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to delete upload tmp file record from db.");
+    }
+
+    return ret;
+}
+
+static gboolean
+get_tmp_file_path (SeafDBRow *row, void *data)
+{
+    char **path = data;
+
+    *path = g_strdup (seaf_db_row_get_column_text (row, 0));
+
+    return FALSE;
+}
+
+char *
+seaf_repo_manager_get_upload_tmp_file (SeafRepoManager *mgr,
+                                       const char *repo_id,
+                                       const char *file_path,
+                                       GError **error)
+{
+    char *tmp_file_path = NULL;
+
+    int ret = seaf_db_statement_foreach_row (mgr->seaf->db,
+                                             "SELECT tmp_file_path FROM WebUploadTempFiles "
+                                             "WHERE repo_id = ? AND file_path = ?",
+                                             get_tmp_file_path, &tmp_file_path,
+                                             2, "string", repo_id, "string", file_path);
+    if (ret < 0) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to get upload temp file path from db.");
+        return NULL;
+    }
+
+    return tmp_file_path;
+}
+
+gint64
+seaf_repo_manager_get_upload_tmp_file_offset (SeafRepoManager *mgr,
+                                              const char *repo_id,
+                                              const char *file_path,
+                                              GError **error)
+{
+    char *tmp_file_path = NULL;
+    SeafStat file_stat;
+
+    tmp_file_path = seaf_repo_manager_get_upload_tmp_file (mgr, repo_id,
+                                                           file_path, error);
+    if (*error) {
+        return -1;
+    }
+
+    if (!tmp_file_path)
+        return 0;
+
+    if (seaf_stat (tmp_file_path, &file_stat) < 0) {
+        if (errno == ENOENT) {
+            seaf_message ("Temp file %s doesn't exist, remove reocrd from db.\n",
+                          tmp_file_path);
+            if (seaf_repo_manager_del_upload_tmp_file (mgr, repo_id,
+                                                       file_path, error) < 0) {
+                g_free (tmp_file_path);
+                return -1;
+            }
+            return 0;
+        }
+        seaf_warning ("Failed to stat temp file %s: %s.\n",
+                      tmp_file_path, strerror(errno));
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to stat temp file.");
+        g_free (tmp_file_path);
+        return -1;
+    }
+
+    g_free (tmp_file_path);
+
+    return file_stat.st_size;
 }
 
 void
