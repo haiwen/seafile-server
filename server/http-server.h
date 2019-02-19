@@ -21,6 +21,7 @@ struct _HttpServerStruct {
     int max_indexing_threads;
     int worker_threads;
     int max_index_processing_threads;
+    int cluster_shared_temp_file_mode;
 };
 
 typedef struct _HttpServerStruct HttpServerStruct;

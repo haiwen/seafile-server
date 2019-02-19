@@ -989,6 +989,11 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     def get_trash_repo_owner(repo_id):
         pass
 
+    @searpc_func("int64", ["string", "string"])
+    def seafile_get_upload_tmp_file_offset(repo_id, file_path):
+        pass
+    get_upload_tmp_file_offset = seafile_get_upload_tmp_file_offset
+
     @searpc_func("int", ["string", "string", "string", "string"])
     def seafile_mkdir_with_parents (repo_id, parent_dir, relative_path, username):
         pass

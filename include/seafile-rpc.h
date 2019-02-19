@@ -1103,6 +1103,10 @@ seafile_org_get_shared_users_by_repo (int org_id,
                                       const char *repo_id,
                                       GError **error);
 
+gint64
+seafile_get_upload_tmp_file_offset (const char *repo_id, const char *file_path,
+                                    GError **error);
+
 char *
 seafile_convert_repo_path (const char *repo_id,
                            const char *path,
