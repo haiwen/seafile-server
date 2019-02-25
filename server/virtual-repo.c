@@ -164,32 +164,20 @@ get_existing_virtual_repo (SeafRepoManager *mgr,
                                          "string", origin_repo_id, "string", path);
 }
 
-char *
-seaf_repo_manager_create_virtual_repo (SeafRepoManager *mgr,
-                                       const char *origin_repo_id,
-                                       const char *path,
-                                       const char *repo_name,
-                                       const char *repo_desc,
-                                       const char *owner,
-                                       const char *passwd,
-                                       GError **error)
+static char *
+create_virtual_repo_common (SeafRepoManager *mgr,
+                            const char *origin_repo_id,
+                            const char *path,
+                            const char *repo_name,
+                            const char *repo_desc,
+                            const char *owner,
+                            const char *passwd,
+                            GError **error)
 {
     SeafRepo *origin_repo = NULL;
     SeafCommit *origin_head = NULL;
     char *repo_id = NULL;
     char *dir_id = NULL;
-    char *orig_owner = NULL;
-
-    if (seaf_repo_manager_is_virtual_repo (mgr, origin_repo_id)) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "Cannot create sub-library from a sub-library");
-        return NULL;
-    }
-
-    repo_id = get_existing_virtual_repo (mgr, origin_repo_id, path);
-    if (repo_id) {
-        return repo_id;
-    }
 
     origin_repo = seaf_repo_manager_get_repo (mgr, origin_repo_id);
     if (!origin_repo) {
@@ -261,18 +249,9 @@ seaf_repo_manager_create_virtual_repo (SeafRepoManager *mgr,
         goto error;
     }
 
-    orig_owner = seaf_repo_manager_get_repo_owner (mgr, origin_repo_id);
-
     if (do_create_virtual_repo (mgr, origin_repo, repo_id, repo_name, repo_desc,
-                                dir_id, orig_owner, passwd, error) < 0)
+                                dir_id, owner, passwd, error) < 0)
         goto error;
-
-    if (seaf_repo_manager_set_repo_owner (mgr, repo_id, orig_owner) < 0) {
-        seaf_warning ("Failed to set repo owner for %.10s.\n", repo_id);
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "Failed to set repo owner.");
-        goto error;
-    }
 
     /* The size of virtual repo is non-zero at the beginning. */
     update_repo_size (repo_id);
@@ -280,7 +259,6 @@ seaf_repo_manager_create_virtual_repo (SeafRepoManager *mgr,
     seaf_repo_unref (origin_repo);
     seaf_commit_unref (origin_head);
     g_free (dir_id);
-    g_free (orig_owner);
     return repo_id;
 
 error:
@@ -288,8 +266,99 @@ error:
     seaf_commit_unref (origin_head);
     g_free (repo_id);
     g_free (dir_id);
-    g_free (orig_owner);
     return NULL;
+}
+
+static char *
+canonical_vrepo_path (const char *path)
+{
+    char *ret = NULL;
+
+    if (path[0] != '/')
+        ret = g_strconcat ("/", path, NULL);
+    else
+        ret = g_strdup(path);
+
+    int len = strlen(ret);
+    int i = len - 1;
+    while (i >= 0 && ret[i] == '/')
+        ret[i--] = 0;
+
+    return ret;
+}
+
+char *
+seaf_repo_manager_create_virtual_repo (SeafRepoManager *mgr,
+                                       const char *origin_repo_id,
+                                       const char *path,
+                                       const char *repo_name,
+                                       const char *repo_desc,
+                                       const char *owner,
+                                       const char *passwd,
+                                       GError **error)
+{
+    char *repo_id = NULL;
+    char *orig_owner = NULL;
+    char *canon_path = NULL;
+    SeafVirtRepo *vrepo = NULL;
+    char *r_origin_repo_id = NULL;
+    char *r_path = NULL;
+
+    if (g_strcmp0 (path, "/") == 0) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Invalid path");
+        return NULL;
+    }
+
+    canon_path = canonical_vrepo_path (path);
+    vrepo = seaf_repo_manager_get_virtual_repo_info (mgr, origin_repo_id);
+    if (vrepo) {
+        // virtual repo
+        r_path = g_strconcat(vrepo->path, canon_path, NULL);
+        r_origin_repo_id = g_strdup (vrepo->origin_repo_id);
+        seaf_virtual_repo_info_free (vrepo);
+        repo_id = get_existing_virtual_repo (mgr, r_origin_repo_id, r_path);
+        if (repo_id) {
+            g_free (r_origin_repo_id);
+            g_free (r_path);
+            g_free (canon_path);
+            return repo_id;
+        }
+    } else {
+        r_path = g_strdup (canon_path);
+        r_origin_repo_id = g_strdup (origin_repo_id);
+        repo_id = get_existing_virtual_repo (mgr, r_origin_repo_id, r_path);
+        if (repo_id) {
+            g_free (r_origin_repo_id);
+            g_free (r_path);
+            g_free (canon_path);
+            return repo_id;
+        }
+     }
+
+    orig_owner = seaf_repo_manager_get_repo_owner (mgr, r_origin_repo_id);
+
+    repo_id = create_virtual_repo_common (mgr, r_origin_repo_id, r_path,
+                                          repo_name, repo_desc, orig_owner,
+                                          passwd, error);
+    if (!repo_id) {
+        goto out;
+    }
+
+    if (seaf_repo_manager_set_repo_owner (mgr, repo_id, orig_owner) < 0) {
+        seaf_warning ("Failed to set repo owner for %.10s.\n", repo_id);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to set repo owner.");
+        g_free (repo_id);
+        repo_id = NULL;
+    }
+
+out:
+    g_free (orig_owner);
+    g_free (r_origin_repo_id);
+    g_free (r_path);
+    g_free (canon_path);
+    return repo_id;
 }
 
 static gboolean
