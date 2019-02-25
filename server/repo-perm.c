@@ -111,12 +111,96 @@ check_repo_share_permission (SeafRepoManager *mgr,
     return NULL;
 }
 
+// get dir perm from all dir perms in parent repo
+// such as path /a/b, then check /a/b, /a in parent
+static char *
+get_dir_perm (GHashTable *perms, const char *path)
+{
+    char *tmp = g_strdup (path);
+    char *slash;
+    char *perm = NULL;
+
+    while (g_strcmp0 (tmp, "") != 0) {
+        perm = g_hash_table_lookup (perms, tmp);
+        if (perm)
+            break;
+        slash = g_strrstr (tmp, "/");
+        *slash = '\0';
+    }
+
+    g_free (tmp);
+
+    return g_strdup (perm);
+}
+
+static char *
+check_perm_on_parent_repo (const char *origin_repo_id,
+                           const char *user,
+                           const char *vpath)
+{
+    GHashTable *user_perms = NULL;
+    GHashTable *group_perms = NULL;
+    SearpcClient *rpc_client;
+    GList *groups = NULL;
+    GList *iter;
+    char *perm = NULL;
+
+    rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
+                                                 NULL,
+                                                 "ccnet-threaded-rpcserver");
+    if (!rpc_client) {
+        return NULL;
+    }
+
+    user_perms = seaf_share_manager_get_shared_dirs_to_user (seaf->share_mgr,
+                                                             origin_repo_id,
+                                                             user);
+
+    if (!user_perms) {
+        ccnet_rpc_client_free (rpc_client);
+        return NULL;
+    }
+    if (g_hash_table_size (user_perms) > 0) {
+        perm = get_dir_perm (user_perms, vpath);
+        if (perm) {
+            g_hash_table_destroy (user_perms);
+            ccnet_rpc_client_free (rpc_client);
+            return perm;
+        }
+    }
+    g_hash_table_destroy (user_perms);
+
+    groups = ccnet_get_groups_by_user (rpc_client, user, 1);
+    ccnet_rpc_client_free (rpc_client);
+    if (!groups) {
+        return NULL;
+    }
+
+    group_perms = seaf_share_manager_get_shared_dirs_to_group (seaf->share_mgr,
+                                                               origin_repo_id,
+                                                               groups);
+
+    for (iter = groups; iter; iter = iter->next)
+        g_object_unref ((GObject *)iter->data);
+    g_list_free (groups);
+
+    if (!group_perms) {
+        return NULL;
+    }
+    if (g_hash_table_size (group_perms) > 0) {
+        perm = get_dir_perm (group_perms, vpath);
+    }
+    g_hash_table_destroy (group_perms);
+
+    return perm;
+}
+
 static char *
 check_virtual_repo_permission (SeafRepoManager *mgr,
                                const char *repo_id,
                                const char *origin_repo_id,
                                const char *user,
-                               GError **error)
+                               const char *vpath)
 {
     char *owner = NULL;
     char *permission = NULL;
@@ -134,11 +218,14 @@ check_virtual_repo_permission (SeafRepoManager *mgr,
      * from a shared repo by me or directly shared by others to me.
      * The priority of shared sub-folder is higher than top-level repo.
      */
-    permission = check_repo_share_permission (mgr, repo_id, user);
-    if (permission)
+    permission = check_perm_on_parent_repo (origin_repo_id,
+                                            user, vpath);
+    if (permission) {
         return permission;
+    }
 
     permission = check_repo_share_permission (mgr, origin_repo_id, user);
+
     return permission;
 }
 
@@ -162,7 +249,7 @@ seaf_repo_manager_check_permission (SeafRepoManager *mgr,
     if (vinfo) {
         permission = check_virtual_repo_permission (mgr, repo_id,
                                                     vinfo->origin_repo_id,
-                                                    user, error);
+                                                    user, vinfo->path);
         goto out;
     }
 

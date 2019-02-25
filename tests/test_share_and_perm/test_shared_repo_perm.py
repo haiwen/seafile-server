@@ -197,3 +197,20 @@ def test_get_shared_users_by_repo(repo, group, permission):
 
     api.remove_share(repo.id, USER, USER2)
     api.group_unshare_repo(repo.id, group.id, USER)
+
+@pytest.mark.parametrize('permission', ['r', 'rw'])
+def test_subdir_permission_in_virtual_repo(repo, group, permission):
+    api.post_dir(repo.id, '/dir1', 'subdir1', USER)
+    api.post_dir(repo.id, '/dir2', 'subdir2', USER)
+
+    v_repo_id_1 = api.share_subdir_to_user(repo.id, '/dir1', USER, USER2, permission)
+    v_subdir_repo_id_1 = api.create_virtual_repo(v_repo_id_1, '/subdir1', 'subdir1', 'test_desc', USER, passwd='')
+    assert api.check_permission(v_subdir_repo_id_1, USER2) == permission
+
+    assert ccnet_api.group_add_member(group.id, USER, USER2) == 0
+    v_repo_id_2 = api.share_subdir_to_group(repo.id, '/dir2', USER, group.id, permission)
+    v_subdir_repo_id_2 = api.create_virtual_repo(v_repo_id_2, '/subdir2', 'subdir2', 'test_desc', USER, passwd='')
+    assert api.check_permission(v_subdir_repo_id_2, USER2) == permission
+
+    assert api.unshare_subdir_for_user(repo.id, '/dir1', USER, USER2) == 0
+    assert api.unshare_subdir_for_group(repo.id, '/dir2', USER, group.id) == 0

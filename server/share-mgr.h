@@ -58,6 +58,16 @@ seaf_share_manager_list_repo_shared_group (SeafShareManager *mgr,
                                            const char *repo_id,
                                            GError **error);
 
+GHashTable *
+seaf_share_manager_get_shared_dirs_to_user (SeafShareManager *mgr,
+                                            const char *orig_repo_id,
+                                            const char *to_email);
+
+GHashTable *
+seaf_share_manager_get_shared_dirs_to_group (SeafShareManager *mgr,
+                                             const char *orig_repo_id,
+                                             GList *groups);
+
 int
 seaf_share_manager_remove_share (SeafShareManager *mgr, const char *repo_id,
                                  const char *from_email, const char *to_email);
