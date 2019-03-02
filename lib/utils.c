@@ -2170,6 +2170,7 @@ gboolean process_is_running (const char *process_name)
 		kvm_openfiles(exec, coref, NULL, O_RDONLY, buf)
 #define KVM_GETPROCS(kd, plist, nproc) \
        		kvm_getprocs(kd, KERN_PROC_PROC, 0, &nproc)
+#define P_KTHREAD P_KPROC
 
 #elif defined(__DragonFly__)
 #define	PSKIP(kp) ((kp)->kp_pid == mypid ||			\
