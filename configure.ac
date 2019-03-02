@@ -51,8 +51,16 @@ else
   AC_MSG_RESULT(no)
 fi
 
+AC_MSG_CHECKING(for BSD)
+if test `uname | grep -e BSD -e DragonFly | wc -l` = "1"; then
+  bbsd=true
+  AC_MSG_RESULT(compile in BSD)
+else
+  AC_MSG_RESULT(no)
+fi
+
 AC_MSG_CHECKING(for Linux)
-if test "$bmac" != "true" -a "$bwin32" != "true"; then
+if test "$bmac" != "true" -a "$bwin32" != "true" -a "$bbsd" != "true"; then
   blinux=true
   AC_MSG_RESULT(compile in linux)
 else
@@ -78,6 +86,11 @@ if test "$bwin32" != true; then
       [compile_fuse=$enableval],[compile_fuse="yes"])
 fi
 
+if test "$bbsd" = true; then
+   AC_ARG_ENABLE(fuse, AC_HELP_STRING([--enable-fuse], [enable fuse virtual file system]),
+      [compile_fuse=$enableval],[compile_fuse="no"])
+fi
+
 AC_ARG_ENABLE(python,
               AC_HELP_STRING([--enable-python],[build seafile python binding]),
               [compile_python=$enableval],
@@ -89,6 +102,7 @@ AM_CONDITIONAL([COMPILE_FUSE], [test "${compile_fuse}" = "yes"])
 
 AM_CONDITIONAL([WIN32], [test "$bwin32" = "true"])
 AM_CONDITIONAL([MACOS], [test "$bmac" = "true"])
+AM_CONDITIONAL([BSD], [test "$bbsd" = "true"])
 AM_CONDITIONAL([LINUX], [test "$blinux" = "true"])
 
 
@@ -134,6 +148,8 @@ if test "$bwin32" = true; then
   LIB_MAC=
   MSVC_CFLAGS="-D__MSVCRT__ -D__MSVCRT_VERSION__=0x0601"
   LIB_CRYPT32=-lcrypt32
+  LIB_INOTIFY=
+  LIB_KVM=
   LIB_ICONV=-liconv
 elif test "$bmac" = true ; then
   LIB_WS32=
@@ -149,6 +165,24 @@ elif test "$bmac" = true ; then
   LIB_MAC="-framework CoreServices"
   LIB_CRYPT32=
   LIB_ICONV=-liconv
+  LIB_INOTIFY=
+  LIB_KVM=
+elif test "$bbsd" = true ; then
+  LIB_WS32=
+  LIB_GDI32=
+  LIB_RT=
+  LIB_INTL=
+  LIB_RESOLV=
+  LIB_UUID=-luuid
+  LIB_IPHLPAPI=
+  LIB_SHELL32=
+  LIB_PSAPI=
+  LIB_MAC=
+  MSVC_CFLAGS=
+  LIB_CRYPT32=
+  LIB_ICONV=-liconv
+  LIB_INOTIFY=-linotify
+  LIB_KVM=-lkvm
 else
   LIB_WS32=
   LIB_GDI32=
@@ -162,6 +196,8 @@ else
   LIB_MAC=
   MSVC_CFLAGS=
   LIB_CRYPT32=
+  LIB_INOTIFY=-linotify
+  LIB_KVM=
 fi
 
 AC_SUBST(LIB_WS32)
@@ -174,6 +210,8 @@ AC_SUBST(LIB_IPHLPAPI)
 AC_SUBST(LIB_SHELL32)
 AC_SUBST(LIB_PSAPI)
 AC_SUBST(LIB_MAC)
+AC_SUBST(LIB_INOTIFY)
+AC_SUBST(LIB_KVM)
 AC_SUBST(MSVC_CFLAGS)
 AC_SUBST(LIB_CRYPT32)
 AC_SUBST(LIB_ICONV)
@@ -189,6 +227,8 @@ ZDB_REQUIRED=2.10
 CURL_REQUIRED=7.17
 FUSE_REQUIRED=2.7.3
 ZLIB_REQUIRED=1.2.0
+LIBEVHTP_REQUIRED=1.2.10
+ONIGURUMA_REQUIRED=5.9.2
 
 PKG_CHECK_MODULES(SSL, [openssl])
 AC_SUBST(SSL_CFLAGS)
@@ -221,6 +261,14 @@ AC_SUBST(LIBEVENT_LIBS)
 PKG_CHECK_MODULES(ZLIB, [zlib >= $ZLIB_REQUIRED])
 AC_SUBST(ZLIB_CFLAGS)
 AC_SUBST(ZLIB_LIBS)
+
+PKG_CHECK_MODULES(LIBEVHTP, [evhtp >= $LIBEVHTP_REQUIRED])
+AC_SUBST(LIBEVHTP_CFLAGS)
+AC_SUBST(LIBEVHTP_LIBS)
+
+PKG_CHECK_MODULES(ONIGURUMA, [oniguruma >= $ONIGURUMA_REQUIRED])
+AC_SUBST(ONIGURUMA_CFLAGS)
+AC_SUBST(ONIGURUMA_LIBS)
 
 if test x${compile_python} = xyes; then
     AM_PATH_PYTHON([2.6])
