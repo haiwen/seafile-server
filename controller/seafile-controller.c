@@ -32,12 +32,6 @@ static char *command_name = NULL;
 
 #define CHECK_PROCESS_INTERVAL 10        /* every 10 seconds */
 
-#if defined(__sun)
-#define PROC_SELF_PATH "/proc/self/path/a.out"
-#else
-#define PROC_SELF_PATH "/proc/self/exe"
-#endif
-
 SeafileController *ctl;
 
 static char *controller_pidfile = NULL;
@@ -67,7 +61,7 @@ static void controller_exit (int code) __attribute__((noreturn));
 
 static int read_seafdav_config();
 
-    static void
+static void
 controller_exit (int code)
 {
     if (code != 0) {
@@ -81,7 +75,7 @@ controller_exit (int code)
 //
 
 /* returns the pid of the newly created process */
-    static int
+static int
 spawn_process (char *argv[])
 {
     char **ptr = argv;
@@ -119,7 +113,7 @@ spawn_process (char *argv[])
  * - PID_ERROR_ENOENT if file not exists,
  * - PID_ERROR_OTHER if other errors
  */
-    static int
+static int
 read_pid_from_pidfile (const char *pidfile)
 {
     FILE *pf = g_fopen (pidfile, "r");
@@ -143,7 +137,7 @@ read_pid_from_pidfile (const char *pidfile)
     return pid;
 }
 
-    static void
+static void
 try_kill_process(int which)
 {
     if (which < 0 || which >= N_PID)
@@ -159,7 +153,7 @@ try_kill_process(int which)
     }
 }
 
-    static void
+static void
 kill_by_force (int which)
 {
     if (which < 0 || which >= N_PID)
@@ -179,7 +173,7 @@ kill_by_force (int which)
 // Utility functions End
 //
 
-    static int
+static int
 start_ccnet_server ()
 {
     if (!ctl->config_dir)
@@ -211,7 +205,7 @@ start_ccnet_server ()
     return 0;
 }
 
-    static int
+static int
 start_seaf_server ()
 {
     if (!ctl->config_dir || !ctl->seafile_dir)
@@ -274,12 +268,12 @@ get_python_executable() {
     return python;
 }
 
-    static void
+static void
 init_seafile_path ()
 {
     GError *error = NULL;
 #if defined(__linux__)
-    char *binary = g_file_read_link (PROC_SELF_PATH, &error);
+    char *binary = g_file_read_link ("/proc/self/exe", &error);
 #elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__OpenBSD__)
     /*
      * seafile.sh starts the process using abs path
@@ -311,7 +305,7 @@ init_seafile_path ()
     g_free (tmp);
 }
 
-    static void
+static void
 setup_python_path()
 {
     static GList *path_list = NULL;
@@ -321,28 +315,28 @@ setup_python_path()
     }
 
     path_list = g_list_prepend (path_list,
-            g_build_filename (installpath, "seahub", NULL));
+        g_build_filename (installpath, "seahub", NULL));
 
     path_list = g_list_prepend (path_list,
-            g_build_filename (installpath, "seahub/thirdpart", NULL));
+        g_build_filename (installpath, "seahub/thirdpart", NULL));
 
     path_list = g_list_prepend (path_list,
-            g_build_filename (installpath, "seahub/seahub-extra", NULL));
+        g_build_filename (installpath, "seahub/seahub-extra", NULL));
 
     path_list = g_list_prepend (path_list,
-            g_build_filename (installpath, "seahub/seahub-extra/thirdparts", NULL));
+        g_build_filename (installpath, "seahub/seahub-extra/thirdparts", NULL));
 
     path_list = g_list_prepend (path_list,
-            g_build_filename (installpath, "seafile/lib/python2.6/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib/python2.6/site-packages", NULL));
 
     path_list = g_list_prepend (path_list,
-            g_build_filename (installpath, "seafile/lib64/python2.6/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib64/python2.6/site-packages", NULL));
 
     path_list = g_list_prepend (path_list,
-            g_build_filename (installpath, "seafile/lib/python2.7/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib/python2.7/site-packages", NULL));
 
     path_list = g_list_prepend (path_list,
-            g_build_filename (installpath, "seafile/lib64/python2.7/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib64/python2.7/site-packages", NULL));
 
     path_list = g_list_reverse (path_list);
 
@@ -361,7 +355,7 @@ setup_python_path()
     /* seaf_message ("PYTHONPATH is:\n\n%s\n", g_getenv ("PYTHONPATH")); */
 }
 
-    static void
+static void
 setup_env ()
 {
     g_setenv ("CCNET_CONF_DIR", ctl->config_dir, TRUE);
@@ -377,48 +371,12 @@ setup_env ()
 }
 
 static int
-start_seafevents() {
-    if (!ctl->has_seafevents)
-        return 0;
-
-    static char *seafevents_config_file = NULL;
-    static char *seafevents_log_file = NULL;
-
-    if (seafevents_config_file == NULL)
-        seafevents_config_file = g_build_filename (topdir,
-                "conf/seafevents.conf",
-                NULL);
-    if (seafevents_log_file == NULL)
-        seafevents_log_file = g_build_filename (ctl->logdir,
-                "seafevents.log",
-                NULL);
-
-    char *argv[] = {
-        (char *)get_python_executable(),
-        "-m", "seafevents.main",
-        "--config-file", seafevents_config_file,
-        "--logfile", seafevents_log_file,
-        "-P", ctl->pidfile[PID_SEAFEVENTS],
-        NULL
-    };
-
-    int pid = spawn_process (argv);
-
-    if (pid <= 0) {
-        seaf_warning ("Failed to spawn seafevents.\n");
-        return -1;
-    }
-
-    return 0;
-}
-
-static int
 start_seafdav() {
     static char *seafdav_log_file = NULL;
     if (seafdav_log_file == NULL)
         seafdav_log_file = g_build_filename (ctl->logdir,
-                "seafdav.log",
-                NULL);
+                                             "seafdav.log",
+                                             NULL);
 
     SeafDavConfig conf = ctl->seafdav_config;
     char port[16];
@@ -462,7 +420,7 @@ start_seafdav() {
     return 0;
 }
 
-    static void
+static void
 run_controller_loop ()
 {
     GMainLoop *mainloop = g_main_loop_new (NULL, FALSE);
@@ -470,7 +428,7 @@ run_controller_loop ()
     g_main_loop_run (mainloop);
 }
 
-    static gboolean
+static gboolean
 need_restart (int which)
 {
     if (which < 0 || which >= N_PID)
@@ -485,24 +443,24 @@ need_restart (int which)
         return FALSE;
     } else {
         char buf[256];
-        gboolean with_procfs;
+	gboolean with_procfs;
 #if defined(__linux__)
-        with_procfs = g_file_test("/proc/self", G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR);
+	with_procfs = g_file_test("/proc/self", G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR);
 #elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
-        with_procfs = g_file_test("/proc/curproc", G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR);
+	with_procfs = g_file_test("/proc/curproc", G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR);
 #else
-        with_procfs = FALSE;
+	with_procfs = FALSE;
 #endif
-        if (with_procfs) {
-            snprintf (buf, sizeof(buf), "/proc/%d", pid);
-            if (g_file_test (buf, G_FILE_TEST_IS_DIR)) {
-                return FALSE;
-            } else {
-                seaf_warning ("path /proc/%d doesn't exist, restart progress [%d]\n", pid, which);
-                return TRUE;
-            }
-
+	if (with_procfs) {
+        snprintf (buf, sizeof(buf), "/proc/%d", pid);
+        if (g_file_test (buf, G_FILE_TEST_IS_DIR)) {
+            return FALSE;
         } else {
+            seaf_warning ("path /proc/%d doesn't exist, restart progress [%d]\n", pid, which);
+            return TRUE;
+	}
+
+	} else {
 #if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__OpenBSD__)
 #ifdef __OpenBSD__
             int min[6] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid, sizeof(struct kinfo_proc), 1};
@@ -511,20 +469,20 @@ need_restart (int which)
 #endif
             size_t len = sizeof(struct kinfo_proc);
             struct kinfo_proc kp;
-            if (sysctl(mib, sizeof(mib)/sizeof(mib[0]), &kp, &len, NULL, 0) != -1 &&
-                    len == sizeof(struct kinfo_proc)) {
-                return FALSE;
+	    if (sysctl(mib, sizeof(mib)/sizeof(mib[0]), &kp, &len, NULL, 0) != -1 &&
+	      len == sizeof(struct kinfo_proc)) {
+		return FALSE;
             } else {
                 return TRUE;
             }
 #else
-            return FALSE;
+	return FALSE;
 #endif
         }
     }
 }
 
-    static gboolean
+static gboolean
 check_process (void *data)
 {
     if (need_restart(PID_SERVER)) {
@@ -539,22 +497,17 @@ check_process (void *data)
         }
     }
 
-    if (ctl->has_seafevents && need_restart(PID_SEAFEVENTS)) {
-        seaf_message ("seafevents need restart...\n");
-        start_seafevents ();
-    }
-
     return TRUE;
 }
 
-    static void
+static void
 start_process_monitor ()
 {
     ctl->check_process_timer = g_timeout_add (
-            CHECK_PROCESS_INTERVAL * 1000, check_process, NULL);
+        CHECK_PROCESS_INTERVAL * 1000, check_process, NULL);
 }
 
-    static void
+static void
 stop_process_monitor ()
 {
     if (ctl->check_process_timer != 0) {
@@ -563,7 +516,7 @@ stop_process_monitor ()
     }
 }
 
-    static void
+static void
 disconnect_clients ()
 {
     CcnetClient *client, *sync_client;
@@ -582,7 +535,7 @@ disconnect_clients ()
 static void rm_client_fd_from_mainloop ();
 static int seaf_controller_start ();
 
-    static void
+static void
 on_ccnet_daemon_down ()
 {
     stop_process_monitor ();
@@ -598,7 +551,7 @@ on_ccnet_daemon_down ()
     }
 }
 
-    static gboolean
+static gboolean
 client_io_cb (GIOChannel *source, GIOCondition condition, gpointer data)
 {
     if (condition & G_IO_IN) {
@@ -613,18 +566,18 @@ client_io_cb (GIOChannel *source, GIOCondition condition, gpointer data)
     }
 }
 
-    static void
+static void
 add_client_fd_to_mainloop ()
 {
     GIOChannel *channel;
 
     channel = g_io_channel_unix_new (ctl->client->connfd);
     ctl->client_io_id = g_io_add_watch (channel,
-            G_IO_IN | G_IO_HUP | G_IO_ERR,
-            client_io_cb, NULL);
+                                        G_IO_IN | G_IO_HUP | G_IO_ERR,
+                                        client_io_cb, NULL);
 }
 
-    static void
+static void
 rm_client_fd_from_mainloop ()
 {
     if (ctl->client_io_id != 0) {
@@ -633,16 +586,11 @@ rm_client_fd_from_mainloop ()
     }
 }
 
-    static void
+static void
 on_ccnet_connected ()
 {
     if (start_seaf_server () < 0)
         controller_exit(1);
-
-    if (ctl->has_seafevents && need_restart(PID_SEAFEVENTS)) {
-        if (start_seafevents() < 0)
-            controller_exit(1);
-    }
 
     if (ctl->seafdav_config.enabled) {
         if (need_restart(PID_SEAFDAV)) {
@@ -658,7 +606,7 @@ on_ccnet_connected ()
     start_process_monitor ();
 }
 
-    static gboolean
+static gboolean
 do_connect_ccnet ()
 {
     CcnetClient *client, *sync_client;
@@ -685,7 +633,7 @@ do_connect_ccnet ()
 }
 
 /* This would also stop seaf-server & other components */
-    static void
+static void
 stop_ccnet_server ()
 {
     seaf_message ("shutting down ccnet-server ...\n");
@@ -695,11 +643,9 @@ stop_ccnet_server ()
     kill_by_force(PID_CCNET);
     kill_by_force(PID_SERVER);
     kill_by_force(PID_SEAFDAV);
-    if (ctl->has_seafevents)
-        kill_by_force(PID_SEAFEVENTS);
 }
 
-    static void
+static void
 init_pidfile_path (SeafileController *ctl)
 {
     char *pid_dir = g_build_filename (topdir, "pids", NULL);
@@ -713,15 +659,14 @@ init_pidfile_path (SeafileController *ctl)
     ctl->pidfile[PID_CCNET] = g_build_filename (pid_dir, "ccnet.pid", NULL);
     ctl->pidfile[PID_SERVER] = g_build_filename (pid_dir, "seaf-server.pid", NULL);
     ctl->pidfile[PID_SEAFDAV] = g_build_filename (pid_dir, "seafdav.pid", NULL);
-    ctl->pidfile[PID_SEAFEVENTS] = g_build_filename (pid_dir, "seafevents.pid", NULL);
 }
 
-    static int
+static int
 seaf_controller_init (SeafileController *ctl,
-        char *central_config_dir,
-        char *config_dir,
-        char *seafile_dir,
-        char *logdir)
+                      char *central_config_dir,
+                      char *config_dir,
+                      char *seafile_dir,
+                      char *logdir)
 {
     init_seafile_path ();
     if (!g_file_test (config_dir, G_FILE_TEST_IS_DIR)) {
@@ -752,7 +697,7 @@ seaf_controller_init (SeafileController *ctl,
         logdir = g_build_filename (topdir, "logs", NULL);
         if (checkdir_with_mkdir(logdir) < 0) {
             fprintf (stderr, "failed to create log folder \"%s\": %s\n",
-                    logdir, strerror(errno));
+                     logdir, strerror(errno));
             return -1;
         }
         g_free (topdir);
@@ -767,25 +712,13 @@ seaf_controller_init (SeafileController *ctl,
         return -1;
     }
 
-    char *seafevents_config_file = g_build_filename (topdir,
-            "conf/seafevents.conf",
-            NULL);
-
-    if (!g_file_test (seafevents_config_file, G_FILE_TEST_EXISTS)) {
-        seaf_message ("No seafevents.\n");
-        ctl->has_seafevents = FALSE;
-    } else {
-        ctl->has_seafevents = TRUE;
-    }
-    g_free (seafevents_config_file);
-
     init_pidfile_path (ctl);
     setup_env ();
 
     return 0;
 }
 
-    static int
+static int
 seaf_controller_start ()
 {
     if (start_ccnet_server () < 0) {
@@ -798,7 +731,7 @@ seaf_controller_start ()
     return 0;
 }
 
-    static int
+static int
 write_controller_pidfile ()
 {
     if (!controller_pidfile)
@@ -809,7 +742,7 @@ write_controller_pidfile ()
     FILE *pidfile = g_fopen(controller_pidfile, "w");
     if (!pidfile) {
         seaf_warning ("Failed to fopen() pidfile %s: %s\n",
-                controller_pidfile, strerror(errno));
+                      controller_pidfile, strerror(errno));
         return -1;
     }
 
@@ -817,7 +750,7 @@ write_controller_pidfile ()
     snprintf (buf, sizeof(buf), "%d\n", pid);
     if (fputs(buf, pidfile) < 0) {
         seaf_warning ("Failed to write pidfile %s: %s\n",
-                controller_pidfile, strerror(errno));
+                      controller_pidfile, strerror(errno));
         fclose (pidfile);
         return -1;
     }
@@ -827,7 +760,7 @@ write_controller_pidfile ()
     return 0;
 }
 
-    static void
+static void
 remove_controller_pidfile ()
 {
     if (controller_pidfile) {
@@ -835,7 +768,7 @@ remove_controller_pidfile ()
     }
 }
 
-    static void
+static void
 sigint_handler (int signo)
 {
     stop_ccnet_server ();
@@ -846,19 +779,19 @@ sigint_handler (int signo)
     raise (signo);
 }
 
-    static void
+static void
 sigchld_handler (int signo)
 {
     waitpid (-1, NULL, WNOHANG);
 }
 
-    static void
+static void
 sigusr1_handler (int signo)
 {
     seafile_log_reopen();
 }
 
-    static void
+static void
 set_signal_handlers ()
 {
     signal (SIGINT, sigint_handler);
@@ -868,22 +801,22 @@ set_signal_handlers ()
     signal (SIGPIPE, SIG_IGN);
 }
 
-    static void
+static void
 usage ()
 {
     fprintf (stderr, "Usage: seafile-controller OPTIONS\n"
-            "OPTIONS:\n"
-            "  -b, --bin-dir           insert a directory in front of the PATH env\n"
-            "  -c, --config-dir        ccnet config dir\n"
-            "  -d, --seafile-dir       seafile dir\n"
-            );
+             "OPTIONS:\n"
+             "  -b, --bin-dir           insert a directory in front of the PATH env\n"
+             "  -c, --config-dir        ccnet config dir\n"
+             "  -d, --seafile-dir       seafile dir\n"
+        );
 }
 
 /* seafile-controller -t is used to test whether config file is valid */
-    static void
+static void
 test_config (const char *central_config_dir,
-        const char *ccnet_dir,
-        const char *seafile_dir)
+             const char *ccnet_dir,
+             const char *seafile_dir)
 {
     char buf[1024];
     GError *error = NULL;
@@ -892,21 +825,21 @@ test_config (const char *central_config_dir,
     char *child_stderr = NULL;
 
     snprintf(buf,
-            sizeof(buf),
-            "ccnet-server -F \"%s\" -c \"%s\" -t",
-            central_config_dir,
-            ccnet_dir);
+             sizeof(buf),
+             "ccnet-server -F \"%s\" -c \"%s\" -t",
+             central_config_dir,
+             ccnet_dir);
 
     g_spawn_command_line_sync (buf,
-            &child_stdout, /* stdout */
-            &child_stderr, /* stderror */
-            &retcode,
-            &error);
+                               &child_stdout, /* stdout */
+                               &child_stderr, /* stderror */
+                               &retcode,
+                               &error);
 
     if (error != NULL) {
         fprintf (stderr,
-                "failed to run \"ccnet-server -t\": %s\n",
-                error->message);
+                 "failed to run \"ccnet-server -t\": %s\n",
+                 error->message);
         exit (1);
     }
 
@@ -920,14 +853,14 @@ test_config (const char *central_config_dir,
 
     if (retcode != 0) {
         fprintf (stderr,
-                "failed to run \"ccnet-server -t\"\n");
+                 "failed to run \"ccnet-server -t\"\n");
         exit (1);
     }
 
     exit(0);
 }
 
-    static int
+static int
 read_seafdav_config()
 {
     int ret = 0;
@@ -942,7 +875,7 @@ read_seafdav_config()
 
     key_file = g_key_file_new ();
     if (!g_key_file_load_from_file (key_file, seafdav_conf,
-                G_KEY_FILE_KEEP_COMMENTS, NULL)) {
+                                    G_KEY_FILE_KEEP_COMMENTS, NULL)) {
         seaf_warning("Failed to load seafdav.conf\n");
         ret = -1;
         goto out;
@@ -1007,7 +940,7 @@ out:
     return ret;
 }
 
-    static int
+static int
 init_syslog_config ()
 {
     char *seafile_conf = g_build_filename (ctl->central_config_dir, "seafile.conf", NULL);
@@ -1015,7 +948,7 @@ init_syslog_config ()
     int ret = 0;
 
     if (!g_key_file_load_from_file (key_file, seafile_conf,
-                G_KEY_FILE_KEEP_COMMENTS, NULL)) {
+                                    G_KEY_FILE_KEEP_COMMENTS, NULL)) {
         seaf_warning("Failed to load seafile.conf.\n");
         ret = -1;
         goto out;
@@ -1051,46 +984,46 @@ int main (int argc, char **argv)
 
     int c;
     while ((c = getopt_long (argc, argv, short_opts,
-                    long_opts, NULL)) != EOF)
+                             long_opts, NULL)) != EOF)
     {
         switch (c) {
-            case 'h':
-                usage ();
-                exit(1);
-                break;
-            case 'v':
-                fprintf (stderr, "seafile-controller version 1.0\n");
-                break;
-            case 't':
-                test_conf = TRUE;
-                break;
-            case 'c':
-                config_dir = optarg;
-                break;
-            case 'F':
-                central_config_dir = g_strdup(optarg);
-                break;
-            case 'd':
-                seafile_dir = g_strdup(optarg);
-                break;
-            case 'f':
-                daemon_mode = 0;
-                break;
-            case 'l':
-                logdir = g_strdup(optarg);
-                break;
-            case 'g':
-                ccnet_debug_level_str = optarg;
-                break;
-            case 'G':
-                seafile_debug_level_str = optarg;
-                break;
-            case 'P':
-                controller_pidfile = optarg;
-                break;
-            default:
-                usage ();
-                exit (1);
+        case 'h':
+            usage ();
+            exit(1);
+            break;
+        case 'v':
+            fprintf (stderr, "seafile-controller version 1.0\n");
+            break;
+        case 't':
+            test_conf = TRUE;
+            break;
+        case 'c':
+            config_dir = optarg;
+            break;
+        case 'F':
+            central_config_dir = g_strdup(optarg);
+            break;
+        case 'd':
+            seafile_dir = g_strdup(optarg);
+            break;
+        case 'f':
+            daemon_mode = 0;
+            break;
+        case 'l':
+            logdir = g_strdup(optarg);
+            break;
+        case 'g':
+            ccnet_debug_level_str = optarg;
+            break;
+        case 'G':
+            seafile_debug_level_str = optarg;
+            break;
+        case 'P':
+            controller_pidfile = optarg;
+            break;
+        default:
+            usage ();
+            exit (1);
         }
     }
 
@@ -1126,7 +1059,7 @@ int main (int argc, char **argv)
 
     char *logfile = g_build_filename (ctl->logdir, "controller.log", NULL);
     if (seafile_log_init (logfile, ccnet_debug_level_str,
-                seafile_debug_level_str) < 0) {
+                          seafile_debug_level_str) < 0) {
         seaf_warning ("Failed to init log.\n");
         controller_exit (1);
     }
@@ -1149,16 +1082,16 @@ int main (int argc, char **argv)
          * use fork() instead
          * */
         switch (fork ()) {
-            case -1:
-                seaf_warning ("Failed to daemonize");
-                exit (-1);
-                break;
-            case 0:
-                /* all good*/
-                break;
-            default:
-                /* kill origin process */
-                exit (0);
+          case -1:
+              seaf_warning ("Failed to daemonize");
+              exit (-1);
+              break;
+          case 0:
+              /* all good*/
+              break;
+          default:
+              /* kill origin process */
+              exit (0);
         }
 #endif  /* __APPLE */
     }
