@@ -1046,3 +1046,12 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     @searpc_func("string", ["string", "string", "string", "int"])
     def convert_repo_path(repo_id, path, user, is_org):
         pass
+
+    # repo status
+    @searpc_func("int", ["string", "int"])
+    def set_repo_status(repo_id, status):
+        pass
+
+    @searpc_func("int", ["string"])
+    def get_repo_status(repo_id):
+        pass

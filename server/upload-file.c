@@ -2519,11 +2519,19 @@ check_access_token (const char *token,
 {
     SeafileWebAccess *webaccess;
     const char *op;
+    const char *_repo_id;
 
     webaccess = (SeafileWebAccess *)
         seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
     if (!webaccess)
         return -1;
+
+    _repo_id = seafile_web_access_get_repo_id (webaccess);
+    int status = seaf_repo_manager_get_repo_status(seaf->repo_mgr, _repo_id);
+    if (status != REPO_STATUS_NORMAL) {
+        g_object_unref (webaccess);
+        return -1;
+    }
 
     /* token with op = "upload" can only be used for "upload-*" operations;
      * token with op = "update" can only be used for "update-*" operations.
@@ -2540,7 +2548,7 @@ check_access_token (const char *token,
         return -1;
     }
 
-    *repo_id = g_strdup (seafile_web_access_get_repo_id (webaccess));
+    *repo_id = g_strdup (_repo_id);
     *user = g_strdup (seafile_web_access_get_username (webaccess));
 
     g_object_unref (webaccess);

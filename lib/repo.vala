@@ -40,6 +40,7 @@ public class Repo : Object {
     public string last_modifier { get; set; }
     public string head_cmmt_id { get; set; }
     public string root { get; set; }
+    public int    status { get; set; }
 
     // To be compatible with obsoleted SharedRepo object
     public string repo_id { get; set; }
