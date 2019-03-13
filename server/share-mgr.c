@@ -11,6 +11,7 @@
 #include "seaf-db.h"
 #include "log.h"
 #include "seafile-error.h"
+#include <ccnet/ccnet-object.h>
 
 SeafShareManager *
 seaf_share_manager_new (SeafileSession *seaf)
@@ -518,6 +519,111 @@ seaf_share_manager_list_repo_shared_group (SeafShareManager *mgr,
     }
 
     return shared_group;
+}
+
+static gboolean
+get_shared_dirs_to_user (SeafDBRow *row, void *data)
+{
+    GHashTable *dirs = data;
+
+    const char *path = seaf_db_row_get_column_text (row, 0);
+    const char *perm = seaf_db_row_get_column_text (row, 1);
+    g_hash_table_replace (dirs, g_strdup (path), g_strdup (perm));
+
+    return TRUE;
+}
+
+static gboolean
+get_shared_dirs_to_group (SeafDBRow *row, void *data)
+{
+    GHashTable *dirs = data;
+
+    const char *path = seaf_db_row_get_column_text (row, 0);
+    const char *perm = seaf_db_row_get_column_text (row, 1);
+
+    char *prev_perm = g_hash_table_lookup (dirs, path);
+    if (g_strcmp0 (perm, prev_perm) != 0 &&
+        (prev_perm == NULL || g_strcmp0 (prev_perm, "r") == 0)) {
+        g_hash_table_replace (dirs, g_strdup (path), g_strdup (perm));
+    }
+
+    return TRUE;
+}
+
+// Conver group id list to comma separated str
+// [1, 2, 3] -> 1,2,3
+static GString *
+convert_group_list_to_str (GList *groups)
+{
+    GList *iter = groups;
+    CcnetGroup *group;
+    int group_id;
+    GString *group_ids = g_string_new ("");
+
+    for (; iter; iter = iter->next) {
+        group = iter->data;
+        g_object_get (group, "id", &group_id, NULL);
+        g_string_append_printf (group_ids, "%d,", group_id);
+    }
+    group_ids = g_string_erase (group_ids, group_ids->len - 1, 1);
+
+    return group_ids;
+}
+
+GHashTable *
+seaf_share_manager_get_shared_dirs_to_user (SeafShareManager *mgr,
+                                            const char *orig_repo_id,
+                                            const char *to_email)
+{
+    GHashTable *dirs;
+    char *sql;
+
+    dirs = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+    sql = "SELECT v.path, s.permission FROM SharedRepo s, VirtualRepo v WHERE "
+          "s.repo_id = v.repo_id AND s.to_email = ? AND v.origin_repo = ?";
+
+    int ret = seaf_db_statement_foreach_row (mgr->seaf->db, sql, get_shared_dirs_to_user,
+                                             dirs, 2, "string", to_email,
+                                             "string", orig_repo_id);
+    if (ret < 0) {
+        seaf_warning ("Failed to get all shared folder perms "
+                      "in parent repo %.8s for user %s.\n", orig_repo_id, to_email);
+        g_hash_table_destroy (dirs);
+        return NULL;
+    }
+
+    return dirs;
+}
+
+GHashTable *
+seaf_share_manager_get_shared_dirs_to_group (SeafShareManager *mgr,
+                                             const char *orig_repo_id,
+                                             GList *groups)
+{
+    GHashTable *dirs;
+    GString *group_ids;
+    char *sql;
+
+    dirs = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_free);
+    group_ids = convert_group_list_to_str (groups);
+    sql = g_strdup_printf ("SELECT v.path, s.permission "
+                           "FROM RepoGroup s, VirtualRepo v WHERE "
+                           "s.repo_id = v.repo_id AND v.origin_repo = ? "
+                           "AND s.group_id in (%s)", group_ids->str);
+
+    int ret = seaf_db_statement_foreach_row (mgr->seaf->db, sql, get_shared_dirs_to_group,
+                                             dirs, 1, "string", orig_repo_id);
+    g_free (sql);
+    g_string_free (group_ids, TRUE);
+
+    if (ret < 0) {
+        seaf_warning ("Failed to get all shared folder perm from parent repo %.8s "
+                      "to all user groups.\n", orig_repo_id);
+        g_hash_table_destroy (dirs);
+        return NULL;
+    }
+
+    return dirs;
 }
 
 int

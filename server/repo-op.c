@@ -763,7 +763,7 @@ add_new_entries (SeafRepo *repo, const char *user, GList **entries,
         if (unique_name != NULL) {
             newdent = seaf_dirent_new (dir_version_from_repo_version(repo->version),
                                        dent->id, dent->mode, unique_name,
-                                       (gint64)time(NULL), user, dent->size);
+                                       dent->mtime, user, dent->size);
             *entries = g_list_insert_sorted (*entries, newdent, compare_dirents);
             *name_list = g_list_append (*name_list, unique_name);
             /* No need to free unique_name */
@@ -895,6 +895,7 @@ do_post_multi_files (SeafRepo *repo,
         dent->id[40] = '\0';
         dent->size = *size;
         dent->mode = STD_FILE_MODE;
+        dent->mtime = (gint64)time(NULL);
 
         dents = g_list_append (dents, dent);
     }

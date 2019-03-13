@@ -353,6 +353,8 @@ publish_repo_update_event (CEvent *event, void *data)
 static void
 on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)
 {
+    seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id);
+
     if (seaf_repo_manager_is_virtual_repo (seaf->repo_mgr, branch->repo_id))
         return;
 
@@ -363,7 +365,6 @@ on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)
     
     cevent_manager_add_event (seaf->ev_mgr, mgr->priv->cevent_id, rdata);
 
-    seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id);
 }
 
 int
