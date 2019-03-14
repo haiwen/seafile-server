@@ -7,6 +7,12 @@
 #include "commit-mgr.h"
 #include "branch-mgr.h"
 
+typedef enum RepoStatus {
+    REPO_STATUS_NORMAL,
+    REPO_STATUS_READ_ONLY,
+    N_REPO_STATUS,
+} RepoStatus;
+
 struct _SeafRepoManager;
 typedef struct _SeafRepo SeafRepo;
 
@@ -32,6 +38,8 @@ struct _SeafRepo {
     gint64      last_modify;
     gint64      size;
     gint64      file_count;
+
+    int         status;
 
     SeafBranch *head;
     gchar root_id[41];
@@ -894,4 +902,11 @@ seaf_repo_manager_convert_repo_path (SeafRepoManager *mgr,
                                      const char *user,
                                      gboolean is_org,
                                      GError **error);
+int
+seaf_repo_manager_set_repo_status(SeafRepoManager *mgr,
+                                  const char *repo_id, RepoStatus status);
+
+int
+seaf_repo_manager_get_repo_status(SeafRepoManager *mgr,
+                                  const char *repo_id);
 #endif

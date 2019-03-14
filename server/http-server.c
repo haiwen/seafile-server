@@ -373,6 +373,12 @@ check_permission (HttpServer *htp_server, const char *repo_id, const char *usern
         return EVHTP_RES_OK;
     }
 
+    if (strcmp(op, "upload") == 0) {
+        int status = seaf_repo_manager_get_repo_status(seaf->repo_mgr, repo_id);
+        if (status != REPO_STATUS_NORMAL)
+            return EVHTP_RES_FORBIDDEN;
+    }
+
     char *perm = seaf_repo_manager_check_permission (seaf->repo_mgr,
                                                      repo_id, username, NULL);
     if (perm) {

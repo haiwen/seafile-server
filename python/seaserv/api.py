@@ -14,6 +14,9 @@ All paths in parameters can be in absolute path format (like '/test') or
 relative path format (like 'test'). The API can handle both formats.
 """
 
+REPO_STATUS_NORMAL = 0
+REPO_STATUS_READ_ONLY = 1
+
 class SeafileAPI(object):
 
     def __init__(self):
@@ -168,6 +171,12 @@ class SeafileAPI(object):
 
     def get_org_id_by_repo_id (self, repo_id):
         return seafserv_threaded_rpc.get_org_id_by_repo_id(repo_id)
+
+    def set_repo_status (self, repo_id, status):
+        return seafserv_threaded_rpc.set_repo_status(repo_id, status)
+
+    def get_repo_status (self, repo_id):
+        return seafserv_threaded_rpc.get_repo_status(repo_id)
 
     # File property and dir listing
 

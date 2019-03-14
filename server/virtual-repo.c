@@ -136,6 +136,15 @@ do_create_virtual_repo (SeafRepoManager *mgr,
         goto out;
     }
 
+    if (set_repo_commit_to_db (repo_id, repo_name, 0,
+                               repo->version, repo->encrypted, user) < 0) {
+        seaf_warning("Failed to add repo info.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to add repo info");
+        ret = -1;
+        goto out;
+    }
+
 out:
     if (repo)
         seaf_repo_unref (repo);
@@ -184,6 +193,14 @@ create_virtual_repo_common (SeafRepoManager *mgr,
         seaf_warning ("Failed to get origin repo %.10s\n", origin_repo_id);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Origin library not exists");
+        return NULL;
+    }
+    if (origin_repo->status != REPO_STATUS_NORMAL) {
+        seaf_warning("Status of repo %.8s is %d, can't create VirtualRepo\n",
+                     origin_repo_id, origin_repo->status);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Unnormal repo status");
+        seaf_repo_unref (origin_repo);
         return NULL;
     }
 

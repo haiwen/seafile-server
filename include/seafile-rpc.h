@@ -1113,4 +1113,11 @@ seafile_convert_repo_path (const char *repo_id,
                            const char *user,
                            int is_org,
                            GError **error);
+
+int
+seafile_set_repo_status(const char *repo_id, int status, GError **error);
+
+int
+seafile_get_repo_status(const char *repo_id, GError **error);
+
 #endif

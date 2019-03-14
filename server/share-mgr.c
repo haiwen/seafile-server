@@ -188,7 +188,8 @@ collect_repos (SeafDBRow *row, void *data)
     int version = seaf_db_row_get_column_int (row, 10); 
     gboolean is_encrypted = seaf_db_row_get_column_int (row, 11) ? TRUE : FALSE;
     const char *last_modifier = seaf_db_row_get_column_text (row, 12);
-    const char *origin_repo_name = seaf_db_row_get_column_text (row, 13);
+    int status = seaf_db_row_get_column_int (row, 13);
+    const char *origin_repo_name = seaf_db_row_get_column_text (row, 14);
 
     char *email_l = g_ascii_strdown (email, -1);
 
@@ -201,6 +202,7 @@ collect_repos (SeafDBRow *row, void *data)
                          "permission", permission,
                          "is_virtual", (vrepo_id != NULL),
                          "size", size,
+                         "status", status,
                          NULL);
     g_free (email_l);
 
@@ -300,7 +302,7 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "to_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier, "
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
                 "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
@@ -314,7 +316,7 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "from_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
                 "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
@@ -346,7 +348,7 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "to_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
                 "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
@@ -361,7 +363,7 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             sql = "SELECT sh.repo_id, v.repo_id, "
                 "from_email, permission, commit_id, s.size, "
                 "v.origin_repo, v.path, i.name, "
-                "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+                "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
                 "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
                 "SharedRepo sh LEFT JOIN VirtualRepo v ON "
                 "sh.repo_id=v.repo_id "
@@ -802,7 +804,7 @@ seaf_get_shared_repo_by_path (SeafRepoManager *mgr,
         sql = "SELECT sh.repo_id, v.repo_id, "
               "from_email, permission, commit_id, s.size, "
               "v.origin_repo, v.path, i.name, "
-              "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
               "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
               "SharedRepo sh LEFT JOIN VirtualRepo v ON "
               "sh.repo_id=v.repo_id "
@@ -815,7 +817,7 @@ seaf_get_shared_repo_by_path (SeafRepoManager *mgr,
         sql = "SELECT sh.repo_id, v.repo_id, "
               "from_email, permission, commit_id, s.size, "
               "v.origin_repo, v.path, i.name, "
-              "i.update_time, i.version, i.is_encrypted, i.last_modifier,"
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
               "(SELECT name from RepoInfo WHERE repo_id=v.origin_repo) FROM "
               "OrgSharedRepo sh LEFT JOIN VirtualRepo v ON "
               "sh.repo_id=v.repo_id "

@@ -61,6 +61,7 @@ convert_repo (SeafRepo *r)
     g_object_set (repo,
                   "repo_id", r->id, "repo_name", r->name,
                   "repo_desc", r->desc, "last_modified", r->last_modify,
+                  "status", r->status,
                   NULL);
 
 #ifdef SEAFILE_SERVER
@@ -5328,7 +5329,7 @@ seafile_convert_repo_path (const char *repo_id,
                            GError **error)
 {
     if (!is_uuid_valid(repo_id) || !path || !user) {
-        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Arguments error");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Arguments error");
         return NULL;
     }
 
@@ -5338,4 +5339,28 @@ seafile_convert_repo_path (const char *repo_id,
 
     return ret;
 }
+
+int
+seafile_set_repo_status(const char *repo_id, int status, GError **error)
+{
+    if (!is_uuid_valid(repo_id) ||
+        status < 0 || status >= N_REPO_STATUS) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Arguments error");
+        return -1;
+    }
+
+    return seaf_repo_manager_set_repo_status(seaf->repo_mgr, repo_id, status);
+}
+
+int
+seafile_get_repo_status(const char *repo_id, GError **error)
+{
+    if (!is_uuid_valid(repo_id)) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Arguments error");
+        return -1;
+    }
+
+    return seaf_repo_manager_get_repo_status(seaf->repo_mgr, repo_id);
+}
+
 #endif  /* SEAFILE_SERVER */

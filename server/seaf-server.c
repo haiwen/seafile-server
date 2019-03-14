@@ -687,6 +687,16 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      "check_permission",
                                      searpc_signature_string__string_string());
 
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_set_repo_status,
+                                     "set_repo_status",
+                                     searpc_signature_int__string_int());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_get_repo_status,
+                                     "get_repo_status",
+                                     searpc_signature_int__string());
+
     /* folder permission */
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_check_permission_by_path,
