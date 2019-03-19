@@ -1105,7 +1105,6 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
-    seaf_repo_manager_cleanup_virtual_repos (seaf->repo_mgr, repo_id);
     seaf_repo_manager_merge_virtual_repo (seaf->repo_mgr, repo_id, NULL);
 
     schedule_repo_size_computation (seaf->size_sched, repo_id);
