@@ -905,6 +905,7 @@ seafile_create_repo (const char *repo_name,
                      const char *repo_desc,
                      const char *owner_email,
                      const char *passwd,
+                     int enc_version,
                      GError **error);
 
 char *
@@ -914,6 +915,7 @@ seafile_create_enc_repo (const char *repo_id,
                          const char *owner_email,
                          const char *magic,
                          const char *random_key,
+                         const char *salt,
                          int enc_version,
                          GError **error);
 

@@ -179,7 +179,7 @@ decrypt_token (CcnetProcessor *processor)
 
     seafile_derive_key (priv->session_key,
                         strlen(priv->session_key),
-                        1, key, iv);
+                        1, NULL, 0, key, iv);
     crypt = seafile_crypt_new (1, key, iv);
     
     if (seafile_decrypt (&token, &token_len, encrypted_token,

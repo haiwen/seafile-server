@@ -62,7 +62,7 @@ def test_repo_manipulation():
     magic_and_random_key = api.generate_magic_and_random_key (t_enc_version, t_enc_repo_id, t_passwd)
     t_magic = magic_and_random_key.magic
     t_random_key = magic_and_random_key.random_key
-    t_enc_repo_id = api.create_enc_repo (t_enc_repo_id, 'test_encrypted_repo', '', USER, t_magic, t_random_key, t_enc_version)
+    t_enc_repo_id = api.create_enc_repo (t_enc_repo_id, 'test_encrypted_repo', '', USER, t_magic, t_random_key, None, t_enc_version)
     assert t_enc_repo_id == '826d1b7b-f110-46f2-8d5e-7b5ac3e11f4d'
 
     #test get_repo_list

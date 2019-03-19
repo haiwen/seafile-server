@@ -79,19 +79,19 @@ class SeafileAPI(object):
     def set_passwd(self, repo_id, user, passwd):
         return seafserv_threaded_rpc.set_passwd(repo_id, user, passwd)
 
-    def unset_passwd(self, repo_id, user, passwd):
-        return seafserv_threaded_rpc.unset_passwd(repo_id, user, passwd)
+    def unset_passwd(self, repo_id, user):
+        return seafserv_threaded_rpc.unset_passwd(repo_id, user)
 
     def generate_magic_and_random_key(self, enc_version, repo_id, password):
         return seafserv_threaded_rpc.generate_magic_and_random_key(enc_version, repo_id, password)
 
     # repo manipulation
 
-    def create_repo(self, name, desc, username, passwd):
-        return seafserv_threaded_rpc.create_repo(name, desc, username, passwd)
+    def create_repo(self, name, desc, username, passwd, enc_version=2):
+        return seafserv_threaded_rpc.create_repo(name, desc, username, passwd, enc_version)
 
-    def create_enc_repo(self, repo_id, name, desc, username, magic, random_key, enc_version):
-        return seafserv_threaded_rpc.create_enc_repo(repo_id, name, desc, username, magic, random_key, enc_version)
+    def create_enc_repo(self, repo_id, name, desc, username, magic, random_key, salt, enc_version):
+        return seafserv_threaded_rpc.create_enc_repo(repo_id, name, desc, username, magic, random_key, salt, enc_version)
 
     def get_repo(self, repo_id):
         """
