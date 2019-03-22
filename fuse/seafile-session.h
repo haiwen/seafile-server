@@ -35,6 +35,8 @@ struct _SeafileSession {
     SeafCommitManager   *commit_mgr;
     SeafRepoManager     *repo_mgr;
 
+    GHashTable          *excluded_users;
+
     gboolean create_tables;
 };
 

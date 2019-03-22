@@ -84,6 +84,9 @@ static int readdir_root(SeafileSession *seaf,
     users = g_hash_table_get_keys (user_hash);
     for (p = users; p; p = p->next) {
         email = p->data;
+        char *exclude = g_hash_table_lookup (seaf->excluded_users, email);
+        if (exclude)
+            continue;
         filler (buf, email, NULL, 0);
     }
     g_list_free (users);
