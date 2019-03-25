@@ -607,7 +607,8 @@ seaf_repo_manager_merge_virtual_repo (SeafRepoManager *mgr,
  */
 static void
 handle_missing_virtual_repo (SeafRepoManager *mgr,
-                             SeafRepo *repo, SeafCommit *head, SeafVirtRepo *vinfo)
+                             SeafRepo *repo, SeafCommit *head, SeafVirtRepo *vinfo,
+                             char **return_new_path)
 {
     SeafCommit *parent = NULL;
     char *old_dir_id = NULL;
@@ -655,9 +656,7 @@ handle_missing_virtual_repo (SeafRepoManager *mgr,
         }
 
         char de_id[41];
-        char *new_path;
-        char *new_name;
-        char **parts = NULL;
+        char *new_path, *new_name;
 
         for (ptr = diff_res; ptr; ptr = ptr->next) {
             de = ptr->data;
@@ -672,17 +671,23 @@ handle_missing_virtual_repo (SeafRepoManager *mgr,
                                 vinfo->repo_id, new_path);
                     set_virtual_repo_base_commit_path (vinfo->repo_id,
                                                        head->commit_id, new_path);
-                    parts = g_strsplit(new_path, "/", 0);
-                    new_name = parts[g_strv_length(parts) - 1];
-
-                    seaf_repo_manager_edit_repo (vinfo->repo_id,
-                                                 new_name,
-                                                 "Changed library name",
-                                                 NULL,
-                                                 &error);
-                    if (error) {
-                        seaf_warning ("Failed to rename repo %s", de->new_name);
-                        g_clear_error (&error);
+                    if (return_new_path)
+                        *return_new_path = g_strdup(new_path);
+                    /* 'sub_path = NUll' means the virtual dir itself has been renamed,
+                     *  we need to make a new commit for the virtual repo
+                     */
+                    if (sub_path == NULL) {
+                        new_name = g_path_get_basename(new_path);
+                        seaf_repo_manager_edit_repo (vinfo->repo_id,
+                                                     new_name,
+                                                     "Changed library name",
+                                                     NULL,
+                                                     &error);
+                        if (error) {
+                            seaf_warning ("Failed to rename repo %s", new_name);
+                            g_clear_error (&error);
+                        }
+                        g_free(new_name);
                     }
                     is_renamed = TRUE;
                     g_free (new_path);
@@ -691,7 +696,6 @@ handle_missing_virtual_repo (SeafRepoManager *mgr,
             }
         }
         g_free (old_dir_id);
-        g_strfreev (parts);
 
         if (is_renamed)
             break;
@@ -762,7 +766,7 @@ seaf_repo_manager_cleanup_virtual_repos (SeafRepoManager *mgr,
                                                    &error);
         if (error) {
             if (error->code == SEAF_ERR_PATH_NO_EXIST) {
-                handle_missing_virtual_repo (mgr, repo, head, vinfo);
+                handle_missing_virtual_repo (mgr, repo, head, vinfo, NULL);
             }
             g_clear_error (&error);
         } else
@@ -826,6 +830,31 @@ static void *merge_virtual_repo (void *vtask)
         goto out;
     }
 
+    orig_root = seaf_fs_manager_get_seafdir_id_by_path (seaf->fs_mgr,
+                                                        orig_repo->store_id,
+                                                        orig_repo->version,
+                                                        orig_head->root_id,
+                                                        vinfo->path,
+                                                        NULL);
+    if (!orig_root) {
+        seaf_debug("Path %s not found in origin repo %.8s, delete or rename virtual repo %.8s\n",
+                    vinfo->path, vinfo->origin_repo_id, repo_id);
+
+        char *new_path = NULL;
+        handle_missing_virtual_repo (mgr, orig_repo, orig_head, vinfo, &new_path);
+        if (new_path != NULL) {
+            orig_root = seaf_fs_manager_get_seafdir_id_by_path (seaf->fs_mgr,
+                                                        orig_repo->store_id,
+                                                        orig_repo->version,
+                                                        orig_head->root_id,
+                                                        new_path,
+                                                        NULL);
+            g_free (new_path);
+        }
+        if (!orig_root)
+            goto out;
+    }
+
     base = seaf_commit_manager_get_commit (seaf->commit_mgr,
                                            orig_repo->id, orig_repo->version,
                                            vinfo->base_commit);
@@ -846,19 +875,6 @@ static void *merge_virtual_repo (void *vtask)
                                                         vinfo->path,
                                                         NULL);
     if (!base_root) {
-        seaf_warning ("Cannot find seafdir for repo %.10s path %s.\n",
-                      vinfo->origin_repo_id, vinfo->path);
-        ret = -1;
-        goto out;
-    }
-
-    orig_root = seaf_fs_manager_get_seafdir_id_by_path (seaf->fs_mgr,
-                                                        orig_repo->store_id,
-                                                        orig_repo->version,
-                                                        orig_head->root_id,
-                                                        vinfo->path,
-                                                        NULL);
-    if (!orig_root) {
         seaf_warning ("Cannot find seafdir for repo %.10s path %s.\n",
                       vinfo->origin_repo_id, vinfo->path);
         ret = -1;

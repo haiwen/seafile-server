@@ -1491,7 +1491,8 @@ static char *
 del_file_recursive(SeafRepo *repo,
                    const char *dir_id,
                    const char *to_path,
-                   const char *filename)
+                   const char *filename,
+                   int *mode, int *deleted_num, char **desc_file)
 {
     SeafDir *olddir, *newdir;
     SeafDirent *dent;
@@ -1524,6 +1525,12 @@ del_file_recursive(SeafRepo *repo,
                 for (i = 0; i < file_num; i++) {
                     if (strcmp(old->name, file_names[i]) == 0) {
                         found_flag = 1;
+                        if (deleted_num)
+                            (*deleted_num)++;
+                        if (mode)
+                            *mode = old->mode;
+                        if (desc_file && *desc_file==NULL)
+                            *desc_file = g_strdup(old->name);
                         break;
                     }
                 }
@@ -1539,6 +1546,13 @@ del_file_recursive(SeafRepo *repo,
                 if (strcmp(old->name, filename) != 0) {
                     new = seaf_dirent_dup (old);
                     newentries = g_list_prepend (newentries, new);
+                } else {
+                    if (deleted_num)
+                        (*deleted_num)++;
+                    if (mode)
+                        *mode = old->mode;
+                    if (desc_file && *desc_file==NULL)
+                        *desc_file = g_strdup(old->name);
                 }
             }
         }
@@ -1568,7 +1582,8 @@ del_file_recursive(SeafRepo *repo,
         if (strcmp(dent->name, to_path_dup) != 0)
             continue;
 
-        id = del_file_recursive(repo, dent->id, remain, filename);
+        id = del_file_recursive(repo, dent->id, remain, filename,
+                                mode, deleted_num, desc_file);
         if (id != NULL) {
             memcpy(dent->id, id, 40);
             dent->id[40] = '\0';
@@ -1600,13 +1615,15 @@ static char *
 do_del_file(SeafRepo *repo,
             const char *root_id,
             const char *parent_dir,
-            const char *file_name)
+            const char *file_name,
+            int *mode, int *deleted_num, char **desc_file)
 {
     /* if parent_dir is a absolutely path, we will remove the first '/' */
     if (*parent_dir == '/')
         parent_dir = parent_dir + 1;
 
-    return del_file_recursive(repo, root_id, parent_dir, file_name);
+    return del_file_recursive(repo, root_id, parent_dir, file_name,
+                              mode, deleted_num, desc_file);
 }
 
 int
@@ -1619,15 +1636,14 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
 {
     SeafRepo *repo = NULL;
     SeafCommit *head_commit = NULL;
+    SeafDir *dir = NULL;
     char *canon_path = NULL;
-    char **file_names;
     char buf[SEAF_PATH_MAX];
     char *root_id = NULL;
-    char *desc_file;
-    int i = 0;
+    char *desc_file = NULL;
     int mode = 0;
     int ret = 0;
-    int file_num = 0, empty_num = 0;
+    int deleted_num = 0;
 
     GET_REPO_OR_FAIL(repo, repo_id);
     GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
@@ -1635,39 +1651,19 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
     if (!canon_path)
         canon_path = get_canonical_path (parent_dir);
 
-    if (strchr(file_name, '\t')) {
-        file_names = g_strsplit (file_name, "\t", -1);
-        file_num = g_strv_length (file_names);
-
-        for (i = 0; i < file_num; i++) {
-            if (strcmp(file_names[i], "") == 0) {
-                empty_num++;
-                continue;
-            }
-            if (!check_file_exists(repo->store_id, repo->version,
-                                   head_commit->root_id, canon_path, file_names[i], &mode)) {
-                char *tmp_path;
-                if (strcmp(canon_path, "") == 0)
-                    tmp_path = "/";
-                else
-                    tmp_path = canon_path;
-                seaf_warning ("[del file] File \'%s\' dosen't exist in %s in repo %s.\n",
-                              file_names[i], tmp_path, repo->id);
-                empty_num++;
-                continue;
-            }
-            desc_file = file_names[i];
-        }
-        file_num -= empty_num;
-        if (file_num <= 0)
-            goto out;
-    } else if (!check_file_exists(repo->store_id, repo->version,
-                           head_commit->root_id, canon_path, file_name, &mode)) {
+    dir = seaf_fs_manager_get_seafdir_by_path (seaf->fs_mgr,
+                                               repo->store_id, repo->version,
+                                               head_commit->root_id, canon_path, NULL);
+    if (!dir) {
+        seaf_warning ("parent_dir %s doesn't exist in repo %s.\n",
+                      canon_path, repo->store_id);
+        ret = -1;
         goto out;
     }
 
     root_id = do_del_file (repo,
-                           head_commit->root_id, canon_path, file_name);
+                           head_commit->root_id, canon_path, file_name, &mode,
+                           &deleted_num, &desc_file);
     if (!root_id) {
         seaf_warning ("[del file] Failed to del file from %s in repo %s.\n",
                       canon_path, repo->id);
@@ -1676,15 +1672,23 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
         ret = -1;
         goto out;
     }
+    if (deleted_num == 0) {
+        seaf_warning ("[del file] Nothing to be deleted in dir %s in repo %.8s.\n ",
+                      parent_dir, repo->id);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "File doesn't exist");
+        ret = -1;
+        goto out;
+    }
 
     /* Commit. */
-    if (file_num > 1) {
+    if (deleted_num > 1) {
         snprintf(buf, SEAF_PATH_MAX, "Deleted \"%s\" and %d more files",
-                                      desc_file, file_num - 1);
+                                      desc_file, deleted_num - 1);
     } else if (S_ISDIR(mode)) {
-        snprintf(buf, SEAF_PATH_MAX, "Removed directory \"%s\"", file_name);
+        snprintf(buf, SEAF_PATH_MAX, "Removed directory \"%s\"", desc_file);
     } else {
-        snprintf(buf, SEAF_PATH_MAX, "Deleted \"%s\"", file_name);
+        snprintf(buf, SEAF_PATH_MAX, "Deleted \"%s\"", desc_file);
     }
 
     if (gen_new_commit (repo_id, head_commit, root_id,
@@ -1693,8 +1697,6 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
         goto out;
     }
 
-    seaf_repo_manager_cleanup_virtual_repos (mgr, repo_id);
-
     seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
 
 out:
@@ -1702,10 +1704,11 @@ out:
         seaf_repo_unref (repo);
     if (head_commit)
         seaf_commit_unref(head_commit);
-    if (file_num)
-        g_strfreev (file_names);
+    if (dir)
+        seaf_dir_free (dir);
     g_free (root_id);
     g_free (canon_path);
+    g_free (desc_file);
 
     if (ret == 0) {
         update_repo_size (repo_id);
@@ -2601,7 +2604,8 @@ move_file_same_repo (const char *repo_id,
         ret = -1;
         goto out;
     }
-    root_id = do_del_file (repo, root_id_after_put, src_path, filenames_str->str);
+    root_id = do_del_file (repo, root_id_after_put, src_path, filenames_str->str,
+                           NULL, NULL, NULL);
 
     if (!root_id) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "move file failed");
@@ -2856,7 +2860,6 @@ seaf_repo_manager_move_file (SeafRepoManager *mgr,
             goto out;
         }
 
-        seaf_repo_manager_cleanup_virtual_repos (mgr, src_repo_id);
         seaf_repo_manager_merge_virtual_repo (mgr, src_repo_id, NULL);
 
         update_repo_size (dst_repo_id);
@@ -3087,7 +3090,6 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
             ret = -1;
             goto out;
         }
-        seaf_repo_manager_cleanup_virtual_repos (mgr, src_repo_id);
         seaf_repo_manager_merge_virtual_repo (mgr, src_repo_id, NULL);
 
         update_repo_size (dst_repo_id);
@@ -3705,7 +3707,6 @@ seaf_repo_manager_rename_file (SeafRepoManager *mgr,
         goto out;
     }
 
-    seaf_repo_manager_cleanup_virtual_repos (mgr, repo_id);
     seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
 
 out:
