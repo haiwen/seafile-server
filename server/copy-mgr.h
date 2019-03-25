@@ -47,7 +47,6 @@ seaf_copy_manager_add_task (SeafCopyManager *mgr,
                             const char *dst_filename,
                             int replace,
                             const char *modifier,
-                            gint64 total_files,
                             CopyTaskFunc function,
                             gboolean need_progress);
 
