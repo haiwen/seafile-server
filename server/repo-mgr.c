@@ -1369,7 +1369,7 @@ create_tables_pgsql (SeafRepoManager *mgr)
 static int
 create_db_tables_if_not_exist (SeafRepoManager *mgr)
 {
-    if (!mgr->seaf->create_tables && seaf_db_type (mgr->seaf->db) == SEAF_DB_TYPE_MYSQL)
+    if (!mgr->seaf->create_tables && seaf_db_type (mgr->seaf->db) != SEAF_DB_TYPE_PGSQL)
         return 0;
 
     SeafDB *db = mgr->seaf->db;
