@@ -13,6 +13,9 @@
 
 #include "log.h"
 
+static int
+read_excluded_users (SeafileSession *session);
+
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
@@ -64,9 +67,16 @@ seafile_session_new(const char *central_config_dir,
     session->tmp_file_dir = tmp_file_dir;
     session->session = ccnet_session;
     session->config = config;
+    session->excluded_users = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                                     g_free, NULL);
 
     if (load_database_config (session) < 0) {
         seaf_warning ("Failed to load database config.\n");
+        goto onerror;
+    }
+
+    if (read_excluded_users (session) < 0) {
+        seaf_warning ("Failed to load excluded users.\n");
         goto onerror;
     }
 
@@ -93,6 +103,34 @@ onerror:
     g_free (config_file_path);
     g_free (session);
     return NULL;    
+}
+
+static int
+read_excluded_users (SeafileSession *session)
+{
+    char *users;
+    int l, i;
+    char *hash_value;
+
+    users = seaf_key_file_get_string (session->config, "fuse", "excluded_users", NULL);
+    if (!users)
+        return 0;
+
+    char **parts = g_strsplit_set(users, " ,", 0);
+    l = g_strv_length(parts);
+    if (l > 0)
+        hash_value = g_new0(char, 1);
+
+    for (i = 0; i < l; i++) {
+        if (g_strcmp0(parts[i], "") == 0)
+            continue;
+        g_hash_table_insert (session->excluded_users, g_strdup(parts[i]), hash_value);
+    }
+
+    g_strfreev (parts);
+    g_free (users);
+
+    return 0;
 }
 
 int
