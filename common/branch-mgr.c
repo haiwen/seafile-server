@@ -127,7 +127,7 @@ seaf_branch_manager_init (SeafBranchManager *mgr)
 static int
 open_db (SeafBranchManager *mgr)
 {
-    if (!mgr->seaf->create_tables && seaf_db_type (mgr->seaf->db) == SEAF_DB_TYPE_MYSQL)
+    if (!mgr->seaf->create_tables && seaf_db_type (mgr->seaf->db) != SEAF_DB_TYPE_PGSQL)
         return 0;
 #ifndef SEAFILE_SERVER
 

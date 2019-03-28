@@ -61,7 +61,6 @@ mysql_db_start (SeafileSession *session)
     char *host, *user, *passwd, *db, *unix_socket, *charset;
     int port;
     gboolean use_ssl = FALSE;
-    gboolean create_tables = TRUE;
     int max_connections = 0;
     GError *error = NULL;
 
@@ -99,12 +98,6 @@ mysql_db_start (SeafileSession *session)
 
     use_ssl = g_key_file_get_boolean (session->config,
                                       "database", "use_ssl", NULL);
-
-    if (g_key_file_has_key (session->config, "database", "create_tables", NULL)) {
-        create_tables = g_key_file_get_boolean (session->config,
-                                                "database", "create_tables", NULL);
-    }
-    session->create_tables = create_tables;
 
     charset = seaf_key_file_get_string (session->config,
                                      "database", "connection_charset", NULL);
@@ -201,6 +194,7 @@ load_database_config (SeafileSession *session)
     char *type;
     GError *error = NULL;
     int ret = 0;
+    gboolean create_tables = FALSE;
 
     type = seaf_key_file_get_string (session->config, "database", "type", &error);
     /* Default to use sqlite if not set. */
@@ -220,6 +214,12 @@ load_database_config (SeafileSession *session)
     else {
         seaf_warning ("Unsupported db type %s.\n", type);
         ret = -1;
+    }
+    if (ret == 0) {
+        if (g_key_file_has_key (session->config, "database", "create_tables", NULL))
+            create_tables = g_key_file_get_boolean (session->config,
+                                                    "database", "create_tables", NULL);
+        session->create_tables = create_tables;
     }
 
     g_free (type);
