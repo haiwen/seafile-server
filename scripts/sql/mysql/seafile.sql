@@ -90,6 +90,7 @@ CREATE TABLE `RepoInfo` (
   `version` int(11) DEFAULT NULL,
   `is_encrypted` int(11) DEFAULT NULL,
   `last_modifier` varchar(255) DEFAULT NULL,
+  `status` INTEGER DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `repo_id` (`repo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

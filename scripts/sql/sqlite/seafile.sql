@@ -39,7 +39,7 @@ CREATE INDEX repotrash_org_id_idx ON RepoTrash(org_id);
 
 CREATE TABLE RepoFileCount (repo_id CHAR(36) PRIMARY KEY,file_count BIGINT UNSIGNED);
 
-CREATE TABLE RepoInfo (repo_id CHAR(36) PRIMARY KEY, name VARCHAR(255) NOT NULL, update_time INTEGER, version INTEGER, is_encrypted INTEGER, last_modifier VARCHAR(255));
+CREATE TABLE RepoInfo (repo_id CHAR(36) PRIMARY KEY, name VARCHAR(255) NOT NULL, update_time INTEGER, version INTEGER, is_encrypted INTEGER, last_modifier VARCHAR(255), status INTEGER DEFAULT 0);
 
 CREATE TABLE UserQuota (user VARCHAR(255) PRIMARY KEY,quota BIGINT);
 
