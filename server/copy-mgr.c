@@ -78,6 +78,8 @@ seaf_copy_manager_get_task (SeafCopyManager *mgr,
                       "canceled", task->canceled, "failed", task->failed,
                       "successful", task->successful,
                       NULL);
+        if (task->canceled || task->failed || task->successful)
+            g_hash_table_remove(priv->copy_tasks, task_id);
     }
 
     pthread_mutex_unlock (&priv->lock);
@@ -135,7 +137,6 @@ seaf_copy_manager_add_task (SeafCopyManager *mgr,
                             const char *dst_filename,
                             int replace,
                             const char *modifier,
-                            gint64 total_files,
                             CopyTaskFunc function,
                             gboolean need_progress)
 {
@@ -148,7 +149,6 @@ seaf_copy_manager_add_task (SeafCopyManager *mgr,
         task_id = gen_uuid();
         task = g_new0 (CopyTask, 1);
         memcpy (task->task_id, task_id, 36);
-        task->total = total_files;
 
         pthread_mutex_lock (&priv->lock);
         g_hash_table_insert (priv->copy_tasks, g_strdup(task_id), task);

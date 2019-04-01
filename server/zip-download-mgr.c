@@ -82,6 +82,12 @@ start_zip_task (gpointer data, gpointer user_data);
 static int
 scan_progress (void *data);
 
+static int
+get_download_file_count (DownloadObj *obj, GError **error);
+
+static gboolean
+validate_download_size (DownloadObj *obj, GError **error);
+
 ZipDownloadMgr *
 zip_download_mgr_new ()
 {
@@ -189,6 +195,18 @@ start_zip_task (gpointer data, gpointer user_data)
             goto out;
         }
     }
+
+    if (!validate_download_size (obj, NULL)) {
+        ret = -1;
+        goto out;
+    }
+
+    int file_count = get_download_file_count (obj, NULL);
+    if (file_count < 0) {
+        ret = -1;
+        goto out;
+    }
+    obj->progress->total = file_count;
 
     ret = pack_files (repo->store_id, repo->version, obj->dir_name,
                       obj->internal, crypt, obj->is_windows, obj->progress);
@@ -482,7 +500,6 @@ zip_download_mgr_start_zip_task (ZipDownloadMgr *mgr,
     SeafRepo *repo;
     DownloadObj *obj;
     Progress *progress;
-    int file_count;
     int ret = 0;
     ZipDownloadMgrPriv *priv = mgr->priv;
 
@@ -530,19 +547,7 @@ zip_download_mgr_start_zip_task (ZipDownloadMgr *mgr,
         }
     }
 
-    if (!validate_download_size (obj, error)) {
-        ret = -1;
-        goto out;
-    }
-
-    file_count = get_download_file_count (obj, error);
-    if (file_count < 0) {
-        ret = -1;
-        goto out;
-    }
-
     progress = g_new0 (Progress, 1);
-    progress->total = file_count;
     progress->expire_ts = time(NULL) + PROGRESS_TTL;
     obj->progress = progress;
 
