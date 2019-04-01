@@ -62,6 +62,18 @@ class ServerCtl(object):
         shell(cmd)
         if self.db == 'mysql':
             self.add_ccnet_db_conf()
+        else:
+            self.add_ccnet_sqlite_db_conf()
+
+    def add_ccnet_sqlite_db_conf(self):
+        ccnet_conf = join(self.central_conf_dir, 'ccnet.conf')
+        ccnet_db_conf = '''\
+[Database]
+CREATE_TABLES = true
+'''
+        with open(ccnet_conf, 'a+') as fp:
+            fp.write('\n')
+            fp.write(ccnet_db_conf)
 
     def add_ccnet_db_conf(self):
         ccnet_conf = join(self.central_conf_dir, 'ccnet.conf')
@@ -74,6 +86,7 @@ USER = seafile
 PASSWD = seafile
 DB = ccnet
 CONNECTION_CHARSET = utf8
+CREATE_TABLES = true
 '''
         with open(ccnet_conf, 'a+') as fp:
             fp.write('\n')
@@ -93,6 +106,18 @@ CONNECTION_CHARSET = utf8
         shell(cmd)
         if self.db == 'mysql':
             self.add_seafile_db_conf()
+        else:
+            self.add_seafile_sqlite_db_conf()
+
+    def add_seafile_sqlite_db_conf(self):
+        seafile_conf = join(self.central_conf_dir, 'seafile.conf')
+        seafile_db_conf = '''\
+[database]
+create_tables = true
+'''
+        with open(seafile_conf, 'a+') as fp:
+            fp.write('\n')
+            fp.write(seafile_db_conf)
 
     def add_seafile_db_conf(self):
         seafile_conf = join(self.central_conf_dir, 'seafile.conf')
@@ -105,6 +130,7 @@ user = seafile
 password = seafile
 db_name = seafile
 connection_charset = utf8
+create_tables = true
 '''
         with open(seafile_conf, 'a+') as fp:
             fp.write('\n')

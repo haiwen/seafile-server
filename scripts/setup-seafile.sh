@@ -663,12 +663,48 @@ function get_seahub_admin_passwd () {
 #     fi
 # fi
 
-echo "Creating seahub database now, it may take one minute, please wait... "
+echo "Creating database now, it may take one minute, please wait... "
 echo
+
+cd ${TOPDIR}/ccnet && mkdir -m 0755 GroupMgr misc OrgMgr PeerMgr && cd -
+
+ccnet_group_db=${TOPDIR}/ccnet/GroupMgr/groupmgr.db
+ccnet_group_sql=${INSTALLPATH}/sql/sqlite/groupmgr.sql
+if ! sqlite3 ${ccnet_group_db} ".read ${ccnet_group_sql}" 2>/dev/null 1>&2; then
+    echo "Failed to sync ccnet groupmgr database."
+    err_and_quit;
+fi
+
+ccnet_config_db=${TOPDIR}/ccnet/misc/config.db
+ccnet_config_sql=${INSTALLPATH}/sql/sqlite/config.sql
+if ! sqlite3 ${ccnet_config_db} ".read ${ccnet_config_sql}" 2>/dev/null 1>&2; then
+    echo "Failed to sync ccnet config database."
+    err_and_quit;
+fi
+
+ccnet_org_db=${TOPDIR}/ccnet/OrgMgr/orgmgr.db
+ccnet_org_sql=${INSTALLPATH}/sql/sqlite/org.sql
+if ! sqlite3 ${ccnet_org_db} ".read ${ccnet_org_sql}" 2>/dev/null 1>&2; then
+    echo "Failed to sync ccnet org database."
+    err_and_quit;
+fi
+
+ccnet_user_db=${TOPDIR}/ccnet/PeerMgr/usermgr.db
+ccnet_user_sql=${INSTALLPATH}/sql/sqlite/user.sql
+if ! sqlite3 ${ccnet_user_db} ".read ${ccnet_user_sql}" 2>/dev/null 1>&2; then
+    echo "Failed to sync ccnet user database."
+    err_and_quit;
+fi
+
+seafile_db=${TOPDIR}/seafile-data/seafile.db
+seafile_sql=${INSTALLPATH}/sql/sqlite/seafile.sql
+if ! sqlite3 ${seafile_db} ".read ${seafile_sql}" 2>/dev/null 1>&2; then
+    echo "Failed to sync seafile database."
+    err_and_quit;
+fi
 
 seahub_db=${TOPDIR}/seahub.db
 seahub_sqls=${INSTALLPATH}/seahub/sql/sqlite3.sql
-
 if ! sqlite3 ${seahub_db} ".read ${seahub_sqls}" 2>/dev/null 1>&2; then
     echo "Failed to sync seahub database."
     err_and_quit;

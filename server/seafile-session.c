@@ -207,7 +207,7 @@ seafile_session_init (SeafileSession *session)
         return -1;
     }
 
-    if ((session->create_tables || seaf_db_type(session->db) != SEAF_DB_TYPE_MYSQL)
+    if ((session->create_tables || seaf_db_type(session->db) == SEAF_DB_TYPE_PGSQL)
         && seaf_cfg_manager_init (session->cfg_mgr) < 0) {
         seaf_warning ("Failed to init config manager.\n");
         return -1;
@@ -444,7 +444,7 @@ schedule_create_system_default_repo (SeafileSession *session)
         sql = "CREATE TABLE IF NOT EXISTS SystemInfo( "
         "info_key VARCHAR(256), info_value VARCHAR(1024))";
 
-    if ((session->create_tables || db_type != SEAF_DB_TYPE_MYSQL)
+    if ((session->create_tables || db_type == SEAF_DB_TYPE_PGSQL)
         && seaf_db_query (session->db, sql) < 0)
         return;
 

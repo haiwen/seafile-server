@@ -881,6 +881,41 @@ class CcnetConfigurator(AbstractConfigurator):
                                        default=default,
                                        validate=validate)
 
+    def do_syncdb(self):
+        print '----------------------------------------'
+        print 'Now creating ccnet database tables ...\n'
+        print '----------------------------------------'
+
+        try:
+            conn = MySQLdb.connect(host=db_config.mysql_host,
+                                   port=db_config.mysql_port,
+                                   user=db_config.seafile_mysql_user,
+                                   passwd=db_config.seafile_mysql_password,
+                                   db=db_config.ccnet_db_name)
+        except Exception, e:
+            if isinstance(e, MySQLdb.OperationalError):
+                Utils.error('Failed to connect to mysql database %s: %s' % (db_config.ccnet_db_name, e.args[1]))
+            else:
+                Utils.error('Failed to connect to mysql database %s: %s' % (db_config.ccnet_db_name, e))
+
+        cursor = conn.cursor()
+
+        sql_file = os.path.join(env_mgr.install_path, 'sql', 'mysql', 'ccnet.sql')
+        with open(sql_file, 'r') as fp:
+            content = fp.read()
+
+        sqls = [line.strip() for line in content.split(';') if line.strip()]
+        for sql in sqls:
+            try:
+                cursor.execute(sql)
+            except Exception, e:
+                if isinstance(e, MySQLdb.OperationalError):
+                    Utils.error('Failed to init ccnet database: %s' % e.args[1])
+                else:
+                    Utils.error('Failed to init ccnet database: %s' % e)
+
+        conn.commit()
+
 
 class SeafileConfigurator(AbstractConfigurator):
     def __init__(self):
@@ -982,6 +1017,41 @@ class SeafileConfigurator(AbstractConfigurator):
         seafile_ini = os.path.join(ccnet_config.ccnet_dir, 'seafile.ini')
         with open(seafile_ini, 'w') as fp:
             fp.write(self.seafile_dir)
+
+    def do_syncdb(self):
+        print '----------------------------------------'
+        print 'Now creating seafile database tables ...\n'
+        print '----------------------------------------'
+
+        try:
+            conn = MySQLdb.connect(host=db_config.mysql_host,
+                                   port=db_config.mysql_port,
+                                   user=db_config.seafile_mysql_user,
+                                   passwd=db_config.seafile_mysql_password,
+                                   db=db_config.seafile_db_name)
+        except Exception, e:
+            if isinstance(e, MySQLdb.OperationalError):
+                Utils.error('Failed to connect to mysql database %s: %s' % (db_config.seafile_db_name, e.args[1]))
+            else:
+                Utils.error('Failed to connect to mysql database %s: %s' % (db_config.seafile_db_name, e))
+
+        cursor = conn.cursor()
+
+        sql_file = os.path.join(env_mgr.install_path, 'sql', 'mysql', 'seafile.sql')
+        with open(sql_file, 'r') as fp:
+            content = fp.read()
+
+        sqls = [line.strip() for line in content.split(';') if line.strip()]
+        for sql in sqls:
+            try:
+                cursor.execute(sql)
+            except Exception, e:
+                if isinstance(e, MySQLdb.OperationalError):
+                    Utils.error('Failed to init seafile database: %s' % e.args[1])
+                else:
+                    Utils.error('Failed to init seafile database: %s' % e)
+
+        conn.commit()
 
 class SeahubConfigurator(AbstractConfigurator):
     def __init__(self):
@@ -1465,6 +1535,8 @@ def main():
     gunicorn_config.generate()
     seahub_config.generate()
 
+    ccnet_config.do_syncdb()
+    seafile_config.do_syncdb()
     seahub_config.do_syncdb()
     seahub_config.prepare_avatar_dir()
     # db_config.create_seahub_admin()

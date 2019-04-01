@@ -1,0 +1,1 @@
+CREATE TABLE Config (key TEXT PRIMARY KEY, value TEXT);

@@ -266,15 +266,14 @@ parse_download_multi_data (DownloadObj *obj, const char *data)
     SeafRepo *repo = obj->repo;
     const char *tmp_parent_dir;
     char *parent_dir;
-    gboolean is_root_dir;
     json_t *name_array;
     json_error_t jerror;
     int i;
     int len;
     const char *file_name;
-    char *file_path;
     SeafDirent *dirent;
-    GList *dirent_list = NULL;
+    SeafDir *dir;
+    GList *dirent_list = NULL, *p = NULL;
     GError *error = NULL;
 
     jobj = json_loadb (data, strlen(data), 0, &jerror);
@@ -304,7 +303,27 @@ parse_download_multi_data (DownloadObj *obj, const char *data)
         return -1;
     }
     parent_dir = format_dir_path (tmp_parent_dir);
-    is_root_dir = strcmp (parent_dir, "/") == 0;
+
+    dir = seaf_fs_manager_get_seafdir_by_path (seaf->fs_mgr, repo->store_id,
+                                               repo->version, repo->root_id, parent_dir, &error);
+    if (!dir) {
+        if (error) {
+            seaf_warning ("Failed to get dir %s repo %.8s: %s.\n",
+                          parent_dir, repo->store_id, error->message);
+            g_clear_error(&error);
+        } else {
+            seaf_warning ("dir %s doesn't exist in repo %.8s.\n",
+                          parent_dir, repo->store_id);
+        }
+        g_free (parent_dir);
+        json_decref (jobj);
+        return -1;
+    }
+    GHashTable *dirent_hash = g_hash_table_new(g_str_hash, g_str_equal);
+    for (p = dir->entries; p; p = p->next) {
+        SeafDirent *d = p->data;
+        g_hash_table_insert(dirent_hash, d->name, d);
+    }
 
     for (i = 0; i < len; i++) {
         file_name = json_string_value (json_array_get (name_array, i));
@@ -317,25 +336,10 @@ parse_download_multi_data (DownloadObj *obj, const char *data)
             break;
         }
 
-        if (is_root_dir) {
-            file_path = g_strconcat (parent_dir, file_name, NULL);
-        } else {
-            file_path = g_strconcat (parent_dir, "/", file_name, NULL);
-        }
-
-        dirent = seaf_fs_manager_get_dirent_by_path (seaf->fs_mgr, repo->store_id,
-                                                     repo->version, repo->root_id,
-                                                     file_path, &error);
+        dirent = g_hash_table_lookup (dirent_hash, file_name);
         if (!dirent) {
-            if (error) {
-                seaf_warning ("Failed to get dirent for %s: %s.\n",
-                              file_path, error->message);
-                g_clear_error (&error);
-            } else {
-                seaf_warning ("Failed to get dirent for %s.\n",
-                              file_path);
-            }
-            g_free (file_path);
+            seaf_warning ("Failed to get dirent for %s in dir %s in repo %.8s.\n",
+                           file_name, parent_dir, repo->store_id);
             if (dirent_list) {
                 g_list_free_full (dirent_list, (GDestroyNotify)seaf_dirent_free);
                 dirent_list = NULL;
@@ -343,12 +347,13 @@ parse_download_multi_data (DownloadObj *obj, const char *data)
             break;
         }
 
-        g_free (file_path);
-        dirent_list = g_list_prepend (dirent_list, dirent);
+        dirent_list = g_list_prepend (dirent_list, seaf_dirent_dup(dirent));
     }
 
+    g_hash_table_unref(dirent_hash);
     g_free (parent_dir);
     json_decref (jobj);
+    seaf_dir_free (dir);
 
     if (!dirent_list) {
         return -1;
