@@ -81,9 +81,14 @@ seafile_generate_random_key (const char *passwd, char *random_key)
 
     int rc = RAND_bytes (secret_key, sizeof(secret_key));
     if (rc != 1) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L || OPENSSL_API_COMPAT < 0x10100000L
         seaf_warning ("Failed to generate secret key for repo encryption "
                       "with RAND_bytes(), use RAND_pseudo_bytes().\n");
         RAND_pseudo_bytes (secret_key, sizeof(secret_key));
+#else
+        seaf_warning ("Failed to generate secret key for repo encryption "
+                      "with RAND_bytes().\n");
+#endif
     }
 
     seafile_derive_key (passwd, strlen(passwd), 2, key, iv);
