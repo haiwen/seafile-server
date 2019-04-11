@@ -2238,18 +2238,24 @@ recv_form_field (RecvFSM *fsm, gboolean *no_line)
     return EVHTP_RES_OK;
 }
 
-static void
+static evhtp_res
 add_uploaded_file (RecvFSM *fsm)
 {
     if (fsm->rstart < 0) {
         // Non breakpoint transfer, same as original
+
+        /* In case of using NFS, the error may only occur in close(). */
+        if (close (fsm->fd) < 0) {
+            seaf_warning ("[upload] Failed to close temp file: %s\n", strerror(errno));
+            return EVHTP_RES_SERVERR;
+        }
+
         fsm->filenames = g_list_prepend (fsm->filenames,
                                          get_basename(fsm->file_name));
         fsm->files = g_list_prepend (fsm->files, g_strdup(fsm->tmp_file));
 
         g_free (fsm->file_name);
         g_free (fsm->tmp_file);
-        close (fsm->fd);
         fsm->file_name = NULL;
         fsm->tmp_file = NULL;
         fsm->recved_crlf = FALSE;
@@ -2260,6 +2266,8 @@ add_uploaded_file (RecvFSM *fsm)
         fsm->file_name = NULL;
         fsm->recved_crlf = FALSE;
     }
+
+    return EVHTP_RES_OK;
 }
 
 static evhtp_res
@@ -2304,7 +2312,11 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
     } else if (strstr (line, fsm->boundary) != NULL) {
         seaf_debug ("[upload] file data ends.\n");
 
-        add_uploaded_file (fsm);
+        evhtp_res res = add_uploaded_file (fsm);
+        if (res != EVHTP_RES_OK) {
+            free (line);
+            return res;
+        }
 
         g_free (fsm->input_name);
         fsm->input_name = NULL;
