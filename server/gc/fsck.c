@@ -92,7 +92,7 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
         if (!seaf_block_manager_block_exists (seaf->block_mgr,
                                               store_id, version,
                                               block_id)) {
-            seaf_warning ("Block %s:%s is missing.\n", store_id, block_id);
+            seaf_warning ("Repo[%.8s] block %s:%s is missing.\n", repo->id, store_id, block_id);
             ret = -1;
             break;
         }
@@ -107,12 +107,12 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
                 break;
             } else {
                 if (fsck_data->repair) {
-                    seaf_message ("Block %s is damaged, remove it.\n", block_id);
+                    seaf_message ("Repo[%.8s] block %s is damaged, remove it.\n", repo->id, block_id);
                     seaf_block_manager_remove_block (seaf->block_mgr,
                                                      store_id, version,
                                                      block_id);
                 } else {
-                    seaf_message ("Block %s is damaged.\n", block_id);
+                    seaf_message ("Repo[%.8s] block %s is damaged.\n", repo->id, block_id);
                 }
                 ret = -1;
                 break;
@@ -165,11 +165,11 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                 }
                 is_corrupted = TRUE;
                 if (fsck_data->repair) {
-                    seaf_message ("File %s(%.8s) is damaged, recreate an empty file.\n",
-                                  path, seaf_dent->id);
+                    seaf_message ("Repo[%.8s] file %s(%.8s) is damaged, recreate an empty file.\n",
+                                  fsck_data->repo->id, path, seaf_dent->id);
                 } else {
-                    seaf_message ("File %s(%.8s) is damaged.\n",
-                                  path, seaf_dent->id);
+                    seaf_message ("Repo[%.8s] file %s(%.8s) is damaged.\n",
+                                  fsck_data->repo->id, path, seaf_dent->id);
                 }
                 // file damaged, set it empty
                 memcpy (seaf_dent->id, EMPTY_SHA1, 40);
@@ -183,11 +183,11 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                     }
                     is_corrupted = TRUE;
                     if (fsck_data->repair) {
-                        seaf_message ("File %s(%.8s) is damaged, recreate an empty file.\n",
-                                      path, seaf_dent->id);
+                        seaf_message ("Repo[%.8s] file %s(%.8s) is damaged, recreate an empty file.\n",
+                                      fsck_data->repo->id, path, seaf_dent->id);
                     } else {
-                        seaf_message ("File %s(%.8s) is damaged.\n",
-                                      path, seaf_dent->id);
+                        seaf_message ("Repo[%.8s] file %s(%.8s) is damaged.\n",
+                                      fsck_data->repo->id, path, seaf_dent->id);
                     }
                     // file damaged, set it empty
                     memcpy (seaf_dent->id, EMPTY_SHA1, 40);
@@ -203,7 +203,7 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
         } else if (S_ISDIR(seaf_dent->mode)) {
             path = g_strdup_printf ("%s%s/", parent_dir, seaf_dent->name);
             if (!path) {
-                seaf_warning ("Out of memory, stop to run fsck for repo %.8s.\n",
+                seaf_warning ("Out of memory, stop to run fsck for repo [%.8s].\n",
                               fsck_data->repo->id);
                 goto out;
             }
@@ -215,11 +215,11 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                     goto out;
                 }
                 if (fsck_data->repair) {
-                    seaf_message ("Dir %s(%.8s) is damaged, recreate an empty dir.\n",
-                                  path, seaf_dent->id);
+                    seaf_message ("Repo[%.8s] dir %s(%.8s) is damaged, recreate an empty dir.\n",
+                                  fsck_data->repo->id, path, seaf_dent->id);
                 } else {
-                    seaf_message ("Dir %s(%.8s) is damaged.\n",
-                                  path, seaf_dent->id);
+                    seaf_message ("Repo[%.8s] dir %s(%.8s) is damaged.\n",
+                                  fsck_data->repo->id, path, seaf_dent->id);
                 }
                 is_corrupted = TRUE;
                 // dir damaged, set it empty
@@ -249,7 +249,7 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
         new_dir = seaf_dir_new (NULL, dir->entries, version);
         if (fsck_data->repair) {
             if (seaf_dir_save (mgr, store_id, version, new_dir) < 0) {
-                seaf_warning ("Failed to save dir\n");
+                seaf_warning ("Repo[%.8s] failed to save dir\n", fsck_data->repo->id);
                 seaf_dir_free (new_dir);
                 goto out;
             }
