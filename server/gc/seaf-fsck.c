@@ -17,11 +17,13 @@ static char *central_config_dir = NULL;
 CcnetClient *ccnet_client;
 SeafileSession *seaf;
 
-static const char *short_opts = "hvc:d:rE:F:";
+static const char *short_opts = "hvft:c:d:rE:F:";
 static const struct option long_opts[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
+    { "force", no_argument, NULL, 'f', },
     { "repair", no_argument, NULL, 'r', },
+    { "threads", required_argument, NULL, 't', },
     { "export", required_argument, NULL, 'E', },
     { "config-file", required_argument, NULL, 'c', },
     { "central-config-dir", required_argument, NULL, 'F' },
@@ -92,7 +94,9 @@ main(int argc, char *argv[])
 {
     int c;
     gboolean repair = FALSE;
+    gboolean force = FALSE;
     char *export_path = NULL;
+    int max_thread_num = 0;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -109,6 +113,12 @@ main(int argc, char *argv[])
         case 'v':
             exit(-1);
             break;
+	case 'f':
+	    force = TRUE;
+	    break;
+	case 't':
+	    max_thread_num = atoi(strdup(optarg));
+	    break;
         case 'r':
             repair = TRUE;
             break;
@@ -150,7 +160,7 @@ main(int argc, char *argv[])
 
 #ifdef __linux__
     uid_t current_user, seafile_user;
-    if (!check_user (seafile_dir, &current_user, &seafile_user)) {
+    if (!force && !check_user (seafile_dir, &current_user, &seafile_user)) {
         seaf_message ("Current user (%u) is not the user for running "
                       "seafile server (%u). Unable to run fsck.\n",
                       current_user, seafile_user);
@@ -173,7 +183,7 @@ main(int argc, char *argv[])
     if (export_path) {
         export_file (repo_id_list, seafile_dir, export_path);
     } else {
-        seaf_fsck (repo_id_list, repair);
+        seaf_fsck (repo_id_list, repair, max_thread_num);
     }
 
     return 0;

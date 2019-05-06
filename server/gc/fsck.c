@@ -16,6 +16,11 @@ typedef struct FsckData {
     GList *repaired_folders;
 } FsckData;
 
+typedef struct CheckAndRecoverRepoObj {
+    char *repo_id;
+    gboolean repair;
+} CheckAndRecoverRepoObj;
+
 typedef enum VerifyType {
     VERIFY_FILE,
     VERIFY_DIR
@@ -87,7 +92,7 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
         if (!seaf_block_manager_block_exists (seaf->block_mgr,
                                               store_id, version,
                                               block_id)) {
-            seaf_warning ("Block %s:%s is missing.\n", store_id, block_id);
+            seaf_warning ("Repo[%.8s] block %s:%s is missing.\n", repo->id, store_id, block_id);
             ret = -1;
             break;
         }
@@ -102,12 +107,12 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
                 break;
             } else {
                 if (fsck_data->repair) {
-                    seaf_message ("Block %s is damaged, remove it.\n", block_id);
+                    seaf_message ("Repo[%.8s] block %s is damaged, remove it.\n", repo->id, block_id);
                     seaf_block_manager_remove_block (seaf->block_mgr,
                                                      store_id, version,
                                                      block_id);
                 } else {
-                    seaf_message ("Block %s is damaged.\n", block_id);
+                    seaf_message ("Repo[%.8s] block %s is damaged.\n", repo->id, block_id);
                 }
                 ret = -1;
                 break;
@@ -160,11 +165,11 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                 }
                 is_corrupted = TRUE;
                 if (fsck_data->repair) {
-                    seaf_message ("File %s(%.8s) is damaged, recreate an empty file.\n",
-                                  path, seaf_dent->id);
+                    seaf_message ("Repo[%.8s] file %s(%.8s) is damaged, recreate an empty file.\n",
+                                  fsck_data->repo->id, path, seaf_dent->id);
                 } else {
-                    seaf_message ("File %s(%.8s) is damaged.\n",
-                                  path, seaf_dent->id);
+                    seaf_message ("Repo[%.8s] file %s(%.8s) is damaged.\n",
+                                  fsck_data->repo->id, path, seaf_dent->id);
                 }
                 // file damaged, set it empty
                 memcpy (seaf_dent->id, EMPTY_SHA1, 40);
@@ -178,11 +183,11 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                     }
                     is_corrupted = TRUE;
                     if (fsck_data->repair) {
-                        seaf_message ("File %s(%.8s) is damaged, recreate an empty file.\n",
-                                      path, seaf_dent->id);
+                        seaf_message ("Repo[%.8s] file %s(%.8s) is damaged, recreate an empty file.\n",
+                                      fsck_data->repo->id, path, seaf_dent->id);
                     } else {
-                        seaf_message ("File %s(%.8s) is damaged.\n",
-                                      path, seaf_dent->id);
+                        seaf_message ("Repo[%.8s] file %s(%.8s) is damaged.\n",
+                                      fsck_data->repo->id, path, seaf_dent->id);
                     }
                     // file damaged, set it empty
                     memcpy (seaf_dent->id, EMPTY_SHA1, 40);
@@ -198,7 +203,7 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
         } else if (S_ISDIR(seaf_dent->mode)) {
             path = g_strdup_printf ("%s%s/", parent_dir, seaf_dent->name);
             if (!path) {
-                seaf_warning ("Out of memory, stop to run fsck for repo %.8s.\n",
+                seaf_warning ("Out of memory, stop to run fsck for repo [%.8s].\n",
                               fsck_data->repo->id);
                 goto out;
             }
@@ -210,11 +215,11 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                     goto out;
                 }
                 if (fsck_data->repair) {
-                    seaf_message ("Dir %s(%.8s) is damaged, recreate an empty dir.\n",
-                                  path, seaf_dent->id);
+                    seaf_message ("Repo[%.8s] dir %s(%.8s) is damaged, recreate an empty dir.\n",
+                                  fsck_data->repo->id, path, seaf_dent->id);
                 } else {
-                    seaf_message ("Dir %s(%.8s) is damaged.\n",
-                                  path, seaf_dent->id);
+                    seaf_message ("Repo[%.8s] dir %s(%.8s) is damaged.\n",
+                                  fsck_data->repo->id, path, seaf_dent->id);
                 }
                 is_corrupted = TRUE;
                 // dir damaged, set it empty
@@ -244,7 +249,7 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
         new_dir = seaf_dir_new (NULL, dir->entries, version);
         if (fsck_data->repair) {
             if (seaf_dir_save (mgr, store_id, version, new_dir) < 0) {
-                seaf_warning ("Failed to save dir\n");
+                seaf_warning ("Repo[%.8s] failed to save dir\n", fsck_data->repo->id);
                 seaf_dir_free (new_dir);
                 goto out;
             }
@@ -577,20 +582,14 @@ out:
 }
 
 static void
-repair_repos (GList *repo_id_list, gboolean repair)
+repair_repo(char *repo_id, gboolean repair)
 {
-    GList *ptr;
-    char *repo_id;
-    SeafRepo *repo;
     gboolean exists;
-    gboolean reset;
+    gboolean reset = FALSE;
+    SeafRepo *repo;
     gboolean io_error;
 
-    for (ptr = repo_id_list; ptr; ptr = ptr->next) {
-        reset = FALSE;
-        repo_id = ptr->data;
-
-        seaf_message ("Running fsck for repo %s.\n", repo_id);
+    seaf_message ("Running fsck for repo %s.\n", repo_id);
 
         if (!is_uuid_valid (repo_id)) {
             seaf_warning ("Invalid repo id %s.\n", repo_id);
@@ -655,16 +654,59 @@ repair_repos (GList *repo_id_list, gboolean repair)
         seaf_repo_unref (repo);
 next:
         seaf_message ("Fsck finished for repo %.8s.\n\n", repo_id);
+}
+
+static void
+repair_repo_with_thread_pool(gpointer data, gpointer user_data)
+{
+    CheckAndRecoverRepoObj *obj = data;
+
+    repair_repo(obj->repo_id, obj->repair);
+
+    g_free(obj);
+}
+
+static void
+repair_repos (GList *repo_id_list, gboolean repair, int max_thread_num)
+{
+    GList *ptr;
+    char *repo_id;
+    GThreadPool *pool;
+
+    if (max_thread_num) {
+        pool = g_thread_pool_new(
+            (GFunc)repair_repo_with_thread_pool, NULL, max_thread_num, FALSE, NULL);
+        if (!pool) {
+            seaf_warning ("Failed to create check and recover repo thread pool.\n");
+            return;
+        }
+    }
+
+    for (ptr = repo_id_list; ptr; ptr = ptr->next) {
+        repo_id = ptr->data;
+
+        if (max_thread_num) {
+            CheckAndRecoverRepoObj *obj = g_new0(CheckAndRecoverRepoObj, 1);
+            obj->repo_id = repo_id;
+            obj->repair = repair;
+            g_thread_pool_push(pool, obj, NULL);
+        } else {
+            repair_repo(repo_id, repair);
+        }
+     }
+
+    if (max_thread_num) {
+        g_thread_pool_free(pool, FALSE, TRUE);
     }
 }
 
 int
-seaf_fsck (GList *repo_id_list, gboolean repair)
+seaf_fsck (GList *repo_id_list, gboolean repair, int max_thread_num)
 {
     if (!repo_id_list)
         repo_id_list = seaf_repo_manager_get_repo_id_list (seaf->repo_mgr);
 
-    repair_repos (repo_id_list, repair);
+    repair_repos (repo_id_list, repair, max_thread_num);
 
     while (repo_id_list) {
         g_free (repo_id_list->data);
@@ -793,6 +835,7 @@ static gboolean
 write_nonenc_block_to_file (const char *repo_id,
                             int version,
                             const char *block_id,
+                            const gint64 mtime,
                             int fd,
                             const char *path)
 {
@@ -826,6 +869,15 @@ write_nonenc_block_to_file (const char *repo_id,
         }
     }
 
+    struct utimbuf timebuf;
+
+    timebuf.modtime = mtime;
+    timebuf.actime = mtime;
+
+    if(utime(path, &timebuf) == -1) {
+      seaf_warning ("Current file (%s) lose it\"s mtime.\n", path);
+    }
+
     seaf_block_manager_close_block (seaf->block_mgr, handle);
     seaf_block_manager_block_handle_free (seaf->block_mgr, handle);
 
@@ -835,6 +887,7 @@ write_nonenc_block_to_file (const char *repo_id,
 static void
 create_file (const char *repo_id,
              const char *file_id,
+             const gint64 mtime,
              const char *path)
 {
     int i;
@@ -860,7 +913,7 @@ create_file (const char *repo_id,
     for (i = 0; i < seafile->n_blocks; ++i) {
         block_id = seafile->blk_sha1s[i];
 
-        ret = write_nonenc_block_to_file (repo_id, version, block_id,
+        ret = write_nonenc_block_to_file (repo_id, version, block_id, mtime,
                                           fd, path);
         if (!ret) {
             break;
@@ -904,7 +957,7 @@ export_repo_files_recursive (const char *repo_id,
 
         if (S_ISREG(seaf_dent->mode)) {
             // create file
-            create_file (repo_id, seaf_dent->id, path);
+            create_file (repo_id, seaf_dent->id, seaf_dent->mtime, path);
         } else if (S_ISDIR(seaf_dent->mode)) {
             if (g_mkdir (path, 0777) < 0) {
                 seaf_warning ("Failed to mkdir %s: %s.\n", path,
