@@ -793,6 +793,7 @@ static gboolean
 write_nonenc_block_to_file (const char *repo_id,
                             int version,
                             const char *block_id,
+                            const gint64 mtime,
                             int fd,
                             const char *path)
 {
@@ -826,6 +827,15 @@ write_nonenc_block_to_file (const char *repo_id,
         }
     }
 
+    struct utimbuf timebuf;
+
+    timebuf.modtime = mtime;
+    timebuf.actime = mtime;
+
+    if(utime(path, &timebuf) == -1) {
+      seaf_warning ("Current file (%s) lose it\"s mtime.\n", path);
+    }
+
     seaf_block_manager_close_block (seaf->block_mgr, handle);
     seaf_block_manager_block_handle_free (seaf->block_mgr, handle);
 
@@ -835,6 +845,7 @@ write_nonenc_block_to_file (const char *repo_id,
 static void
 create_file (const char *repo_id,
              const char *file_id,
+             const gint64 mtime,
              const char *path)
 {
     int i;
@@ -860,7 +871,7 @@ create_file (const char *repo_id,
     for (i = 0; i < seafile->n_blocks; ++i) {
         block_id = seafile->blk_sha1s[i];
 
-        ret = write_nonenc_block_to_file (repo_id, version, block_id,
+        ret = write_nonenc_block_to_file (repo_id, version, block_id, mtime,
                                           fd, path);
         if (!ret) {
             break;
@@ -904,7 +915,7 @@ export_repo_files_recursive (const char *repo_id,
 
         if (S_ISREG(seaf_dent->mode)) {
             // create file
-            create_file (repo_id, seaf_dent->id, path);
+            create_file (repo_id, seaf_dent->id, seaf_dent->mtime, path);
         } else if (S_ISDIR(seaf_dent->mode)) {
             if (g_mkdir (path, 0777) < 0) {
                 seaf_warning ("Failed to mkdir %s: %s.\n", path,
