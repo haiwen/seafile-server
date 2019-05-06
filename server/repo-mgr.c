@@ -2609,6 +2609,10 @@ seaf_repo_manager_del_repo_from_trash (SeafRepoManager *mgr,
     }
 
     seaf_db_statement_query (mgr->seaf->db,
+                             "DELETE FROM RepoFileCount WHERE repo_id = ?",
+                             1, "string", repo_id);
+
+    seaf_db_statement_query (mgr->seaf->db,
                              "DELETE FROM RepoTrash WHERE repo_id = ?",
                              1, "string", repo_id);
 
