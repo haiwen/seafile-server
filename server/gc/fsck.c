@@ -16,6 +16,11 @@ typedef struct FsckData {
     GList *repaired_folders;
 } FsckData;
 
+typedef struct CheckAndRecoverRepoObj {
+    char *repo_id;
+    gboolean repair;
+} CheckAndRecoverRepoObj;
+
 typedef enum VerifyType {
     VERIFY_FILE,
     VERIFY_DIR
@@ -577,20 +582,14 @@ out:
 }
 
 static void
-repair_repos (GList *repo_id_list, gboolean repair)
+repair_repo(char *repo_id, gboolean repair)
 {
-    GList *ptr;
-    char *repo_id;
-    SeafRepo *repo;
     gboolean exists;
-    gboolean reset;
+    gboolean reset = FALSE;
+    SeafRepo *repo;
     gboolean io_error;
 
-    for (ptr = repo_id_list; ptr; ptr = ptr->next) {
-        reset = FALSE;
-        repo_id = ptr->data;
-
-        seaf_message ("Running fsck for repo %s.\n", repo_id);
+    seaf_message ("Running fsck for repo %s.\n", repo_id);
 
         if (!is_uuid_valid (repo_id)) {
             seaf_warning ("Invalid repo id %s.\n", repo_id);
@@ -655,16 +654,59 @@ repair_repos (GList *repo_id_list, gboolean repair)
         seaf_repo_unref (repo);
 next:
         seaf_message ("Fsck finished for repo %.8s.\n\n", repo_id);
+}
+
+static void
+repair_repo_with_thread_pool(gpointer data, gpointer user_data)
+{
+    CheckAndRecoverRepoObj *obj = data;
+
+    repair_repo(obj->repo_id, obj->repair);
+
+    g_free(obj);
+}
+
+static void
+repair_repos (GList *repo_id_list, gboolean repair, int max_thread_num)
+{
+    GList *ptr;
+    char *repo_id;
+    GThreadPool *pool;
+
+    if (max_thread_num) {
+        pool = g_thread_pool_new(
+            (GFunc)repair_repo_with_thread_pool, NULL, max_thread_num, FALSE, NULL);
+        if (!pool) {
+            seaf_warning ("Failed to create check and recover repo thread pool.\n");
+            return;
+        }
+    }
+
+    for (ptr = repo_id_list; ptr; ptr = ptr->next) {
+        repo_id = ptr->data;
+
+        if (max_thread_num) {
+            CheckAndRecoverRepoObj *obj = g_new0(CheckAndRecoverRepoObj, 1);
+            obj->repo_id = repo_id;
+            obj->repair = repair;
+            g_thread_pool_push(pool, obj, NULL);
+        } else {
+            repair_repo(repo_id, repair);
+        }
+     }
+
+    if (max_thread_num) {
+        g_thread_pool_free(pool, FALSE, TRUE);
     }
 }
 
 int
-seaf_fsck (GList *repo_id_list, gboolean repair)
+seaf_fsck (GList *repo_id_list, gboolean repair, int max_thread_num)
 {
     if (!repo_id_list)
         repo_id_list = seaf_repo_manager_get_repo_id_list (seaf->repo_mgr);
 
-    repair_repos (repo_id_list, repair);
+    repair_repos (repo_id_list, repair, max_thread_num);
 
     while (repo_id_list) {
         g_free (repo_id_list->data);
