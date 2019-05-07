@@ -2609,6 +2609,10 @@ seaf_repo_manager_del_repo_from_trash (SeafRepoManager *mgr,
     }
 
     seaf_db_statement_query (mgr->seaf->db,
+                             "DELETE FROM RepoFileCount WHERE repo_id = ?",
+                             1, "string", repo_id);
+
+    seaf_db_statement_query (mgr->seaf->db,
                              "DELETE FROM RepoTrash WHERE repo_id = ?",
                              1, "string", repo_id);
 
@@ -3932,8 +3936,10 @@ seaf_get_total_file_number (GError **error)
     int ret = seaf_db_statement_foreach_row (seaf->db,
                                              "SELECT SUM(file_count) FROM RepoFileCount f "
                                              "LEFT JOIN VirtualRepo v "
-                                             "ON f.repo_id=v.repo_id "
-                                             "WHERE v.repo_id IS NULL",
+                                             "ON f.repo_id=v.repo_id,"
+                                             "Repo r "
+                                             "WHERE v.repo_id IS NULL AND "
+                                             "f.repo_id=r.repo_id",
                                              get_total_file_number_cb,
                                              &count, 0);
     if (ret < 0) { 
