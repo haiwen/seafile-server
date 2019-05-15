@@ -142,6 +142,10 @@ seaf_repo_from_commit (SeafRepo *repo, SeafCommit *commit)
         else if (repo->enc_version == 2) {
             memcpy (repo->magic, commit->magic, 64);
             memcpy (repo->random_key, commit->random_key, 96);
+        } else if (repo->enc_version == 3) {
+            memcpy (repo->magic, commit->magic, 64);
+            memcpy (repo->random_key, commit->random_key, 96);
+            memcpy (repo->salt, commit->salt, 64);
         }
     }
     repo->no_local_history = commit->no_local_history;
@@ -163,6 +167,10 @@ seaf_repo_to_commit (SeafRepo *repo, SeafCommit *commit)
         else if (commit->enc_version == 2) {
             commit->magic = g_strdup (repo->magic);
             commit->random_key = g_strdup (repo->random_key);
+        } else if (commit->enc_version == 3) {
+            commit->magic = g_strdup (repo->magic);
+            commit->random_key = g_strdup (repo->random_key);
+            commit->salt = g_strdup (repo->salt);
         }
     }
     commit->no_local_history = repo->no_local_history;
@@ -3480,6 +3488,7 @@ create_repo_common (SeafRepoManager *mgr,
                     const char *user,
                     const char *magic,
                     const char *random_key,
+                    const char *salt,
                     int enc_version,
                     GError **error)
 {
@@ -3488,14 +3497,14 @@ create_repo_common (SeafRepoManager *mgr,
     SeafBranch *master = NULL;
     int ret = -1;
 
-    if (enc_version != 2 && enc_version != -1) {
+    if (enc_version != 3 && enc_version != 2 && enc_version != -1) {
         seaf_warning ("Unsupported enc version %d.\n", enc_version);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                      "Unsupported encryption version");
         return -1;
     }
 
-    if (enc_version == 2) {
+    if (enc_version >= 2) {
         if (!magic || strlen(magic) != 64) {
             seaf_warning ("Bad magic.\n");
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
@@ -3509,16 +3518,26 @@ create_repo_common (SeafRepoManager *mgr,
             return -1;
         }
     }
+    if (enc_version >= 3) {
+        if (!salt || strlen(salt) != 64) {
+            seaf_warning ("Bad salt.\n");
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                         "Bad salt");
+            return -1;
+        }
+    }
 
     repo = seaf_repo_new (repo_id, repo_name, repo_desc);
 
     repo->no_local_history = TRUE;
-    if (enc_version == 2) {
+    if (enc_version >= 2) {
         repo->encrypted = TRUE;
         repo->enc_version = enc_version;
         memcpy (repo->magic, magic, 64);
         memcpy (repo->random_key, random_key, 96);
     }
+    if (enc_version >= 3)
+        memcpy (repo->salt, salt, 64);
 
     repo->version = CURRENT_REPO_VERSION;
     memcpy (repo->store_id, repo_id, 36);
@@ -3580,25 +3599,31 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
                                    const char *repo_desc,
                                    const char *owner_email,
                                    const char *passwd,
+                                   int enc_version,
                                    GError **error)
 {
     char *repo_id = NULL;
-    char magic[65], random_key[97];
+    char salt[65], magic[65], random_key[97];
 
     repo_id = gen_uuid ();
 
     if (passwd && passwd[0] != 0) {
-        seafile_generate_magic (2, repo_id, passwd, magic);
-        seafile_generate_random_key (passwd, random_key);
+        if (seafile_generate_repo_salt (salt) < 0) {
+            goto bad;
+        }
+        seafile_generate_magic (enc_version, repo_id, passwd, salt, magic);
+        if (seafile_generate_random_key (passwd, enc_version, salt, random_key) < 0) {
+            goto bad;
+        }
     }
 
     int rc;
     if (passwd)
         rc = create_repo_common (mgr, repo_id, repo_name, repo_desc, owner_email,
-                                 magic, random_key, CURRENT_ENC_VERSION, error);
+                                 magic, random_key, salt, enc_version, error);
     else
         rc = create_repo_common (mgr, repo_id, repo_name, repo_desc, owner_email,
-                                 NULL, NULL, -1, error);
+                                 NULL, NULL, NULL, -1, error);
     if (rc < 0)
         goto bad;
 
@@ -3625,6 +3650,7 @@ seaf_repo_manager_create_enc_repo (SeafRepoManager *mgr,
                                    const char *owner_email,
                                    const char *magic,
                                    const char *random_key,
+                                   const char *salt,
                                    int enc_version,
                                    GError **error)
 {
@@ -3643,7 +3669,7 @@ seaf_repo_manager_create_enc_repo (SeafRepoManager *mgr,
     }
 
     if (create_repo_common (mgr, repo_id, repo_name, repo_desc, owner_email,
-                            magic, random_key, enc_version, error) < 0)
+                            magic, random_key, salt, enc_version, error) < 0)
         return NULL;
 
     if (seaf_repo_manager_set_repo_owner (mgr, repo_id, owner_email) < 0) {

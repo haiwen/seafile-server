@@ -63,6 +63,7 @@ func_table = [
     [ "string", ["string", "string", "string", "string", "string", "string", "int64"] ],
     [ "string", ["string", "string", "string", "string", "string", "string", "int64", "int"] ],
     [ "string", ["string", "string", "string", "string", "string", "string", "string"] ],
+    [ "string", ["string", "string", "string", "string", "string", "string", "string", "int"] ],
     [ "string", ["string", "string", "string", "string", "string", "string", "string", "int64"] ],
     [ "string", ["string", "string", "string", "string", "string", "string", "string", "string", "string"] ],
     [ "string", ["string", "int", "string", "string", "string", "string", "string", "string", "string", "string", "string", "string", "int", "string"] ],

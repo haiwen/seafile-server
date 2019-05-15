@@ -55,6 +55,7 @@ public class Repo : Object {
     public string magic { get; set; }
     public int enc_version { get; set; }
     public string random_key { get; set; }
+    public string salt { get; set; }
 
     // Section 3: Client only information
     // Should be set for all client repo objects
@@ -200,6 +201,7 @@ public class EncryptionInfo: Object {
     public int enc_version { get; set; }
     public string magic { get; set; }
     public string random_key { get; set; }
+    public string salt { get; set; }
 }
 
 } // namespace

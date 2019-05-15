@@ -73,8 +73,12 @@ convert_repo (SeafRepo *r)
                       NULL);
     }
 
-    if (r->encrypted && r->enc_version == 2)
-        g_object_set (repo, "random_key", r->random_key, NULL);
+    if (r->encrypted) {
+        if (r->enc_version >= 2)
+            g_object_set (repo, "random_key", r->random_key, NULL);
+        if (r->enc_version >= 3)
+            g_object_set (repo, "salt", r->salt, NULL);
+    }
 
     g_object_set (repo, "store_id", r->store_id,
                   "repaired", r->repaired,
@@ -1502,20 +1506,29 @@ seafile_generate_magic_and_random_key(int enc_version,
         return NULL;
     }
 
+    gchar salt[65] = {0};
     gchar magic[65] = {0};
     gchar random_key[97] = {0};
 
-    seafile_generate_magic (CURRENT_ENC_VERSION, repo_id, passwd, magic);
-    seafile_generate_random_key (passwd, random_key);
+    if (enc_version >= 3 && seafile_generate_repo_salt (salt) < 0) {
+        return NULL;
+    }
+
+    seafile_generate_magic (enc_version, repo_id, passwd, salt, magic);
+    if (seafile_generate_random_key (passwd, enc_version, salt, random_key) < 0) {
+        return NULL;
+    }
 
     SeafileEncryptionInfo *sinfo;
     sinfo = g_object_new (SEAFILE_TYPE_ENCRYPTION_INFO,
                           "repo_id", repo_id,
                           "passwd", passwd,
-                          "enc_version", CURRENT_ENC_VERSION,
+                          "enc_version", enc_version,
                           "magic", magic,
                           "random_key", random_key,
                           NULL);
+    if (enc_version >= 3)
+        g_object_set (sinfo, "salt", salt, NULL);
 
     return (GObject *)sinfo;
 
@@ -1830,7 +1843,8 @@ retry:
         return -1;
     }
 
-    if (seafile_verify_repo_passwd (repo_id, old_passwd, repo->magic, 2) < 0) {
+    if (seafile_verify_repo_passwd (repo_id, old_passwd, repo->magic,
+                                    repo->enc_version, repo->salt) < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Incorrect password");
         return -1;
     }
@@ -1847,9 +1861,10 @@ retry:
 
     char new_magic[65], new_random_key[97];
 
-    seafile_generate_magic (2, repo_id, new_passwd, new_magic);
+    seafile_generate_magic (repo->enc_version, repo_id, new_passwd, repo->salt, new_magic);
     if (seafile_update_random_key (old_passwd, repo->random_key,
-                                   new_passwd, new_random_key) < 0) {
+                                   new_passwd, new_random_key,
+                                   repo->enc_version, repo->salt) < 0) {
         ret = -1;
         goto out;
     }
@@ -3886,6 +3901,7 @@ seafile_create_repo (const char *repo_name,
                      const char *repo_desc,
                      const char *owner_email,
                      const char *passwd,
+                     int enc_version,
                      GError **error)
 {
     if (!repo_name || !repo_desc || !owner_email) {
@@ -3899,6 +3915,7 @@ seafile_create_repo (const char *repo_name,
                                                  repo_name, repo_desc,
                                                  owner_email,
                                                  passwd,
+                                                 enc_version,
                                                  error);
     return repo_id;
 }
@@ -3910,6 +3927,7 @@ seafile_create_enc_repo (const char *repo_id,
                          const char *owner_email,
                          const char *magic,
                          const char *random_key,
+                         const char *salt,
                          int enc_version,
                          GError **error)
 {
@@ -3921,10 +3939,10 @@ seafile_create_enc_repo (const char *repo_id,
     char *ret;
 
     ret = seaf_repo_manager_create_enc_repo (seaf->repo_mgr,
-                                                 repo_id, repo_name, repo_desc,
-                                                 owner_email,
-                                                 magic, random_key, enc_version,
-                                                 error);
+                                             repo_id, repo_name, repo_desc,
+                                             owner_email,
+                                             magic, random_key, salt, enc_version,
+                                             error);
     return ret;
 }
 

@@ -324,13 +324,13 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
                                      *args, **kwargs)
 
     # repo manipulation
-    @searpc_func("string", ["string", "string", "string", "string"])
-    def seafile_create_repo(name, desc, owner_email, passwd):
+    @searpc_func("string", ["string", "string", "string", "string", "int"])
+    def seafile_create_repo(name, desc, owner_email, passwd, enc_version):
         pass
     create_repo = seafile_create_repo
 
-    @searpc_func("string", ["string", "string", "string", "string", "string", "string", "int"])
-    def seafile_create_enc_repo(repo_id, name, desc, owner_email, magic, random_key, enc_version):
+    @searpc_func("string", ["string", "string", "string", "string", "string", "string", "string", "int"])
+    def seafile_create_enc_repo(repo_id, name, desc, owner_email, magic, random_key, salt, enc_version):
         pass
     create_enc_repo = seafile_create_enc_repo
 
@@ -789,7 +789,7 @@ class SeafServerThreadedRpcClient(ccnet.RpcClientBase):
     set_passwd = seafile_set_passwd
 
     @searpc_func("int", ["string", "string"])
-    def seafile_unset_passwd(repo_id, user, passwd):
+    def seafile_unset_passwd(repo_id, user):
         pass
     unset_passwd = seafile_unset_passwd
 

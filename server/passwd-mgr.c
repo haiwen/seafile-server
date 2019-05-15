@@ -118,7 +118,7 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
         return -1;
     }
 
-    if (repo->enc_version != 1 && repo->enc_version != 2) {
+    if (repo->enc_version != 1 && repo->enc_version != 2 && repo->enc_version != 3) {
         seaf_repo_unref (repo);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                      "Unsupported encryption version");
@@ -126,7 +126,7 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
     }
 
     if (seafile_verify_repo_passwd (repo->id, passwd,
-                                    repo->magic, repo->enc_version) < 0) {
+                                    repo->magic, repo->enc_version, repo->salt) < 0) {
         seaf_repo_unref (repo);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Incorrect password");
@@ -142,7 +142,7 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
         return -1;
     }
 
-    if (seafile_decrypt_repo_enc_key (repo->enc_version, passwd, repo->random_key,
+    if (seafile_decrypt_repo_enc_key (repo->enc_version, passwd, repo->random_key, repo->salt,
                                       crypt_key->key, crypt_key->iv) < 0) {
         seaf_repo_unref (repo);
         g_free (crypt_key);
@@ -220,7 +220,7 @@ seaf_passwd_manager_get_decrypt_key (SeafPasswdManager *mgr,
         return NULL;
     }
 
-    if (crypt_key->enc_version == 2) {
+    if (crypt_key->enc_version >= 2) {
         rawdata_to_hex (crypt_key->key, key_hex, 32);
         rawdata_to_hex (crypt_key->iv, iv_hex, 16);
     } else if (crypt_key->enc_version == 1) {
@@ -258,7 +258,7 @@ seaf_passwd_manager_get_decrypt_key_raw (SeafPasswdManager *mgr,
     if (crypt_key->enc_version == 1) {
         memcpy (key_out, crypt_key->key, 16);
         memcpy (iv_out, crypt_key->iv, 16);
-    } else if (crypt_key->enc_version == 2) {
+    } else if (crypt_key->enc_version >= 2) {
         memcpy (key_out, crypt_key->key, 32);
         memcpy (iv_out, crypt_key->iv, 16);
     }

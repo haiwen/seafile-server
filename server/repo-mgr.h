@@ -34,6 +34,7 @@ struct _SeafRepo {
     int         enc_version;
     gchar       magic[65];       /* hash(repo_id + passwd), key stretched. */
     gchar       random_key[97];
+    gchar       salt[65];
     gboolean    no_local_history;
     gint64      last_modify;
     gint64      size;
@@ -498,6 +499,7 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
                                    const char *repo_desc,
                                    const char *owner_email,
                                    const char *passwd,
+                                   int enc_version,
                                    GError **error);
 
 char *
@@ -508,6 +510,7 @@ seaf_repo_manager_create_enc_repo (SeafRepoManager *mgr,
                                    const char *owner_email,
                                    const char *magic,
                                    const char *random_key,
+                                   const char *salt,
                                    int enc_version,
                                    GError **error);
 
