@@ -168,8 +168,9 @@ main(int argc, char *argv[])
     GList *repo_id_list = NULL;
     int i;
     for (i = optind; i < argc; i++)
-        repo_id_list = g_list_append (repo_id_list, g_strdup(argv[i]));
+        repo_id_list = g_list_prepend (repo_id_list, g_strdup(argv[i]));
 
+    g_list_reverse(repo_id_list);
     if (export_path) {
         export_file (repo_id_list, seafile_dir, export_path);
     } else {
