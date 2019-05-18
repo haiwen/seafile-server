@@ -1513,6 +1513,9 @@ del_file_recursive(SeafRepo *repo,
     if (!olddir)
         return NULL;
 
+    if (deleted_num)
+        *deleted_num = 0;
+
     /* we reach the target dir. Remove the given entry from it. */
     if (*to_path == '\0') {
         SeafDirent *old, *new;
@@ -1560,6 +1563,12 @@ del_file_recursive(SeafRepo *repo,
                 }
             }
         }
+
+        if (deleted_num && deleted_num == 0) {
+            ret = g_strdup(olddir->dir_id);
+            goto out;
+        }
+
         newentries = g_list_reverse (newentries);
 
         newdir = seaf_dir_new(NULL, newentries,
@@ -1588,7 +1597,7 @@ del_file_recursive(SeafRepo *repo,
 
         id = del_file_recursive(repo, dent->id, remain, filename,
                                 mode, deleted_num, desc_file);
-        if (id != NULL) {
+        if (id != NULL && deleted_num && *deleted_num > 0) {
             memcpy(dent->id, id, 40);
             dent->id[40] = '\0';
             if (repo->version > 0)
@@ -1597,15 +1606,19 @@ del_file_recursive(SeafRepo *repo,
         break;
     }
     if (id != NULL) {
-        /* Create a new SeafDir. */
-        GList *new_entries;
+        if (deleted_num && *deleted_num == 0) {
+            ret = g_strdup(olddir->dir_id);
+        } else {
+            /* Create a new SeafDir. */
+            GList *new_entries;
         
-        new_entries = dup_seafdir_entries (olddir->entries);
-        newdir = seaf_dir_new (NULL, new_entries,
-                               dir_version_from_repo_version(repo->version));
-        if (seaf_dir_save (seaf->fs_mgr, repo->store_id, repo->version, newdir) == 0)
-            ret = g_strdup (newdir->dir_id);
-        seaf_dir_free (newdir);
+            new_entries = dup_seafdir_entries (olddir->entries);
+            newdir = seaf_dir_new (NULL, new_entries,
+                                   dir_version_from_repo_version(repo->version));
+            if (seaf_dir_save (seaf->fs_mgr, repo->store_id, repo->version, newdir) == 0)
+                ret = g_strdup (newdir->dir_id);
+            seaf_dir_free (newdir);
+        }
     }
 
 out:
@@ -1677,11 +1690,6 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
         goto out;
     }
     if (deleted_num == 0) {
-        seaf_warning ("[del file] Nothing to be deleted in dir %s in repo %.8s.\n ",
-                      parent_dir, repo->id);
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "File doesn't exist");
-        ret = -1;
         goto out;
     }
 

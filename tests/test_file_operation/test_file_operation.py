@@ -103,6 +103,9 @@ def test_file_operation():
     assert t_deleted_file_list[0].obj_name == file_name
     assert t_deleted_file_list[0].basedir == '/'
 
+    # test del a non-exist file. should return 0.
+    assert api.del_file(t_repo_id2, '/', file_name, USER) == 0
+
     assert api.del_file(t_repo_id1, '/' + dir_name, new_empty_file_name, USER) == 0
     assert api.del_file(t_repo_id1, '/' + dir_name, new_file_name, USER) == 0
     assert api.del_file(t_repo_id2, '/', new_file_name, USER) == 0
