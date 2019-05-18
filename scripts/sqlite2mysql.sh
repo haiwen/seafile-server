@@ -19,15 +19,15 @@ SEAHUB_DB='seahub-db.sql'
 
 ########## ccnet
 seafile_path=$(pwd)
-if [ -f "${seafile_path}/ccnet/ccnet.conf" ]; then
+if [ -f "${seafile_path}/conf/ccnet.conf" ]; then
     USER_MGR_DB=${seafile_path}/ccnet/PeerMgr/usermgr.db
     GRP_MGR_DB=${seafile_path}/ccnet/GroupMgr/groupmgr.db
 else
-    echo "${seafile_path}/ccnet/ccnet.conf does not exists."
-    read -p "Please provide your ccnet.conf path(e.g. /data/haiwen/ccnet/ccnet.conf): " ccnet_conf_path
+    echo "${seafile_path}/conf/ccnet.conf does not exists."
+    read -p "Please provide your ccnet.conf path(e.g. /data/haiwen/conf/ccnet.conf): " ccnet_conf_path
     if [ -f ${ccnet_conf_path} ]; then
-        USER_MGR_DB=$(dirname "${ccnet_conf_path}")/PeerMgr/usermgr.db
-        GRP_MGR_DB=$(dirname "${ccnet_conf_path}")/GroupMgr/groupmgr.db
+        USER_MGR_DB=$(dirname $(dirname "${ccnet_conf_path}"))/ccnet/PeerMgr/usermgr.db
+        GRP_MGR_DB=$(dirname $(dirname "${ccnet_conf_path}"))/ccnet/GroupMgr/groupmgr.db
     else
         echo "${ccnet_conf_path} does not exists, quit."
         exit 1
