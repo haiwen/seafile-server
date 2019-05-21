@@ -713,11 +713,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         // File upload success, try to remove tmp file from WebUploadTmpFile table
         char *abs_path;
 
-        if (new_parent_dir[strlen(new_parent_dir) - 1] == '/') {
-            abs_path = g_strconcat (new_parent_dir, (char *)fsm->filenames->data, NULL);
-        } else {
-            abs_path = g_strconcat (new_parent_dir, "/", (char *)fsm->filenames->data, NULL);
-        }
+        abs_path = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
 
         seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, abs_path, NULL);
         g_free (abs_path);
@@ -1122,11 +1118,7 @@ append_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
     HttpServerStruct *htp_server = seaf->http_server;
     int cluster_shared_temp_file_mode = htp_server->cluster_shared_temp_file_mode;
 
-    if (parent_dir[strlen(parent_dir) - 1] == '/') {
-        abs_path = g_strconcat (parent_dir, file_name, NULL);
-    } else {
-        abs_path = g_strconcat (parent_dir, "/", file_name, NULL);
-    }
+    abs_path = g_build_path ("/", parent_dir, file_name, NULL);
 
     temp_file = seaf_repo_manager_get_upload_tmp_file (seaf->repo_mgr,
                                                        fsm->repo_id,
@@ -1356,11 +1348,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
         // File upload success, try to remove tmp file from WebUploadTmpFile table
         char *abs_path;
 
-        if (new_parent_dir[strlen(new_parent_dir) - 1] == '/') {
-            abs_path = g_strconcat (new_parent_dir, (char *)fsm->filenames->data, NULL);
-        } else {
-            abs_path = g_strconcat (new_parent_dir, "/", (char *)fsm->filenames->data, NULL);
-        }
+        abs_path = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
 
         seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, abs_path, NULL);
         g_free (abs_path);
@@ -1510,7 +1498,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
         return;
 
     if (!fsm->filenames) {
-        seaf_debug ("[update] No file uploaded.\n");
+        seaf_debug ("[Update] No file uploaded.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
         return;
     }
@@ -1521,32 +1509,38 @@ update_api_cb(evhtp_request_t *req, void *arg)
         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
         return;
     }
+
     parent_dir = g_path_get_dirname (target_file);
+    filename = g_path_get_basename (target_file);
+    if (!filename || filename[0] == '\0') {
+        seaf_debug ("[Update] Bad target_file.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid targe_file.\n");
+        return;
+    }
 
     if (fsm->rstart >= 0) {
         if (fsm->filenames->next) {
             seaf_debug ("[Update] Breakpoint transfer only support one file in one request.\n");
-            send_error_reply (req, EVHTP_RES_BADREQ, "More files in one request.\n");
-            return;
+            send_error_reply (req, EVHTP_RES_BADREQ, "More than one file in one request.\n");
+            goto out;
         }
 
         if (parent_dir[0] != '/') {
             seaf_debug ("[Update] Invalid parent dir, should start with /.\n");
             send_error_reply (req, EVHTP_RES_BADREQ, "Invalid parent dir.\n");
-            return;
+            goto out;
         }
 
-        if (append_block_data_to_tmp_file (fsm, parent_dir,
-                                           (char *)fsm->filenames->data) < 0) {
-            error_code = ERROR_INTERNAL;
-            goto error;
+        if (append_block_data_to_tmp_file (fsm, parent_dir, filename) < 0) {
+            send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
+            goto out;
         }
+
         if (fsm->rend != fsm->fsize - 1) {
             const char *success_str = "{\"success\": true}";
             evbuffer_add (req->buffer_out, success_str, strlen(success_str));
             send_success_reply_ie8_compatible (req, EVHTP_RES_OK);
-            g_free (parent_dir);
-            return;
+            goto out;
         }
     }
 
@@ -1556,10 +1550,8 @@ update_api_cb(evhtp_request_t *req, void *arg)
         return;
     }
 
-    filename = g_path_get_basename (target_file);
-
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
-        return;
+        goto out;
 
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
@@ -1587,9 +1579,6 @@ update_api_cb(evhtp_request_t *req, void *arg)
                                          head_id,
                                          &new_file_id,
                                          &error);
-    g_free (parent_dir);
-    g_free (filename);
-
     if (rc < 0) {
         if (error) {
             if (g_strcmp0 (error->message, "file does not exist") == 0) {
@@ -1604,24 +1593,15 @@ update_api_cb(evhtp_request_t *req, void *arg)
     evbuffer_add(req->buffer_out, new_file_id, strlen(new_file_id));
     send_success_reply (req);
 
-    send_statistic_msg(fsm->repo_id, fsm->user, "web-file-upload", (guint64)content_len);
-
     if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
         // File upload success, try to remove tmp file from WebUploadTmpFile table
         char *abs_path;
 
-        if (parent_dir[strlen(parent_dir) - 1] == '/') {
-            abs_path = g_strconcat (parent_dir, (char *)fsm->filenames->data, NULL);
-        } else {
-            abs_path = g_strconcat (parent_dir, "/", (char *)fsm->filenames->data, NULL);
-        }
+        abs_path = g_build_path ("/", parent_dir, filename, NULL);
 
         seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, abs_path, NULL);
         g_free (abs_path);
     }
-
-    g_free (new_file_id);
-    return;
 
 error:
     switch (error_code) {
@@ -1646,6 +1626,12 @@ error:
         send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
         break;
     }
+
+out:
+    g_free (parent_dir);
+    g_free (filename);
+    g_free (new_file_id);
+    return;
 }
 
 static void
