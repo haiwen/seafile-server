@@ -542,7 +542,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
     evhtp_headers_add_header (req->headers_out,
                               evhtp_header_new("Access-Control-Allow-Headers",
-                                               "x-requested-with, content-type, accept, origin, authorization", 1, 1));
+                                               "x-requested-with, content-type, content-range, content-disposition, accept, origin, authorization", 1, 1));
     evhtp_headers_add_header (req->headers_out,
                               evhtp_header_new("Access-Control-Allow-Methods",
                                                "GET, POST, PUT, PATCH, DELETE, OPTIONS", 1, 1));
@@ -1487,7 +1487,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
 
     evhtp_headers_add_header (req->headers_out,
                               evhtp_header_new("Access-Control-Allow-Headers",
-                                               "x-requested-with, content-type, accept, origin, authorization", 1, 1));
+                                               "x-requested-with, content-type, content-range, content-disposition, accept, origin, authorization", 1, 1));
     evhtp_headers_add_header (req->headers_out,
                               evhtp_header_new("Access-Control-Allow-Methods",
                                                "GET, POST, PUT, PATCH, DELETE, OPTIONS", 1, 1));
@@ -1509,7 +1509,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
     if (!fsm || fsm->state == RECV_ERROR)
         return;
 
-    if (!fsm->files) {
+    if (!fsm->filenames) {
         seaf_debug ("[update] No file uploaded.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
         return;
@@ -1521,8 +1521,41 @@ update_api_cb(evhtp_request_t *req, void *arg)
         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
         return;
     }
-
     parent_dir = g_path_get_dirname (target_file);
+
+    if (fsm->rstart >= 0) {
+        if (fsm->filenames->next) {
+            seaf_debug ("[Update] Breakpoint transfer only support one file in one request.\n");
+            send_error_reply (req, EVHTP_RES_BADREQ, "More files in one request.\n");
+            return;
+        }
+
+        if (parent_dir[0] != '/') {
+            seaf_debug ("[Update] Invalid parent dir, should start with /.\n");
+            send_error_reply (req, EVHTP_RES_BADREQ, "Invalid parent dir.\n");
+            return;
+        }
+
+        if (append_block_data_to_tmp_file (fsm, parent_dir,
+                                           (char *)fsm->filenames->data) < 0) {
+            error_code = ERROR_INTERNAL;
+            goto error;
+        }
+        if (fsm->rend != fsm->fsize - 1) {
+            const char *success_str = "{\"success\": true}";
+            evbuffer_add (req->buffer_out, success_str, strlen(success_str));
+            send_success_reply_ie8_compatible (req, EVHTP_RES_OK);
+            g_free (parent_dir);
+            return;
+        }
+    }
+
+    if (!fsm->files) {
+        seaf_debug ("[Update] No file uploaded.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
+        return;
+    }
+
     filename = g_path_get_basename (target_file);
 
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
@@ -1533,7 +1566,11 @@ update_api_cb(evhtp_request_t *req, void *arg)
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
-    gint64 content_len = get_content_length(req);
+    gint64 content_len;
+    if (fsm->fsize > 0)
+        content_len = fsm->fsize;
+    else
+        content_len = get_content_length (req);
     if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
                                                    fsm->repo_id,
                                                    content_len) != 0) {
@@ -1568,6 +1605,20 @@ update_api_cb(evhtp_request_t *req, void *arg)
     send_success_reply (req);
 
     send_statistic_msg(fsm->repo_id, fsm->user, "web-file-upload", (guint64)content_len);
+
+    if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
+        // File upload success, try to remove tmp file from WebUploadTmpFile table
+        char *abs_path;
+
+        if (parent_dir[strlen(parent_dir) - 1] == '/') {
+            abs_path = g_strconcat (parent_dir, (char *)fsm->filenames->data, NULL);
+        } else {
+            abs_path = g_strconcat (parent_dir, "/", (char *)fsm->filenames->data, NULL);
+        }
+
+        seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, abs_path, NULL);
+        g_free (abs_path);
+    }
 
     g_free (new_file_id);
     return;
