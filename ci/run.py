@@ -193,6 +193,7 @@ def main():
 def start_and_test_with_db(db):
     info('Setting up seafile server with %s database', db)
     server = ServerCtl(
+        TOPDIR,
         INSTALLDIR,
         db=db,
         # Use the newly built seaf-server (to avoid "make install" each time when developping locally)
