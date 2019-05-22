@@ -1,115 +1,104 @@
-CREATE TABLE `Group` (
-  `group_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `group_name` varchar(255) DEFAULT NULL,
-  `creator_name` varchar(255) DEFAULT NULL,
-  `timestamp` bigint(20) DEFAULT NULL,
-  `type` varchar(32) DEFAULT NULL,
-  `parent_group_id` int(11) DEFAULT NULL,
-  PRIMARY KEY (`group_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS Binding (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255),
+  peer_id CHAR(41),
+  UNIQUE INDEX (peer_id),
+  INDEX (email(20))
+) ENGINE=INNODB;
 
-CREATE TABLE `GroupUser` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `group_id` bigint(20) DEFAULT NULL,
-  `user_name` varchar(255) DEFAULT NULL,
-  `is_staff` tinyint(4) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `group_id` (`group_id`,`user_name`),
-  KEY `user_name` (`user_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS EmailUser (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255),
+  passwd VARCHAR(256),
+  is_staff BOOL NOT NULL,
+  is_active BOOL NOT NULL,
+  ctime BIGINT,
+  reference_id VARCHAR(255),
+  UNIQUE INDEX (email),
+  UNIQUE INDEX (reference_id)
+) ENGINE=INNODB;
 
-CREATE TABLE `GroupDNPair` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `group_id` int(11) DEFAULT NULL,
-  `dn` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS `Group` (
+  `group_id` BIGINT PRIMARY KEY AUTO_INCREMENT,
+  `group_name` VARCHAR(255),
+  `creator_name` VARCHAR(255),
+  `timestamp` BIGINT,
+  `type` VARCHAR(32),
+  `parent_group_id` INTEGER
+) ENGINE=INNODB;
 
-CREATE TABLE `GroupStructure` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `group_id` int(11) DEFAULT NULL,
-  `path` varchar(1024) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `group_id` (`group_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS GroupDNPair (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  group_id INTEGER,
+  dn VARCHAR(255)
+)ENGINE=INNODB;
 
-CREATE TABLE `OrgGroup` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `org_id` int(11) DEFAULT NULL,
-  `group_id` int(11) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `org_id` (`org_id`,`group_id`),
-  KEY `group_id` (`group_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS GroupStructure (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  group_id INTEGER,
+  path VARCHAR(1024),
+  UNIQUE INDEX(group_id)
+)ENGINE=INNODB;
 
-CREATE TABLE `Organization` (
-  `org_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `org_name` varchar(255) DEFAULT NULL,
-  `url_prefix` varchar(255) DEFAULT NULL,
-  `creator` varchar(255) DEFAULT NULL,
-  `ctime` bigint(20) DEFAULT NULL,
-  PRIMARY KEY (`org_id`),
-  UNIQUE KEY `url_prefix` (`url_prefix`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS `GroupUser` (
+  `id` BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  `group_id` BIGINT,
+  `user_name` VARCHAR(255),
+  `is_staff` tinyint,
+  UNIQUE INDEX (`group_id`, `user_name`),
+  INDEX (`user_name`)
+) ENGINE=INNODB;
 
-CREATE TABLE `OrgUser` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `org_id` int(11) DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `is_staff` tinyint(1) NOT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `org_id` (`org_id`,`email`),
-  KEY `email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS LDAPConfig (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  cfg_group VARCHAR(255) NOT NULL,
+  cfg_key VARCHAR(255) NOT NULL,
+  value VARCHAR(255),
+  property INTEGER
+) ENGINE=INNODB;
 
-CREATE TABLE `Binding` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `email` varchar(255) DEFAULT NULL,
-  `peer_id` char(41) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `peer_id` (`peer_id`),
-  KEY `email` (`email`(20))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS LDAPUsers (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255) NOT NULL,
+  password varchar(255) NOT NULL,
+  is_staff BOOL NOT NULL,
+  is_active BOOL NOT NULL,
+  extra_attrs TEXT,
+  reference_id VARCHAR(255),
+  UNIQUE INDEX(email),
+  UNIQUE INDEX (reference_id)
+) ENGINE=INNODB;
 
-CREATE TABLE `EmailUser` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `email` varchar(255) DEFAULT NULL,
-  `passwd` varchar(256) DEFAULT NULL,
-  `is_staff` tinyint(1) NOT NULL,
-  `is_active` tinyint(1) NOT NULL,
-  `ctime` bigint(20) DEFAULT NULL,
-  `reference_id` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`),
-  UNIQUE KEY `reference_id` (`reference_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS OrgGroup (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  org_id INTEGER,
+  group_id INTEGER,
+  INDEX (group_id),
+  UNIQUE INDEX(org_id, group_id)
+) ENGINE=INNODB;
 
-CREATE TABLE `LDAPConfig` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `cfg_group` varchar(255) NOT NULL,
-  `cfg_key` varchar(255) NOT NULL,
-  `value` varchar(255) DEFAULT NULL,
-  `property` int(11) DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS OrgUser (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  org_id INTEGER,
+  email VARCHAR(255),
+  is_staff BOOL NOT NULL,
+  INDEX (email),
+  UNIQUE INDEX(org_id, email)
+) ENGINE=INNODB;
 
-CREATE TABLE `LDAPUsers` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `email` varchar(255) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `is_staff` tinyint(1) NOT NULL,
-  `is_active` tinyint(1) NOT NULL,
-  `extra_attrs` text,
-  `reference_id` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`),
-  UNIQUE KEY `reference_id` (`reference_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS Organization (
+  org_id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  org_name VARCHAR(255),
+  url_prefix VARCHAR(255),
+  creator VARCHAR(255),
+  ctime BIGINT,
+  UNIQUE INDEX (url_prefix)
+) ENGINE=INNODB;
 
-CREATE TABLE `UserRole` (
-  `id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `email` varchar(255) DEFAULT NULL,
-  `role` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `email` (`email`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+CREATE TABLE IF NOT EXISTS UserRole (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255),
+  role VARCHAR(255),
+  is_manual_set INTEGER DEFAULT 0,
+  UNIQUE INDEX (email)
+) ENGINE=INNODB;
