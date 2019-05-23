@@ -145,10 +145,6 @@ function check_python () {
         if [[ $PYTHON == "python2.6" ]]; then
             py26="2.6"
         fi
-        hint="\nOn Debian/Ubntu: apt-get install python-setuptools\nOn CentOS/RHEL: yum install python${py26}-distribute"
-        check_python_module pkg_resources setuptools "${hint}"
-        hint="\nOn Debian/Ubntu: apt-get install python-imaging\nOn CentOS/RHEL: yum install python${py26}-imaging"
-        check_python_module PIL python-imaging "${hint}"
         check_python_module sqlite3 python-sqlite3
     fi
     echo
