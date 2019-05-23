@@ -748,21 +748,21 @@ def copy_shared_libs():
         shutil.copy(lib, dst_dir)
 
 def copy_seahub_thirdpart_libs(seahub_thirdpart):
-    '''copy django/djblets/gunicorn from ${thirdpartdir} to
+    '''copy python third-party libraries from ${thirdpartdir} to
     seahub/thirdpart
 
     '''
     src = conf[CONF_THIRDPARTDIR]
     dst = seahub_thirdpart
 
-    pattern = os.path.join(src, '*')
     try:
-        for path in glob.glob(pattern):
-            target_path = os.path.join(dst, os.path.basename(path))
-            if os.path.isdir(path):
-                shutil.copytree(path, target_path)
+        for name in os.listdir(src):
+            src_path = os.path.join(src, name)
+            target_path = os.path.join(dst, name)
+            if os.path.isdir(src_path):
+                shutil.copytree(src_path, target_path)
             else:
-                shutil.copy(path, target_path)
+                shutil.copy(src_path, target_path)
     except Exception, e:
         error('failed to copy seahub thirdpart libs: %s' % e)
 
