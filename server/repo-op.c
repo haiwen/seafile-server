@@ -1496,7 +1496,7 @@ del_file_recursive(SeafRepo *repo,
                    const char *dir_id,
                    const char *to_path,
                    const char *filename,
-                   int *mode, int *deleted_num, char **desc_file)
+                   int *mode, int *p_deleted_num, char **desc_file)
 {
     SeafDir *olddir, *newdir;
     SeafDirent *dent;
@@ -1506,15 +1506,13 @@ del_file_recursive(SeafRepo *repo,
     char *slash;
     char *id = NULL;
     char *ret = NULL;
+    int deleted_num = 0;
 
     olddir = seaf_fs_manager_get_seafdir_sorted(seaf->fs_mgr,
                                                 repo->store_id, repo->version,
                                                 dir_id);
     if (!olddir)
         return NULL;
-
-    if (deleted_num)
-        *deleted_num = 0;
 
     /* we reach the target dir. Remove the given entry from it. */
     if (*to_path == '\0') {
@@ -1532,8 +1530,7 @@ del_file_recursive(SeafRepo *repo,
                 for (i = 0; i < file_num; i++) {
                     if (strcmp(old->name, file_names[i]) == 0) {
                         found_flag = 1;
-                        if (deleted_num)
-                            (*deleted_num)++;
+                        deleted_num++;
                         if (mode)
                             *mode = old->mode;
                         if (desc_file && *desc_file==NULL)
@@ -1554,8 +1551,7 @@ del_file_recursive(SeafRepo *repo,
                     new = seaf_dirent_dup (old);
                     newentries = g_list_prepend (newentries, new);
                 } else {
-                    if (deleted_num)
-                        (*deleted_num)++;
+                    deleted_num++;
                     if (mode)
                         *mode = old->mode;
                     if (desc_file && *desc_file==NULL)
@@ -1564,7 +1560,7 @@ del_file_recursive(SeafRepo *repo,
             }
         }
 
-        if (deleted_num && deleted_num == 0) {
+        if (deleted_num == 0) {
             ret = g_strdup(olddir->dir_id);
             goto out;
         }
@@ -1596,8 +1592,8 @@ del_file_recursive(SeafRepo *repo,
             continue;
 
         id = del_file_recursive(repo, dent->id, remain, filename,
-                                mode, deleted_num, desc_file);
-        if (id != NULL && deleted_num && *deleted_num > 0) {
+                                mode, &deleted_num, desc_file);
+        if (id != NULL && deleted_num > 0) {
             memcpy(dent->id, id, 40);
             dent->id[40] = '\0';
             if (repo->version > 0)
@@ -1606,7 +1602,7 @@ del_file_recursive(SeafRepo *repo,
         break;
     }
     if (id != NULL) {
-        if (deleted_num && *deleted_num == 0) {
+        if (deleted_num == 0) {
             ret = g_strdup(olddir->dir_id);
         } else {
             /* Create a new SeafDir. */
@@ -1622,6 +1618,9 @@ del_file_recursive(SeafRepo *repo,
     }
 
 out:
+    if (p_deleted_num)
+        *p_deleted_num = deleted_num;
+
     g_free (to_path_dup);
     g_free (id);
     seaf_dir_free(olddir);

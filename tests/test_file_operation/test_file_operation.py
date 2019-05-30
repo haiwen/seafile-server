@@ -6,6 +6,7 @@ from seaserv import seafile_api as api
 
 file_name = 'test.txt'
 new_file_name = 'new_test.txt'
+new_file_name_2 = 'new_test_2.txt'
 empty_file_name = 'empty_test.txt'
 new_empty_file_name = 'new_empty_test.txt'
 file_content = 'test file content'
@@ -62,6 +63,12 @@ def test_file_operation():
     t_file_id = api.get_file_id_by_path(t_repo_id1, '/' + new_file_name)
     assert t_file_id is None
 
+    # test move_file (synchronize)
+    t_move_file_result1 = api.move_file(t_repo_id1, '/' + dir_name, new_file_name, t_repo_id1, '/', new_file_name_2, 1, USER, 0, 1)
+    assert t_move_file_result1
+    t_file_id = api.get_file_id_by_path(t_repo_id1, '/' + dir_name + '/' + new_file_name)
+    assert t_file_id is None
+
     # test move_file (asynchronous)
     t_move_file_result2 = api.move_file(t_repo_id1, '/', file_name, t_repo_id2, '/' , new_file_name, 1, USER, 1, 0)
     assert t_move_file_result2
@@ -109,6 +116,7 @@ def test_file_operation():
     assert api.del_file(t_repo_id1, '/' + dir_name, new_empty_file_name, USER) == 0
     assert api.del_file(t_repo_id1, '/' + dir_name, new_file_name, USER) == 0
     assert api.del_file(t_repo_id2, '/', new_file_name, USER) == 0
+    assert api.del_file(t_repo_id1, '/', new_file_name_2, USER) == 0
 
     time.sleep(1)
     api.remove_repo(t_repo_id1)
