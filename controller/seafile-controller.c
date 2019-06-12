@@ -17,13 +17,20 @@
 #include "log.h"
 #include "seafile-controller.h"
 
-#define CHECK_PROCESS_INTERVAL 10        /* every 10 seconds */
+#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__OpenBSD__)
+#include <sys/sysctl.h>
+#include <sys/types.h>
+#include <sys/user.h>
+#include <limits.h>
 
-#if defined(__sun)
-#define PROC_SELF_PATH "/proc/self/path/a.out"
-#else
-#define PROC_SELF_PATH "/proc/self/exe"
+#ifndef WITH_PROC_FS
+#define WITH_PROC_FS g_file_test("/proc/curproc", G_FILE_TEST_EXISTS)
 #endif
+
+static char *command_name = NULL;
+#endif
+
+#define CHECK_PROCESS_INTERVAL 10        /* every 10 seconds */
 
 SeafileController *ctl;
 
@@ -265,7 +272,20 @@ static void
 init_seafile_path ()
 {
     GError *error = NULL;
-    char *binary = g_file_read_link (PROC_SELF_PATH, &error);
+#if defined(__linux__)
+    char *binary = g_file_read_link ("/proc/self/exe", &error);
+#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__OpenBSD__)
+    /*
+     * seafile.sh starts the process using abs path
+     */
+    char binary[_POSIX_PATH_MAX];
+    memset(binary, 0, _POSIX_PATH_MAX);
+    char * rc = realpath(command_name, binary);
+    if (!rc) {
+        seaf_warning ("failed to readpath: %s\n", binary);
+        return;
+    }
+#endif
     char *tmp = NULL;
     if (error != NULL) {
         seaf_warning ("failed to readlink: %s\n", error->message);
@@ -279,7 +299,9 @@ init_seafile_path ()
 
     topdir = g_path_get_dirname (installpath);
 
+#if defined(__linux__)
     g_free (binary);
+#endif
     g_free (tmp);
 }
 
@@ -346,42 +368,6 @@ setup_env ()
     g_setenv ("SEAFDAV_CONF", seafdav_conf, TRUE);
 
     setup_python_path();
-}
-
-static int
-start_seafevents() {
-    if (!ctl->has_seafevents)
-        return 0;
-
-    static char *seafevents_config_file = NULL;
-    static char *seafevents_log_file = NULL;
-
-    if (seafevents_config_file == NULL)
-        seafevents_config_file = g_build_filename (topdir,
-                                                  "conf/seafevents.conf",
-                                                   NULL);
-    if (seafevents_log_file == NULL)
-        seafevents_log_file = g_build_filename (ctl->logdir,
-                                                "seafevents.log",
-                                                NULL);
-
-    char *argv[] = {
-        (char *)get_python_executable(),
-        "-m", "seafevents.main",
-        "--config-file", seafevents_config_file,
-        "--logfile", seafevents_log_file,
-        "-P", ctl->pidfile[PID_SEAFEVENTS],
-        NULL
-    };
-
-    int pid = spawn_process (argv);
-
-    if (pid <= 0) {
-        seaf_warning ("Failed to spawn seafevents.\n");
-        return -1;
-    }
-
-    return 0;
 }
 
 static int
@@ -457,12 +443,41 @@ need_restart (int which)
         return FALSE;
     } else {
         char buf[256];
+	gboolean with_procfs;
+#if defined(__linux__)
+	with_procfs = g_file_test("/proc/self", G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR);
+#elif defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
+	with_procfs = g_file_test("/proc/curproc", G_FILE_TEST_EXISTS | G_FILE_TEST_IS_DIR);
+#else
+	with_procfs = FALSE;
+#endif
+	if (with_procfs) {
         snprintf (buf, sizeof(buf), "/proc/%d", pid);
         if (g_file_test (buf, G_FILE_TEST_IS_DIR)) {
             return FALSE;
         } else {
             seaf_warning ("path /proc/%d doesn't exist, restart progress [%d]\n", pid, which);
             return TRUE;
+	}
+
+	} else {
+#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__OpenBSD__)
+#ifdef __OpenBSD__
+            int min[6] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid, sizeof(struct kinfo_proc), 1};
+#else
+            int mib[4] = {CTL_KERN, KERN_PROC, KERN_PROC_PID, pid};
+#endif
+            size_t len = sizeof(struct kinfo_proc);
+            struct kinfo_proc kp;
+	    if (sysctl(mib, sizeof(mib)/sizeof(mib[0]), &kp, &len, NULL, 0) != -1 &&
+	      len == sizeof(struct kinfo_proc)) {
+		return FALSE;
+            } else {
+                return TRUE;
+            }
+#else
+	return FALSE;
+#endif
         }
     }
 }
@@ -480,11 +495,6 @@ check_process (void *data)
             seaf_message ("seafdav need restart...\n");
             start_seafdav ();
         }
-    }
-
-    if (ctl->has_seafevents && need_restart(PID_SEAFEVENTS)) {
-        seaf_message ("seafevents need restart...\n");
-        start_seafevents ();
     }
 
     return TRUE;
@@ -582,11 +592,6 @@ on_ccnet_connected ()
     if (start_seaf_server () < 0)
         controller_exit(1);
 
-    if (ctl->has_seafevents && need_restart(PID_SEAFEVENTS)) {
-        if (start_seafevents() < 0)
-            controller_exit(1);
-    }
-
     if (ctl->seafdav_config.enabled) {
         if (need_restart(PID_SEAFDAV)) {
             if (start_seafdav() < 0)
@@ -638,8 +643,6 @@ stop_ccnet_server ()
     kill_by_force(PID_CCNET);
     kill_by_force(PID_SERVER);
     kill_by_force(PID_SEAFDAV);
-    if (ctl->has_seafevents)
-        kill_by_force(PID_SEAFEVENTS);
 }
 
 static void
@@ -656,7 +659,6 @@ init_pidfile_path (SeafileController *ctl)
     ctl->pidfile[PID_CCNET] = g_build_filename (pid_dir, "ccnet.pid", NULL);
     ctl->pidfile[PID_SERVER] = g_build_filename (pid_dir, "seaf-server.pid", NULL);
     ctl->pidfile[PID_SEAFDAV] = g_build_filename (pid_dir, "seafdav.pid", NULL);
-    ctl->pidfile[PID_SEAFEVENTS] = g_build_filename (pid_dir, "seafevents.pid", NULL);
 }
 
 static int
@@ -709,18 +711,6 @@ seaf_controller_init (SeafileController *ctl,
     if (read_seafdav_config() < 0) {
         return -1;
     }
-
-    char *seafevents_config_file = g_build_filename (topdir,
-                                                     "conf/seafevents.conf",
-                                                     NULL);
-
-    if (!g_file_test (seafevents_config_file, G_FILE_TEST_EXISTS)) {
-        seaf_message ("No seafevents.\n");
-        ctl->has_seafevents = FALSE;
-    } else {
-        ctl->has_seafevents = TRUE;
-    }
-    g_free (seafevents_config_file);
 
     init_pidfile_path (ctl);
     setup_env ();
@@ -980,6 +970,9 @@ int main (int argc, char **argv)
         exit (1);
     }
 
+#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__OpenBSD__)
+    command_name = argv[0];
+#endif
     char *config_dir = DEFAULT_CONFIG_DIR;
     char *central_config_dir = NULL;
     char *seafile_dir = NULL;
@@ -1016,7 +1009,7 @@ int main (int argc, char **argv)
         case 'f':
             daemon_mode = 0;
             break;
-        case 'L':
+        case 'l':
             logdir = g_strdup(optarg);
             break;
         case 'g':
