@@ -18,7 +18,7 @@ TOPDIR=$(dirname "${INSTALLPATH}")
 default_ccnet_conf_dir=${TOPDIR}/ccnet
 central_config_dir=${TOPDIR}/conf
 seaf_controller="${INSTALLPATH}/seafile/bin/seafile-controller"
-
+pidfile=${INSTALLPATH}/runtime/seafile.pid
 
 export PATH=${INSTALLPATH}/seafile/bin:$PATH
 export ORIG_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
@@ -136,10 +136,12 @@ function start_seafile_server () {
     sleep 3
 
     # check if seafile server started successfully
-    if ! pgrep -f "seafile-controller -c ${default_ccnet_conf_dir}" 2>/dev/null 1>&2; then
+    if ! pid=$(pgrep -f "seafile-controller -c ${default_ccnet_conf_dir}" 2>/dev/null); then
         echo "Failed to start seafile server"
         exit 1;
     fi
+
+    echo ${pid} > ${pidfile}
 
     echo "Seafile server started"
     echo
@@ -158,6 +160,11 @@ function stop_seafile_server () {
     pkill -f "fileserver -c ${default_ccnet_conf_dir}"
     pkill -f "soffice.*--invisible --nocrashreport"
     pkill -f  "wsgidav.server.run_server"
+    
+    if [[ -f ${pidfile} ]]; then
+        rm -f ${pidfile}
+    fi;
+    
     return 0
 }
 
