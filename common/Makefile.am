@@ -1,4 +1,4 @@
-SUBDIRS = cdc db-wrapper
+SUBDIRS = cdc
 
 proc_headers = \
 	$(addprefix processors/, \

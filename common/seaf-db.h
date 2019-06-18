@@ -24,6 +24,7 @@ seaf_db_new_mysql (const char *host,
                    const char *charset,
                    int max_connections);
 
+#if 0
 SeafDB *
 seaf_db_new_pgsql (const char *host,
                    unsigned int port,
@@ -32,12 +33,10 @@ seaf_db_new_pgsql (const char *host,
                    const char *db_name,
                    const char *unix_socket,
                    int max_connections);
+#endif
 
 SeafDB *
 seaf_db_new_sqlite (const char *db_path, int max_connections);
-
-void
-seaf_db_free (SeafDB *db);
 
 int
 seaf_db_type (SeafDB *db);
@@ -97,14 +96,6 @@ int
 seaf_db_trans_foreach_selected_row (SeafDBTrans *trans, const char *sql,
                                     SeafDBRowFunc callback, void *data,
                                     int n, ...);
-
-/* Escape a string contant by doubling '\" characters.
- */
-char *
-seaf_db_escape_string (SeafDB *db, const char *from);
-
-gboolean
-pgsql_index_exists (SeafDB *db, const char *index_name);
 
 /* Prepared Statements */
 
