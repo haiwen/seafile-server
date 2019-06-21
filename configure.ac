@@ -83,6 +83,11 @@ AC_ARG_ENABLE(python,
               [compile_python=$enableval],
               [compile_python=yes])
 
+AC_ARG_WITH(mysql,
+            AC_HELP_STRING([--with-mysql],[path to mysql_config]),
+            [MYSQL_CONFIG=$with_mysql],
+	    [MYSQL_CONFIG="default_mysql_config"])
+
 AM_CONDITIONAL([COMPILE_TOOLS], [test "${compile_tools}" = "yes"])
 AM_CONDITIONAL([COMPILE_PYTHON], [test "${compile_python}" = "yes"])
 AM_CONDITIONAL([COMPILE_FUSE], [test "${compile_fuse}" = "yes"])
@@ -222,6 +227,17 @@ PKG_CHECK_MODULES(ZLIB, [zlib >= $ZLIB_REQUIRED])
 AC_SUBST(ZLIB_CFLAGS)
 AC_SUBST(ZLIB_LIBS)
 
+if test "x${MYSQL_CONFIG}" = "xdefault_mysql_config"; then
+    PKG_CHECK_MODULES(MYSQL, [mysqlclient])
+    AC_SUBST(MYSQL_CFLAGS)
+    AC_SUBST(MYSQL_LIBS)
+else
+    MYSQL_CFLAGS=`${MYSQL_CONFIG} --include`
+    MYSQL_LIBS=`${MYSQL_CONFIG} --libs`
+    AC_SUBST(MYSQL_CFLAGS)
+    AC_SUBST(MYSQL_LIBS)
+fi
+
 if test x${compile_python} = xyes; then
     AM_PATH_PYTHON([2.6])
     if test "$bwin32" = true; then
@@ -234,110 +250,6 @@ if test x${compile_python} = xyes; then
         fi
     fi
 fi
-
-mysql="yes"
-if test "$bwin32" != "true"; then
-    AC_MSG_CHECKING(for mysql in unix)
-    check_mysql_config()
-    {
-        AC_PATH_PROG([MYSQLCONFIG], [mysql_config], [no], [$PATH:/usr/local/bin:/usr/local/mysql/bin])
-        if test "x$MYSQLCONFIG" = "xno"
-        then
-            AC_MSG_WARN([mysql_config is required to build seafile server with mysql])
-            mysql="no"
-        fi
-    }
-    AC_MSG_CHECKING(for mysql)
-    AC_ARG_WITH([mysql],
-      AS_HELP_STRING([--with-mysql(=<path>)],
-          [Path is optional and if given should specify the full path to the MySQL
-          configure script, mysql_config. E.g. --with-mysql=/<path>/mysql_config]),
-      [
-          if test "xno" = "x$with_mysql"; then
-              AC_MSG_RESULT([no])
-              mysql="no"
-          else
-              AC_MSG_RESULT([yes])
-              AC_CHECK_FILE([$with_mysql], [MYSQLCONFIG=$with_mysql], [check_mysql_config])
-          fi
-      ],
-      [
-          AC_MSG_RESULT([yes])
-          check_mysql_config
-      ])
-    if test "xyes" = "x$mysql"; then
-        tmp_CPPFLAGS=$CPPFLAGS
-        tmp_LDFLAGS=$LDFLAGS
-        CPPFLAGS="`$MYSQLCONFIG --include` $CPPFLAGS"
-        LDFLAGS="`$MYSQLCONFIG --libs` $LDFLAGS"
-        AC_CHECK_HEADERS([mysql.h], [], [mysql="no"])
-        if test "xyes" = "x$mysql"; then
-            echo "found mysql client library"
-            MYSQL_CFLAGS=`$MYSQLCONFIG --include`
-            MYSQL_LIBS=`$MYSQLCONFIG --libs`
-            AC_SUBST(MYSQL_CFLAGS)
-            AC_SUBST(MYSQL_LIBS)
-            AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 to enable mysql])
-        fi
-        CPPFLAGS=$tmp_CPPFLAGS
-        LDFLAGS=$tmp_LDFLAGS
-    fi
-else
-    AC_MSG_CHECKING(for mysql in windows)
-    AC_CHECK_HEADERS([mysql.h], [], [mysql="no"])
-    if test "xyes" = "x$mysql"; then
-        AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 to enable mysql])
-        LDFLAGS="$LDFLAGS -lmysql -lws2_32"
-    fi
-fi
-AM_CONDITIONAL([WITH_MYSQL], test "xyes" = "x$mysql")
-
-postgresql="yes"
-check_postgres_config() 
-{
-        AC_PATH_PROG([PGCONFIG], [pg_config], [no], [$PATH:/usr/local/bin:/usr/local/pgsql/bin])
-        if test "x$PGCONFIG" = "xno"
-        then
-                AC_MSG_WARN([pg_config is required to build seafile server with postgresql])
-                postgresql="no"
-        fi
-}
-AC_MSG_CHECKING(for postgresql)
-AC_ARG_WITH([postgresql], 
-        AS_HELP_STRING([--with-postgresql(=<path>)], 
-                [Path is optional and if given should specify the full path to the PostgreSQL
-                 configure script, pg_config. E.g. --with-postgresql=/<path>/pg_config]), 
-        [
-                if test "xno" = "x$with_postgresql"; then
-                        AC_MSG_RESULT([no])
-                        postgresql="no"
-                else
-                        AC_MSG_RESULT([yes])
-                        AC_CHECK_FILE([$with_postgresql], [PGCONFIG=$with_postgresql],[check_postgres_config])
-                fi
-        ],
-        [
-                AC_MSG_RESULT([yes])
-                check_postgres_config
-        ])
-if test "xyes" = "x$postgresql"; then
-        tmp_CPPFLAGS=$CPPFLAGS
-        tmp_LDFLAGS=$LDFLAGS
-        CPPFLAGS="-I`$PGCONFIG --includedir` $CPPFLAGS"
-        LDFLAGS="-L`$PGCONFIG --libdir` $LDFLAGS"
-        AC_CHECK_HEADERS([libpq-fe.h], [], [postgresql="no"])
-        if test "xyes" = "x$postgresql"; then
-                echo "found postgresql client library"
-                PGSQL_CFLAGS="-I`$PGCONFIG --includedir`"
-                PGSQL_LIBS="-L`$PGCONFIG --libdir` -lpq"
-		AC_SUBST(PGSQL_CFLAGS)
-		AC_SUBST(PGSQL_LIBS)
-                AC_DEFINE([HAVE_POSTGRESQL], 1, [Define to 1 to enable postgresql])
-        fi
-        CPPFLAGS=$tmp_CPPFLAGS
-        LDFLAGS=$tmp_LDFLAGS
-fi
-AM_CONDITIONAL([WITH_POSTGRESQL], test "xyes" = "x$postgresql")
 
 if test "${compile_fuse}" = "yes"; then
    PKG_CHECK_MODULES(FUSE, [fuse >= $FUSE_REQUIRED])
@@ -361,7 +273,6 @@ AC_CONFIG_FILES(
     lib/libseafile.pc
     common/Makefile
     common/cdc/Makefile
-    common/db-wrapper/Makefile
     server/Makefile
     server/gc/Makefile
     python/Makefile
