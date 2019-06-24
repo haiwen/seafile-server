@@ -51,6 +51,8 @@ sqlite_db_start (SeafileSession *session)
     return 0;
 }
 
+#ifdef HAVE_MYSQL
+
 #define MYSQL_DEFAULT_PORT 3306
 
 static int
@@ -123,6 +125,8 @@ mysql_db_start (SeafileSession *session)
 
     return 0;
 }
+
+#endif
 
 #ifdef HAVE_POSTGRESQL
 
@@ -197,9 +201,11 @@ load_database_config (SeafileSession *session)
     if (!type || strcasecmp (type, "sqlite") == 0) {
         ret = sqlite_db_start (session);
     }
+#ifdef HAVE_MYSQL
     else if (strcasecmp (type, "mysql") == 0) {
         ret = mysql_db_start (session);
     }
+#endif
 #ifdef HAVE_POSTGRESQL
     else if (strcasecmp (type, "pgsql") == 0) {
         ret = pgsql_db_start (session);

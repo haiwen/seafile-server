@@ -6,7 +6,9 @@
 #include "seaf-db.h"
 
 #include <stdarg.h>
+#ifdef HAVE_MYSQL
 #include <mysql.h>
+#endif
 #include <sqlite3.h>
 #include <pthread.h>
 
@@ -42,6 +44,8 @@ typedef struct DBOperations {
 } DBOperations;
 
 static DBOperations db_ops;
+
+#ifdef HAVE_MYSQL
 
 /* MySQL Ops */
 static SeafDB *
@@ -104,6 +108,8 @@ seaf_db_new_mysql (const char *host,
 
     return db;
 }
+
+#endif
 
 /* SQLite Ops */
 static SeafDB *
@@ -499,6 +505,8 @@ seaf_db_trans_foreach_selected_row (SeafDBTrans *trans, const char *sql,
 
     return ret;
 }
+
+#ifdef HAVE_MYSQL
 
 /* MySQL DB */
 
@@ -935,6 +943,8 @@ mysql_db_row_get_column_int64 (SeafDBRow *vrow, int idx)
 
     return ret;
 }
+
+#endif  /* HAVE_MYSQL */
 
 /* SQLite DB */
 
