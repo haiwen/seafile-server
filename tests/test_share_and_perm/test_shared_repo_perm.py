@@ -1,3 +1,4 @@
+from builtins import str
 import pytest
 import time
 from seaserv import seafile_api as api

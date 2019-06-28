@@ -28,7 +28,8 @@ TOPDIR = abspath(join(os.getcwd(), '..'))
 if on_travis():
     PREFIX = expanduser('~/opt/local')
 else:
-    PREFIX = os.environ.get('SEAFILE_INSTALL_PREFIX', '/usr/local')
+    #PREFIX = os.environ.get('SEAFILE_INSTALL_PREFIX', '/usr/local')
+    PREFIX = os.environ.get('SEAFILE_INSTALL_PREFIX', '/home/ly/.pyenv/versions/3.5.3')
 INSTALLDIR = '/tmp/seafile-tests'
 
 
@@ -53,7 +54,7 @@ def make_build_env():
     _env_add('LDFLAGS', '-L%s' % join(PREFIX, 'lib64'), seperator=' ')
 
     _env_add('PATH', join(PREFIX, 'bin'))
-    _env_add('PYTHONPATH', join(PREFIX, 'lib/python2.7/site-packages'))
+    _env_add('PYTHONPATH', join(PREFIX, 'lib/python3.7/site-packages'))
     _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib', 'pkgconfig'))
     _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib64', 'pkgconfig'))
     _env_add('PKG_CONFIG_PATH', libsearpc_dir)

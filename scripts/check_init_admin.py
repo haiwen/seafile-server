@@ -1,7 +1,12 @@
 #coding: UTF-8
 
 '''This script would check if there is admin, and prompt the user to create a new one if non exist'''
+from __future__ import print_function
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import input
+from builtins import object
 import json
 import sys
 import os
@@ -15,7 +20,7 @@ import getpass
 import uuid
 import warnings
 
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 
 try:
     import readline # pylint: disable=W0611
@@ -39,8 +44,8 @@ Make sure you have read seafile server manual at
 
 Press ENTER to continue
 -----------------------------------------------------------------''' % SERVER_MANUAL_HTTP
-        print welcome_msg
-        raw_input()
+        print(welcome_msg)
+        input()
 
     @staticmethod
     def highlight(content):
@@ -49,13 +54,13 @@ Press ENTER to continue
 
     @staticmethod
     def info(msg):
-        print msg
+        print(msg)
 
     @staticmethod
     def error(msg):
         '''Print error and exit'''
-        print
-        print 'Error: ' + msg
+        print()
+        print('Error: ' + msg)
         sys.exit(1)
 
     @staticmethod
@@ -126,7 +131,7 @@ Press ENTER to continue
         '''Create a directory, exit on failure'''
         try:
             os.mkdir(path)
-        except OSError, e:
+        except OSError as e:
             Utils.error('failed to create directory %s:%s' % (path, e))
 
     @staticmethod
@@ -134,7 +139,7 @@ Press ENTER to continue
         '''Copy src to dst, exit on failure'''
         try:
             shutil.copy(src, dst)
-        except Exception, e:
+        except Exception as e:
             Utils.error('failed to copy %s to %s: %s' % (src, dst, e))
 
     @staticmethod
@@ -212,7 +217,7 @@ Press ENTER to continue
         '''
         assert key or yes_or_no
         # Format description
-        print
+        print()
         if note:
             desc += '\n' + note
 
@@ -231,7 +236,7 @@ Press ENTER to continue
             if password:
                 answer = getpass.getpass(desc).strip()
             else:
-                answer = raw_input(desc).strip()
+                answer = input(desc).strip()
 
             # No user input: use default
             if not answer:
@@ -243,7 +248,7 @@ Press ENTER to continue
             # Have user input: validate answer
             if yes_or_no:
                 if answer not in ['yes', 'no']:
-                    print Utils.highlight('\nPlease answer yes or no\n')
+                    print(Utils.highlight('\nPlease answer yes or no\n'))
                     continue
                 else:
                     return answer == 'yes'
@@ -251,8 +256,8 @@ Press ENTER to continue
                 if validate:
                     try:
                         return validate(answer)
-                    except InvalidAnswer, e:
-                        print Utils.highlight('\n%s\n' % e)
+                    except InvalidAnswer as e:
+                        print(Utils.highlight('\n%s\n' % e))
                         continue
                 else:
                     return answer
@@ -302,17 +307,17 @@ def create_admin(email, passwd):
     if rpc.create_admin(email, passwd) < 0:
         raise Exception('failed to create admin')
     else:
-        print '\n\n'
-        print '----------------------------------------'
-        print 'Successfully created seafile admin'
-        print '----------------------------------------'
-        print '\n\n'
+        print('\n\n')
+        print('----------------------------------------')
+        print('Successfully created seafile admin')
+        print('----------------------------------------')
+        print('\n\n')
 
 def ask_admin_email():
-    print
-    print '----------------------------------------'
-    print 'It\'s the first time you start the seafile server. Now let\'s create the admin account'
-    print '----------------------------------------'
+    print()
+    print('----------------------------------------')
+    print('It\'s the first time you start the seafile server. Now let\'s create the admin account')
+    print('----------------------------------------')
     def validate(email):
         # whitespace is not allowed
         if re.match(r'[\s]', email):
@@ -372,11 +377,11 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print '\n\n\n'
-        print Utils.highlight('Aborted.')
-        print
+        print('\n\n\n')
+        print(Utils.highlight('Aborted.'))
+        print()
         sys.exit(1)
-    except Exception, e:
-        print
-        print Utils.highlight('Error happened during creating seafile admin.')
-        print
+    except Exception as e:
+        print()
+        print(Utils.highlight('Error happened during creating seafile admin.'))
+        print()

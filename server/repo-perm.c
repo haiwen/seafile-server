@@ -11,7 +11,7 @@
 #include "repo-mgr.h"
 
 #include "seafile-error.h"
-
+#include "seaf-utils.h"
 /*
  * Permission priority: owner --> personal share --> group share --> public.
  * Permission with higher priority overwrites those with lower priority.
@@ -42,17 +42,13 @@ check_group_permission_by_user (SeafRepoManager *mgr,
                                 const char *user_name)
 {
     char *permission = NULL;
-    SearpcClient *rpc_client;
+    SearpcClient *rpc_client = NULL;
     GList *groups = NULL, *p1;
     CcnetGroup *group;
     int group_id;
     GString *sql;
 
-    rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                                 NULL,
-                                                 "ccnet-threaded-rpcserver");
-    if (!rpc_client)
-        return NULL;
+    rpc_client = create_rpc_clients (seaf->config_dir);
 
     /* Get the groups this user belongs to. */
     groups = ccnet_get_groups_by_user (rpc_client, user_name, 1);
@@ -81,10 +77,10 @@ check_group_permission_by_user (SeafRepoManager *mgr,
     g_string_free (sql, TRUE);
 
 out:
-    ccnet_rpc_client_free (rpc_client);
     for (p1 = groups; p1 != NULL; p1 = p1->next)
         g_object_unref ((GObject *)p1->data);
     g_list_free (groups);
+    searpc_free_client_with_pipe_transport(rpc_client);
     return permission;
 }
 
@@ -140,39 +136,35 @@ check_perm_on_parent_repo (const char *origin_repo_id,
 {
     GHashTable *user_perms = NULL;
     GHashTable *group_perms = NULL;
-    SearpcClient *rpc_client;
+    SearpcClient *rpc_client = NULL;
     GList *groups = NULL;
     GList *iter;
     char *perm = NULL;
 
-    rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                                 NULL,
-                                                 "ccnet-threaded-rpcserver");
-    if (!rpc_client) {
-        return NULL;
-    }
+    rpc_client = create_rpc_clients (seaf->config_dir);
 
     user_perms = seaf_share_manager_get_shared_dirs_to_user (seaf->share_mgr,
                                                              origin_repo_id,
                                                              user);
 
     if (!user_perms) {
-        ccnet_rpc_client_free (rpc_client);
+        searpc_free_client_with_pipe_transport(rpc_client);
         return NULL;
     }
+
     if (g_hash_table_size (user_perms) > 0) {
         perm = get_dir_perm (user_perms, vpath);
         if (perm) {
             g_hash_table_destroy (user_perms);
-            ccnet_rpc_client_free (rpc_client);
             return perm;
         }
     }
     g_hash_table_destroy (user_perms);
 
     groups = ccnet_get_groups_by_user (rpc_client, user, 1);
-    ccnet_rpc_client_free (rpc_client);
+
     if (!groups) {
+        searpc_free_client_with_pipe_transport(rpc_client);
         return NULL;
     }
 
@@ -185,6 +177,7 @@ check_perm_on_parent_repo (const char *origin_repo_id,
     g_list_free (groups);
 
     if (!group_perms) {
+        searpc_free_client_with_pipe_transport(rpc_client);
         return NULL;
     }
     if (g_hash_table_size (group_perms) > 0) {
@@ -192,6 +185,7 @@ check_perm_on_parent_repo (const char *origin_repo_id,
     }
     g_hash_table_destroy (group_perms);
 
+    searpc_free_client_with_pipe_transport(rpc_client);
     return perm;
 }
 

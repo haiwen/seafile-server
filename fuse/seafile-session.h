@@ -12,22 +12,19 @@
 #include "commit-mgr.h"
 #include "repo-mgr.h"
 
-struct _CcnetClient;
+#include <searpc-client.h>
 
 typedef struct _SeafileSession SeafileSession;
 
-struct CcnetClientPool;
-
 struct _SeafileSession {
-    struct _CcnetClient *session;
+    SearpcClient        *rpc_client;
 
     char                *seaf_dir;
+    char                *config_dir;
     char                *tmp_file_dir;
     /* Config that's only loaded on start */
     GKeyFile            *config;
     SeafDB              *db;
-
-    struct CcnetClientPool     *client_pool;
 
     SeafBlockManager    *block_mgr;
     SeafFSManager       *fs_mgr;
@@ -45,7 +42,7 @@ extern SeafileSession *seaf;
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
-                    struct _CcnetClient *ccnet_session);
+                    const char *config_dir);
 
 int
 seafile_session_init (SeafileSession *session);

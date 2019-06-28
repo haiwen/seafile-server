@@ -17,35 +17,12 @@ AM_CFLAGS = -DPKGDATADIR=\"$(pkgdatadir)\" \
 
 bin_PROGRAMS = seaf-server
 
-proc_headers = $(addprefix processors/, \
-	recvfs-proc.h \
-	recvbranch-proc.h \
-	putcs-proc.h \
-	sync-repo-slave-proc.h \
-	check-tx-slave-v3-proc.h \
-	putfs-proc.h \
-	putcommit-v2-proc.h \
-	putcommit-v3-proc.h \
-	recvcommit-v3-proc.h \
-	putcs-v2-proc.h \
-	checkbl-proc.h \
-	checkff-proc.h \
-	putca-proc.h \
-	check-protocol-slave-proc.h \
-	recvfs-v2-proc.h \
-	recvbranch-v2-proc.h \
-	putfs-v2-proc.h)
-
-noinst_HEADERS = web-accesstoken-mgr.h chunkserv-mgr.h seafile-session.h \
+noinst_HEADERS = web-accesstoken-mgr.h  seafile-session.h \
 	repo-mgr.h \
 	share-mgr.h \
-	token-mgr.h \
 	passwd-mgr.h \
 	quota-mgr.h \
-	listen-mgr.h \
-	../common/mq-mgr.h \
 	size-sched.h \
-	block-tx-server.h \
 	copy-mgr.h \
 	http-server.h \
 	upload-file.h \
@@ -54,19 +31,16 @@ noinst_HEADERS = web-accesstoken-mgr.h chunkserv-mgr.h seafile-session.h \
 	fileserver-config.h \
 	http-status-codes.h \
 	zip-download-mgr.h \
-	index-blocks-mgr.h \
-	$(proc_headers)
+	index-blocks-mgr.h
 
 seaf_server_SOURCES = \
 	seaf-server.c \
-	web-accesstoken-mgr.c chunkserv-mgr.c seafile-session.c \
+	web-accesstoken-mgr.c  seafile-session.c \
 	zip-download-mgr.c \
 	index-blocks-mgr.c \
 	share-mgr.c \
-	token-mgr.c \
 	passwd-mgr.c \
 	quota-mgr.c \
-	listen-mgr.c \
 	repo-op.c \
 	repo-perm.c \
 	size-sched.c \
@@ -89,30 +63,11 @@ seaf_server_SOURCES = \
 	../common/obj-backend-fs.c \
 	../common/seafile-crypt.c \
 	../common/diff-simple.c \
-	../common/mq-mgr.c \
 	../common/block-mgr.c \
 	../common/block-backend.c \
 	../common/block-backend-fs.c \
 	../common/merge-new.c \
-	block-tx-server.c \
-	../common/block-tx-utils.c \
-	processors/recvfs-proc.c \
-	processors/recvbranch-proc.c \
-	processors/putcs-proc.c \
-	processors/sync-repo-slave-proc.c \
-	processors/check-tx-slave-v3-proc.c \
-	processors/putfs-proc.c \
-	processors/putcommit-v2-proc.c \
-	processors/putcommit-v3-proc.c \
-	processors/recvcommit-v3-proc.c \
-	processors/putcs-v2-proc.c \
-	processors/checkbl-proc.c \
-	processors/checkff-proc.c \
-	processors/putca-proc.c \
-	processors/check-protocol-slave-proc.c \
-	processors/recvfs-v2-proc.c \
-	processors/recvbranch-v2-proc.c \
-	processors/putfs-v2-proc.c
+	../common/block-tx-utils.c
 
 seaf_server_LDADD = @CCNET_LIBS@ \
 	$(top_builddir)/lib/libseafile_common.la \

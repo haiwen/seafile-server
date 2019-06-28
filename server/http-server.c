@@ -497,6 +497,7 @@ typedef struct {
     char *client_name;
 } RepoEventData;
 
+/*
 static void
 free_repo_event_data (RepoEventData *data)
 {
@@ -555,6 +556,7 @@ publish_stats_event (CEvent *event, void *data)
     g_string_free (buf, TRUE);
     free_stats_event_data (rdata);
 }
+*/
 
 static void
 on_repo_oper (HttpServer *htp_server, const char *etype,
@@ -2280,6 +2282,7 @@ seaf_http_server_new (struct _SeafileSession *session)
 int
 seaf_http_server_start (HttpServerStruct *server)
 {
+/*
     server->priv->cevent_id = cevent_manager_register (seaf->ev_mgr,
                                     (cevent_handler)publish_repo_event,
                                                        NULL);
@@ -2287,6 +2290,7 @@ seaf_http_server_start (HttpServerStruct *server)
     server->priv->stats_event_id = cevent_manager_register (seaf->ev_mgr,
                                     (cevent_handler)publish_stats_event,
                                                        NULL);
+*/
 
    int ret = pthread_create (&server->priv->thread_id, NULL, http_server_run, server);
    if (ret != 0)

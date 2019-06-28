@@ -15,6 +15,7 @@
 
 #include "seaf-fuse.h"
 #include "seafile-session.h"
+#include "seaf-utils.h"
 
 static char *replace_slash (const char *repo_name)
 {
@@ -53,13 +54,7 @@ static int readdir_root(SeafileSession *seaf,
     GHashTable *user_hash;
     int dummy;
 
-    client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                             NULL,
-                                             "ccnet-threaded-rpcserver");
-    if (!client) {
-        seaf_warning ("Failed to alloc rpc client.\n");
-        return -ENOMEM;
-    }
+    client = create_rpc_clients (seaf->config_dir);
 
     user_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
@@ -92,7 +87,8 @@ static int readdir_root(SeafileSession *seaf,
     g_list_free (users);
 
     g_hash_table_destroy (user_hash);
-    ccnet_rpc_client_free (client);
+
+    searpc_free_client_with_pipe_transport(client);
 
     return 0;
 }
@@ -106,25 +102,20 @@ static int readdir_user(SeafileSession *seaf, const char *user,
     GList *list = NULL, *p;
     GString *name;
 
-    client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                             NULL,
-                                             "ccnet-threaded-rpcserver");
-    if (!client) {
-        seaf_warning ("Failed to alloc rpc client.\n");
-        return -ENOMEM;
-    }
+    client = create_rpc_clients (seaf->config_dir);
 
     emailuser = get_user_from_ccnet (client, user);
     if (!emailuser) {
-        ccnet_rpc_client_free (client);
+        searpc_free_client_with_pipe_transport(client);
         return -ENOENT;
     }
     g_object_unref (emailuser);
-    ccnet_rpc_client_free (client);
 
     list = seaf_repo_manager_get_repos_by_owner (seaf->repo_mgr, user);
-    if (!list)
+    if (!list) {
+        searpc_free_client_with_pipe_transport(client);
         return 0;
+    }
 
     for (p = list; p; p = p->next) {
         SeafRepo *repo = (SeafRepo *)p->data;
@@ -153,6 +144,7 @@ static int readdir_user(SeafileSession *seaf, const char *user,
 
     g_list_free (list);
 
+    searpc_free_client_with_pipe_transport(client);
     return 0;
 }
 

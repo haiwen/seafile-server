@@ -1,5 +1,4 @@
-
-from service import seafserv_rpc, seafserv_threaded_rpc, ccnet_threaded_rpc
+from .service import seafserv_threaded_rpc, ccnet_threaded_rpc
 from pysearpc import SearpcError
 import json
 
@@ -34,8 +33,8 @@ class SeafileAPI(object):
         Return: the access token in string
         """
         onetime = 1 if bool(use_onetime) else 0
-        return seafserv_rpc.web_get_access_token(repo_id, obj_id, op, username,
-                                                 onetime)
+        return seafserv_threaded_rpc.web_get_access_token(repo_id, obj_id, op, username,
+                                                          onetime)
 
     def query_fileserver_access_token(self, token):
         """Get the WebAccess object
@@ -44,17 +43,17 @@ class SeafileAPI(object):
 
         Return: the WebAccess object (lib/webaccess.vala)
         """
-        return seafserv_rpc.web_query_access_token(token)
+        return seafserv_threaded_rpc.web_query_access_token(token)
 
     def query_zip_progress(self, token):
         """Query zip progress for download-dir, download-multi
         token: obtained by get_fileserver_access_token
         Return: json formated string `{"zipped":, "total":}`, otherwise None.
         """
-        return seafserv_rpc.query_zip_progress(token)
+        return seafserv_threaded_rpc.query_zip_progress(token)
 
     def cancel_zip_task(self, token):
-        return seafserv_rpc.cancel_zip_task(token)
+        return seafserv_threaded_rpc.cancel_zip_task(token)
 
     # password
 
@@ -62,13 +61,13 @@ class SeafileAPI(object):
         """
         Return non-zero if True, otherwise 0.
         """
-        return seafserv_rpc.is_passwd_set(repo_id, username)
+        return seafserv_threaded_rpc.is_passwd_set(repo_id, username)
 
     def get_decrypt_key(self, repo_id, username):
         """
         Return: a CryptKey object (lib/crypt.vala)
         """
-        return seafserv_rpc.get_decrypt_key(repo_id, username)
+        return seafserv_threaded_rpc.get_decrypt_key(repo_id, username)
 
     def change_repo_passwd(self, repo_id, old_passwd, new_passwd, user):
         return seafserv_threaded_rpc.change_repo_passwd(repo_id, old_passwd,
@@ -311,10 +310,10 @@ class SeafileAPI(object):
                                                replace, username, need_progress, synchronous)
 
     def get_copy_task(self, task_id):
-        return seafserv_rpc.get_copy_task(task_id)
+        return seafserv_threaded_rpc.get_copy_task(task_id)
 
     def cancel_copy_task(self, task_id):
-        return seafserv_rpc.cancel_copy_task(task_id)
+        return seafserv_threaded_rpc.cancel_copy_task(task_id)
 
     def rename_file(self, repo_id, parent_dir, oldname, newname, username):
         return seafserv_threaded_rpc.rename_file(repo_id, parent_dir,

@@ -226,3 +226,21 @@ load_database_config (SeafileSession *session)
 
     return ret;
 }
+
+SearpcClient *
+create_rpc_clients (const char *config_dir)
+{
+    SearpcNamedPipeClient *rpc_client = NULL;
+    char *pipe_path = NULL;
+
+    pipe_path = g_strdup_printf ("%s/%s", config_dir, "ccnet-rpc.sock");
+    rpc_client = searpc_create_named_pipe_client(pipe_path);
+    g_free(pipe_path);
+
+    if (searpc_named_pipe_client_connect(rpc_client) < 0) {
+        seaf_warning ("Named pipe client failed to connect.\n");
+        exit (1);
+    }
+
+    return searpc_client_with_named_pipe_transport (rpc_client, "ccnet-threaded-rpcserver");
+}

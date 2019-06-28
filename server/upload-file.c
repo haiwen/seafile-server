@@ -165,16 +165,6 @@ send_success_reply (evhtp_request_t *req)
 }
 
 static void
-send_redirect_reply (evhtp_request_t *req)
-{
-    set_content_length_header (req);
-    evhtp_headers_add_header (
-        req->headers_out,
-        evhtp_header_new("Content-Type", "text/html; charset=utf-8", 1, 1));
-    evhtp_send_reply(req, EVHTP_RES_SEEOTHER);
-}
-
-static void
 send_success_reply_ie8_compatible (evhtp_request_t *req, evhtp_res code)
 {
     set_content_length_header (req);
@@ -190,78 +180,6 @@ send_success_reply_ie8_compatible (evhtp_request_t *req, evhtp_res code)
             evhtp_header_new("Content-Type", "text/plain", 1, 1));
     }
     evhtp_send_reply (req, code);
-}
-
-static void
-redirect_to_upload_error (evhtp_request_t *req,
-                          const char *repo_id,
-                          const char *parent_dir,
-                          const char *filename,
-                          int error_code)
-{
-    char *seahub_url, *escaped_path, *escaped_fn = NULL;
-    char url[1024];
-
-    seahub_url = seaf->session->base.service_url;
-    escaped_path = g_uri_escape_string (parent_dir, NULL, FALSE);
-    if (filename) {
-        escaped_fn = g_uri_escape_string (filename, NULL, FALSE);
-        snprintf(url, 1024, "%s/repo/upload_error/%s?p=%s&fn=%s&err=%d",
-                 seahub_url, repo_id, escaped_path, escaped_fn, error_code);
-    } else {
-        snprintf(url, 1024, "%s/repo/upload_error/%s?p=%s&err=%d",
-                 seahub_url, repo_id, escaped_path, error_code);
-    }
-    g_free (escaped_path);
-    g_free (escaped_fn);
-
-    evhtp_headers_add_header(req->headers_out,
-                             evhtp_header_new("Location",
-                                              url, 1, 1));
-
-    send_redirect_reply (req);
-}
-
-static void
-redirect_to_update_error (evhtp_request_t *req,
-                          const char *repo_id,
-                          const char *target_file,
-                          int error_code)
-{
-    char *seahub_url, *escaped_path;
-    char url[1024];
-
-    seahub_url = seaf->session->base.service_url;
-    escaped_path = g_uri_escape_string (target_file, NULL, FALSE);
-    snprintf(url, 1024, "%s/repo/update_error/%s?p=%s&err=%d",
-             seahub_url, repo_id, escaped_path, error_code);
-    g_free (escaped_path);
-
-    evhtp_headers_add_header(req->headers_out,
-                             evhtp_header_new("Location",
-                                              url, 1, 1));
-
-    send_redirect_reply (req);
-}
-
-static void
-redirect_to_success_page (evhtp_request_t *req,
-                          const char *repo_id,
-                          const char *parent_dir)
-{
-    char *seahub_url, *escaped_path;
-    char url[1024];
-
-    seahub_url = seaf->session->base.service_url;
-    escaped_path = g_uri_escape_string (parent_dir, NULL, FALSE);
-    snprintf(url, 1024, "%s/repo/%s?p=%s", seahub_url, repo_id, escaped_path);
-    g_free (escaped_path);
-
-    evhtp_headers_add_header(req->headers_out,
-                             evhtp_header_new("Location",
-                                              url, 1, 1));
-    /* Firefox expects Content-Length header. */
-    send_redirect_reply (req);
 }
 
 static gboolean
@@ -417,86 +335,6 @@ create_relative_path (RecvFSM *fsm, char *parent_dir, char *relative_path)
     }
 
     return rc;
-}
-
-static void
-upload_cb(evhtp_request_t *req, void *arg)
-{
-    RecvFSM *fsm = arg;
-    char *parent_dir;
-    GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
-    char *err_file = NULL;
-    char *filenames_json, *tmp_files_json;
-
-    /* After upload_headers_cb() returns an error, libevhtp may still
-     * receive data from the web browser and call into this cb.
-     * In this case fsm will be NULL.
-     */
-    if (!fsm || fsm->state == RECV_ERROR)
-        return;
-
-    if (!fsm->files) {
-        seaf_debug ("[upload] No file uploaded.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
-        return;
-    }
-
-    parent_dir = g_hash_table_lookup (fsm->form_kvs, "parent_dir");
-    if (!parent_dir) {
-        seaf_debug ("[upload] No parent dir given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
-        return;
-    }
-
-    if (!check_parent_dir (req, fsm->repo_id, parent_dir))
-        return;
-
-    if (!check_tmp_file_list (fsm->files, &error_code))
-        goto error;
-
-    gint64 content_len = get_content_length(req);
-    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
-                                                   fsm->repo_id,
-                                                   content_len) != 0) {
-        error_code = ERROR_QUOTA;
-        goto error;
-    }
-
-    filenames_json = file_list_to_json (fsm->filenames);
-    tmp_files_json = file_list_to_json (fsm->files);
-
-    int rc = seaf_repo_manager_post_multi_files (seaf->repo_mgr,
-                                                 fsm->repo_id,
-                                                 parent_dir,
-                                                 filenames_json,
-                                                 tmp_files_json,
-                                                 fsm->user,
-                                                 0,
-                                                 NULL,
-                                                 NULL,
-                                                 &error);
-    g_free (filenames_json);
-    g_free (tmp_files_json);
-    if (rc < 0) {
-        if (error) {
-            if (error->code == POST_FILE_ERR_FILENAME) {
-                error_code = ERROR_FILENAME;
-                err_file = g_strdup(error->message);
-            }
-            g_clear_error (&error);
-        }
-        goto error;
-    }
-
-    /* Redirect to repo dir page after upload finishes. */
-    redirect_to_success_page (req, fsm->repo_id, parent_dir);
-    return;
-
-error:
-    redirect_to_upload_error (req, fsm->repo_id, parent_dir,
-                              err_file, error_code);
-    g_free (err_file);
 }
 
 static char *
@@ -1386,81 +1224,6 @@ error:
         send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
         break;
     }
-}
-
-static void
-update_cb(evhtp_request_t *req, void *arg)
-{
-    RecvFSM *fsm = arg;
-    char *target_file, *parent_dir = NULL, *filename = NULL;
-    const char *head_id = NULL;
-    GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
-
-    if (!fsm || fsm->state == RECV_ERROR)
-        return;
-
-    if (!fsm->files) {
-        seaf_debug ("[update] No file uploaded.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
-        return;
-    }
-
-    target_file = g_hash_table_lookup (fsm->form_kvs, "target_file");
-    if (!target_file) {
-        seaf_debug ("[Update] No target file given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
-        return;
-    }
-
-    parent_dir = g_path_get_dirname (target_file);
-    filename = g_path_get_basename (target_file);
-
-    if (!check_parent_dir (req, fsm->repo_id, parent_dir))
-        return;
-
-    if (!check_tmp_file_list (fsm->files, &error_code))
-        goto error;
-
-    head_id = evhtp_kv_find (req->uri->query, "head");
-
-    gint64 content_len = get_content_length(req);
-    if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
-                                                   fsm->repo_id,
-                                                   content_len) != 0) {
-        error_code = ERROR_QUOTA;
-        goto error;
-    }
-
-    int rc = seaf_repo_manager_put_file (seaf->repo_mgr,
-                                         fsm->repo_id,
-                                         (char *)(fsm->files->data),
-                                         parent_dir,
-                                         filename,
-                                         fsm->user,
-                                         head_id,
-                                         NULL,
-                                         &error);
-    if (rc < 0) {
-        if (error) {
-            if (g_strcmp0 (error->message, "file does not exist") == 0) {
-                error_code = ERROR_NOT_EXIST;
-            }
-            g_clear_error (&error);
-        }
-        goto error;
-    }
-
-    /* Redirect to repo dir page after upload finishes. */
-    redirect_to_success_page (req, fsm->repo_id, parent_dir);
-    g_free (parent_dir);
-    g_free (filename);
-    return;
-
-error:
-    redirect_to_update_error (req, fsm->repo_id, target_file, error_code);
-    g_free (parent_dir);
-    g_free (filename);
 }
 
 static void
@@ -2888,10 +2651,6 @@ upload_file_init (evhtp_t *htp, const char *http_temp_dir)
     }
     g_free (cluster_shared_dir);
 
-    cb = evhtp_set_regex_cb (htp, "^/upload/.*", upload_cb, NULL);
-    /* upload_headers_cb() will be called after evhtp parsed all http headers. */
-    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
-
     cb = evhtp_set_regex_cb (htp, "^/upload-api/.*", upload_api_cb, NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
 
@@ -2906,9 +2665,6 @@ upload_file_init (evhtp_t *htp, const char *http_temp_dir)
     /* evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL); */
 
     cb = evhtp_set_regex_cb (htp, "^/upload-aj/.*", upload_ajax_cb, NULL);
-    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
-
-    cb = evhtp_set_regex_cb (htp, "^/update/.*", update_cb, NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
 
     cb = evhtp_set_regex_cb (htp, "^/update-api/.*", update_api_cb, NULL);

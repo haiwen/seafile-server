@@ -23,30 +23,9 @@
 #include "log.h"
 #include "utils.h"
 
-#include "processors/check-tx-slave-v3-proc.h"
-#include "processors/recvfs-proc.h"
-#include "processors/putfs-proc.h"
-#include "processors/recvbranch-proc.h"
-#include "processors/sync-repo-slave-proc.h"
-#include "processors/putcommit-v2-proc.h"
-#include "processors/putcommit-v3-proc.h"
-#include "processors/recvcommit-v3-proc.h"
-#include "processors/putcs-v2-proc.h"
-#include "processors/checkbl-proc.h"
-#include "processors/checkff-proc.h"
-#include "processors/putca-proc.h"
-#include "processors/check-protocol-slave-proc.h"
-#include "processors/recvfs-v2-proc.h"
-#include "processors/recvbranch-v2-proc.h"
-#include "processors/putfs-v2-proc.h"
-
 #include "cdc/cdc.h"
 
 SeafileSession *seaf;
-SearpcClient *ccnetrpc_client;
-SearpcClient *ccnetrpc_client_t;
-SearpcClient *async_ccnetrpc_client;
-SearpcClient *async_ccnetrpc_client_t;
 
 char *pidfile = NULL;
 
@@ -73,57 +52,31 @@ static void usage ()
     fprintf (stderr, "usage: seaf-server [-c config_dir] [-d seafile_dir]\n");
 }
 
-static void register_processors (CcnetClient *client)
-{
-    ccnet_register_service (client, "seafile-check-tx-slave-v3", "basic",
-                            SEAFILE_TYPE_CHECK_TX_SLAVE_V3_PROC, NULL);
-    ccnet_register_service (client, "seafile-recvfs", "basic",
-                            SEAFILE_TYPE_RECVFS_PROC, NULL);
-    ccnet_register_service (client, "seafile-putfs", "basic",
-                            SEAFILE_TYPE_PUTFS_PROC, NULL);
-    ccnet_register_service (client, "seafile-recvbranch", "basic",
-                            SEAFILE_TYPE_RECVBRANCH_PROC, NULL);
-    ccnet_register_service (client, "seafile-sync-repo-slave", "basic",
-                            SEAFILE_TYPE_SYNC_REPO_SLAVE_PROC, NULL);
-    ccnet_register_service (client, "seafile-putcommit-v2", "basic",
-                            SEAFILE_TYPE_PUTCOMMIT_V2_PROC, NULL);
-    ccnet_register_service (client, "seafile-putcommit-v3", "basic",
-                            SEAFILE_TYPE_PUTCOMMIT_V3_PROC, NULL);
-    ccnet_register_service (client, "seafile-recvcommit-v3", "basic",
-                            SEAFILE_TYPE_RECVCOMMIT_V3_PROC, NULL);
-    ccnet_register_service (client, "seafile-putcs-v2", "basic",
-                            SEAFILE_TYPE_PUTCS_V2_PROC, NULL);
-    ccnet_register_service (client, "seafile-checkbl", "basic",
-                            SEAFILE_TYPE_CHECKBL_PROC, NULL);
-    ccnet_register_service (client, "seafile-checkff", "basic",
-                            SEAFILE_TYPE_CHECKFF_PROC, NULL);
-    ccnet_register_service (client, "seafile-putca", "basic",
-                            SEAFILE_TYPE_PUTCA_PROC, NULL);
-    ccnet_register_service (client, "seafile-check-protocol-slave", "basic",
-                            SEAFILE_TYPE_CHECK_PROTOCOL_SLAVE_PROC, NULL);
-    ccnet_register_service (client, "seafile-recvfs-v2", "basic",
-                            SEAFILE_TYPE_RECVFS_V2_PROC, NULL);
-    ccnet_register_service (client, "seafile-recvbranch-v2", "basic",
-                            SEAFILE_TYPE_RECVBRANCH_V2_PROC, NULL);
-    ccnet_register_service (client, "seafile-putfs-v2", "basic",
-                            SEAFILE_TYPE_PUTFS_V2_PROC, NULL);
-}
-
 #include <searpc.h>
 #include "searpc-signature.h"
 #include "searpc-marshal.h"
+#include <searpc-named-pipe-transport.h>
 
-static void start_rpc_service (CcnetClient *client, int cloud_mode)
+static void start_rpc_service (int cloud_mode, char *seafile_dir, char *central_conf_dir)
 {
+    seaf_message ("Mydebug %s\n", __FUNCTION__);
+    SearpcNamedPipeServer *rpc_server = NULL;
+    char *socket_dir = NULL;
+    char *pipe_path = NULL;
+
     searpc_server_init (register_marshals);
 
-    searpc_create_service ("seafserv-rpcserver");
-    ccnet_register_service (client, "seafserv-rpcserver", "rpc-inner",
-                            CCNET_TYPE_RPCSERVER_PROC, NULL);
-
     searpc_create_service ("seafserv-threaded-rpcserver");
-    ccnet_register_service (client, "seafserv-threaded-rpcserver", "rpc-inner",
-                            CCNET_TYPE_THREADED_RPCSERVER_PROC, NULL);
+
+    socket_dir = central_conf_dir ? central_conf_dir : seafile_dir;
+    pipe_path = g_strdup_printf ("%s/%s", socket_dir, "seafile.sock");
+    seaf_message ("Mydebug pipe_path = %s\n", pipe_path);
+    rpc_server = searpc_create_named_pipe_server(pipe_path);
+    g_free(pipe_path);
+    if (searpc_named_pipe_server_start(rpc_server) < 0) {
+        seaf_warning ("Failed to start named pipe server.\n");
+        exit (1);
+    }
 
     /* threaded services */
 
@@ -631,20 +584,6 @@ static void start_rpc_service (CcnetClient *client, int cloud_mode)
                                      "cancel_copy_task",
                                      searpc_signature_int__string());
 
-    /* chunk server manipulation */
-    searpc_server_register_function ("seafserv-rpcserver",
-                                     seafile_add_chunk_server,
-                                     "seafile_add_chunk_server",
-                                     searpc_signature_int__string());
-    searpc_server_register_function ("seafserv-rpcserver",
-                                     seafile_del_chunk_server,
-                                     "seafile_del_chunk_server",
-                                     searpc_signature_int__string());
-    searpc_server_register_function ("seafserv-rpcserver",
-                                     seafile_list_chunk_servers,
-                                     "seafile_list_chunk_servers",
-                                     searpc_signature_string__void());
-
     /* password management */
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_check_passwd,
@@ -844,39 +783,6 @@ set_signal_handlers (SeafileSession *session)
 }
 
 static void
-create_sync_rpc_clients (const char *central_config_dir, const char *config_dir)
-{
-    CcnetClient *sync_client;
-
-    /* sync client and rpc client */
-    sync_client = ccnet_client_new ();
-    if ( (ccnet_client_load_confdir(sync_client, central_config_dir, config_dir)) < 0 ) {
-        seaf_warning ("Read config dir error\n");
-        exit(1);
-    }
-
-    if (ccnet_client_connect_daemon (sync_client, CCNET_CLIENT_SYNC) < 0)
-    {
-        seaf_warning ("Connect to server fail: %s\n", strerror(errno));
-        exit(1);
-    }
-
-    ccnetrpc_client = ccnet_create_rpc_client (sync_client, NULL, "ccnet-rpcserver");
-    ccnetrpc_client_t = ccnet_create_rpc_client (sync_client,
-                                                 NULL,
-                                                 "ccnet-threaded-rpcserver");
-}
-
-static void
-create_async_rpc_clients (CcnetClient *client)
-{
-    async_ccnetrpc_client = ccnet_create_async_rpc_client (
-        client, NULL, "ccnet-rpcserver");
-    async_ccnetrpc_client_t = ccnet_create_async_rpc_client (
-        client, NULL, "ccnet-threaded-rpcserver");
-}
-
-static void
 remove_pidfile (const char *pidfile)
 {
     if (pidfile) {
@@ -957,10 +863,10 @@ main (int argc, char **argv)
     const char *debug_str = NULL;
     int daemon_mode = 1;
     int is_master = 0;
-    CcnetClient *client;
     char *ccnet_debug_level_str = "info";
     char *seafile_debug_level_str = "debug";
     int cloud_mode = 0;
+    SearpcClient *rpc_client = NULL;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -1066,29 +972,18 @@ main (int argc, char **argv)
         exit (1);
     }
 
-    client = ccnet_init (central_config_dir, config_dir);
-    if (!client)
-        exit (1);
+    event_init ();
+    start_rpc_service (cloud_mode, seafile_dir, central_config_dir);
 
-    register_processors (client);
-
-    start_rpc_service (client, cloud_mode);
-
-    create_sync_rpc_clients (central_config_dir, config_dir);
-    create_async_rpc_clients (client);
-
-    seaf = seafile_session_new (central_config_dir, seafile_dir, client);
+    seaf = seafile_session_new (central_config_dir, seafile_dir, config_dir);
     if (!seaf) {
         seaf_warning ("Failed to create seafile session.\n");
         exit (1);
     }
     seaf->is_master = is_master;
-    seaf->ccnetrpc_client = ccnetrpc_client;
-    seaf->async_ccnetrpc_client = async_ccnetrpc_client;
-    seaf->ccnetrpc_client_t = ccnetrpc_client_t;
-    seaf->async_ccnetrpc_client_t = async_ccnetrpc_client_t;
-    seaf->client_pool = ccnet_client_pool_new (central_config_dir, config_dir);
     seaf->cloud_mode = cloud_mode;
+    seaf->rpc_client = rpc_client;
+
 
 #ifndef WIN32
     set_syslog_config (seaf->config);
@@ -1123,7 +1018,7 @@ main (int argc, char **argv)
     /* Create a system default repo to contain the tutorial file. */
     schedule_create_system_default_repo (seaf);
 
-    ccnet_main (client);
+    event_dispatch ();
 
     return 0;
 }

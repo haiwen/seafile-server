@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 #coding: utf-8
 
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
+from builtins import object
 import os
 import sys
 import logging
 from threading import Thread
-import Queue
+import queue
 import rados
 
 from seafobj.objstore_factory import SeafObjStoreFactory
@@ -34,10 +38,10 @@ class ThreadPool(object):
     def __init__(self, do_work, nworker=20):
         self.do_work = do_work
         self.nworker = nworker
-        self.task_queue = Queue.Queue()
+        self.task_queue = queue.Queue()
 
     def start(self):
-        for i in xrange(self.nworker):
+        for i in range(self.nworker):
             Worker(self.do_work, self.task_queue).start()
 
     def put_task(self, task):
@@ -46,7 +50,7 @@ class ThreadPool(object):
     def join(self):
         self.task_queue.join()
         # notify all thread to stop
-        for i in xrange(self.nworker):
+        for i in range(self.nworker):
             self.task_queue.put(None)
 
 class Task(object):

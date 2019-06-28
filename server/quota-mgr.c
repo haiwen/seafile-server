@@ -375,13 +375,7 @@ get_num_shared_to (const char *user, const char *repo_id)
     }
 
     /* Then groups... */
-    client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                             NULL,
-                                             "ccnet-threaded-rpcserver");
-    if (!client) {
-        seaf_warning ("Failed to alloc rpc client.\n");
-        goto out;
-    }
+    client = seaf->rpc_client;
 
     groups = seaf_repo_manager_get_groups_by_repo (seaf->repo_mgr,
                                                    repo_id, NULL);
@@ -405,7 +399,6 @@ out:
     g_hash_table_destroy (user_hash);
     string_list_free (personal);
     g_list_free (groups);
-    ccnet_rpc_client_free (client);
 
     return n_shared_to;
 }

@@ -21,6 +21,7 @@
 #include "seafile-crypt.h"
 
 #include "seaf-db.h"
+#include "seaf-utils.h"
 
 #define REAP_TOKEN_INTERVAL 300 /* 5 mins */
 #define DECRYPTED_TOKEN_TTL 3600 /* 1 hour */
@@ -4249,15 +4250,11 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
     GList *groups = NULL, *p, *q;
     GList *repos = NULL;
     SeafileRepo *repo = NULL;
-    SearpcClient *rpc_client;
+    SearpcClient *rpc_client = NULL;
     GString *sql = NULL;
     int group_id = 0;
 
-    rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                                 NULL,
-                                                 "ccnet-threaded-rpcserver");
-    if (!rpc_client)
-        return NULL;
+    rpc_client = create_rpc_clients (seaf->config_dir);
 
     /* Get the groups this user belongs to. */
     groups = ccnet_get_groups_by_user (rpc_client, user, 1);
@@ -4330,10 +4327,10 @@ out:
     if (sql)
         g_string_free (sql, TRUE);
 
-    ccnet_rpc_client_free (rpc_client);
     for (p = groups; p != NULL; p = p->next)
         g_object_unref ((GObject *)p->data);
     g_list_free (groups);
+    searpc_free_client_with_pipe_transport(rpc_client);
 
     return g_list_reverse (repos);
 }
@@ -4465,11 +4462,7 @@ seaf_repo_manager_convert_repo_path (SeafRepoManager *mgr,
     if (ret)
         goto out;
 
-    rpc_client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                                 NULL,
-                                                 "ccnet-threaded-rpcserver");
-    if (!rpc_client)
-        goto out;
+    rpc_client = create_rpc_clients (seaf->config_dir);
 
     /* Get the groups this user belongs to. */
     groups = ccnet_get_groups_by_user (rpc_client, user, 1);
@@ -4508,10 +4501,10 @@ out:
     if (vinfo)
         seaf_virtual_repo_info_free (vinfo);
     g_string_free (sql, TRUE);
-    ccnet_rpc_client_free (rpc_client);
     for (p1 = groups; p1 != NULL; p1 = p1->next)
         g_object_unref ((GObject *)p1->data);
     g_list_free (groups);
+    searpc_free_client_with_pipe_transport(rpc_client);
 
     return ret;
 }

@@ -152,7 +152,7 @@ connection_charset = utf8
 
     @retry(wait=wait_fixed(1), stop=stop_after_attempt(10))
     def wait_ccnet_ready(self):
-        if not exists(join(self.ccnet_conf_dir, 'ccnet.sock')):
+        if not exists(join(self.ccnet_conf_dir, 'ccnet-rpc.sock')):
             raise TryAgain
 
     def start(self):
@@ -179,13 +179,13 @@ connection_charset = utf8
            seafile_sql_path = join(self.sql_dir, 'sqlite', 'seafile.sql')
 
            misc_dir = join(self.ccnet_conf_dir, 'misc')
-           os.mkdir (misc_dir, 0755)
+           os.mkdir (misc_dir, 0o755)
            groupmgr_dir = join(self.ccnet_conf_dir, 'GroupMgr')
-           os.mkdir (groupmgr_dir, 0755)
+           os.mkdir (groupmgr_dir, 0o755)
            orgmgr_dir = join(self.ccnet_conf_dir, 'OrgMgr')
-           os.mkdir (orgmgr_dir, 0755)
+           os.mkdir (orgmgr_dir, 0o755)
            usermgr_dir = join(self.ccnet_conf_dir, 'PeerMgr')
-           os.mkdir (usermgr_dir, 0755)
+           os.mkdir (usermgr_dir, 0o755)
 
            config_db_path = join(misc_dir, 'config.db')
            groupmgr_db_path = join(groupmgr_dir, 'groupmgr.db')
@@ -193,17 +193,17 @@ connection_charset = utf8
            usermgr_db_path = join(usermgr_dir, 'usermgr.db')
            seafile_db_path = join(self.seafile_conf_dir, 'seafile.db')
 
-           sql = '.read {}'.format(config_sql_path)
+           sql = '.read {}'.format(config_sql_path).encode()
            shell('sqlite3 ' + config_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(groupmgr_sql_path)
+           sql = '.read {}'.format(groupmgr_sql_path).encode()
            shell('sqlite3 ' + groupmgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(org_sql_path)
+           sql = '.read {}'.format(org_sql_path).encode()
            shell('sqlite3 ' + orgmgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(user_sql_path)
+           sql = '.read {}'.format(user_sql_path).encode()
            shell('sqlite3 ' + usermgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(user_sql_path)
+           sql = '.read {}'.format(user_sql_path).encode()
            shell('sqlite3 ' + usermgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(seafile_sql_path)
+           sql = '.read {}'.format(seafile_sql_path).encode()
            shell('sqlite3 ' + seafile_db_path, inputdata=sql, wait=False)
 
     def start_ccnet(self):

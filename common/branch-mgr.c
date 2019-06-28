@@ -88,9 +88,8 @@ struct _SeafBranchManagerPriv {
 
 #if defined( SEAFILE_SERVER ) && defined( FULL_FEATURE )
 
-#include "mq-mgr.h"
 #include <ccnet/cevent.h>
-static void publish_repo_update_event (CEvent *event, void *data);
+//static void publish_repo_update_event (CEvent *event, void *data);
 
 #endif    
 
@@ -116,9 +115,11 @@ int
 seaf_branch_manager_init (SeafBranchManager *mgr)
 {
 #if defined( SEAFILE_SERVER ) && defined( FULL_FEATURE )
+/*
     mgr->priv->cevent_id = cevent_manager_register (seaf->ev_mgr,
                                     (cevent_handler)publish_repo_update_event,
                                                     NULL);
+*/
 #endif    
 
     return open_db (mgr);
@@ -334,6 +335,7 @@ typedef struct {
     char *commit_id;
 } RepoUpdateEventData;
 
+/*
 static void
 publish_repo_update_event (CEvent *event, void *data)
 {
@@ -349,6 +351,7 @@ publish_repo_update_event (CEvent *event, void *data)
     g_free (rdata->commit_id);
     g_free (rdata);
 }
+*/
 
 static void
 on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)

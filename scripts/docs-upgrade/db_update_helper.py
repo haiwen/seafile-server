@@ -1,8 +1,13 @@
 # coding: UTF-8
 
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import object
 import sys
 import os
-import ConfigParser
+import configparser
 import glob
 
 HAS_MYSQLDB = True
@@ -41,15 +46,15 @@ class Utils(object):
 
     @staticmethod
     def info(msg):
-        print Utils.highlight('[INFO] ') + msg
+        print(Utils.highlight('[INFO] ') + msg)
 
     @staticmethod
     def warning(msg):
-        print Utils.highlight('[WARNING] ') + msg
+        print(Utils.highlight('[WARNING] ') + msg)
 
     @staticmethod
     def error(msg):
-        print Utils.highlight('[ERROR] ') + msg
+        print(Utils.highlight('[ERROR] ') + msg)
         sys.exit(1)
 
     @staticmethod
@@ -57,7 +62,7 @@ class Utils(object):
         if not os.path.exists(config_path):
             Utils.error('Config path %s doesn\'t exist, stop db upgrade' %
                         config_path)
-        cp = ConfigParser.ConfigParser(defaults)
+        cp = configparser.ConfigParser(defaults)
         cp.read(config_path)
         return cp
 
@@ -159,7 +164,7 @@ class DBUpdater(object):
             password = config.get(db_section, 'PASSWD')
             db = config.get(db_section, 'DB')
             unix_socket = config.get(db_section, 'UNIX_SOCKET')
-        except ConfigParser.NoOptionError, e:
+        except configparser.NoOptionError as e:
             Utils.error('Database config in ccnet.conf is invalid: %s' % e)
 
         info = MySQLDBInfo(host, port, username, password, db, unix_socket)
@@ -192,7 +197,7 @@ class DBUpdater(object):
             password = config.get(db_section, 'password')
             db = config.get(db_section, 'db_name')
             unix_socket = config.get(db_section, 'unix_socket')
-        except ConfigParser.NoOptionError, e:
+        except configparser.NoOptionError as e:
             Utils.error('Database config in seafile.conf is invalid: %s' % e)
 
         info = MySQLDBInfo(host, port, username, password, db, unix_socket)
@@ -205,7 +210,7 @@ class DBUpdater(object):
             sys.path.insert(0, env_mgr.central_config_dir)
         try:
             import seahub_settings # pylint: disable=F0401
-        except ImportError, e:
+        except ImportError as e:
             Utils.error('Failed to import seahub_settings.py: %s' % e)
 
         if not hasattr(seahub_settings, 'DATABASES'):
@@ -331,7 +336,7 @@ class MySQLDBUpdater(DBUpdater):
             kw['port'] = info.port
         try:
             conn = MySQLdb.connect(**kw)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 msg = str(e.args[1])
             else:
@@ -345,7 +350,7 @@ class MySQLDBUpdater(DBUpdater):
         try:
             cursor.execute(sql)
             conn.commit()
-        except Exception, e:
+        except Exception as e:
             msg = str(e)
             Utils.warning('Failed to execute sql: %s' % msg)
 
@@ -366,7 +371,7 @@ class MySQLDBUpdater(DBUpdater):
 def main():
     skipdb = os.environ.get('SEAFILE_SKIP_DB_UPGRADE', '').lower()
     if skipdb in ('1', 'true', 'on'):
-        print 'Database upgrade skipped because SEAFILE_SKIP_DB_UPGRADE=%s' % skipdb
+        print('Database upgrade skipped because SEAFILE_SKIP_DB_UPGRADE=%s' % skipdb)
         sys.exit()
     version = sys.argv[1]
     db_updater = DBUpdater.get_instance(version)

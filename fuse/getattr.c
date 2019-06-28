@@ -15,6 +15,7 @@
 
 #include "seaf-fuse.h"
 #include "seafile-session.h"
+#include "seaf-utils.h"
 
 static CcnetEmailUser *get_user_from_ccnet (SearpcClient *client, const char *user)
 {
@@ -37,25 +38,19 @@ static int getattr_user(SeafileSession *seaf, const char *user, struct stat *stb
     SearpcClient *client;
     CcnetEmailUser *emailuser;
 
-    client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                             NULL,
-                                             "ccnet-threaded-rpcserver");
-    if (!client) {
-        seaf_warning ("Failed to alloc rpc client.\n");
-        return -ENOMEM;
-    }
+    client = create_rpc_clients (seaf->config_dir);
 
     emailuser = get_user_from_ccnet (client, user);
     if (!emailuser) {
-        ccnet_rpc_client_free (client);
+        searpc_free_client_with_pipe_transport(client);
         return -ENOENT;
     }
     g_object_unref (emailuser);
-    ccnet_rpc_client_free (client);
 
     stbuf->st_mode = S_IFDIR | 0755;
     stbuf->st_nlink = 2;
     stbuf->st_size = 4096;
+    searpc_free_client_with_pipe_transport(client);
 
     return 0;
 }
