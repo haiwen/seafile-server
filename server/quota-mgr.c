@@ -11,6 +11,7 @@
 #include "seafile-session.h"
 #include "seaf-db.h"
 #include "quota-mgr.h"
+#include "seaf-utils.h"
 
 #define KB 1000L
 #define MB 1000000L
@@ -375,7 +376,11 @@ get_num_shared_to (const char *user, const char *repo_id)
     }
 
     /* Then groups... */
-    client = seaf->rpc_client;
+    client = create_ccnet_rpc_client ();
+    if (!client) {
+        seaf_warning ("Failed to alloc ccnet rpc client.\n");
+        goto out;
+    }
 
     groups = seaf_repo_manager_get_groups_by_repo (seaf->repo_mgr,
                                                    repo_id, NULL);
@@ -399,6 +404,7 @@ out:
     g_hash_table_destroy (user_hash);
     string_list_free (personal);
     g_list_free (groups);
+    release_ccnet_rpc_client (client);
 
     return n_shared_to;
 }

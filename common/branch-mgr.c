@@ -80,18 +80,7 @@ struct _SeafBranchManagerPriv {
 #ifndef SEAFILE_SERVER
     pthread_mutex_t db_lock;
 #endif
-
-#if defined( SEAFILE_SERVER ) && defined( FULL_FEATURE )
-    uint32_t cevent_id;
-#endif    
 };
-
-#if defined( SEAFILE_SERVER ) && defined( FULL_FEATURE )
-
-#include <ccnet/cevent.h>
-//static void publish_repo_update_event (CEvent *event, void *data);
-
-#endif    
 
 static int open_db (SeafBranchManager *mgr);
 
@@ -114,14 +103,6 @@ seaf_branch_manager_new (struct _SeafileSession *seaf)
 int
 seaf_branch_manager_init (SeafBranchManager *mgr)
 {
-#if defined( SEAFILE_SERVER ) && defined( FULL_FEATURE )
-/*
-    mgr->priv->cevent_id = cevent_manager_register (seaf->ev_mgr,
-                                    (cevent_handler)publish_repo_update_event,
-                                                    NULL);
-*/
-#endif    
-
     return open_db (mgr);
 }
 
@@ -330,45 +311,43 @@ get_commit_id (SeafDBRow *row, void *data)
     return FALSE;
 }
 
-typedef struct {
-    char *repo_id;
-    char *commit_id;
-} RepoUpdateEventData;
+/* typedef struct { */
+/*     char *repo_id; */
+/*     char *commit_id; */
+/* } RepoUpdateEventData; */
 
-/*
-static void
-publish_repo_update_event (CEvent *event, void *data)
-{
-    RepoUpdateEventData *rdata = event->data;
+/* static void */
+/* publish_repo_update_event (CEvent *event, void *data) */
+/* { */
+/*     RepoUpdateEventData *rdata = event->data; */
 
-    char buf[128];
-    snprintf (buf, sizeof(buf), "repo-update\t%s\t%s",
-              rdata->repo_id, rdata->commit_id);
+/*     char buf[128]; */
+/*     snprintf (buf, sizeof(buf), "repo-update\t%s\t%s", */
+/*               rdata->repo_id, rdata->commit_id); */
 
-    seaf_mq_manager_publish_event (seaf->mq_mgr, buf);
+/*     seaf_mq_manager_publish_event (seaf->mq_mgr, buf); */
 
-    g_free (rdata->repo_id);
-    g_free (rdata->commit_id);
-    g_free (rdata);
-}
-*/
+/*     g_free (rdata->repo_id); */
+/*     g_free (rdata->commit_id); */
+/*     g_free (rdata); */
+/* } */
 
-static void
-on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)
-{
-    seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id);
+/* static void */
+/* on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch) */
+/* { */
+/*     seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id); */
 
-    if (seaf_repo_manager_is_virtual_repo (seaf->repo_mgr, branch->repo_id))
-        return;
+/*     if (seaf_repo_manager_is_virtual_repo (seaf->repo_mgr, branch->repo_id)) */
+/*         return; */
 
-    RepoUpdateEventData *rdata = g_new0 (RepoUpdateEventData, 1);
+/*     RepoUpdateEventData *rdata = g_new0 (RepoUpdateEventData, 1); */
 
-    rdata->repo_id = g_strdup (branch->repo_id);
-    rdata->commit_id = g_strdup (branch->commit_id);
+/*     rdata->repo_id = g_strdup (branch->repo_id); */
+/*     rdata->commit_id = g_strdup (branch->commit_id); */
     
-    cevent_manager_add_event (seaf->ev_mgr, mgr->priv->cevent_id, rdata);
+/*     cevent_manager_add_event (seaf->ev_mgr, mgr->priv->cevent_id, rdata); */
 
-}
+/* } */
 
 int
 seaf_branch_manager_test_and_update_branch (SeafBranchManager *mgr,
@@ -428,7 +407,7 @@ seaf_branch_manager_test_and_update_branch (SeafBranchManager *mgr,
 
     seaf_db_trans_close (trans);
 
-    on_branch_updated (mgr, branch);
+    /* on_branch_updated (mgr, branch); */
 
     return 0;
 }

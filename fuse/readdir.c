@@ -54,7 +54,11 @@ static int readdir_root(SeafileSession *seaf,
     GHashTable *user_hash;
     int dummy;
 
-    client = create_rpc_clients (seaf->config_dir);
+    client = create_ccnet_rpc_client ();
+    if (!client) {
+        seaf_warning ("Failed to alloc ccnet rpc client.\n");
+        return -ENOMEM;
+    }
 
     user_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
@@ -88,7 +92,7 @@ static int readdir_root(SeafileSession *seaf,
 
     g_hash_table_destroy (user_hash);
 
-    searpc_free_client_with_pipe_transport(client);
+    release_ccnet_rpc_client (client);
 
     return 0;
 }
@@ -102,18 +106,22 @@ static int readdir_user(SeafileSession *seaf, const char *user,
     GList *list = NULL, *p;
     GString *name;
 
-    client = create_rpc_clients (seaf->config_dir);
+    client = create_ccnet_rpc_client ();
+    if (!client) {
+        seaf_warning ("Failed to alloc ccnet rpc client.\n");
+        return -ENOMEM;
+    }
 
     emailuser = get_user_from_ccnet (client, user);
     if (!emailuser) {
-        searpc_free_client_with_pipe_transport(client);
+        release_ccnet_rpc_client (client);
         return -ENOENT;
     }
     g_object_unref (emailuser);
+    release_ccnet_rpc_client (client);
 
     list = seaf_repo_manager_get_repos_by_owner (seaf->repo_mgr, user);
     if (!list) {
-        searpc_free_client_with_pipe_transport(client);
         return 0;
     }
 
@@ -144,7 +152,6 @@ static int readdir_user(SeafileSession *seaf, const char *user,
 
     g_list_free (list);
 
-    searpc_free_client_with_pipe_transport(client);
     return 0;
 }
 

@@ -19,7 +19,6 @@ def create_the_file ():
 
 def test_file_operation():
     t_repo_version = 1
-    print ("Mydebug create repo")
     t_repo_id1 = api.create_repo('test_file_operation1', '', USER, passwd = None)
 
     create_the_file()

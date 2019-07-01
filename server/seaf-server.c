@@ -57,26 +57,16 @@ static void usage ()
 #include "searpc-marshal.h"
 #include <searpc-named-pipe-transport.h>
 
-static void start_rpc_service (int cloud_mode, char *seafile_dir, char *central_conf_dir)
+#define SEAFILE_RPC_PIPE_NAME "seafile.sock"
+
+static void start_rpc_service (int cloud_mode, char *seafile_dir)
 {
-    seaf_message ("Mydebug %s\n", __FUNCTION__);
     SearpcNamedPipeServer *rpc_server = NULL;
-    char *socket_dir = NULL;
     char *pipe_path = NULL;
 
     searpc_server_init (register_marshals);
 
     searpc_create_service ("seafserv-threaded-rpcserver");
-
-    socket_dir = central_conf_dir ? central_conf_dir : seafile_dir;
-    pipe_path = g_strdup_printf ("%s/%s", socket_dir, "seafile.sock");
-    seaf_message ("Mydebug pipe_path = %s\n", pipe_path);
-    rpc_server = searpc_create_named_pipe_server(pipe_path);
-    g_free(pipe_path);
-    if (searpc_named_pipe_server_start(rpc_server) < 0) {
-        seaf_warning ("Failed to start named pipe server.\n");
-        exit (1);
-    }
 
     /* threaded services */
 
@@ -554,32 +544,32 @@ static void start_rpc_service (int cloud_mode, char *seafile_dir, char *central_
 
     /* -------- rpc services -------- */
     /* token for web access to repo */
-    searpc_server_register_function ("seafserv-rpcserver",
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_web_get_access_token,
                                      "seafile_web_get_access_token",
                                      searpc_signature_string__string_string_string_string_int());
-    searpc_server_register_function ("seafserv-rpcserver",
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_web_query_access_token,
                                      "seafile_web_query_access_token",
                                      searpc_signature_object__string());
 
-    searpc_server_register_function ("seafserv-rpcserver",
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_query_zip_progress,
                                      "seafile_query_zip_progress",
                                      searpc_signature_string__string());
-    searpc_server_register_function ("seafserv-rpcserver",
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_cancel_zip_task,
                                      "cancel_zip_task",
                                      searpc_signature_int__string());
 
     /* Copy task related. */
 
-    searpc_server_register_function ("seafserv-rpcserver",
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_get_copy_task,
                                      "get_copy_task",
                                      searpc_signature_object__string());
 
-    searpc_server_register_function ("seafserv-rpcserver",
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_cancel_copy_task,
                                      "cancel_copy_task",
                                      searpc_signature_int__string());
@@ -597,11 +587,11 @@ static void start_rpc_service (int cloud_mode, char *seafile_dir, char *central_
                                      seafile_unset_passwd,
                                      "seafile_unset_passwd",
                                      searpc_signature_int__string_string());
-    searpc_server_register_function ("seafserv-rpcserver",
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_is_passwd_set,
                                      "seafile_is_passwd_set",
                                      searpc_signature_int__string_string());
-    searpc_server_register_function ("seafserv-rpcserver",
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_get_decrypt_key,
                                      "seafile_get_decrypt_key",
                                      searpc_signature_object__string_string());
@@ -761,6 +751,18 @@ static void start_rpc_service (int cloud_mode, char *seafile_dir, char *central_
                                      "set_server_config_boolean",
                                      searpc_signature_int__string_string_int());
 
+    pipe_path = g_build_path ("/", seafile_dir, SEAFILE_RPC_PIPE_NAME, NULL);
+    rpc_server = searpc_create_named_pipe_server(pipe_path);
+    g_free(pipe_path);
+    if (!rpc_server) {
+        seaf_warning ("Failed to create rpc server.\n");
+        exit (1);
+    }
+
+    if (searpc_named_pipe_server_start(rpc_server) < 0) {
+        seaf_warning ("Failed to start rpc server.\n");
+        exit (1);
+    }
 }
 
 static struct event sigusr1;
@@ -856,7 +858,7 @@ int
 main (int argc, char **argv)
 {
     int c;
-    char *config_dir = DEFAULT_CONFIG_DIR;
+    char *ccnet_dir = DEFAULT_CONFIG_DIR;
     char *seafile_dir = NULL;
     char *central_config_dir = NULL;
     char *logfile = NULL;
@@ -866,7 +868,6 @@ main (int argc, char **argv)
     char *ccnet_debug_level_str = "info";
     char *seafile_debug_level_str = "debug";
     int cloud_mode = 0;
-    SearpcClient *rpc_client = NULL;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -883,7 +884,7 @@ main (int argc, char **argv)
             exit (1);
             break;
         case 'c':
-            config_dir = optarg;
+            ccnet_dir = optarg;
             break;
         case 'd':
             seafile_dir = g_strdup(optarg);
@@ -962,7 +963,7 @@ main (int argc, char **argv)
     seafile_debug_set_flags_string (debug_str);
 
     if (seafile_dir == NULL)
-        seafile_dir = g_build_filename (config_dir, "seafile", NULL);
+        seafile_dir = g_build_filename (ccnet_dir, "seafile", NULL);
     if (logfile == NULL)
         logfile = g_build_filename (seafile_dir, "seafile.log", NULL);
 
@@ -973,16 +974,16 @@ main (int argc, char **argv)
     }
 
     event_init ();
-    start_rpc_service (cloud_mode, seafile_dir, central_config_dir);
 
-    seaf = seafile_session_new (central_config_dir, seafile_dir, config_dir);
+    start_rpc_service (cloud_mode, seafile_dir);
+
+    seaf = seafile_session_new (central_config_dir, seafile_dir, ccnet_dir);
     if (!seaf) {
         seaf_warning ("Failed to create seafile session.\n");
         exit (1);
     }
     seaf->is_master = is_master;
     seaf->cloud_mode = cloud_mode;
-    seaf->rpc_client = rpc_client;
 
 
 #ifndef WIN32

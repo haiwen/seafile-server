@@ -35,10 +35,7 @@ SEAFILE_CENTRAL_CONF_DIR = _load_path_from_env('SEAFILE_CENTRAL_CONF_DIR', check
 ccnet_pipe_path = os.path.join (CCNET_CONF_PATH, 'ccnet-rpc.sock')
 ccnet_threaded_rpc = ccnet.CcnetThreadedRpcClient(ccnet_pipe_path)
 
-if SEAFILE_CENTRAL_CONF_DIR:
-    seafile_pipe_path = os.path.join(SEAFILE_CENTRAL_CONF_DIR, 'seafile.sock')
-else:
-    seafile_pipe_path = os.path.join(SEAFILE_CONF_DIR, 'seafile.sock')
+seafile_pipe_path = os.path.join(SEAFILE_CONF_DIR, 'seafile.sock')
 seafserv_threaded_rpc = seafile.ServerThreadedRpcClient(seafile_pipe_path)
 
 # load ccnet server addr and port from ccnet.conf.

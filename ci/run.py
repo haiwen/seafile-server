@@ -28,8 +28,7 @@ TOPDIR = abspath(join(os.getcwd(), '..'))
 if on_travis():
     PREFIX = expanduser('~/opt/local')
 else:
-    #PREFIX = os.environ.get('SEAFILE_INSTALL_PREFIX', '/usr/local')
-    PREFIX = os.environ.get('SEAFILE_INSTALL_PREFIX', '/home/ly/.pyenv/versions/3.5.3')
+    PREFIX = os.environ.get('SEAFILE_INSTALL_PREFIX', '/usr/local')
 INSTALLDIR = '/tmp/seafile-tests'
 
 

@@ -35,11 +35,9 @@ typedef struct _SeafileSession SeafileSession;
 
 
 struct _SeafileSession {
-    SearpcClient        *rpc_client;
-
     char                *central_config_dir;
     char                *seaf_dir;
-    char                *config_dir;
+    char                *ccnet_dir;
     char                *tmp_file_dir;
     /* Config that's only loaded on start */
     GKeyFile            *config;
@@ -82,7 +80,7 @@ extern SeafileSession *seaf;
 SeafileSession *
 seafile_session_new(const char *central_config_dir, 
                     const char *seafile_dir,
-                    const char *config_dir);
+                    const char *ccnet_dir);
 int
 seafile_session_init (SeafileSession *session);
 

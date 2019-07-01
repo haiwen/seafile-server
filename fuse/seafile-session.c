@@ -19,18 +19,18 @@ read_excluded_users (SeafileSession *session);
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
-                    const char *config_dir)
+                    const char *ccnet_dir)
 {
     char *abs_central_config_dir = NULL;
     char *abs_seafile_dir;
-    char *abs_config_dir = NULL;
+    char *abs_ccnet_dir = NULL;
     char *tmp_file_dir;
     char *config_file_path;
     struct stat st;
     GKeyFile *config;
     SeafileSession *session = NULL;
 
-    abs_config_dir = ccnet_expand_path (config_dir);
+    abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
     abs_seafile_dir = ccnet_expand_path (seafile_dir);
     tmp_file_dir = g_build_filename(abs_seafile_dir, "tmpfiles", NULL);
     if (central_config_dir) {
@@ -63,7 +63,7 @@ seafile_session_new(const char *central_config_dir,
 
     session = g_new0(SeafileSession, 1);
     session->seaf_dir = abs_seafile_dir;
-    session->config_dir = abs_config_dir;
+    session->ccnet_dir = abs_ccnet_dir;
     session->tmp_file_dir = tmp_file_dir;
     session->config = config;
     session->excluded_users = g_hash_table_new_full (g_str_hash, g_str_equal,

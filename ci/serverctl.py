@@ -148,7 +148,7 @@ connection_charset = utf8
     def print_logs(self):
         for logfile in self.ccnet_log, self.seafile_log:
             if exists(logfile):
-                shell('cat {0}'.format(logfile))
+                shell(f'cat {logfile}')
 
     @retry(wait=wait_fixed(1), stop=stop_after_attempt(10))
     def wait_ccnet_ready(self):
@@ -168,8 +168,7 @@ connection_charset = utf8
         if self.db == 'mysql':
            ccnet_sql_path = join(self.sql_dir, 'mysql', 'ccnet.sql')
            seafile_sql_path = join(self.sql_dir, 'mysql', 'seafile.sql')
-           sql = '''USE ccnet; source {};
-                    USE seafile; source {};'''.format(ccnet_sql_path, seafile_sql_path)
+           sql = f'USE ccnet; source {ccnet_sql_path}; USE seafile; source {seafile_sql_path};'.encode()
            shell('mysql -u root', inputdata=sql, wait=False)
         else:
            config_sql_path = join(self.sql_dir, 'sqlite', 'config.sql')
@@ -193,17 +192,15 @@ connection_charset = utf8
            usermgr_db_path = join(usermgr_dir, 'usermgr.db')
            seafile_db_path = join(self.seafile_conf_dir, 'seafile.db')
 
-           sql = '.read {}'.format(config_sql_path).encode()
+           sql = f'.read {config_sql_path}'.encode()
            shell('sqlite3 ' + config_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(groupmgr_sql_path).encode()
+           sql = f'.read {groupmgr_sql_path}'.encode()
            shell('sqlite3 ' + groupmgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(org_sql_path).encode()
+           sql = f'.read {org_sql_path}'.encode()
            shell('sqlite3 ' + orgmgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(user_sql_path).encode()
+           sql = f'.read {user_sql_path}'.encode()
            shell('sqlite3 ' + usermgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(user_sql_path).encode()
-           shell('sqlite3 ' + usermgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(seafile_sql_path).encode()
+           sql = f'.read {seafile_sql_path}'.encode()
            shell('sqlite3 ' + seafile_db_path, inputdata=sql, wait=False)
 
     def start_ccnet(self):

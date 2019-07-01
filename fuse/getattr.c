@@ -38,11 +38,15 @@ static int getattr_user(SeafileSession *seaf, const char *user, struct stat *stb
     SearpcClient *client;
     CcnetEmailUser *emailuser;
 
-    client = create_rpc_clients (seaf->config_dir);
+    client = create_ccnet_rpc_client ();
+    if (!client) {
+        seaf_warning ("Failed to alloc ccnet rpc client.\n");
+        return -ENOMEM;
+    }
 
     emailuser = get_user_from_ccnet (client, user);
     if (!emailuser) {
-        searpc_free_client_with_pipe_transport(client);
+        release_ccnet_rpc_client (client);
         return -ENOENT;
     }
     g_object_unref (emailuser);
@@ -50,7 +54,7 @@ static int getattr_user(SeafileSession *seaf, const char *user, struct stat *stb
     stbuf->st_mode = S_IFDIR | 0755;
     stbuf->st_nlink = 2;
     stbuf->st_size = 4096;
-    searpc_free_client_with_pipe_transport(client);
+    release_ccnet_rpc_client (client);
 
     return 0;
 }

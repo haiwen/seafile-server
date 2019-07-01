@@ -4254,13 +4254,17 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
     GString *sql = NULL;
     int group_id = 0;
 
-    rpc_client = create_rpc_clients (seaf->config_dir);
+    rpc_client = create_ccnet_rpc_client ();
+    if (!rpc_client)
+        return NULL;
 
     /* Get the groups this user belongs to. */
     groups = ccnet_get_groups_by_user (rpc_client, user, 1);
     if (!groups) {
+        release_ccnet_rpc_client (rpc_client);
         goto out;
     }
+    release_ccnet_rpc_client (rpc_client);
 
     sql = g_string_new ("");
     g_string_printf (sql, "SELECT g.repo_id, v.repo_id, "
@@ -4330,7 +4334,6 @@ out:
     for (p = groups; p != NULL; p = p->next)
         g_object_unref ((GObject *)p->data);
     g_list_free (groups);
-    searpc_free_client_with_pipe_transport(rpc_client);
 
     return g_list_reverse (repos);
 }
@@ -4462,13 +4465,17 @@ seaf_repo_manager_convert_repo_path (SeafRepoManager *mgr,
     if (ret)
         goto out;
 
-    rpc_client = create_rpc_clients (seaf->config_dir);
-
     /* Get the groups this user belongs to. */
+
+    rpc_client = create_ccnet_rpc_client ();
+    if (!rpc_client)
+        goto out;
     groups = ccnet_get_groups_by_user (rpc_client, user, 1);
     if (!groups) {
+        release_ccnet_rpc_client (rpc_client);
         goto out;
     }
+    release_ccnet_rpc_client (rpc_client);
 
     g_string_printf (sql, "SELECT v.repo_id, path, r.group_id FROM VirtualRepo v, %s r WHERE "
                      "v.origin_repo=? AND v.repo_id=r.repo_id AND r.group_id IN(",
@@ -4504,7 +4511,6 @@ out:
     for (p1 = groups; p1 != NULL; p1 = p1->next)
         g_object_unref ((GObject *)p1->data);
     g_list_free (groups);
-    searpc_free_client_with_pipe_transport(rpc_client);
 
     return ret;
 }

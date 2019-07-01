@@ -62,8 +62,8 @@ struct _HttpServer {
     GHashTable *vir_repo_info_cache;
     pthread_mutex_t vir_repo_info_cache_lock;
 
-    uint32_t cevent_id;         /* Used for sending activity events. */
-    uint32_t stats_event_id;         /* Used for sending events for statistics. */
+    /* uint32_t cevent_id;         /\* Used for sending activity events. *\/ */
+    /* uint32_t stats_event_id;         /\* Used for sending events for statistics. *\/ */
 
     event_t *reap_timer;
 };
@@ -562,39 +562,41 @@ static void
 on_repo_oper (HttpServer *htp_server, const char *etype,
               const char *repo_id, char *user, char *ip, char *client_name)
 {
-    RepoEventData *rdata = g_new0 (RepoEventData, 1);
-    SeafVirtRepo *vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr,
-                                                                   repo_id);
+    /* RepoEventData *rdata = g_new0 (RepoEventData, 1); */
+    /* SeafVirtRepo *vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr, */
+    /*                                                                repo_id); */
 
-    if (vinfo) {
-        memcpy (rdata->repo_id, vinfo->origin_repo_id, 36);
-        rdata->path = g_strdup(vinfo->path);
-    } else
-        memcpy (rdata->repo_id, repo_id, 36);
-    rdata->etype = g_strdup (etype);
-    rdata->user = g_strdup (user);
-    rdata->ip = g_strdup (ip);
-    rdata->client_name = g_strdup(client_name);
+    /* if (vinfo) { */
+    /*     memcpy (rdata->repo_id, vinfo->origin_repo_id, 36); */
+    /*     rdata->path = g_strdup(vinfo->path); */
+    /* } else */
+    /*     memcpy (rdata->repo_id, repo_id, 36); */
+    /* rdata->etype = g_strdup (etype); */
+    /* rdata->user = g_strdup (user); */
+    /* rdata->ip = g_strdup (ip); */
+    /* rdata->client_name = g_strdup(client_name); */
 
-    cevent_manager_add_event (seaf->ev_mgr, htp_server->cevent_id, rdata);
+    /* cevent_manager_add_event (seaf->ev_mgr, htp_server->cevent_id, rdata); */
 
-    if (vinfo) {
-        g_free (vinfo->path);
-        g_free (vinfo);
-    }
+    /* if (vinfo) { */
+    /*     g_free (vinfo->path); */
+    /*     g_free (vinfo); */
+    /* } */
+    return;
 }
 
 void
 send_statistic_msg (const char *repo_id, char *user, char *operation, guint64 bytes)
 {
-    StatsEventData *rdata = g_new0 (StatsEventData, 1);
+    /* StatsEventData *rdata = g_new0 (StatsEventData, 1); */
 
-    memcpy (rdata->repo_id, repo_id, 36);
-    rdata->etype = g_strdup (operation);
-    rdata->user = g_strdup (user);
-    rdata->bytes = bytes;
+    /* memcpy (rdata->repo_id, repo_id, 36); */
+    /* rdata->etype = g_strdup (operation); */
+    /* rdata->user = g_strdup (user); */
+    /* rdata->bytes = bytes; */
 
-    cevent_manager_add_event (seaf->ev_mgr, seaf->http_server->priv->stats_event_id, rdata);
+    /* cevent_manager_add_event (seaf->ev_mgr, seaf->http_server->priv->stats_event_id, rdata); */
+    return;
 }
 
 char *
