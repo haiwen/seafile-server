@@ -4027,17 +4027,26 @@ seaf_repo_manager_add_upload_tmp_file (SeafRepoManager *mgr,
                                        const char *tmp_file,
                                        GError **error)
 {
+    char *file_path_with_slash = NULL;
+
+    if (file_path[0] == '/') {
+        file_path_with_slash = g_strdup(file_path);
+    } else {
+        file_path_with_slash = g_strconcat("/", file_path, NULL);
+    }
+
     int ret = seaf_db_statement_query (mgr->seaf->db,
                                        "INSERT INTO WebUploadTempFiles "
                                        "(repo_id, file_path, tmp_file_path) "
                                        "VALUES (?, ?, ?)", 3, "string", repo_id,
-                                       "string", file_path, "string", tmp_file);
+                                       "string", file_path_with_slash, "string", tmp_file);
 
     if (ret < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to add upload tmp file record to db.");
     }
 
+    g_free (file_path_with_slash);
     return ret;
 }
 
@@ -4047,15 +4056,33 @@ seaf_repo_manager_del_upload_tmp_file (SeafRepoManager *mgr,
                                        const char *file_path,
                                        GError **error)
 {
+    char *file_path_with_slash = NULL, *file_path_no_slash = NULL;
+
+    /* Due to a bug in early versions of 7.0, some file_path may be stored in the db without
+     * a leading slash. To be compatible with those records, we need to check the path
+     * with and without leading slash.
+     */
+    if (file_path[0] == '/') {
+        file_path_with_slash = g_strdup(file_path);
+        file_path_no_slash = g_strdup(file_path+1);
+    } else {
+        file_path_with_slash = g_strconcat("/", file_path, NULL);
+        file_path_no_slash = g_strdup(file_path);
+    }
+
     int ret = seaf_db_statement_query (mgr->seaf->db,
                                        "DELETE FROM WebUploadTempFiles WHERE "
-                                       "repo_id = ? AND file_path = ?",
-                                       2, "string", repo_id, "string", file_path);
+                                       "repo_id = ? AND file_path IN (?, ?)",
+                                       3, "string", repo_id,
+                                       "string", file_path_with_slash,
+                                       "string", file_path_no_slash);
     if (ret < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to delete upload tmp file record from db.");
     }
 
+    g_free (file_path_with_slash);
+    g_free (file_path_no_slash);
     return ret;
 }
 
@@ -4076,18 +4103,51 @@ seaf_repo_manager_get_upload_tmp_file (SeafRepoManager *mgr,
                                        GError **error)
 {
     char *tmp_file_path = NULL;
+    char *file_path_with_slash = NULL, *file_path_no_slash = NULL;
+
+    /* Due to a bug in early versions of 7.0, some file_path may be stored in the db without
+     * a leading slash. To be compatible with those records, we need to check the path
+     * with and without leading slash.
+     * The correct file_path in db should be with a leading slash.
+     */
+    if (file_path[0] == '/') {
+        file_path_with_slash = g_strdup(file_path);
+        file_path_no_slash = g_strdup(file_path+1);
+    } else {
+        file_path_with_slash = g_strconcat("/", file_path, NULL);
+        file_path_no_slash = g_strdup(file_path);
+    }
 
     int ret = seaf_db_statement_foreach_row (mgr->seaf->db,
                                              "SELECT tmp_file_path FROM WebUploadTempFiles "
                                              "WHERE repo_id = ? AND file_path = ?",
                                              get_tmp_file_path, &tmp_file_path,
-                                             2, "string", repo_id, "string", file_path);
+                                             2, "string", repo_id,
+                                             "string", file_path_with_slash);
     if (ret < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to get upload temp file path from db.");
-        return NULL;
+        goto out;
     }
 
+    if (!tmp_file_path) {
+        /* Try file_path without slash. */
+        int ret = seaf_db_statement_foreach_row (mgr->seaf->db,
+                                                 "SELECT tmp_file_path FROM WebUploadTempFiles "
+                                                 "WHERE repo_id = ? AND file_path = ?",
+                                                 get_tmp_file_path, &tmp_file_path,
+                                                 2, "string", repo_id,
+                                                 "string", file_path_no_slash);
+        if (ret < 0) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "Failed to get upload temp file path from db.");
+            goto out;
+        }
+    }
+
+out:
+    g_free (file_path_with_slash);
+    g_free (file_path_no_slash);
     return tmp_file_path;
 }
 
