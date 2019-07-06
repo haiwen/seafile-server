@@ -42,6 +42,20 @@ def test_file_operation():
 
     # test copy_file (asynchronous)
     t_repo_id2 = api.create_repo('test_file_operation2', '', USER, passwd = None)
+    usage = api.get_user_self_usage (USER)
+    api.set_user_quota(USER, usage + 1);
+    t_copy_file_result2 = api.copy_file(t_repo_id1, '/', file_name, t_repo_id2, '/', file_name, USER, 1, 0)
+    assert t_copy_file_result2
+    assert t_copy_file_result2.background
+    while True:
+        time.sleep(0.1)
+        t_copy_task = api.get_copy_task(t_copy_file_result2.task_id)
+        assert t_copy_task.failed
+        assert t_copy_task.failed_reason == 'Quota is full'
+        if t_copy_task.failed:
+            break;
+
+    api.set_user_quota(USER, -1);
     t_copy_file_result2 = api.copy_file(t_repo_id1, '/', file_name, t_repo_id2, '/', file_name, USER, 1, 0)
     assert t_copy_file_result2
     assert t_copy_file_result2.task_id
@@ -70,6 +84,21 @@ def test_file_operation():
     assert t_file_id is None
 
     # test move_file (asynchronous)
+    usage = api.get_user_self_usage (USER)
+    api.set_user_quota(USER, usage + 1);
+    t_move_file_result2 = api.move_file(t_repo_id1, '/', file_name, t_repo_id2, '/' , new_file_name, 1, USER, 1, 0)
+    assert t_move_file_result2
+    assert t_move_file_result2.task_id
+    assert t_move_file_result2.background
+    while True:
+        time.sleep(0.1)
+        t_move_task = api.get_copy_task(t_move_file_result2.task_id)
+        assert t_move_task.failed
+        assert t_move_task.failed_reason == 'Quota is full'
+        if t_move_task.failed:
+            break
+
+    api.set_user_quota(USER, -1);
     t_move_file_result2 = api.move_file(t_repo_id1, '/', file_name, t_repo_id2, '/' , new_file_name, 1, USER, 1, 0)
     assert t_move_file_result2
     assert t_move_file_result2.task_id
