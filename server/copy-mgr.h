@@ -3,6 +3,12 @@
 
 #include <glib.h>
 
+#define COPY_ERR_INTERNAL  "Internal error when copy or move"
+#define COPY_ERR_BAD_ARG  "Invalid arguments"
+#define COPY_ERR_TOO_MANY_FILES "Too many files"
+#define COPY_ERR_SIZE_TOO_LARGE "Folder or file size is too large"
+#define COPY_ERR_QUOTA_IS_FULL  "Quota is full"
+
 struct _SeafileSession;
 struct _SeafCopyManagerPriv;
 struct _SeafileCopyTask;
@@ -23,6 +29,7 @@ struct CopyTask {
     gint64 total;
     gint canceled;
     gboolean failed;
+    char *failed_reason;
     gboolean successful;
 };
 typedef struct CopyTask CopyTask;

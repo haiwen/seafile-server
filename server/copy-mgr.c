@@ -28,6 +28,7 @@ copy_task_free (CopyTask *task)
 {
     if (!task) return;
 
+    g_free (task->failed_reason);
     g_free (task);
 }
 
@@ -72,11 +73,12 @@ seaf_copy_manager_get_task (SeafCopyManager *mgr,
     pthread_mutex_lock (&priv->lock);
 
     task = g_hash_table_lookup (priv->copy_tasks, task_id);
+
     if (task) {
         t = seafile_copy_task_new ();
         g_object_set (t, "done", task->done, "total", task->total,
                       "canceled", task->canceled, "failed", task->failed,
-                      "successful", task->successful,
+                      "failed_reason", task->failed_reason, "successful", task->successful,
                       NULL);
         if (task->canceled || task->failed || task->successful)
             g_hash_table_remove(priv->copy_tasks, task_id);
