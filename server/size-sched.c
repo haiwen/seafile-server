@@ -5,7 +5,7 @@
 
 #include "seafile-session.h"
 #include "size-sched.h"
-
+#include "diff-simple.h"
 #define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"
 
@@ -18,6 +18,12 @@ typedef struct RepoSizeJob {
     SizeScheduler *sched;
     char repo_id[37];
 } RepoSizeJob;
+
+typedef struct RepoInfo {
+    gchar *head_id;
+    gint64 size;
+    gint64 file_count;
+} RepoInfo;
 
 static void*
 compute_repo_size (void *vjob);
@@ -220,15 +226,62 @@ rollback:
     return ret;
 }
 
-static char *
-get_cached_head_id (SeafDB *db, const char *repo_id)
+static gboolean
+create_old_repo_info (SeafDBRow *row, void *data)
 {
-    char *sql;
+    RepoInfo **info = data;
 
-    sql = "SELECT head_id FROM RepoSize WHERE repo_id=?";
-    return seaf_db_statement_get_string (db, sql, 1, "string", repo_id);
+    const char *head_id = seaf_db_row_get_column_text (row, 0);
+    gint64 size = seaf_db_row_get_column_int64 (row, 1);
+    gint64 file_count = seaf_db_row_get_column_int64 (row, 2);
+
+    if (!head_id)
+        return FALSE;
+    
+    *info = g_new0(RepoInfo, 1);
+    if (!*info)
+        return FALSE;
+    (*info)->head_id = g_strdup(head_id);
+    (*info)->size = size;
+    (*info)->file_count = file_count;
+
+    return TRUE;
 }
 
+static RepoInfo*
+get_old_repo_info_from_db (SeafDB *db, const char *repo_id, gboolean *is_db_err)
+{
+    RepoInfo *info = NULL;
+    char *sql;
+
+    switch (seaf_db_type (db)) {
+    case SEAF_DB_TYPE_MYSQL:
+    case SEAF_DB_TYPE_PGSQL:
+        sql = "select s.head_id,s.size,f.file_count FROM "
+            "RepoSize s LEFT JOIN RepoFileCount f ON "
+            "s.repo_id=f.repo_id WHERE "
+            "s.repo_id=? FOR UPDATE";
+        break;
+    case SEAF_DB_TYPE_SQLITE:
+        sql = "select s.head_id,s.size,f.file_count FROM "
+            "RepoSize s LEFT JOIN RepoFileCount f ON "
+            "s.repo_id=f.repo_id WHERE "
+            "s.repo_id=?";
+        break;
+    default:
+        seaf_warning("Unexpected database type.\n");
+        *is_db_err = TRUE;
+        return NULL;
+    }
+    int ret = seaf_db_statement_foreach_row (db, sql,
+                                             create_old_repo_info, &info,
+                                             1, "string", repo_id);
+    if (ret < 0)
+        *is_db_err = TRUE;
+
+    return info;
+
+}
 
 static void*
 compute_repo_size (void *vjob)
@@ -237,12 +290,14 @@ compute_repo_size (void *vjob)
     SizeScheduler *sched = job->sched;
     SeafRepo *repo = NULL;
     SeafCommit *head = NULL;
-    char *cached_head_id = NULL;
+    SeafCommit *old_head = NULL;
     GObject *file_count_info = NULL;
     gint64 size = 0;
     gint64 file_count = 0;
-    GError **error = NULL;
     int ret;
+    RepoInfo *info = NULL;
+    GError *error = NULL;
+    gboolean is_db_err = FALSE;
 
     repo = seaf_repo_manager_get_repo (sched->seaf->repo_mgr, job->repo_id);
     if (!repo) {
@@ -250,8 +305,10 @@ compute_repo_size (void *vjob)
         return vjob;
     }
 
-    cached_head_id = get_cached_head_id (sched->seaf->db, job->repo_id);
-    if (g_strcmp0 (cached_head_id, repo->head->commit_id) == 0)
+    info = get_old_repo_info_from_db(sched->seaf->db, job->repo_id, &is_db_err);
+    if (is_db_err)
+        goto out;
+    if (info && g_strcmp0 (info->head_id, repo->head->commit_id) == 0)
         goto out;
 
     head = seaf_commit_manager_get_commit (sched->seaf->commit_mgr,
@@ -263,28 +320,59 @@ compute_repo_size (void *vjob)
         goto out;
     }
 
-    file_count_info = seaf_fs_manager_get_file_count_info_by_path (seaf->fs_mgr,
-                                                                   repo->store_id,
-                                                                   repo->version,
-                                                                   repo->root_id,
-                                                                   "/", error);
+    if (info){
+        old_head = seaf_commit_manager_get_commit (sched->seaf->commit_mgr,
+                                                   repo->id, repo->version,
+                                                   info->head_id);
 
-    if (!file_count_info) {
-        seaf_warning ("[scheduler] failed to get file count info.\n");
-        g_clear_error (error);
-        goto out;
+        gint64 change_size = 0;
+        gint64 change_file_count = 0;
+        GList *diff_entries = NULL;
+        
+        ret = diff_commits (old_head, head, &diff_entries, FALSE);
+        if (ret < 0) {
+            seaf_warning("[scheduler] failed to do diff.\n");
+            goto out;
+        }
+        GList *des = NULL;
+        for (des = diff_entries; des ; des = des->next){
+            DiffEntry *diff_entry = des->data;
+            if (diff_entry->status == DIFF_STATUS_DELETED){            
+                change_size -= diff_entry->size;
+                --change_file_count;
+            }
+            else if (diff_entry->status == DIFF_STATUS_ADDED){
+                change_size += diff_entry->size;
+                ++change_file_count;
+            }
+            else if (diff_entry->status == DIFF_STATUS_MODIFIED)
+                change_size = change_size + diff_entry->size - diff_entry->origin_size;
+        }
+        size = info->size + change_size;
+        file_count = info->file_count + change_file_count;
+
+        g_list_free_full (diff_entries, (GDestroyNotify)diff_entry_free);
+    } else {
+        file_count_info = seaf_fs_manager_get_file_count_info_by_path (seaf->fs_mgr,
+                                                                       repo->store_id,
+                                                                       repo->version,
+                                                                       repo->root_id,
+                                                                       "/", &error);
+        if (!file_count_info) {
+            seaf_warning ("[scheduler] failed to get file count info.\n");
+            g_clear_error (&error);
+            goto out;
+        }
+        g_object_get (file_count_info, "file_count", &file_count, "size", &size, NULL);
+        g_object_unref (file_count_info);
     }
-
-    g_object_get (file_count_info, "file_count", &file_count, "size", &size, NULL);
 
     ret = set_repo_size_and_file_count (sched->seaf->db,
                                         job->repo_id,
                                         repo->head->commit_id,
                                         size,
                                         file_count);
-
-    g_object_unref (file_count_info);
-
+    
     if (ret < 0) {
         seaf_warning ("[scheduler] failed to store repo size and file count %s.\n", job->repo_id);
         goto out;
@@ -293,7 +381,10 @@ compute_repo_size (void *vjob)
 out:
     seaf_repo_unref (repo);
     seaf_commit_unref (head);
-    g_free (cached_head_id);
+    seaf_commit_unref (old_head);
+    if (info)
+        g_free (info->head_id);
+    g_free (info);
 
     return vjob;
 }
