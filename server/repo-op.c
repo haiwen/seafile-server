@@ -2036,7 +2036,7 @@ cross_repo_copy (const char *src_repo_id,
     int file_num = 1;
     GHashTable *dirent_hash = NULL;
     gint64 total_size_all = 0;
-    char *err_str = NULL;
+    char *err_str = COPY_ERR_INTERNAL;
     int check_quota_ret;
 
     src_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, src_repo_id);
@@ -2772,7 +2772,7 @@ cross_repo_move (const char *src_repo_id,
     int file_num = 1;
     GHashTable *dirent_hash = NULL;
     gint64 total_size_all = 0;
-    char *err_str = NULL;
+    char *err_str = COPY_ERR_INTERNAL;
     int check_quota_ret;
 
     src_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, src_repo_id);
