@@ -31,6 +31,7 @@ diff_entry_new_from_dirent (char type, char status,
     de->status = status;
     memcpy (de->sha1, sha1, 20);
     de->name = path;
+    de->size = dent->size;
 
 #ifdef SEAFILE_CLIENT
     if (type == DIFF_TYPE_COMMITS &&
@@ -41,7 +42,6 @@ diff_entry_new_from_dirent (char type, char status,
         de->mtime = dent->mtime;
         de->mode = dent->mode;
         de->modifier = g_strdup(dent->modifier);
-        de->size = dent->size;
     }
 #endif
 
@@ -288,6 +288,7 @@ twoway_diff_files (int n, const char *basedir, SeafDirent *files[], void *vdata)
     if (!dirent_same (tree1, tree2)) {
         de = diff_entry_new_from_dirent (DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED,
                                          tree2, basedir);
+        de->origin_size = tree1->size;
         *results = g_list_prepend (*results, de);
     }
 
