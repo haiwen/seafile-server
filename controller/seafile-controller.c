@@ -131,22 +131,6 @@ read_pid_from_pidfile (const char *pidfile)
 }
 
 static void
-try_kill_process(int which)
-{
-    if (which < 0 || which >= N_PID)
-        return;
-
-    char *pidfile = ctl->pidfile[which];
-    int pid = read_pid_from_pidfile(pidfile);
-    if (pid > 0) {
-        // if SIGTERM send success, then remove related pid file
-        if (kill ((pid_t)pid, SIGTERM) == 0) {
-            g_unlink (pidfile);
-        }
-    }
-}
-
-static void
 kill_by_force (int which)
 {
     if (which < 0 || which >= N_PID)
@@ -472,7 +456,12 @@ check_process (void *data)
 {
     if (need_restart(PID_SERVER)) {
         seaf_message ("seaf-server need restart...\n");
-        kill_by_force (PID_CCNET);
+        start_seaf_server();
+    }
+
+    if (need_restart(PID_CCNET)) {
+        seaf_message ("ccnet-server need restart...\n");
+        start_ccnet_server();
     }
 
     if (ctl->seafdav_config.enabled) {
@@ -497,143 +486,12 @@ start_process_monitor ()
         CHECK_PROCESS_INTERVAL * 1000, check_process, NULL);
 }
 
-static void
-stop_process_monitor ()
-{
-    if (ctl->check_process_timer != 0) {
-        g_source_remove (ctl->check_process_timer);
-        ctl->check_process_timer = 0;
-    }
-}
-
-static void
-disconnect_clients ()
-{
-    CcnetClient *client, *sync_client;
-    client = ctl->client;
-    sync_client = ctl->sync_client;
-
-    if (client->connected) {
-        ccnet_client_disconnect_daemon (client);
-    }
-
-    if (sync_client->connected) {
-        ccnet_client_disconnect_daemon (sync_client);
-    }
-}
-
-static void rm_client_fd_from_mainloop ();
 static int seaf_controller_start ();
-
-static void
-on_ccnet_daemon_down ()
-{
-    stop_process_monitor ();
-    disconnect_clients ();
-    rm_client_fd_from_mainloop ();
-
-    seaf_message ("restarting ccnet server ...\n");
-
-    /* restart ccnet */
-    if (seaf_controller_start () < 0) {
-        seaf_warning ("Failed to restart ccnet server.\n");
-        controller_exit (1);
-    }
-}
-
-static gboolean
-client_io_cb (GIOChannel *source, GIOCondition condition, gpointer data)
-{
-    if (condition & G_IO_IN) {
-        if (ccnet_client_read_input (ctl->client) <= 0) {
-            on_ccnet_daemon_down ();
-            return FALSE;
-        }
-        return TRUE;
-    } else {
-        on_ccnet_daemon_down ();
-        return FALSE;
-    }
-}
-
-static void
-add_client_fd_to_mainloop ()
-{
-    GIOChannel *channel;
-
-    channel = g_io_channel_unix_new (ctl->client->connfd);
-    ctl->client_io_id = g_io_add_watch (channel,
-                                        G_IO_IN | G_IO_HUP | G_IO_ERR,
-                                        client_io_cb, NULL);
-}
-
-static void
-rm_client_fd_from_mainloop ()
-{
-    if (ctl->client_io_id != 0) {
-        g_source_remove (ctl->client_io_id);
-        ctl->client_io_id = 0;
-    }
-}
-
-static void
-on_ccnet_connected ()
-{
-    if (start_seaf_server () < 0)
-        controller_exit(1);
-
-    if (ctl->has_seafevents && need_restart(PID_SEAFEVENTS)) {
-        if (start_seafevents() < 0)
-            controller_exit(1);
-    }
-
-    if (ctl->seafdav_config.enabled) {
-        if (need_restart(PID_SEAFDAV)) {
-            if (start_seafdav() < 0)
-                controller_exit(1);
-        }
-    } else {
-        seaf_message ("seafdav not enabled.\n");
-    }
-
-    add_client_fd_to_mainloop ();
-
-    start_process_monitor ();
-}
-
-static gboolean
-do_connect_ccnet ()
-{
-    CcnetClient *client, *sync_client;
-    client = ctl->client;
-    sync_client = ctl->sync_client;
-
-    if (!client->connected) {
-        if (ccnet_client_connect_daemon (client, CCNET_CLIENT_ASYNC) < 0) {
-            return TRUE;
-        }
-    }
-
-    if (!sync_client->connected) {
-        if (ccnet_client_connect_daemon (sync_client, CCNET_CLIENT_SYNC) < 0) {
-            return TRUE;
-        }
-    }
-
-    seaf_message ("ccnet daemon connected.\n");
-
-    on_ccnet_connected ();
-
-    return FALSE;
-}
-
 /* This would also stop seaf-server & other components */
 static void
-stop_ccnet_server ()
+stop_services ()
 {
-    seaf_message ("shutting down ccnet-server ...\n");
-    GError *error = NULL;
-    ccnet_client_send_cmd (ctl->sync_client, "shutdown", &error);
+    seaf_message ("shutting down all services ...\n");
 
     kill_by_force(PID_CCNET);
     kill_by_force(PID_SERVER);
@@ -674,19 +532,6 @@ seaf_controller_init (SeafileController *ctl,
 
     if (!g_file_test (seafile_dir, G_FILE_TEST_IS_DIR)) {
         seaf_warning ("invalid seafile_dir: %s\n", seafile_dir);
-        return -1;
-    }
-
-    ctl->client = ccnet_client_new ();
-    ctl->sync_client = ccnet_client_new ();
-
-    if (ccnet_client_load_confdir (ctl->client, central_config_dir, config_dir) < 0) {
-        seaf_warning ("Failed to load ccnet confdir\n");
-        return -1;
-    }
-
-    if (ccnet_client_load_confdir (ctl->sync_client, central_config_dir, config_dir) < 0) {
-        seaf_warning ("Failed to load ccnet confdir\n");
         return -1;
     }
 
@@ -736,8 +581,12 @@ seaf_controller_start ()
         return -1;
     }
 
-    g_timeout_add (1000 * 1, do_connect_ccnet, NULL);
+    if (start_seaf_server() < 0) {
+        seaf_warning ("Failed to start seaf server\n");
+        return -1;
+    }
 
+    start_process_monitor ();
     return 0;
 }
 
@@ -781,7 +630,7 @@ remove_controller_pidfile ()
 static void
 sigint_handler (int signo)
 {
-    stop_ccnet_server ();
+    stop_services ();
 
     remove_controller_pidfile();
 
