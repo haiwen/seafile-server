@@ -11,8 +11,6 @@ Then you can import the .sql file into MySql
 
 Note - you need to add foreign key constrains manually since sqlite doesn't actually support them
 """
-from __future__ import print_function
-
 import re
 import fileinput
 

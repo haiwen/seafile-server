@@ -7,7 +7,6 @@ The directory is ./symbols/seaf-daemon.exe/${symbol_id}/seaf-daemon.exe.sym,
 where symbol_id is the first line of the "dump_syms" output.
 """
 
-from __future__ import print_function
 import os
 from os.path import abspath, basename, exists, dirname, join
 import re

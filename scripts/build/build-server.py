@@ -14,24 +14,7 @@ a directory before running this script. That directory is passed in as the
 '--thirdpartdir' arguments.
 
 '''
-from __future__ import print_function
-
-from future import standard_library
-standard_library.install_aliases()
-from builtins import input
-from builtins import object
 import sys
-
-####################
-### Requires Python 2.6+
-####################
-if sys.version_info[0] == 3:
-    print('Python 3 not supported yet. Quit now.')
-    sys.exit(1)
-if sys.version_info[1] < 6:
-    print('Python 2.6 or above is required. Quit now.')
-    sys.exit(1)
-
 import os
 import glob
 import subprocess

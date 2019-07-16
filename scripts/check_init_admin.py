@@ -1,12 +1,6 @@
 #coding: UTF-8
 
 '''This script would check if there is admin, and prompt the user to create a new one if non exist'''
-from __future__ import print_function
-
-from future import standard_library
-standard_library.install_aliases()
-from builtins import input
-from builtins import object
 import json
 import sys
 import os
