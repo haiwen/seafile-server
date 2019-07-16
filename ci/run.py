@@ -154,7 +154,7 @@ class SeafileServer(Project):
 
 
 def fetch_and_build():
-    libsearpc = Project('libsearpc')
+    libsearpc = Libsearpc()
     ccnet = CcnetServer()
     seafile = SeafileServer()
 

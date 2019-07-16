@@ -226,6 +226,7 @@ connection_charset = utf8
             self.seafile_conf_dir,
             "-l",
             self.seafile_log,
+            "-f",
         ]
         self.seafile_proc = shell(cmd, wait=False)
 
@@ -248,7 +249,7 @@ connection_charset = utf8
 
 
 def create_mysql_dbs():
-    sql = '''\
+    sql = b'''\
 create database `ccnet` character set = 'utf8';
 create database `seafile` character set = 'utf8';
 
