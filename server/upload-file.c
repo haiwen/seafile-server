@@ -2592,7 +2592,7 @@ check_access_token (const char *token,
 
     _repo_id = seafile_web_access_get_repo_id (webaccess);
     int status = seaf_repo_manager_get_repo_status(seaf->repo_mgr, _repo_id);
-    if (status != REPO_STATUS_NORMAL) {
+    if (status != REPO_STATUS_NORMAL && status != -1) {
         g_object_unref (webaccess);
         return -1;
     }
