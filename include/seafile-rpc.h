@@ -1122,4 +1122,9 @@ seafile_set_repo_status(const char *repo_id, int status, GError **error);
 int
 seafile_get_repo_status(const char *repo_id, GError **error);
 
+int
+seafile_publish_event(const char *channel, const char *content, GError **error);
+
+char*
+seafile_pop_event(const char *channel, GError **error);
 #endif

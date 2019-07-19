@@ -637,6 +637,18 @@ static void start_rpc_service (int cloud_mode, char *seafile_dir)
                                      "seafile_get_file_id_by_commit_and_path",
                                      searpc_signature_string__string_string_string());
 
+    /* event */
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_publish_event,
+                                     "publish_event",
+                                     searpc_signature_int__string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_pop_event,
+                                     "pop_event",
+                                     searpc_signature_string__string());
+
+                                     
     if (!cloud_mode) {
         searpc_server_register_function ("seafserv-threaded-rpcserver",
                                          seafile_set_inner_pub_repo,

@@ -63,6 +63,7 @@ seaf_server_SOURCES = \
 	../common/obj-backend-fs.c \
 	../common/seafile-crypt.c \
 	../common/diff-simple.c \
+	../common/mq-mgr.c \
 	../common/block-mgr.c \
 	../common/block-backend.c \
 	../common/block-backend-fs.c \

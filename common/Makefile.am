@@ -20,6 +20,7 @@ noinst_HEADERS = \
 	obj-backend.h \
 	block-backend.h \
 	block.h \
+	mq-mgr.h \
 	seaf-db.h \
 	config-mgr.h \
 	merge-new.h \

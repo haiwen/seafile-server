@@ -14,6 +14,7 @@
 #include "repo-mgr.h"
 #include "db.h"
 #include "seaf-db.h"
+#include "mq-mgr.h"
 
 #include "share-mgr.h"
 #include "web-accesstoken-mgr.h"
@@ -56,7 +57,7 @@ struct _SeafileSession {
     
     SeafWebAccessTokenManager	*web_at_mgr;
 
-    CEventManager       *ev_mgr;
+    SeafMqManager       *mq_mgr;
     CcnetJobManager     *job_mgr;
 
     SizeScheduler       *size_sched;
