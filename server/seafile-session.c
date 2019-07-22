@@ -16,11 +16,11 @@
 
 #include <glib.h>
 
-#include <ccnet/cevent.h>
 #include "utils.h"
 
 #include "seafile-session.h"
 
+#include "mq-mgr.h"
 #include "seaf-db.h"
 #include "seaf-utils.h"
 
@@ -139,8 +139,8 @@ seafile_session_new(const char *central_config_dir,
 
     session->size_sched = size_scheduler_new (session);
 
-    session->ev_mgr = cevent_manager_new ();
-    if (!session->ev_mgr)
+    session->mq_mgr = seaf_mq_manager_new ();
+    if (!session->mq_mgr)
         goto onerror;
 
     session->http_server = seaf_http_server_new (session);
@@ -201,11 +201,6 @@ seafile_session_init (SeafileSession *session)
 int
 seafile_session_start (SeafileSession *session)
 {
-    if (cevent_manager_start (session->ev_mgr) < 0) {
-        seaf_warning ("Failed to start event manager.\n");
-        return -1;
-    }
-
     if (seaf_share_manager_start (session->share_mgr) < 0) {
         seaf_warning ("Failed to start share manager.\n");
         return -1;

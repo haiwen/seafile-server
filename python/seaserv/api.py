@@ -827,6 +827,12 @@ class SeafileAPI(object):
     def convert_repo_path(self, repo_id, path, user, is_org=False):
         return seafserv_threaded_rpc.convert_repo_path(repo_id, path, user, 1 if is_org else 0)
 
+    def publish_event(self, channel, content):
+        return seafserv_threaded_rpc.publish_event(channel, content)
+
+    def pop_event(self, channel):
+        return seafserv_threaded_rpc.pop_event(channel)
+    
 seafile_api = SeafileAPI()
 
 class CcnetAPI(object):

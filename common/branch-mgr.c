@@ -298,6 +298,8 @@ seaf_branch_manager_update_branch (SeafBranchManager *mgr, SeafBranch *branch)
 
 #if defined( SEAFILE_SERVER ) && defined( FULL_FEATURE )
 
+#include "mq-mgr.h"
+
 static gboolean
 get_commit_id (SeafDBRow *row, void *data)
 {
@@ -311,43 +313,29 @@ get_commit_id (SeafDBRow *row, void *data)
     return FALSE;
 }
 
-/* typedef struct { */
-/*     char *repo_id; */
-/*     char *commit_id; */
-/* } RepoUpdateEventData; */
+static void
+publish_repo_update_event (char *repo_id, char *commit_id)
+{
+    char buf[128];
+    snprintf (buf, sizeof(buf), "repo-update\t%s\t%s",
+              repo_id, commit_id);
 
-/* static void */
-/* publish_repo_update_event (CEvent *event, void *data) */
-/* { */
-/*     RepoUpdateEventData *rdata = event->data; */
+    publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf);
 
-/*     char buf[128]; */
-/*     snprintf (buf, sizeof(buf), "repo-update\t%s\t%s", */
-/*               rdata->repo_id, rdata->commit_id); */
+    g_free (repo_id);
+    g_free (commit_id);
+}
 
-/*     seaf_mq_manager_publish_event (seaf->mq_mgr, buf); */
+ static void
+ on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)
+ {
+     seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id);
+ 
+     if (seaf_repo_manager_is_virtual_repo (seaf->repo_mgr, branch->repo_id))
+         return;
 
-/*     g_free (rdata->repo_id); */
-/*     g_free (rdata->commit_id); */
-/*     g_free (rdata); */
-/* } */
-
-/* static void */
-/* on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch) */
-/* { */
-/*     seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id); */
-
-/*     if (seaf_repo_manager_is_virtual_repo (seaf->repo_mgr, branch->repo_id)) */
-/*         return; */
-
-/*     RepoUpdateEventData *rdata = g_new0 (RepoUpdateEventData, 1); */
-
-/*     rdata->repo_id = g_strdup (branch->repo_id); */
-/*     rdata->commit_id = g_strdup (branch->commit_id); */
-    
-/*     cevent_manager_add_event (seaf->ev_mgr, mgr->priv->cevent_id, rdata); */
-
-/* } */
+     publish_repo_update_event (branch->repo_id, branch->commit_id);
+ }
 
 int
 seaf_branch_manager_test_and_update_branch (SeafBranchManager *mgr,
@@ -407,7 +395,7 @@ seaf_branch_manager_test_and_update_branch (SeafBranchManager *mgr,
 
     seaf_db_trans_close (trans);
 
-    /* on_branch_updated (mgr, branch); */
+    on_branch_updated (mgr, branch);
 
     return 0;
 }

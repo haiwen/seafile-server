@@ -14,6 +14,7 @@
 
 #include <evhtp.h>
 
+#include "mq-mgr.h"
 #include "utils.h"
 #include "log.h"
 #include "http-server.h"
@@ -61,9 +62,6 @@ struct _HttpServer {
 
     GHashTable *vir_repo_info_cache;
     pthread_mutex_t vir_repo_info_cache_lock;
-
-    /* uint32_t cevent_id;         /\* Used for sending activity events. *\/ */
-    /* uint32_t stats_event_id;         /\* Used for sending events for statistics. *\/ */
 
     event_t *reap_timer;
 };
@@ -497,7 +495,7 @@ typedef struct {
     char *client_name;
 } RepoEventData;
 
-/*
+
 static void
 free_repo_event_data (RepoEventData *data)
 {
@@ -525,77 +523,71 @@ free_stats_event_data (StatsEventData *data)
 }
 
 static void
-publish_repo_event (CEvent *event, void *data)
+publish_repo_event (RepoEventData *rdata)
 {
-    RepoEventData *rdata = event->data;
-
     GString *buf = g_string_new (NULL);
     g_string_printf (buf, "%s\t%s\t%s\t%s\t%s\t%s",
                      rdata->etype, rdata->user, rdata->ip,
                      rdata->client_name ? rdata->client_name : "",
                      rdata->repo_id, rdata->path ? rdata->path : "/");
 
-    seaf_mq_manager_publish_event (seaf->mq_mgr, buf->str);
+    publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf->str);
 
     g_string_free (buf, TRUE);
     free_repo_event_data (rdata);
 }
 
 static void
-publish_stats_event (CEvent *event, void *data)
+publish_stats_event (StatsEventData *rdata)
 {
-    StatsEventData *rdata = event->data;
-
     GString *buf = g_string_new (NULL);
     g_string_printf (buf, "%s\t%s\t%s\t%"G_GUINT64_FORMAT,
                      rdata->etype, rdata->user,
                      rdata->repo_id, rdata->bytes);
 
-    seaf_mq_manager_publish_stats_event (seaf->mq_mgr, buf->str);
+    publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_STATS, buf->str);
 
     g_string_free (buf, TRUE);
     free_stats_event_data (rdata);
 }
-*/
 
 static void
 on_repo_oper (HttpServer *htp_server, const char *etype,
               const char *repo_id, char *user, char *ip, char *client_name)
 {
-    /* RepoEventData *rdata = g_new0 (RepoEventData, 1); */
-    /* SeafVirtRepo *vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr, */
-    /*                                                                repo_id); */
+    RepoEventData *rdata = g_new0 (RepoEventData, 1);
+    SeafVirtRepo *vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr,
+                                                                   repo_id);
 
-    /* if (vinfo) { */
-    /*     memcpy (rdata->repo_id, vinfo->origin_repo_id, 36); */
-    /*     rdata->path = g_strdup(vinfo->path); */
-    /* } else */
-    /*     memcpy (rdata->repo_id, repo_id, 36); */
-    /* rdata->etype = g_strdup (etype); */
-    /* rdata->user = g_strdup (user); */
-    /* rdata->ip = g_strdup (ip); */
-    /* rdata->client_name = g_strdup(client_name); */
+    if (vinfo) {
+        memcpy (rdata->repo_id, vinfo->origin_repo_id, 36);
+        rdata->path = g_strdup(vinfo->path);
+    } else
+        memcpy (rdata->repo_id, repo_id, 36);
+    rdata->etype = g_strdup (etype);
+    rdata->user = g_strdup (user);
+    rdata->ip = g_strdup (ip);
+    rdata->client_name = g_strdup(client_name);
 
-    /* cevent_manager_add_event (seaf->ev_mgr, htp_server->cevent_id, rdata); */
-
-    /* if (vinfo) { */
-    /*     g_free (vinfo->path); */
-    /*     g_free (vinfo); */
-    /* } */
+    publish_repo_event(rdata);
+    if (vinfo) {
+        g_free (vinfo->path);
+        g_free (vinfo);
+    }
     return;
 }
 
 void
 send_statistic_msg (const char *repo_id, char *user, char *operation, guint64 bytes)
 {
-    /* StatsEventData *rdata = g_new0 (StatsEventData, 1); */
+    StatsEventData *rdata = g_new0 (StatsEventData, 1);
 
-    /* memcpy (rdata->repo_id, repo_id, 36); */
-    /* rdata->etype = g_strdup (operation); */
-    /* rdata->user = g_strdup (user); */
-    /* rdata->bytes = bytes; */
+    memcpy (rdata->repo_id, repo_id, 36);
+    rdata->etype = g_strdup (operation);
+    rdata->user = g_strdup (user);
+    rdata->bytes = bytes;
 
-    /* cevent_manager_add_event (seaf->ev_mgr, seaf->http_server->priv->stats_event_id, rdata); */
+    publish_stats_event(rdata);
     return;
 }
 
@@ -2284,16 +2276,6 @@ seaf_http_server_new (struct _SeafileSession *session)
 int
 seaf_http_server_start (HttpServerStruct *server)
 {
-/*
-    server->priv->cevent_id = cevent_manager_register (seaf->ev_mgr,
-                                    (cevent_handler)publish_repo_event,
-                                                       NULL);
-
-    server->priv->stats_event_id = cevent_manager_register (seaf->ev_mgr,
-                                    (cevent_handler)publish_stats_event,
-                                                       NULL);
-*/
-
    int ret = pthread_create (&server->priv->thread_id, NULL, http_server_run, server);
    if (ret != 0)
        return -1;

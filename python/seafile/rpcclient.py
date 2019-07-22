@@ -789,3 +789,13 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     @searpc_func("int", ["string"])
     def cancel_copy_task(task_id):
         pass
+
+    # event
+    @searpc_func("int", ["string", "string"])
+    def publish_event(channel, content):
+        pass
+
+    @searpc_func("string", ["string"])
+    def pop_event(channel):
+        pass
+    

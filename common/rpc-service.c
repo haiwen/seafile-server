@@ -14,6 +14,7 @@
 #include "repo-mgr.h"
 #include "seafile-error.h"
 #include "seafile-rpc.h"
+#include "mq-mgr.h"
 
 #ifdef SEAFILE_SERVER
 #include "web-accesstoken-mgr.h"
@@ -232,6 +233,31 @@ seafile_restore_repo_from_trash (const char *repo_id, GError **error)
     ret = seaf_repo_manager_restore_repo_from_trash (seaf->repo_mgr, repo_id, error);
 
     return ret;
+}
+
+int
+seafile_publish_event(const char *channel, const char *content, GError **error)
+{
+    int ret = 0;
+
+    if (!channel || !content) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");                                                          
+        return -1;
+    }
+
+    ret = publish_event (seaf->mq_mgr, channel, content);
+
+    return ret;
+}
+
+char*
+seafile_pop_event(const char *channel, GError **error)
+{
+    if (!channel) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return NULL;
+    }
+    return pop_event (seaf->mq_mgr, channel);
 }
 #endif
 
