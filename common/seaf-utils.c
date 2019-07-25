@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <ccnet.h>
+#include <searpc-named-pipe-transport.h>
+
 char *
 seafile_session_get_tmp_file_path (SeafileSession *session,
                                    const char *basename,
@@ -225,4 +228,34 @@ load_database_config (SeafileSession *session)
     g_free (type);
 
     return ret;
+}
+
+SearpcClient *
+create_ccnet_rpc_client ()
+{
+    SearpcNamedPipeClient *transport = NULL;
+    char *pipe_path = NULL;
+
+    pipe_path = g_build_path ("/", seaf->ccnet_dir, CCNET_RPC_PIPE_NAME, NULL);
+    transport = searpc_create_named_pipe_client(pipe_path);
+    g_free(pipe_path);
+    if (!transport)
+        return NULL;
+
+    if (searpc_named_pipe_client_connect(transport) < 0) {
+        seaf_warning ("Named pipe client failed to connect.\n");
+        g_free (transport);
+        return NULL;
+    }
+
+    return searpc_client_with_named_pipe_transport (transport, "ccnet-threaded-rpcserver");
+}
+
+void
+release_ccnet_rpc_client (SearpcClient *client)
+{
+    if (!client)
+        return;
+
+    searpc_free_client_with_pipe_transport (client);
 }

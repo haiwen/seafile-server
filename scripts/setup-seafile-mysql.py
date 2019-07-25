@@ -1,7 +1,6 @@
 #coding: UTF-8
 
 '''This script would guide the seafile admin to setup seafile with MySQL'''
-
 import argparse
 import sys
 import os
@@ -15,7 +14,7 @@ import getpass
 import uuid
 import warnings
 import socket
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 
 import MySQLdb
 
@@ -42,8 +41,8 @@ Make sure you have read seafile server manual at
 
 Press ENTER to continue
 -----------------------------------------------------------------''' % SERVER_MANUAL_HTTP
-        print welcome_msg
-        raw_input()
+        print(welcome_msg)
+        input()
 
     @staticmethod
     def highlight(content):
@@ -52,13 +51,13 @@ Press ENTER to continue
 
     @staticmethod
     def info(msg):
-        print msg
+        print(msg)
 
     @staticmethod
     def error(msg):
         '''Print error and exit'''
-        print
-        print 'Error: ' + msg
+        print()
+        print('Error: ' + msg)
         sys.exit(1)
 
     @staticmethod
@@ -135,7 +134,7 @@ Press ENTER to continue
             return
         try:
             os.mkdir(path)
-        except OSError, e:
+        except OSError as e:
             Utils.error('failed to create directory %s:%s' % (path, e))
 
     @staticmethod
@@ -143,7 +142,7 @@ Press ENTER to continue
         '''Copy src to dst, exit on failure'''
         try:
             shutil.copy(src, dst)
-        except Exception, e:
+        except Exception as e:
             Utils.error('failed to copy %s to %s: %s' % (src, dst, e))
 
     @staticmethod
@@ -221,7 +220,7 @@ Press ENTER to continue
         '''
         assert key or yes_or_no
         # Format description
-        print
+        print()
         if note:
             desc += '\n' + note
 
@@ -240,7 +239,7 @@ Press ENTER to continue
             if password:
                 answer = getpass.getpass(desc).strip()
             else:
-                answer = raw_input(desc).strip()
+                answer = input(desc).strip()
 
             # No user input: use default
             if not answer:
@@ -252,7 +251,7 @@ Press ENTER to continue
             # Have user input: validate answer
             if yes_or_no:
                 if answer not in ['yes', 'no']:
-                    print Utils.highlight('\nPlease answer yes or no\n')
+                    print(Utils.highlight('\nPlease answer yes or no\n'))
                     continue
                 else:
                     return answer == 'yes'
@@ -260,8 +259,8 @@ Press ENTER to continue
                 if validate:
                     try:
                         return validate(answer)
-                    except InvalidAnswer, e:
-                        print Utils.highlight('\n%s\n' % e)
+                    except InvalidAnswer as e:
+                        print(Utils.highlight('\n%s\n' % e))
                         continue
                 else:
                     return answer
@@ -470,18 +469,18 @@ Please choose a way to initialize seafile databases:
         self.ask_mysql_port()
 
     def check_mysql_server(self, host, port):
-        print '\nverifying mysql server running ... ',
+        print('\nverifying mysql server running ... ', end=' ')
         try:
             dummy = MySQLdb.connect(host=host, port=port)
         except Exception:
-            print
+            print()
             raise InvalidAnswer('Failed to connect to mysql server at "%s:%s"' \
                                 % (host, port))
 
-        print 'done'
+        print('done')
 
     def check_mysql_user(self, user, password, host=None):
-        print '\nverifying password of user %s ... ' % user,
+        print('\nverifying password of user %s ... ' % user, end=' ')
         kwargs = dict(host=host or self.mysql_host,
                       port=self.mysql_port,
                       user=user,
@@ -489,7 +488,7 @@ Please choose a way to initialize seafile databases:
 
         try:
             conn = MySQLdb.connect(**kwargs)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 raise InvalidAnswer('Failed to connect to mysql server using user "%s" and password "***": %s' \
                                     % (user, e.args[1]))
@@ -497,7 +496,7 @@ Please choose a way to initialize seafile databases:
                 raise InvalidAnswer('Failed to connect to mysql server using user "%s" and password "***": %s' \
                                     % (user, e))
 
-        print 'done'
+        print('done')
         return conn
 
     def create_seahub_admin(self):
@@ -507,7 +506,7 @@ Please choose a way to initialize seafile databases:
                                    user=self.seafile_mysql_user,
                                    passwd=self.seafile_mysql_password,
                                    db=self.ccnet_db_name)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to connect to mysql database %s: %s' % (self.ccnet_db_name, e.args[1]))
             else:
@@ -519,7 +518,7 @@ CREATE TABLE IF NOT EXISTS EmailUser (id INTEGER NOT NULL PRIMARY KEY AUTO_INCRE
 
         try:
             cursor.execute(sql)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to create ccnet user table: %s' % e.args[1])
             else:
@@ -530,7 +529,7 @@ CREATE TABLE IF NOT EXISTS EmailUser (id INTEGER NOT NULL PRIMARY KEY AUTO_INCRE
 
         try:
             cursor.execute(sql)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to create admin user: %s' % e.args[1])
             else:
@@ -591,7 +590,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
         try:
             cursor.execute(sql)
             return cursor.fetchall()[0][0]
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to check mysql user %s@%s: %s' % \
                             (user, self.seafile_mysql_userhost, e.args[1]))
@@ -654,7 +653,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
 
         try:
             cursor.execute(sql)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to create mysql user {}@{}: {}'.format(self.seafile_mysql_user, self.seafile_mysql_userhost, e.args[1]))
             else:
@@ -670,7 +669,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
 
         try:
             cursor.execute(sql)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to create database %s: %s' % (db_name, e.args[1]))
             else:
@@ -688,7 +687,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
 
         try:
             cursor.execute(sql)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to grant permission of database %s: %s' % (db_name, e.args[1]))
             else:
@@ -759,7 +758,7 @@ class ExistingDBConfigurator(AbstractDBConfigurator):
         user = self.seafile_mysql_user
         password = self.seafile_mysql_password
 
-        print '\nverifying user "%s" access to database %s ... ' % (user, db_name),
+        print('\nverifying user "%s" access to database %s ... ' % (user, db_name), end=' ')
         try:
             conn = MySQLdb.connect(host=self.mysql_host,
                                    port=self.mysql_port,
@@ -770,7 +769,7 @@ class ExistingDBConfigurator(AbstractDBConfigurator):
             cursor = conn.cursor()
             cursor.execute('show tables')
             cursor.close()
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 raise InvalidAnswer('Failed to access database %s using user "%s" and password "***": %s' \
                                     % (db_name, user, e.args[1]))
@@ -778,7 +777,7 @@ class ExistingDBConfigurator(AbstractDBConfigurator):
                 raise InvalidAnswer('Failed to access database %s using user "%s" and password "***": %s' \
                                     % (db_name, user, e))
 
-        print 'done'
+        print('done')
 
         return conn
 
@@ -804,7 +803,7 @@ class CcnetConfigurator(AbstractConfigurator):
         # self.ask_port()
 
     def generate(self):
-        print 'Generating ccnet configuration ...\n'
+        print('Generating ccnet configuration ...\n')
         ccnet_init = os.path.join(env_mgr.bin_dir, 'ccnet-init')
         argv = [
             ccnet_init,
@@ -882,9 +881,9 @@ class CcnetConfigurator(AbstractConfigurator):
                                        validate=validate)
 
     def do_syncdb(self):
-        print '----------------------------------------'
-        print 'Now creating ccnet database tables ...\n'
-        print '----------------------------------------'
+        print('----------------------------------------')
+        print('Now creating ccnet database tables ...\n')
+        print('----------------------------------------')
 
         try:
             conn = MySQLdb.connect(host=db_config.mysql_host,
@@ -892,7 +891,7 @@ class CcnetConfigurator(AbstractConfigurator):
                                    user=db_config.seafile_mysql_user,
                                    passwd=db_config.seafile_mysql_password,
                                    db=db_config.ccnet_db_name)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to connect to mysql database %s: %s' % (db_config.ccnet_db_name, e.args[1]))
             else:
@@ -908,7 +907,7 @@ class CcnetConfigurator(AbstractConfigurator):
         for sql in sqls:
             try:
                 cursor.execute(sql)
-            except Exception, e:
+            except Exception as e:
                 if isinstance(e, MySQLdb.OperationalError):
                     Utils.error('Failed to init ccnet database: %s' % e.args[1])
                 else:
@@ -933,7 +932,7 @@ class SeafileConfigurator(AbstractConfigurator):
             self.ask_fileserver_port()
 
     def generate(self):
-        print 'Generating seafile configuration ...\n'
+        print('Generating seafile configuration ...\n')
         seafserv_init = os.path.join(env_mgr.bin_dir, 'seaf-server-init')
         argv = [
             seafserv_init,
@@ -948,7 +947,7 @@ class SeafileConfigurator(AbstractConfigurator):
         time.sleep(1)
         self.generate_db_conf()
         self.write_seafile_ini()
-        print 'done'
+        print('done')
 
     def generate_db_conf(self):
         config = Utils.read_config(self.seafile_conf)
@@ -1019,9 +1018,9 @@ class SeafileConfigurator(AbstractConfigurator):
             fp.write(self.seafile_dir)
 
     def do_syncdb(self):
-        print '----------------------------------------'
-        print 'Now creating seafile database tables ...\n'
-        print '----------------------------------------'
+        print('----------------------------------------')
+        print('Now creating seafile database tables ...\n')
+        print('----------------------------------------')
 
         try:
             conn = MySQLdb.connect(host=db_config.mysql_host,
@@ -1029,7 +1028,7 @@ class SeafileConfigurator(AbstractConfigurator):
                                    user=db_config.seafile_mysql_user,
                                    passwd=db_config.seafile_mysql_password,
                                    db=db_config.seafile_db_name)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to connect to mysql database %s: %s' % (db_config.seafile_db_name, e.args[1]))
             else:
@@ -1045,7 +1044,7 @@ class SeafileConfigurator(AbstractConfigurator):
         for sql in sqls:
             try:
                 cursor.execute(sql)
-            except Exception, e:
+            except Exception as e:
                 if isinstance(e, MySQLdb.OperationalError):
                     Utils.error('Failed to init seafile database: %s' % e.args[1])
                 else:
@@ -1068,7 +1067,7 @@ class SeahubConfigurator(AbstractConfigurator):
 
     def generate(self):
         '''Generating seahub_settings.py'''
-        print 'Generating seahub configuration ...\n'
+        print('Generating seahub configuration ...\n')
         time.sleep(1)
         with open(self.seahub_settings_py, 'w') as fp:
             self.write_utf8_comment(fp)
@@ -1112,10 +1111,10 @@ class SeahubConfigurator(AbstractConfigurator):
         fp.write(text)
 
     def ask_admin_email(self):
-        print
-        print '----------------------------------------'
-        print 'Now let\'s create the admin account'
-        print '----------------------------------------'
+        print()
+        print('----------------------------------------')
+        print('Now let\'s create the admin account')
+        print('----------------------------------------')
         def validate(email):
             # whitespace is not allowed
             if re.match(r'[\s]', email):
@@ -1153,9 +1152,9 @@ class SeahubConfigurator(AbstractConfigurator):
                                                  validate=validate)
 
     def do_syncdb(self):
-        print '----------------------------------------'
-        print 'Now creating seahub database tables ...\n'
-        print '----------------------------------------'
+        print('----------------------------------------')
+        print('Now creating seahub database tables ...\n')
+        print('----------------------------------------')
 
         try:
             conn = MySQLdb.connect(host=db_config.mysql_host,
@@ -1163,7 +1162,7 @@ class SeahubConfigurator(AbstractConfigurator):
                                    user=db_config.seafile_mysql_user,
                                    passwd=db_config.seafile_mysql_password,
                                    db=db_config.seahub_db_name)
-        except Exception, e:
+        except Exception as e:
             if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to connect to mysql database %s: %s' % (db_config.seahub_db_name, e.args[1]))
             else:
@@ -1179,7 +1178,7 @@ class SeahubConfigurator(AbstractConfigurator):
         for sql in sqls:
             try:
                 cursor.execute(sql)
-            except Exception, e:
+            except Exception as e:
                 if isinstance(e, MySQLdb.OperationalError):
                     Utils.error('Failed to init seahub database: %s' % e.args[1])
                 else:
@@ -1213,7 +1212,7 @@ class SeahubConfigurator(AbstractConfigurator):
 
             shutil.move(orig_avatar_dir, dest_avatar_dir)
             os.symlink('../../../seahub-data/avatars', orig_avatar_dir)
-        except Exception, e:
+        except Exception as e:
             Utils.error('Failed to prepare seahub avatars dir: %s' % e)
 
 class SeafDavConfigurator(AbstractConfigurator):
@@ -1287,11 +1286,11 @@ class UserManualHandler(object):
             Utils.must_copy(doc, self.library_template_dir)
 
 def report_config():
-    print
-    print '---------------------------------'
-    print 'This is your configuration'
-    print '---------------------------------'
-    print
+    print()
+    print('---------------------------------')
+    print('This is your configuration')
+    print('---------------------------------')
+    print()
 
     template = '''\
     server name:            %(server_name)s
@@ -1324,31 +1323,31 @@ def report_config():
         'db_user':              db_config.seafile_mysql_user
     }
 
-    print template % config
+    print(template % config)
 
     if need_pause:
-        print
-        print '---------------------------------'
-        print 'Press ENTER to continue, or Ctrl-C to abort'
-        print '---------------------------------'
+        print()
+        print('---------------------------------')
+        print('Press ENTER to continue, or Ctrl-C to abort')
+        print('---------------------------------')
 
-        raw_input()
+        input()
 
 
 def create_seafile_server_symlink():
-    print '\ncreating seafile-server-latest symbolic link ... ',
+    print('\ncreating seafile-server-latest symbolic link ... ', end=' ')
     seafile_server_symlink = os.path.join(env_mgr.top_dir, 'seafile-server-latest')
     try:
         os.symlink(os.path.basename(env_mgr.install_path), seafile_server_symlink)
-    except Exception, e:
-        print '\n'
+    except Exception as e:
+        print('\n')
         Utils.error('Failed to create symbolic link %s: %s' % (seafile_server_symlink, e))
     else:
-        print 'done\n\n'
+        print('done\n\n')
 
 def set_file_perm():
-    filemode = 0600
-    dirmode = 0700
+    filemode = 0o600
+    dirmode = 0o700
     files = [
         seahub_config.seahub_settings_py,
     ]
@@ -1500,7 +1499,7 @@ def main():
         try:
             check_params(args)
         except (InvalidAnswer, InvalidParams) as e:
-            print Utils.highlight('\n%s\n' % e)
+            print(Utils.highlight('\n%s\n' % e))
             sys.exit(-1)
 
     global db_config
@@ -1573,14 +1572,14 @@ for information.
 
 '''
 
-    print message % dict(fileserver_port=seafile_config.fileserver_port,
-                         server_manual_http=SERVER_MANUAL_HTTP)
+    print(message % dict(fileserver_port=seafile_config.fileserver_port,
+                         server_manual_http=SERVER_MANUAL_HTTP))
 
 
 if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print
-        print Utils.highlight('The setup process is aborted')
-        print
+        print()
+        print(Utils.highlight('The setup process is aborted'))
+        print()

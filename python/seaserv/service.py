@@ -3,8 +3,8 @@ import json
 import logging
 import os
 import sys
-import ConfigParser
-from urlparse import urlparse
+import configparser
+from urllib.parse import urlparse
 
 import ccnet
 import seafile
@@ -25,22 +25,22 @@ def _load_path_from_env(key, check=True):
             raise ImportError("Seaserv cannot be imported, because environment variable %s is undefined." % key)
         return None
     if _DEBUG:
-        print "Loading %s from %s" % (key, v)
+        print("Loading %s from %s" % (key, v))
     return os.path.normpath(os.path.expanduser(v))
 
 CCNET_CONF_PATH = _load_path_from_env('CCNET_CONF_DIR')
 SEAFILE_CONF_DIR = _load_path_from_env('SEAFILE_CONF_DIR')
 SEAFILE_CENTRAL_CONF_DIR = _load_path_from_env('SEAFILE_CENTRAL_CONF_DIR', check=False)
 
-pool = ccnet.ClientPool(CCNET_CONF_PATH, central_config_dir=SEAFILE_CENTRAL_CONF_DIR)
-ccnet_rpc = ccnet.CcnetRpcClient(pool, req_pool=True)
-ccnet_threaded_rpc = ccnet.CcnetThreadedRpcClient(pool, req_pool=True)
-seafserv_rpc = seafile.ServerRpcClient(pool, req_pool=True)
-seafserv_threaded_rpc = seafile.ServerThreadedRpcClient(pool, req_pool=True)
+ccnet_pipe_path = os.path.join (CCNET_CONF_PATH, 'ccnet-rpc.sock')
+ccnet_threaded_rpc = ccnet.CcnetThreadedRpcClient(ccnet_pipe_path)
+
+seafile_pipe_path = os.path.join(SEAFILE_CONF_DIR, 'seafile.sock')
+seafserv_threaded_rpc = seafile.ServerThreadedRpcClient(seafile_pipe_path)
 
 # load ccnet server addr and port from ccnet.conf.
 # 'addr:port' is used when downloading a repo
-config = ConfigParser.ConfigParser()
+config = configparser.ConfigParser()
 config.read(os.path.join(SEAFILE_CENTRAL_CONF_DIR if SEAFILE_CENTRAL_CONF_DIR else CCNET_CONF_PATH,
                          'ccnet.conf'))
 
@@ -55,7 +55,7 @@ if config.has_option('General', 'SERVICE_URL'):
     else:
         CCNET_SERVER_PORT = 10001
 else:
-    print "Warning: SERVICE_URL not set in ccnet.conf"
+    print("Warning: SERVICE_URL not set in ccnet.conf")
     CCNET_SERVER_ADDR = None
     CCNET_SERVER_PORT = None
     SERVICE_URL = None
@@ -131,9 +131,6 @@ def count_emailusers():
 def get_emailuser_with_import(email):
     return ccnet_threaded_rpc.get_emailuser_with_import(email)
 
-def get_session_info():
-    return ccnet_rpc.get_session_info()
-
 # group
 def get_group(group_id):
     group_id_int = int(group_id)
@@ -171,7 +168,7 @@ def check_group_staff(group_id, username):
     group_id = int(group_id)
     try:
         ret = ccnet_threaded_rpc.check_group_staff(group_id, username)
-    except SearpcError, e:
+    except SearpcError as e:
         logger.error(e)
         ret = 0
 
@@ -344,7 +341,7 @@ def get_repo(repo_id):
 def edit_repo(repo_id, name, desc, user):
     try:
         ret = seafserv_threaded_rpc.edit_repo(repo_id, name, desc, user)
-    except SearpcError, e:
+    except SearpcError as e:
         ret = -1
     return True if ret == 0 else False
 
@@ -354,7 +351,7 @@ def create_repo(name, desc, user, passwd):
     """
     try:
         ret = seafserv_threaded_rpc.create_repo(name, desc, user, passwd)
-    except SearpcError, e:
+    except SearpcError as e:
         logger.error(e)
         ret = None
     return ret
@@ -365,7 +362,7 @@ def remove_repo(repo_id):
     """
     try:
         ret = seafserv_threaded_rpc.remove_repo(repo_id)
-    except SearpcError, e:
+    except SearpcError as e:
         logger.error(e)
         ret = -1
     return True if ret == 0 else False
@@ -784,7 +781,7 @@ def post_empty_file(repo_id, parent_dir, file_name, user):
     try:
         ret = seafserv_threaded_rpc.post_empty_file(repo_id, parent_dir,
                                               file_name, user)
-    except SearpcError, e:
+    except SearpcError as e:
         logger.error(e)
         ret = -1
     return True if ret == 0 else False
@@ -796,7 +793,7 @@ def del_file(repo_id, parent_dir, file_name, user):
     try:
         ret = seafserv_threaded_rpc.del_file(repo_id, parent_dir,
                                              file_name, user)
-    except SearpcError, e:
+    except SearpcError as e:
         logger.error(e)
         ret = -1
     return True if ret == 0 else False
@@ -816,14 +813,14 @@ def is_valid_filename(file_or_dir):
 def get_file_size(store_id, version, file_id):
     try:
         fs = seafserv_threaded_rpc.get_file_size(store_id, version, file_id)
-    except SearpcError, e:
+    except SearpcError as e:
         fs = 0
     return fs
 
 def get_file_id_by_path(repo_id, path):
     try:
         ret = seafserv_threaded_rpc.get_file_id_by_path(repo_id, path)
-    except SearpcError, e:
+    except SearpcError as e:
         ret = ''
     return ret
 
@@ -889,7 +886,7 @@ def get_related_users_by_org_repo(org_id, repo_id):
 def check_quota(repo_id, delta=0):
     try:
         ret = seafserv_threaded_rpc.check_quota(repo_id, delta)
-    except SearpcError, e:
+    except SearpcError as e:
         logger.error(e)
         ret = -1
     return ret
@@ -897,7 +894,7 @@ def check_quota(repo_id, delta=0):
 def get_user_quota(user):
     try:
         ret = seafserv_threaded_rpc.get_user_quota(user)
-    except SearpcError, e:
+    except SearpcError as e:
         logger.error(e)
         ret = 0
     return ret
@@ -905,7 +902,7 @@ def get_user_quota(user):
 def get_user_quota_usage(user):
     try:
         ret = seafserv_threaded_rpc.get_user_quota_usage(user)
-    except SearpcError, e:
+    except SearpcError as e:
         logger.error(e)
         ret = 0
     return ret
@@ -913,7 +910,7 @@ def get_user_quota_usage(user):
 def get_user_share_usage(user):
     try:
         ret = seafserv_threaded_rpc.get_user_share_usage(user)
-    except SearpcError, e:
+    except SearpcError as e:
         logger.error(e)
         ret = 0
     return ret
@@ -922,7 +919,7 @@ def get_user_share_usage(user):
 def web_get_access_token(repo_id, obj_id, op, username, use_onetime=1):
     try:
         ret = seafserv_rpc.web_get_access_token(repo_id, obj_id, op, username, use_onetime)
-    except SearpcError, e:
+    except SearpcError as e:
         ret = ''
     return ret
     
@@ -936,14 +933,14 @@ def unset_repo_passwd(repo_id, user):
     """
     try:
         ret = seafserv_threaded_rpc.unset_passwd(repo_id, user)
-    except SearpcError, e:
+    except SearpcError as e:
         ret = -1
     return ret
 
 def is_passwd_set(repo_id, user):
     try:
         ret = seafserv_rpc.is_passwd_set(repo_id, user)
-    except SearpcError, e:
+    except SearpcError as e:
         ret = -1
     return True if ret == 1 else False
 
@@ -951,13 +948,13 @@ def is_passwd_set(repo_id, user):
 def get_repo_history_limit(repo_id):
     try:
         ret = seafserv_threaded_rpc.get_repo_history_limit(repo_id)
-    except SearpcError, e:
+    except SearpcError as e:
         ret = -1
     return ret
 
 def set_repo_history_limit(repo_id, days):
     try:
         ret = seafserv_threaded_rpc.set_repo_history_limit(repo_id, days)
-    except SearpcError, e:
+    except SearpcError as e:
         ret = -1
     return ret

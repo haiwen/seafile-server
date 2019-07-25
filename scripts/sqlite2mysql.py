@@ -11,7 +11,6 @@ Then you can import the .sql file into MySql
 
 Note - you need to add foreign key constrains manually since sqlite doesn't actually support them
 """
-
 import re
 import fileinput
 
@@ -80,4 +79,4 @@ for line in fileinput.input():
 
     line = line.replace('"', '`')
     line = line.replace('AUTOINCREMENT', 'AUTO_INCREMENT')
-    print line,
+    print(line, end=' ')

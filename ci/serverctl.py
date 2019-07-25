@@ -148,11 +148,11 @@ connection_charset = utf8
     def print_logs(self):
         for logfile in self.ccnet_log, self.seafile_log:
             if exists(logfile):
-                shell('cat {0}'.format(logfile))
+                shell(f'cat {logfile}')
 
     @retry(wait=wait_fixed(1), stop=stop_after_attempt(10))
     def wait_ccnet_ready(self):
-        if not exists(join(self.ccnet_conf_dir, 'ccnet.sock')):
+        if not exists(join(self.ccnet_conf_dir, 'ccnet-rpc.sock')):
             raise TryAgain
 
     def start(self):
@@ -168,8 +168,7 @@ connection_charset = utf8
         if self.db == 'mysql':
            ccnet_sql_path = join(self.sql_dir, 'mysql', 'ccnet.sql')
            seafile_sql_path = join(self.sql_dir, 'mysql', 'seafile.sql')
-           sql = '''USE ccnet; source {};
-                    USE seafile; source {};'''.format(ccnet_sql_path, seafile_sql_path)
+           sql = f'USE ccnet; source {ccnet_sql_path}; USE seafile; source {seafile_sql_path};'.encode()
            shell('mysql -u root', inputdata=sql, wait=False)
         else:
            config_sql_path = join(self.sql_dir, 'sqlite', 'config.sql')
@@ -179,13 +178,13 @@ connection_charset = utf8
            seafile_sql_path = join(self.sql_dir, 'sqlite', 'seafile.sql')
 
            misc_dir = join(self.ccnet_conf_dir, 'misc')
-           os.mkdir (misc_dir, 0755)
+           os.mkdir (misc_dir, 0o755)
            groupmgr_dir = join(self.ccnet_conf_dir, 'GroupMgr')
-           os.mkdir (groupmgr_dir, 0755)
+           os.mkdir (groupmgr_dir, 0o755)
            orgmgr_dir = join(self.ccnet_conf_dir, 'OrgMgr')
-           os.mkdir (orgmgr_dir, 0755)
+           os.mkdir (orgmgr_dir, 0o755)
            usermgr_dir = join(self.ccnet_conf_dir, 'PeerMgr')
-           os.mkdir (usermgr_dir, 0755)
+           os.mkdir (usermgr_dir, 0o755)
 
            config_db_path = join(misc_dir, 'config.db')
            groupmgr_db_path = join(groupmgr_dir, 'groupmgr.db')
@@ -193,17 +192,15 @@ connection_charset = utf8
            usermgr_db_path = join(usermgr_dir, 'usermgr.db')
            seafile_db_path = join(self.seafile_conf_dir, 'seafile.db')
 
-           sql = '.read {}'.format(config_sql_path)
+           sql = f'.read {config_sql_path}'.encode()
            shell('sqlite3 ' + config_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(groupmgr_sql_path)
+           sql = f'.read {groupmgr_sql_path}'.encode()
            shell('sqlite3 ' + groupmgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(org_sql_path)
+           sql = f'.read {org_sql_path}'.encode()
            shell('sqlite3 ' + orgmgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(user_sql_path)
+           sql = f'.read {user_sql_path}'.encode()
            shell('sqlite3 ' + usermgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(user_sql_path)
-           shell('sqlite3 ' + usermgr_db_path, inputdata=sql, wait=False)
-           sql = '.read {}'.format(seafile_sql_path)
+           sql = f'.read {seafile_sql_path}'.encode()
            shell('sqlite3 ' + seafile_db_path, inputdata=sql, wait=False)
 
     def start_ccnet(self):
@@ -229,6 +226,7 @@ connection_charset = utf8
             self.seafile_conf_dir,
             "-l",
             self.seafile_log,
+            "-f",
         ]
         self.seafile_proc = shell(cmd, wait=False)
 
@@ -251,7 +249,7 @@ connection_charset = utf8
 
 
 def create_mysql_dbs():
-    sql = '''\
+    sql = b'''\
 create database `ccnet` character set = 'utf8';
 create database `seafile` character set = 'utf8';
 

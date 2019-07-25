@@ -65,7 +65,7 @@ def test_file_property_and_dir_listing ():
     assert t_file_id == t_file_id_tmp
 
     #test get_dirent_by_path
-    std_file_mode = 0100000 | 0644
+    std_file_mode = 0o100000 | 0o644
     t_dirent_obj = api.get_dirent_by_path(t_repo_id, '/test.txt')
     assert t_dirent_obj
     assert t_dirent_obj.obj_id == t_file_id

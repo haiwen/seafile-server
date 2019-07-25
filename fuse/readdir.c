@@ -15,6 +15,7 @@
 
 #include "seaf-fuse.h"
 #include "seafile-session.h"
+#include "seaf-utils.h"
 
 static char *replace_slash (const char *repo_name)
 {
@@ -53,11 +54,9 @@ static int readdir_root(SeafileSession *seaf,
     GHashTable *user_hash;
     int dummy;
 
-    client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                             NULL,
-                                             "ccnet-threaded-rpcserver");
+    client = create_ccnet_rpc_client ();
     if (!client) {
-        seaf_warning ("Failed to alloc rpc client.\n");
+        seaf_warning ("Failed to alloc ccnet rpc client.\n");
         return -ENOMEM;
     }
 
@@ -92,7 +91,8 @@ static int readdir_root(SeafileSession *seaf,
     g_list_free (users);
 
     g_hash_table_destroy (user_hash);
-    ccnet_rpc_client_free (client);
+
+    release_ccnet_rpc_client (client);
 
     return 0;
 }
@@ -106,25 +106,24 @@ static int readdir_user(SeafileSession *seaf, const char *user,
     GList *list = NULL, *p;
     GString *name;
 
-    client = ccnet_create_pooled_rpc_client (seaf->client_pool,
-                                             NULL,
-                                             "ccnet-threaded-rpcserver");
+    client = create_ccnet_rpc_client ();
     if (!client) {
-        seaf_warning ("Failed to alloc rpc client.\n");
+        seaf_warning ("Failed to alloc ccnet rpc client.\n");
         return -ENOMEM;
     }
 
     emailuser = get_user_from_ccnet (client, user);
     if (!emailuser) {
-        ccnet_rpc_client_free (client);
+        release_ccnet_rpc_client (client);
         return -ENOENT;
     }
     g_object_unref (emailuser);
-    ccnet_rpc_client_free (client);
+    release_ccnet_rpc_client (client);
 
     list = seaf_repo_manager_get_repos_by_owner (seaf->repo_mgr, user);
-    if (!list)
+    if (!list) {
         return 0;
+    }
 
     for (p = list; p; p = p->next) {
         SeafRepo *repo = (SeafRepo *)p->data;

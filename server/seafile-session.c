@@ -16,11 +16,11 @@
 
 #include <glib.h>
 
-#include <ccnet/cevent.h>
 #include "utils.h"
 
 #include "seafile-session.h"
 
+#include "mq-mgr.h"
 #include "seaf-db.h"
 #include "seaf-utils.h"
 
@@ -37,18 +37,17 @@ load_thread_pool_config (SeafileSession *session);
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
-                    CcnetClient *ccnet_session)
+                    const char *ccnet_dir)
 {
     char *abs_central_config_dir = NULL;
     char *abs_seafile_dir;
+    char *abs_ccnet_dir = NULL;
     char *tmp_file_dir;
     char *config_file_path;
     GKeyFile *config;
     SeafileSession *session = NULL;
 
-    if (!ccnet_session)
-        return NULL;
-
+    abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
     abs_seafile_dir = ccnet_expand_path (seafile_dir);
     tmp_file_dir = g_build_filename (abs_seafile_dir, "tmpfiles", NULL);
     if (central_config_dir) {
@@ -82,8 +81,8 @@ seafile_session_new(const char *central_config_dir,
 
     session = g_new0(SeafileSession, 1);
     session->seaf_dir = abs_seafile_dir;
+    session->ccnet_dir = abs_ccnet_dir;
     session->tmp_file_dir = tmp_file_dir;
-    session->session = ccnet_session;
     session->config = config;
 
     if (load_database_config (session) < 0) {
@@ -116,20 +115,12 @@ seafile_session_new(const char *central_config_dir,
     if (!session->branch_mgr)
         goto onerror;
 
-    session->cs_mgr = seaf_cs_manager_new (session);
-    if (!session->cs_mgr)
-        goto onerror;
-
     session->share_mgr = seaf_share_manager_new (session);
     if (!session->share_mgr)
         goto onerror;
     
     session->web_at_mgr = seaf_web_at_manager_new (session);
     if (!session->web_at_mgr)
-        goto onerror;
-
-    session->token_mgr = seaf_token_manager_new (session);
-    if (!session->token_mgr)
         goto onerror;
 
     session->passwd_mgr = seaf_passwd_manager_new (session);
@@ -140,24 +131,15 @@ seafile_session_new(const char *central_config_dir,
     if (!session->quota_mgr)
         goto onerror;
 
-    session->listen_mgr = seaf_listen_manager_new (session);
-    if (!session->listen_mgr)
-        goto onerror;
-
     session->copy_mgr = seaf_copy_manager_new (session);
     if (!session->copy_mgr)
         goto onerror;
 
     session->job_mgr = ccnet_job_manager_new (session->sync_thread_pool_size);
-    ccnet_session->job_mgr = ccnet_job_manager_new (session->rpc_thread_pool_size);
 
     session->size_sched = size_scheduler_new (session);
 
-    session->ev_mgr = cevent_manager_new ();
-    if (!session->ev_mgr)
-        goto onerror;
-
-    session->mq_mgr = seaf_mq_manager_new (session);
+    session->mq_mgr = seaf_mq_manager_new ();
     if (!session->mq_mgr)
         goto onerror;
 
@@ -213,24 +195,12 @@ seafile_session_init (SeafileSession *session)
         return -1;
     }
 
-    seaf_mq_manager_init (session->mq_mgr);
-
     return 0;
 }
 
 int
 seafile_session_start (SeafileSession *session)
 {
-    if (cevent_manager_start (session->ev_mgr) < 0) {
-        seaf_warning ("Failed to start event manager.\n");
-        return -1;
-    }
-
-    if (seaf_cs_manager_start (session->cs_mgr) < 0) {
-        seaf_warning ("Failed to start chunk server manager.\n");
-        return -1;
-    }
-
     if (seaf_share_manager_start (session->share_mgr) < 0) {
         seaf_warning ("Failed to start share manager.\n");
         return -1;
@@ -243,16 +213,6 @@ seafile_session_start (SeafileSession *session)
 
     if (seaf_passwd_manager_start (session->passwd_mgr) < 0) {
         seaf_warning ("Failed to start password manager.\n");
-        return -1;
-    }
-
-    if (seaf_mq_manager_start (session->mq_mgr) < 0) {
-        seaf_warning ("Failed to start mq manager.\n");
-        return -1;
-    }
-
-    if (seaf_listen_manager_start (session->listen_mgr) < 0) {
-        seaf_warning ("Failed to start listen manager.\n");
         return -1;
     }
 

@@ -14,22 +14,10 @@ a directory before running this script. That directory is passed in as the
 '--thirdpartdir' arguments.
 
 '''
-
 import sys
-
-####################
-### Requires Python 2.6+
-####################
-if sys.version_info[0] == 3:
-    print 'Python 3 not supported yet. Quit now.'
-    sys.exit(1)
-if sys.version_info[1] < 6:
-    print 'Python 2.6 or above is required. Quit now.'
-    sys.exit(1)
-
 import os
 import glob
-import commands
+import subprocess
 import tempfile
 import shutil
 import re
@@ -72,7 +60,7 @@ def highlight(content, is_error=False):
         return '\x1b[1;32m%s\x1b[m' % content
 
 def info(msg):
-    print highlight('[INFO] ') + msg
+    print(highlight('[INFO] ') + msg)
 
 def find_in_path(prog):
     '''Find a file in system path'''
@@ -88,9 +76,9 @@ def find_in_path(prog):
 
 def error(msg=None, usage=None):
     if msg:
-        print highlight('[ERROR] ') + msg
+        print(highlight('[ERROR] ') + msg)
     if usage:
-        print usage
+        print(usage)
     sys.exit(1)
 
 def run_argv(argv, cwd=None, env=None, suppress_stdout=False, suppress_stderr=False):
@@ -141,14 +129,14 @@ def must_mkdir(path):
     '''Create a directory, exit on failure'''
     try:
         os.mkdir(path)
-    except OSError, e:
+    except OSError as e:
         error('failed to create directory %s:%s' % (path, e))
 
 def must_copy(src, dst):
     '''Copy src to dst, exit on failure'''
     try:
         shutil.copy(src, dst)
-    except Exception, e:
+    except Exception as e:
         error('failed to copy %s to %s: %s' % (src, dst, e))
 
 class Project(object):
@@ -423,7 +411,7 @@ def show_build_info():
     info('------------------------------------------')
     info('press any key to continue ')
     info('------------------------------------------')
-    raw_input()
+    input()
 
 def prepare_builddir(builddir):
     must_mkdir(builddir)
@@ -625,7 +613,7 @@ def copy_scripts_and_libs():
     dst_update_scriptsdir = os.path.join(serverdir, 'upgrade')
     try:
         shutil.copytree(update_scriptsdir, dst_update_scriptsdir)
-    except Exception, e:
+    except Exception as e:
         error('failed to copy upgrade scripts: %s' % e)
 
     # copy sql scripts
@@ -633,7 +621,7 @@ def copy_scripts_and_libs():
     dst_sql_scriptsdir = os.path.join(serverdir, 'sql')
     try:
         shutil.copytree(sql_scriptsdir, dst_sql_scriptsdir)
-    except Exception, e:
+    except Exception as e:
         error('failed to copy sql scripts: %s' % e)
 
     # copy runtime/seahub.conf
@@ -647,7 +635,7 @@ def copy_scripts_and_libs():
     dst_seahubdir = os.path.join(serverdir, 'seahub')
     try:
         shutil.move(src_seahubdir, dst_seahubdir)
-    except Exception, e:
+    except Exception as e:
         error('failed to move seahub to seafile-server/seahub: %s' % e)
 
     # copy seahub thirdpart libs
@@ -695,7 +683,7 @@ def get_dependent_libs(executable):
                 return True
         return False
 
-    ldd_output = commands.getoutput('ldd %s' % executable)
+    ldd_output = subprocess.getoutput('ldd %s' % executable)
     ret = set()
     for line in ldd_output.splitlines():
         tokens = line.split()
@@ -763,7 +751,7 @@ def copy_seahub_thirdpart_libs(seahub_thirdpart):
                 shutil.copytree(src_path, target_path)
             else:
                 shutil.copy(src_path, target_path)
-    except Exception, e:
+    except Exception as e:
         error('failed to copy seahub thirdpart libs: %s' % e)
 
 def strip_symbols():
@@ -790,7 +778,7 @@ def strip_symbols():
             if os.path.islink(fn):
                 continue
 
-            finfo = commands.getoutput('file "%s"' % fn)
+            finfo = subprocess.getoutput('file "%s"' % fn)
 
             if 'not stripped' in finfo:
                 do_strip(fn)
@@ -805,7 +793,7 @@ def create_tarball(tarball_name):
     # move seafile-server to seafile-server-${version}
     try:
         shutil.move(serverdir, versioned_serverdir)
-    except Exception, e:
+    except Exception as e:
         error('failed to move %s to %s: %s' % (serverdir, versioned_serverdir, e))
 
     ignored_patterns = [
@@ -848,7 +836,7 @@ def gen_tarball():
     if not conf[CONF_NO_STRIP]:
         try:
             strip_symbols()
-        except Exception, e:
+        except Exception as e:
             error('failed to strip symbols: %s' % e)
 
     # determine the output name
@@ -872,18 +860,18 @@ def gen_tarball():
     # generate the tarball
     try:
         create_tarball(tarball_name)
-    except Exception, e:
+    except Exception as e:
         error('failed to generate tarball: %s' % e)
 
     # move tarball to outputdir
     try:
         shutil.copy(tarball_name, dst_tarball)
-    except Exception, e:
+    except Exception as e:
         error('failed to copy %s to %s: %s' % (tarball_name, dst_tarball, e))
 
-    print '---------------------------------------------'
-    print 'The build is successful. Output is:\t%s' % dst_tarball
-    print '---------------------------------------------'
+    print('---------------------------------------------')
+    print('The build is successful. Output is:\t%s' % dst_tarball)
+    print('---------------------------------------------')
 
 def main():
     parse_args()
