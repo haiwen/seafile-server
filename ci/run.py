@@ -108,7 +108,6 @@ class Project(object):
     def projectdir(self):
         return join(TOPDIR, self.name)
 
-    @property
     def branch(self):
         return get_project_branch(self)
 
@@ -119,7 +118,7 @@ class Project(object):
         else:
             shell(
                 'git clone --depth=1 --branch {} {}'.
-                format(self.branch, self.url)
+                format(self.branch(), self.url)
             )
 
     @chdir
@@ -142,10 +141,16 @@ class Libsearpc(Project):
     def __init__(self):
         super(Libsearpc, self).__init__('libsearpc')
 
+    def branch(self):
+        return '7.0'
+
 
 class CcnetServer(Project):
     def __init__(self):
         super(CcnetServer, self).__init__('ccnet-server')
+
+    def branch(self):
+        return '7.0'
 
 
 class SeafileServer(Project):
@@ -154,7 +159,7 @@ class SeafileServer(Project):
 
 
 def fetch_and_build():
-    libsearpc = Project('libsearpc')
+    libsearpc = Libsearpc()
     ccnet = CcnetServer()
     seafile = SeafileServer()
 
