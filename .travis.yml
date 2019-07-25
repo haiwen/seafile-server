@@ -29,6 +29,7 @@ before_install:
 - export PATH=/usr/lib/ccache:${PATH}
 install:
 - "./ci/install-deps.sh"
+- pip install future
 script:
 - "./ci/run.py"
 notifications:

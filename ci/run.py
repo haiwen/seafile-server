@@ -142,7 +142,7 @@ class Libsearpc(Project):
         super(Libsearpc, self).__init__('libsearpc')
 
     def branch(self):
-        return '7.0'
+        return 'master'
 
 
 class CcnetServer(Project):
@@ -150,7 +150,7 @@ class CcnetServer(Project):
         super(CcnetServer, self).__init__('ccnet-server')
 
     def branch(self):
-        return '7.0'
+        return 'master'
 
 
 class SeafileServer(Project):
