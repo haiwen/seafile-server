@@ -89,8 +89,8 @@ typedef struct RecvFSM {
 static GHashTable *upload_progress;
 static pthread_mutex_t pg_lock;
 static int
-append_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
-                               const char *file_name);
+write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
+                              const char *file_name);
 
 /* IE8 will set filename to the full path of the uploaded file.
  * So we need to strip out the basename from it.
@@ -456,8 +456,8 @@ upload_api_cb(evhtp_request_t *req, void *arg)
             goto out;
         }
 
-        if (append_block_data_to_tmp_file (fsm, new_parent_dir,
-                                           (char *)fsm->filenames->data) < 0) {
+        if (write_block_data_to_tmp_file (fsm, new_parent_dir,
+                                          (char *)fsm->filenames->data) < 0) {
             error_code = ERROR_INTERNAL;
             goto error;
         }
@@ -914,10 +914,16 @@ error:
 /* } */
 
 static int
-copy_block_to_tmp_file (int blk_fd, int tmp_fd)
+copy_block_to_tmp_file (int blk_fd, int tmp_fd, gint64 offset)
 {
     if (lseek(blk_fd, 0, SEEK_SET) < 0) {
         seaf_warning ("Failed to rewind block temp file position to start: %s\n",
+                      strerror(errno));
+        return -1;
+    }
+
+    if (lseek(tmp_fd, offset, SEEK_SET) <0) {
+        seaf_warning ("Failed to rewind web upload temp file write position: %s\n",
                       strerror(errno));
         return -1;
     }
@@ -945,8 +951,8 @@ copy_block_to_tmp_file (int blk_fd, int tmp_fd)
 }
 
 static int
-append_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
-                               const char *file_name)
+write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
+                              const char *file_name)
 {
     char *abs_path;
     char *temp_file = NULL;
@@ -973,31 +979,40 @@ append_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
                                      seaf->http_server->http_temp_dir,
                                      file_name);
         tmp_fd = g_mkstemp_full (temp_file, O_RDWR, cluster_shared_temp_file_mode);
-        if (tmp_fd >= 0) {
-            if (seaf_repo_manager_add_upload_tmp_file (seaf->repo_mgr,
-                                                       fsm->repo_id,
-                                                       abs_path, temp_file,
-                                                       &error) < 0) {
-                seaf_warning ("%s\n", error->message);
-                g_clear_error (&error);
-                close (tmp_fd);
-                g_unlink (temp_file);
-                tmp_fd = -1;
-                ret = -1;
-                goto out;
-            }
+        if (tmp_fd < 0) {
+            seaf_warning ("Failed to create upload temp file: %s.\n", strerror(errno));
+            ret = -1;
+            goto out;
+        }
+
+        if (seaf_repo_manager_add_upload_tmp_file (seaf->repo_mgr,
+                                                   fsm->repo_id,
+                                                   abs_path, temp_file,
+                                                   &error) < 0) {
+            seaf_warning ("%s\n", error->message);
+            g_clear_error (&error);
+            close (tmp_fd);
+            g_unlink (temp_file);
+            tmp_fd = -1;
+            ret = -1;
+            goto out;
         }
     } else {
-        tmp_fd = g_open (temp_file, O_WRONLY | O_APPEND);
+        tmp_fd = g_open (temp_file, O_WRONLY);
+        if (tmp_fd < 0) {
+            seaf_warning ("Failed to open upload temp file: %s.\n", strerror(errno));
+            if (errno == ENOENT) {
+                seaf_message ("Upload temp file %s doesn't exist, remove record from db.\n",
+                              temp_file);
+                seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id,
+                                                       abs_path, &error);
+            }
+            ret = -1;
+            goto out;
+        }
     }
 
-    if (tmp_fd < 0) {
-        seaf_warning ("Failed to open upload temp file: %s.\n", strerror(errno));
-        ret = -1;
-        goto out;
-    }
-
-    if (copy_block_to_tmp_file (fsm->fd, tmp_fd) < 0) {
+    if (copy_block_to_tmp_file (fsm->fd, tmp_fd, fsm->rstart) < 0) {
         ret = -1;
         goto out;
     }
@@ -1105,8 +1120,8 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
             goto out;
         }
 
-        if (append_block_data_to_tmp_file (fsm, new_parent_dir,
-                                           (char *)fsm->filenames->data) < 0) {
+        if (write_block_data_to_tmp_file (fsm, new_parent_dir,
+                                          (char *)fsm->filenames->data) < 0) {
             error_code = ERROR_INTERNAL;
             goto error;
         }
@@ -1294,7 +1309,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
             goto out;
         }
 
-        if (append_block_data_to_tmp_file (fsm, parent_dir, filename) < 0) {
+        if (write_block_data_to_tmp_file (fsm, parent_dir, filename) < 0) {
             send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
             goto out;
         }
@@ -2340,7 +2355,7 @@ check_access_token (const char *token,
 
     _repo_id = seafile_web_access_get_repo_id (webaccess);
     int status = seaf_repo_manager_get_repo_status(seaf->repo_mgr, _repo_id);
-    if (status != REPO_STATUS_NORMAL) {
+    if (status != REPO_STATUS_NORMAL && status != -1) {
         g_object_unref (webaccess);
         return -1;
     }

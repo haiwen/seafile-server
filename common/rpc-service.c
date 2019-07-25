@@ -4492,12 +4492,16 @@ seafile_set_repo_status(const char *repo_id, int status, GError **error)
 int
 seafile_get_repo_status(const char *repo_id, GError **error)
 {
+    int status;
+
     if (!is_uuid_valid(repo_id)) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Arguments error");
         return -1;
     }
 
-    return seaf_repo_manager_get_repo_status(seaf->repo_mgr, repo_id);
+    status = seaf_repo_manager_get_repo_status(seaf->repo_mgr, repo_id);
+
+    return (status == -1) ? 0 : status;
 }
 
 #endif  /* SEAFILE_SERVER */

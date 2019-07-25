@@ -548,6 +548,10 @@ zip_download_mgr_start_zip_task (ZipDownloadMgr *mgr,
     }
 
     progress = g_new0 (Progress, 1);
+    /* Set to real total in worker thread. Here to just prevent the client from thinking
+     * the zip has been finished too early.
+     */
+    progress->total = 1;
     progress->expire_ts = time(NULL) + PROGRESS_TTL;
     obj->progress = progress;
 

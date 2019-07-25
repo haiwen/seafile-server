@@ -40,7 +40,7 @@ is_virtual_repo_and_origin (SeafRepo *repo1, SeafRepo *repo2);
 
 static gboolean
 check_file_count_and_size (SeafRepo *repo, SeafDirent *dent, gint64 total_files,
-                           gint64 *multi_file_size, GError **error);
+                           gint64 *total_size_all, char **err_str);
 
 int
 post_files_and_gen_commit (GList *filenames,
@@ -2009,6 +2009,12 @@ get_sub_dirents_hash_map(SeafRepo *repo, const char *parent_dir)
     return dirent_hash;
 }
 
+static void
+set_failed_reason (char **failed_reason, char *err_str)
+{
+    *failed_reason = g_strdup (err_str);
+}
+
 static int
 cross_repo_copy (const char *src_repo_id,
                  const char *src_path,
@@ -2028,18 +2034,24 @@ cross_repo_copy (const char *src_repo_id,
     guint64 new_size = 0;
     int ret = 0, i = 0;
     int file_num = 1;
-    GError *error = NULL;
     GHashTable *dirent_hash = NULL;
+    gint64 total_size_all = 0;
+    char *err_str = COPY_ERR_INTERNAL;
+    int check_quota_ret;
 
     src_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, src_repo_id);
     if (!src_repo) {
+        err_str = COPY_ERR_INTERNAL;
         ret = -1;
+        seaf_warning ("Failed to get source repo.\n");
         goto out;
     }
 
     dst_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, dst_repo_id);
     if (!dst_repo) {
+        err_str = COPY_ERR_INTERNAL;
         ret = -1;
+        seaf_warning ("Failed to get destination repo.\n");
         goto out;
     }
 
@@ -2054,22 +2066,24 @@ cross_repo_copy (const char *src_repo_id,
 
         dirent_hash = get_sub_dirents_hash_map (src_repo, src_path);
         if (!dirent_hash) {
+            err_str = COPY_ERR_INTERNAL;
             ret = -1;
             goto out;
         }
 
         gint64 total_files = -1;
         gint64 total_files_all = 0;
-        gint64 total_size_all = 0;
         /* check filename, size and file count */
         for (i = 0; i < file_num; i++) {
             if (strcmp(src_names[i], "") == 0) { 
+                err_str = COPY_ERR_BAD_ARG;
                 ret = -1;
                 seaf_warning ("[copy files] Bad args: Empty src_filename.\n");
                 goto out; 
             }
             src_dents[i] = g_hash_table_lookup (dirent_hash, src_names[i]);
             if (!src_dents[i]) {
+                err_str = COPY_ERR_INTERNAL;
                 ret = -1;
                 seaf_warning ("[copy files] File %s not Found.\n", src_names[i]);
                 goto out; 
@@ -2082,17 +2096,31 @@ cross_repo_copy (const char *src_repo_id,
             else
                 total_files = 1;
             if (total_files < 0) {
+                err_str = COPY_ERR_INTERNAL;
                 seaf_warning ("Failed to get file count.\n");
                 ret = -1;
                 goto out;
             }
             total_files_all += total_files;
             if (!check_file_count_and_size (src_repo, src_dents[i], total_files_all,
-                                            &total_size_all, &error)) {
+                                            &total_size_all, &err_str)) {
                 ret = -1;
                 goto out;
             }
         }
+
+        check_quota_ret = seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, dst_repo_id, total_size_all);
+        if (check_quota_ret != 0) {
+            if (check_quota_ret == -1) {
+               err_str = COPY_ERR_INTERNAL;
+               seaf_warning ("Failed to check quota.\n");
+            } else {
+               err_str = COPY_ERR_QUOTA_IS_FULL;
+            }
+            ret = -1;
+            goto out;
+        }
+
         if (task)
             task->total = total_files_all;
 
@@ -2102,6 +2130,7 @@ cross_repo_copy (const char *src_repo_id,
                                      src_dents[i]->id, src_dents[i]->mode, modifier, task,
                                      &new_size);
             if (!new_id) {
+                err_str = COPY_ERR_INTERNAL;
                 ret = -1;
                 seaf_warning ("[copy files] Failed to copy file %s.\n", src_dents[i]->name);
                 goto out;
@@ -2116,6 +2145,7 @@ cross_repo_copy (const char *src_repo_id,
         src_dent = get_dirent_by_path (src_repo, NULL,
                                        src_path, src_filename, NULL);
         if (!src_dent) {
+            err_str = COPY_ERR_INTERNAL;
             seaf_warning ("[move file] File %s not Found.\n", src_filename);
             ret = -1;
             goto out;
@@ -2130,15 +2160,29 @@ cross_repo_copy (const char *src_repo_id,
         else
             total_files = 1;
         if (total_files < 0) {
+            err_str = COPY_ERR_INTERNAL;
             seaf_warning ("Failed to get file count.\n");
             ret = -1;
             goto out;
         }
 
-        if (!check_file_count_and_size (src_repo, src_dent, total_files, NULL, &error)) {
+        if (!check_file_count_and_size (src_repo, src_dent, total_files, &total_size_all, &err_str)) {
             ret = -1;
             goto out;
         }
+
+        check_quota_ret = seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, dst_repo_id, total_size_all);
+        if (check_quota_ret != 0) {
+            if (check_quota_ret == -1) {
+               err_str = COPY_ERR_INTERNAL;
+               seaf_warning ("Failed to check quota.\n");
+            } else {
+               err_str = COPY_ERR_QUOTA_IS_FULL;
+            }
+            ret = -1;
+            goto out;
+        }
+
         if (task)
             task->total = total_files;
 
@@ -2146,6 +2190,7 @@ cross_repo_copy (const char *src_repo_id,
                                  src_dent->id, src_dent->mode, modifier, task,
                                  &new_size);
         if (!new_id) {
+            err_str = COPY_ERR_INTERNAL;
             ret = -1;
             goto out;
         }
@@ -2163,6 +2208,7 @@ cross_repo_copy (const char *src_repo_id,
                                replace,
                                modifier,
                                NULL) < 0) {
+        err_str = COPY_ERR_INTERNAL;
         ret = -1;
         goto out;
     }
@@ -2191,14 +2237,14 @@ out:
         g_strfreev(src_names);
         g_strfreev(dst_names);
     }
-    if (error)
-        g_clear_error(&error);
 
     if (ret == 0) {
         update_repo_size (dst_repo_id);
     } else {
-        if (task && !task->canceled)
+        if (task && !task->canceled) {
             task->failed = TRUE;
+            set_failed_reason (&(task->failed_reason), err_str);
+        }
     }
 
     return ret;
@@ -2218,52 +2264,48 @@ is_virtual_repo_and_origin (SeafRepo *repo1, SeafRepo *repo2)
 
 static gboolean
 check_file_count_and_size (SeafRepo *repo, SeafDirent *dent, gint64 total_files,
-                           gint64 *multi_file_size, GError **error)
+                           gint64 *total_size_all, char **err_str)
 {
+    gint64 total_file_size = 0;
+    gint64 size = -1;
+
     if (seaf->copy_mgr->max_files > 0 &&
         total_files > seaf->copy_mgr->max_files) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "Too many files");
+        *err_str = COPY_ERR_TOO_MANY_FILES;
         seaf_warning("Failed to copy/move file from repo %.8s: Too many files\n", repo->id);
         return FALSE;
     }
 
+    if (S_ISREG(dent->mode)) {
+        if (repo->version > 0)
+            size = dent->size;
+        else
+            size = seaf_fs_manager_get_file_size (seaf->fs_mgr,
+                                                  repo->store_id,
+                                                  repo->version,
+                                                  dent->id);
+    } else {
+        size = seaf_fs_manager_get_fs_size (seaf->fs_mgr,
+                                            repo->store_id,
+                                            repo->version,
+                                            dent->id);
+    }
+
+    if (size < 0) {
+        *err_str = COPY_ERR_INTERNAL;
+        seaf_warning ("Failed to get dir size of %s:%s.\n",
+                      repo->store_id, dent->id);
+        return FALSE;
+    }
+
+    if (total_size_all) {
+        *total_size_all += size;
+        total_file_size = *total_size_all;
+    }
+
     if (seaf->copy_mgr->max_size > 0) {
-        gint64 size = -1;
-
-        if (S_ISREG(dent->mode)) {
-            if (repo->version > 0)
-                size = dent->size;
-            else
-                size = seaf_fs_manager_get_file_size (seaf->fs_mgr,
-                                                      repo->store_id,
-                                                      repo->version,
-                                                      dent->id);
-        } else {
-            size = seaf_fs_manager_get_fs_size (seaf->fs_mgr,
-                                                repo->store_id,
-                                                repo->version,
-                                                dent->id);
-        }
-        if (size < 0) {
-            seaf_warning ("Failed to get dir size of %s:%s.\n",
-                          repo->store_id, dent->id);
-            return FALSE;
-        }
-        if (multi_file_size) {
-            *multi_file_size += size;
-            if (*multi_file_size > seaf->copy_mgr->max_size) {
-                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                             "Folder or file size is too large");
-                seaf_warning("Failed to copy/move file from repo %.8s: "
-                             "Folder or file size is too large.\n", repo->id);
-                return FALSE;
-            }
-        }
-
-        if (size > seaf->copy_mgr->max_size) {
-            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                         "Folder or file size is too large");
+        if (total_file_size > seaf->copy_mgr->max_size) {
+            *err_str = COPY_ERR_SIZE_TOO_LARGE;
             seaf_warning("Failed to copy/move file from repo %.8s: "
                          "Folder or file size is too large.\n", repo->id);
             return FALSE;
@@ -2728,18 +2770,24 @@ cross_repo_move (const char *src_repo_id,
     guint64 new_size = 0;
     int ret = 0, i = 0;
     int file_num = 1;
-    GError *error = NULL;
     GHashTable *dirent_hash = NULL;
+    gint64 total_size_all = 0;
+    char *err_str = COPY_ERR_INTERNAL;
+    int check_quota_ret;
 
     src_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, src_repo_id);
     if (!src_repo) {
+        err_str = COPY_ERR_INTERNAL;
         ret = -1;
+        seaf_warning ("Failed to get source repo.\n");
         goto out;
     }
 
     dst_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, dst_repo_id);
     if (!dst_repo) {
+        err_str = COPY_ERR_INTERNAL;
         ret = -1;
+        seaf_warning ("Failed to get destination repo.\n");
         goto out;
     }
 
@@ -2754,22 +2802,24 @@ cross_repo_move (const char *src_repo_id,
 
         dirent_hash = get_sub_dirents_hash_map (src_repo, src_path);
         if (!dirent_hash) {
+            err_str = COPY_ERR_INTERNAL;
             ret = -1;
             goto out;
         }
 
         gint64 total_files = -1;
         gint64 total_files_all = 0;
-        gint64 total_size_all = 0;
         /* check filename, size and file count */
         for (i = 0; i < file_num; i++) {
             if (strcmp(src_names[i], "") == 0) { 
+                err_str = COPY_ERR_BAD_ARG;
                 ret = -1;
                 seaf_warning ("[move files] Bad args: Empty src_filename.\n");
                 goto out; 
             }    
             src_dents[i] = g_hash_table_lookup (dirent_hash, src_names[i]);
             if (!src_dents[i]) {
+                err_str = COPY_ERR_INTERNAL;
                 ret = -1;
                 seaf_warning ("[move files] File %s not Found.\n", src_names[i]);
                 goto out; 
@@ -2782,17 +2832,31 @@ cross_repo_move (const char *src_repo_id,
             else
                 total_files = 1;
             if (total_files < 0) {
+                err_str = COPY_ERR_INTERNAL;
                 seaf_warning ("Failed to get file count.\n");
                 ret = -1;
                 goto out;
             }
             total_files_all += total_files;
             if (!check_file_count_and_size (src_repo, src_dents[i], total_files_all,
-                                            &total_size_all, &error)) {
+                                            &total_size_all, &err_str)) {
                 ret = -1;
                 goto out;
             }
         }
+
+        check_quota_ret = seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, dst_repo_id, total_size_all);
+        if (check_quota_ret != 0) {
+            if (check_quota_ret == -1) {
+               err_str = COPY_ERR_INTERNAL;
+               seaf_warning ("Failed to check quota.\n");
+            } else {
+               err_str = COPY_ERR_QUOTA_IS_FULL;
+            }
+            ret = -1;
+            goto out;
+        }
+
         if (task)
             task->total = total_files_all;
 
@@ -2802,6 +2866,7 @@ cross_repo_move (const char *src_repo_id,
                                      src_dents[i]->id, src_dents[i]->mode, modifier, task,
                                      &new_size);
             if (!new_id) {
+                err_str = COPY_ERR_INTERNAL;
                 ret = -1;
                 seaf_warning ("[move files] Failed to copy file %s.\n", src_dents[i]->name);
                 goto out; 
@@ -2815,6 +2880,7 @@ cross_repo_move (const char *src_repo_id,
         src_dent = get_dirent_by_path (src_repo, NULL,
                                        src_path, src_filename, NULL);
         if (!src_dent) {
+            err_str = COPY_ERR_INTERNAL;
             seaf_warning ("[move file] File %s not Found.\n", src_filename);
             ret = -1;
             goto out;
@@ -2829,15 +2895,29 @@ cross_repo_move (const char *src_repo_id,
         else
             total_files = 1;
         if (total_files < 0) {
+            err_str = COPY_ERR_INTERNAL;
             seaf_warning ("Failed to get file count.\n");
             ret = -1;
             goto out;
         }
 
-        if (!check_file_count_and_size (src_repo, src_dent, total_files, NULL, &error)) {
+        if (!check_file_count_and_size (src_repo, src_dent, total_files, &total_size_all, &err_str)) {
             ret = -1;
             goto out;
         }
+
+        check_quota_ret = seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr, dst_repo_id, total_size_all);
+        if (check_quota_ret != 0) {
+            if (check_quota_ret == -1) {
+               err_str = COPY_ERR_INTERNAL;
+               seaf_warning ("Failed to check quota.\n");
+            } else {
+               err_str = COPY_ERR_QUOTA_IS_FULL;
+            }
+            ret = -1;
+            goto out;
+        }
+
         if (task)
             task->total = total_files;
 
@@ -2845,6 +2925,7 @@ cross_repo_move (const char *src_repo_id,
                                  src_dent->id, src_dent->mode, modifier, task,
                                  &new_size);
         if (!new_id) {
+            err_str = COPY_ERR_INTERNAL;
             ret = -1;
             goto out;
         }
@@ -2863,6 +2944,7 @@ cross_repo_move (const char *src_repo_id,
                                replace,
                                modifier,
                                NULL) < 0) {
+        err_str = COPY_ERR_INTERNAL;
         ret = -1;
         goto out;
     }
@@ -2871,6 +2953,7 @@ cross_repo_move (const char *src_repo_id,
 
     if (seaf_repo_manager_del_file (seaf->repo_mgr, src_repo_id, src_path,
                                     src_filename, modifier, NULL) < 0) {
+        err_str = COPY_ERR_INTERNAL;
         ret = -1;
         goto out;
     }
@@ -2899,14 +2982,14 @@ out:
         g_strfreev(src_names);
         g_strfreev(dst_names);
     }
-    if (error)
-        g_clear_error(&error);
 
     if (ret == 0) {
         update_repo_size (dst_repo_id);
     } else {
-        if (task && !task->canceled)
+        if (task && !task->canceled) {
             task->failed = TRUE;
+            set_failed_reason (&(task->failed_reason), err_str);
+        }
     }
 
     return ret;
