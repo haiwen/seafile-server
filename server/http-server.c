@@ -534,7 +534,6 @@ publish_repo_event (RepoEventData *rdata)
     publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf->str);
 
     g_string_free (buf, TRUE);
-    free_repo_event_data (rdata);
 }
 
 static void
@@ -548,7 +547,6 @@ publish_stats_event (StatsEventData *rdata)
     publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_STATS, buf->str);
 
     g_string_free (buf, TRUE);
-    free_stats_event_data (rdata);
 }
 
 static void
@@ -574,6 +572,7 @@ on_repo_oper (HttpServer *htp_server, const char *etype,
         g_free (vinfo->path);
         g_free (vinfo);
     }
+    free_repo_event_data (rdata);    
     return;
 }
 
@@ -588,6 +587,8 @@ send_statistic_msg (const char *repo_id, char *user, char *operation, guint64 by
     rdata->bytes = bytes;
 
     publish_stats_event(rdata);
+
+    free_stats_event_data (rdata);    
     return;
 }
 

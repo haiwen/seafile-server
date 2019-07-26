@@ -314,16 +314,13 @@ get_commit_id (SeafDBRow *row, void *data)
 }
 
 static void
-publish_repo_update_event (char *repo_id, char *commit_id)
+publish_repo_update_event (const char *repo_id, const char *commit_id)
 {
     char buf[128];
     snprintf (buf, sizeof(buf), "repo-update\t%s\t%s",
               repo_id, commit_id);
 
     publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf);
-
-    g_free (repo_id);
-    g_free (commit_id);
 }
 
  static void
