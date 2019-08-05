@@ -245,7 +245,7 @@ seafile_publish_event(const char *channel, const char *content, GError **error)
         return -1;
     }
 
-    ret = publish_event (seaf->mq_mgr, channel, content);
+    ret = seaf_mq_manager_publish_event (seaf->mq_mgr, channel, content);
 
     return ret;
 }
@@ -257,7 +257,7 @@ seafile_pop_event(const char *channel, GError **error)
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");
         return NULL;
     }
-    return pop_event (seaf->mq_mgr, channel);
+    return seaf_mq_manager_pop_event (seaf->mq_mgr, channel);
 }
 #endif
 

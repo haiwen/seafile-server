@@ -14,9 +14,9 @@ SeafMqManager *
 seaf_mq_manager_new ();
 
 int
-publish_event (SeafMqManager *mgr, const char *channel, const char *content);
+seaf_mq_manager_publish_event (SeafMqManager *mgr, const char *channel, const char *content);
 
 char *
-pop_event (SeafMqManager *mgr, const char *channel);
+seaf_mq_manager_pop_event (SeafMqManager *mgr, const char *channel);
 
 #endif

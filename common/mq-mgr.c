@@ -32,7 +32,7 @@ seaf_mq_manager_channel_new (SeafMqManager *mgr, const char *channel)
 }
 
 int
-publish_event (SeafMqManager *mgr, const char *channel, const char *content)
+seaf_mq_manager_publish_event (SeafMqManager *mgr, const char *channel, const char *content)
 {
     int ret = 0;
 
@@ -57,7 +57,7 @@ publish_event (SeafMqManager *mgr, const char *channel, const char *content)
 }
 
 char *
-pop_event (SeafMqManager *mgr, const char *channel)
+seaf_mq_manager_pop_event (SeafMqManager *mgr, const char *channel)
 {
     GAsyncQueue *async_queue = g_hash_table_lookup (mgr->priv->chans, channel);
     if (!async_queue) {
