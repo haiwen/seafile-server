@@ -259,7 +259,7 @@ def check_seahub_thirdpart(thirdpartdir):
         'Django',
         # 'Djblets',
         'gunicorn',
-        'flup',
+        #'flup',
         'chardet',
         'python_dateutil',
         #'django_picklefield',
