@@ -18,8 +18,6 @@
 
 #include "seafile-session.h"
 #include "seafile-rpc.h"
-#include <ccnet/rpcserver-proc.h>
-#include <ccnet/threaded-rpcserver-proc.h>
 #include "log.h"
 #include "utils.h"
 
@@ -29,7 +27,7 @@ SeafileSession *seaf;
 
 char *pidfile = NULL;
 
-static const char *short_options = "hvc:d:l:fg:G:P:mCD:F:";
+static const char *short_options = "hvc:d:l:fP:D:F:";
 static struct option long_options[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
@@ -39,11 +37,7 @@ static struct option long_options[] = {
     { "log", required_argument, NULL, 'l' },
     { "debug", required_argument, NULL, 'D' },
     { "foreground", no_argument, NULL, 'f' },
-    { "ccnet-debug-level", required_argument, NULL, 'g' },
-    { "seafile-debug-level", required_argument, NULL, 'G' },
-    { "master", no_argument, NULL, 'm'},
     { "pidfile", required_argument, NULL, 'P' },
-    { "cloud-mode", no_argument, NULL, 'C'},
     { NULL, 0, NULL, 0, },
 };
 
@@ -59,7 +53,7 @@ static void usage ()
 
 #define SEAFILE_RPC_PIPE_NAME "seafile.sock"
 
-static void start_rpc_service (int cloud_mode, char *seafile_dir)
+static void start_rpc_service (char *seafile_dir)
 {
     SearpcNamedPipeServer *rpc_server = NULL;
     char *pipe_path = NULL;
@@ -649,32 +643,30 @@ static void start_rpc_service (int cloud_mode, char *seafile_dir)
                                      searpc_signature_string__string());
 
                                      
-    if (!cloud_mode) {
-        searpc_server_register_function ("seafserv-threaded-rpcserver",
-                                         seafile_set_inner_pub_repo,
-                                         "set_inner_pub_repo",
-                                         searpc_signature_int__string_string());
-        searpc_server_register_function ("seafserv-threaded-rpcserver",
-                                         seafile_unset_inner_pub_repo,
-                                         "unset_inner_pub_repo",
-                                         searpc_signature_int__string());
-        searpc_server_register_function ("seafserv-threaded-rpcserver",
-                                         seafile_is_inner_pub_repo,
-                                         "is_inner_pub_repo",
-                                         searpc_signature_int__string());
-        searpc_server_register_function ("seafserv-threaded-rpcserver",
-                                         seafile_list_inner_pub_repos,
-                                         "list_inner_pub_repos",
-                                         searpc_signature_objlist__void());
-        searpc_server_register_function ("seafserv-threaded-rpcserver",
-                                         seafile_count_inner_pub_repos,
-                                         "count_inner_pub_repos",
-                                         searpc_signature_int64__void());
-        searpc_server_register_function ("seafserv-threaded-rpcserver",
-                                         seafile_list_inner_pub_repos_by_owner,
-                                         "list_inner_pub_repos_by_owner",
-                                         searpc_signature_objlist__string());
-    }
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_set_inner_pub_repo,
+                                     "set_inner_pub_repo",
+                                     searpc_signature_int__string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_unset_inner_pub_repo,
+                                     "unset_inner_pub_repo",
+                                     searpc_signature_int__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_is_inner_pub_repo,
+                                     "is_inner_pub_repo",
+                                     searpc_signature_int__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_list_inner_pub_repos,
+                                     "list_inner_pub_repos",
+                                     searpc_signature_objlist__void());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_count_inner_pub_repos,
+                                     "count_inner_pub_repos",
+                                     searpc_signature_int64__void());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_list_inner_pub_repos_by_owner,
+                                     "list_inner_pub_repos_by_owner",
+                                     searpc_signature_objlist__string());
 
     /* History */
     searpc_server_register_function ("seafserv-threaded-rpcserver",
@@ -876,10 +868,6 @@ main (int argc, char **argv)
     char *logfile = NULL;
     const char *debug_str = NULL;
     int daemon_mode = 1;
-    int is_master = 0;
-    char *ccnet_debug_level_str = "info";
-    char *seafile_debug_level_str = "debug";
-    int cloud_mode = 0;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -913,20 +901,8 @@ main (int argc, char **argv)
         case 'D':
             debug_str = optarg;
             break;
-        case 'g':
-            ccnet_debug_level_str = optarg;
-            break;
-        case 'G':
-            seafile_debug_level_str = optarg;
-            break;
-        case 'm':
-            is_master = 1;
-            break;
         case 'P':
             pidfile = optarg;
-            break;
-        case 'C':
-            cloud_mode = 1;
             break;
         default:
             usage ();
@@ -979,23 +955,20 @@ main (int argc, char **argv)
     if (logfile == NULL)
         logfile = g_build_filename (seafile_dir, "seafile.log", NULL);
 
-    if (seafile_log_init (logfile, ccnet_debug_level_str,
-                          seafile_debug_level_str) < 0) {
+    if (seafile_log_init (logfile, "info", "debug") < 0) {
         seaf_warning ("Failed to init log.\n");
         exit (1);
     }
 
     event_init ();
 
-    start_rpc_service (cloud_mode, seafile_dir);
+    start_rpc_service (seafile_dir);
 
     seaf = seafile_session_new (central_config_dir, seafile_dir, ccnet_dir);
     if (!seaf) {
         seaf_warning ("Failed to create seafile session.\n");
         exit (1);
     }
-    seaf->is_master = is_master;
-    seaf->cloud_mode = cloud_mode;
 
 
 #ifndef WIN32

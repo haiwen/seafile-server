@@ -85,6 +85,10 @@ seafile_session_new(const char *central_config_dir,
     session->tmp_file_dir = tmp_file_dir;
     session->config = config;
 
+    session->cloud_mode = g_key_file_get_boolean (config,
+                                                  "general", "cloud_mode",
+                                                  NULL);
+
     if (load_database_config (session) < 0) {
         seaf_warning ("Failed to load database config.\n");
         goto onerror;

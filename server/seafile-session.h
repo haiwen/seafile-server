@@ -62,8 +62,6 @@ struct _SeafileSession {
 
     SizeScheduler       *size_sched;
 
-    int                  is_master;
-
     int                  cloud_mode;
 
     int                  rpc_thread_pool_size;
