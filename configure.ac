@@ -241,6 +241,7 @@ else
     AC_MSG_RESULT([${MYSQL_CFLAGS}])
     AC_SUBST(MYSQL_CFLAGS)
     AC_SUBST(MYSQL_LIBS)
+    AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 if MySQL support is enabled])
 fi
 
 if test x${compile_python} = xyes; then

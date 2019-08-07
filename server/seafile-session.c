@@ -53,9 +53,6 @@ seafile_session_new(const char *central_config_dir,
     if (central_config_dir) {
         abs_central_config_dir = ccnet_expand_path (central_config_dir);
     }
-    config_file_path = g_build_filename(
-        abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir,
-        "seafile.conf", NULL);
 
     if (checkdir_with_mkdir (abs_seafile_dir) < 0) {
         seaf_warning ("Config dir %s does not exist and is unable to create\n",
@@ -69,12 +66,17 @@ seafile_session_new(const char *central_config_dir,
         goto onerror;
     }
 
+    config_file_path = g_build_filename(
+        abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir,
+        "seafile.conf", NULL);
+
     GError *error = NULL;
     config = g_key_file_new ();
     if (!g_key_file_load_from_file (config, config_file_path, 
                                     G_KEY_FILE_NONE, &error)) {
         seaf_warning ("Failed to load config file.\n");
         g_key_file_free (config);
+        g_free (config_file_path);
         goto onerror;
     }
     g_free (config_file_path);
@@ -164,7 +166,6 @@ seafile_session_new(const char *central_config_dir,
 onerror:
     free (abs_seafile_dir);
     g_free (tmp_file_dir);
-    g_free (config_file_path);
     g_free (session);
     return NULL;    
 }

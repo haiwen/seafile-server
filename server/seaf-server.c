@@ -53,7 +53,7 @@ static void usage ()
 
 #define SEAFILE_RPC_PIPE_NAME "seafile.sock"
 
-static void start_rpc_service (char *seafile_dir)
+static void start_rpc_service (const char *seafile_dir)
 {
     SearpcNamedPipeServer *rpc_server = NULL;
     char *pipe_path = NULL;
