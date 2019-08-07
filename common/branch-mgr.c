@@ -320,7 +320,7 @@ publish_repo_update_event (const char *repo_id, const char *commit_id)
     snprintf (buf, sizeof(buf), "repo-update\t%s\t%s",
               repo_id, commit_id);
 
-    publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf);
+    seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf);
 }
 
  static void

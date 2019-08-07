@@ -531,7 +531,7 @@ publish_repo_event (RepoEventData *rdata)
                      rdata->client_name ? rdata->client_name : "",
                      rdata->repo_id, rdata->path ? rdata->path : "/");
 
-    publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf->str);
+    seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf->str);
 
     g_string_free (buf, TRUE);
 }
@@ -544,7 +544,7 @@ publish_stats_event (StatsEventData *rdata)
                      rdata->etype, rdata->user,
                      rdata->repo_id, rdata->bytes);
 
-    publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_STATS, buf->str);
+    seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_STATS, buf->str);
 
     g_string_free (buf, TRUE);
 }
