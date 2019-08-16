@@ -200,6 +200,7 @@ load_database_config (SeafileSession *session)
     gboolean create_tables = FALSE;
 
     type = seaf_key_file_get_string (session->config, "database", "type", &error);
+    seaf_message ("Mydebug db type is %s\n", type);
     /* Default to use sqlite if not set. */
     if (!type || strcasecmp (type, "sqlite") == 0) {
         ret = sqlite_db_start (session);
