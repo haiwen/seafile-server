@@ -23,7 +23,7 @@ gunicorn_conf=${TOPDIR}/conf/gunicorn.conf
 pidfile=${TOPDIR}/pids/seahub.pid
 errorlog=${TOPDIR}/logs/gunicorn_error.log
 accesslog=${TOPDIR}/logs/gunicorn_access.log
-gunicorn_exe=${INSTALLPATH}/seahub/thirdpart/gunicorn
+gunicorn_exe=${INSTALLPATH}/seahub/thirdpart/bin/gunicorn
 
 script_name=$0
 function usage () {
@@ -51,14 +51,18 @@ function check_python_executable() {
         return 0
     fi
 
-    if which python2.7 2>/dev/null 1>&2; then
-        PYTHON=python2.7
-    elif which python27 2>/dev/null 1>&2; then
-        PYTHON=python27
-    else
+    if !(python --version 2>&1 | grep "3\.[0-9]\.[0-9]") 2>/dev/null 1>&2; then
         echo
-        echo "Can't find a python executable of version 2.7 or above in PATH"
-        echo "Install python 2.7+ before continue."
+        echo "The current version of python is not 3.x.x, please use Python 3.x.x ."
+        echo
+        exit 1
+    fi
+
+    PYTHON="python"$(python --version | cut -b 8-10)
+    if !which $PYTHON 2>/dev/null 1>&2; then
+        echo
+        echo "Can't find a python executable of $PYTHON in PATH"
+        echo "Install $PYTHON before continue."
         echo "Or if you installed it in a non-standard PATH, set the PYTHON enviroment varirable to it"
         echo
         exit 1
@@ -211,8 +215,8 @@ function prepare_env() {
     export CCNET_CONF_DIR=${default_ccnet_conf_dir}
     export SEAFILE_CONF_DIR=${seafile_data_dir}
     export SEAFILE_CENTRAL_CONF_DIR=${central_config_dir}
-    export PYTHONPATH=${INSTALLPATH}/seafile/lib/python2.6/site-packages:${INSTALLPATH}/seafile/lib64/python2.6/site-packages:${INSTALLPATH}/seahub:${INSTALLPATH}/seahub/thirdpart:$PYTHONPATH
-    export PYTHONPATH=${INSTALLPATH}/seafile/lib/python2.7/site-packages:${INSTALLPATH}/seafile/lib64/python2.7/site-packages:$PYTHONPATH
+    export PYTHONPATH=${INSTALLPATH}/seafile/lib/python3.6/site-packages:${INSTALLPATH}/seafile/lib64/python3.6/site-packages:${INSTALLPATH}/seahub:${INSTALLPATH}/seahub/thirdpart:$PYTHONPATH
+
 
 }
 
@@ -230,9 +234,9 @@ function clear_sessions () {
 function stop_seahub () {
     if [[ -f ${pidfile} ]]; then
         echo "Stopping seahub ..."
-        pkill -9 -f "thirdpart/gunicorn"
+        pkill -9 -f "thirdpart/bin/gunicorn"
         sleep 1
-        if pgrep -f "thirdpart/gunicorn" 2>/dev/null 1>&2 ; then
+        if pgrep -f "thirdpart/bin/gunicorn" 2>/dev/null 1>&2 ; then
             echo 'Failed to stop seahub.'
             exit 1
         fi

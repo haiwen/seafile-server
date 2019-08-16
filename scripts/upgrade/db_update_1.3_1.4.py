@@ -6,7 +6,7 @@ import sys
 
 def usage():
     msg = 'usage: %s <seahub db>' % os.path.basename(sys.argv[0])
-    print msg
+    print(msg)
 
 def main():
     seahub_db = sys.argv[1]

@@ -3,15 +3,15 @@
 import os
 import sys
 import re
-import ConfigParser
+import configparser
 import getpass
 from collections import namedtuple
 
 try:
-    import MySQLdb
-    HAS_MYSQLDB = True
+    import pymysql
+    HAS_PYMYSQL = True
 except ImportError:
-    HAS_MYSQLDB = False
+    HAS_PYMYSQL = False
 
 MySQLDBInfo = namedtuple('MySQLDBInfo', 'host port username password db')
 
@@ -36,16 +36,16 @@ class Utils(object):
 
     @staticmethod
     def info(msg):
-        print Utils.highlight('[INFO] ') + msg
+        print(Utils.highlight('[INFO] ') + msg)
 
     @staticmethod
     def error(msg):
-        print Utils.highlight('[ERROR] ') + msg
+        print(Utils.highlight('[ERROR] ') + msg)
         sys.exit(1)
 
     @staticmethod
     def read_config(config_path, defaults):
-        cp = ConfigParser.ConfigParser(defaults)
+        cp = configparser.ConfigParser(defaults)
         cp.read(config_path)
         return cp
 
@@ -72,7 +72,7 @@ def get_ccnet_mysql_info():
         username = config.get(db_section, 'USER')
         password = config.get(db_section, 'PASSWD')
         db = config.get(db_section, 'DB')
-    except ConfigParser.NoOptionError, e:
+    except configparser.NoOptionError as e:
         Utils.error('Database config in ccnet.conf is invalid: %s' % e)
 
     info = MySQLDBInfo(host, port, username, password, db)
@@ -100,7 +100,7 @@ def get_seafile_mysql_info():
         username = config.get(db_section, 'user')
         password = config.get(db_section, 'password')
         db = config.get(db_section, 'db_name')
-    except ConfigParser.NoOptionError, e:
+    except configparser.NoOptionError as e:
         Utils.error('Database config in seafile.conf is invalid: %s' % e)
 
     info = MySQLDBInfo(host, port, username, password, db)
@@ -110,7 +110,7 @@ def get_seahub_mysql_info():
     sys.path.insert(0, env_mgr.top_dir)
     try:
         import seahub_settings# pylint: disable=F0401
-    except ImportError, e:
+    except ImportError as e:
         Utils.error('Failed to import seahub_settings.py: %s' % e)
 
     if not hasattr(seahub_settings, 'DATABASES'):
@@ -153,8 +153,8 @@ def ask_root_password(port):
         if password:
             try:
                 return check_mysql_user('root', password, port)
-            except InvalidAnswer, e:
-                print '\n%s\n' % e
+            except InvalidAnswer as e:
+                print('\n%s\n' % e)
                 continue
 
 class InvalidAnswer(Exception):
@@ -166,23 +166,23 @@ class InvalidAnswer(Exception):
         return self.msg
 
 def check_mysql_user(user, password, port):
-    print '\nverifying password of root user %s ... ' % user,
+    print('\nverifying password of root user %s ... ' % user, end=' ')
     kwargs = dict(host='localhost',
                   port=port,
                   user=user,
                   passwd=password)
 
     try:
-        conn = MySQLdb.connect(**kwargs)
-    except Exception, e:
-        if isinstance(e, MySQLdb.OperationalError):
+        conn = pymysql.connect(**kwargs)
+    except Exception as e:
+        if isinstance(e, pymysql.err.OperationalError):
             raise InvalidAnswer('Failed to connect to mysql server using user "%s" and password "***": %s'
                                 % (user, e.args[1]))
         else:
             raise InvalidAnswer('Failed to connect to mysql server using user "%s" and password "***": %s'
                                 % (user, e))
 
-    print 'done'
+    print('done')
     return conn
 
 def apply_fix(root_conn, user, dbs):
@@ -209,8 +209,8 @@ def grant_db_permission(conn, user, db):
 
     try:
         cursor.execute(sql)
-    except Exception, e:
-        if isinstance(e, MySQLdb.OperationalError):
+    except Exception as e:
+        if isinstance(e, pymysql.err.OperationalError):
             Utils.error('Failed to grant permission of database %s: %s' % (db, e.args[1]))
         else:
             Utils.error('Failed to grant permission of database %s: %s' % (db, e))
@@ -225,8 +225,8 @@ def main():
     if dbinfos[0].username == 'root':
         return
 
-    if not HAS_MYSQLDB:
-        Utils.error('Python MySQLdb module is not found')
+    if not HAS_PYMYSQL:
+        Utils.error('Python pymysql module is not found')
     root_conn = ask_root_password(dbinfos[0].port)
     apply_fix(root_conn, dbinfos[0].username, [info.db for info in dbinfos])
 
