@@ -284,8 +284,8 @@ class RPC(object):
         import ccnet
         ccnet_dir = os.environ['CCNET_CONF_DIR']
         central_config_dir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
-        self.rpc_client = ccnet.CcnetThreadedRpcClient(
-            ccnet.ClientPool(ccnet_dir, central_config_dir=central_config_dir))
+        ccnet_named_pipe_path = ccnet_dir + '/' + 'ccnet-rpc.sock'
+        self.rpc_client = ccnet.CcnetThreadedRpcClient(ccnet_named_pipe_path)
 
     def get_db_email_users(self):
         return self.rpc_client.get_emailusers('DB', 0, 1)
