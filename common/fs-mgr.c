@@ -462,6 +462,12 @@ write_seafile (SeafFSManager *fs_mgr,
         guint8 *compressed;
         int outlen;
 
+        if (seaf_obj_store_obj_exists (fs_mgr->obj_store, repo_id, version, seafile_id)) {
+            ret = 0;
+            free (ondisk);
+            goto out;
+        }
+
         if (seaf_compress (ondisk, ondisk_size, &compressed, &outlen) < 0) {
             seaf_warning ("Failed to compress seafile obj %s:%s.\n",
                           repo_id, seafile_id);
@@ -477,6 +483,11 @@ write_seafile (SeafFSManager *fs_mgr,
         free (ondisk);
     } else {
         ondisk = create_seafile_v0 (cdc, &ondisk_size, seafile_id);
+        if (seaf_obj_store_obj_exists (fs_mgr->obj_store, repo_id, version, seafile_id)) {
+            ret = 0;
+            g_free (ondisk);
+            goto out;
+        }
 
         if (seaf_obj_store_write_obj (fs_mgr->obj_store, repo_id, version, seafile_id,
                                       ondisk, ondisk_size, FALSE) < 0)
@@ -1389,6 +1400,9 @@ seafile_save (SeafFSManager *fs_mgr,
     int len;
     int ret = 0;
 
+    if (seaf_obj_store_obj_exists (fs_mgr->obj_store, repo_id, version, file->file_id))
+        return 0;
+
     data = seafile_to_data (file, &len);
     if (!data)
         return -1;
@@ -1858,6 +1872,9 @@ seaf_dir_save (SeafFSManager *fs_mgr,
 
     /* Don't need to save empty dir on disk. */
     if (memcmp (dir->dir_id, EMPTY_SHA1, 40) == 0)
+        return 0;
+
+    if (seaf_obj_store_obj_exists (fs_mgr->obj_store, repo_id, version, dir->dir_id))
         return 0;
 
     if (seaf_obj_store_write_obj (fs_mgr->obj_store, repo_id, version, dir->dir_id,

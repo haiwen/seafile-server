@@ -879,6 +879,11 @@ save_commit (SeafCommitManager *manager,
     char *data;
     gsize len;
 
+    if (seaf_obj_store_obj_exists (manager->obj_store,
+                                   repo_id, version,
+                                   commit->commit_id))
+        return 0;
+
     object = commit_to_json_object (commit);
 
     data = json_dumps (object, 0);
