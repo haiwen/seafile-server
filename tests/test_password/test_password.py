@@ -14,7 +14,10 @@ def test_encrypted_repo(rpc, enc_version):
                                   test_repo_passwd, enc_version)
         assert repo_id
     else:
-        repo_id = 'd17bf8ca-3019-40ee-8fdb-0258c89fb762'
+        if enc_version == 2:
+            repo_id = 'd17bf8ca-3019-40ee-8fdb-0258c89fb762'
+        else:
+            repo_id = 'd17bf8ca-3019-40ee-8fdb-0258c89fb763'
         enc_info = api.generate_magic_and_random_key(enc_version, repo_id, test_repo_passwd)
         assert enc_info
         ret_repo_id = api.create_enc_repo(repo_id, test_repo_name, test_repo_desc,
