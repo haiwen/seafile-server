@@ -795,7 +795,7 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def publish_event(channel, content):
         pass
 
-    @searpc_func("string", ["string"])
+    @searpc_func("json", ["string"])
     def pop_event(channel):
         pass
     

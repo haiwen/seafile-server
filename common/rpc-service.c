@@ -250,7 +250,7 @@ seafile_publish_event(const char *channel, const char *content, GError **error)
     return ret;
 }
 
-char*
+json_t *
 seafile_pop_event(const char *channel, GError **error)
 {
     if (!channel) {
