@@ -34,6 +34,23 @@
 static int
 load_thread_pool_config (SeafileSession *session);
 
+static void
+seafile_session_free (SeafileSession *session)
+{
+    ConfigOptions *config_options = NULL;
+
+    if (session) {
+        config_options = session->config_options;
+        if (config_options) {
+            g_free (config_options->http_temp_dir);
+            g_free (config_options->bind_addr);
+            g_free (config_options->windows_encoding);
+            g_free (config_options);
+        }
+        g_free (session);
+    }
+}
+
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
@@ -85,6 +102,7 @@ seafile_session_new(const char *central_config_dir,
     session->tmp_file_dir = tmp_file_dir;
     session->session = ccnet_session;
     session->config = config;
+    session->config_options = g_new0(ConfigOptions, 1);
 
     if (load_database_config (session) < 0) {
         seaf_warning ("Failed to load database config.\n");
@@ -148,8 +166,8 @@ seafile_session_new(const char *central_config_dir,
     if (!session->copy_mgr)
         goto onerror;
 
-    session->job_mgr = ccnet_job_manager_new (session->sync_thread_pool_size);
-    ccnet_session->job_mgr = ccnet_job_manager_new (session->rpc_thread_pool_size);
+    session->job_mgr = ccnet_job_manager_new (session->config_options->sync_thread_pool_size);
+    ccnet_session->job_mgr = ccnet_job_manager_new (session->config_options->rpc_thread_pool_size);
 
     session->size_sched = size_scheduler_new (session);
 
@@ -179,13 +197,15 @@ onerror:
     free (abs_seafile_dir);
     g_free (tmp_file_dir);
     g_free (config_file_path);
-    g_free (session);
+    seafile_session_free (session);
     return NULL;    
 }
 
 int
 seafile_session_init (SeafileSession *session)
 {
+    ConfigOptions *config_options = session->config_options;
+
     if (seaf_commit_manager_init (session->commit_mgr) < 0)
         return -1;
 
@@ -207,7 +227,7 @@ seafile_session_init (SeafileSession *session)
         return -1;
     }
 
-    if ((session->create_tables || seaf_db_type(session->db) == SEAF_DB_TYPE_PGSQL)
+    if ((config_options->create_tables || seaf_db_type(session->db) == SEAF_DB_TYPE_PGSQL)
         && seaf_cfg_manager_init (session->cfg_mgr) < 0) {
         seaf_warning ("Failed to init config manager.\n");
         return -1;
@@ -278,6 +298,7 @@ static int
 load_thread_pool_config (SeafileSession *session)
 {
     int rpc_tp_size, sync_tp_size;
+    ConfigOptions *config_options = session->config_options;
 
     rpc_tp_size = g_key_file_get_integer (session->config,
                                           "thread pool size", "rpc",
@@ -287,14 +308,15 @@ load_thread_pool_config (SeafileSession *session)
                                            NULL);
 
     if (rpc_tp_size > 0)
-        session->rpc_thread_pool_size = rpc_tp_size;
+        config_options->rpc_thread_pool_size = rpc_tp_size;
     else
-        session->rpc_thread_pool_size = DEFAULT_RPC_THREAD_POOL_SIZE;
+        config_options->rpc_thread_pool_size = DEFAULT_RPC_THREAD_POOL_SIZE;
 
     if (sync_tp_size > 0)
-        session->sync_thread_pool_size = sync_tp_size;
+        config_options->sync_thread_pool_size = sync_tp_size;
     else
-        session->sync_thread_pool_size = DEFAULT_THREAD_POOL_SIZE;
+        config_options->sync_thread_pool_size = DEFAULT_THREAD_POOL_SIZE;
+
 
     return 0;
 }
@@ -435,6 +457,7 @@ schedule_create_system_default_repo (SeafileSession *session)
 {
     int db_type = seaf_db_type (session->db);
     char *sql;
+    ConfigOptions *config_options = session->config_options;
 
     if (db_type == SEAF_DB_TYPE_MYSQL)
         sql = "CREATE TABLE IF NOT EXISTS SystemInfo "
@@ -444,7 +467,7 @@ schedule_create_system_default_repo (SeafileSession *session)
         sql = "CREATE TABLE IF NOT EXISTS SystemInfo( "
         "info_key VARCHAR(256), info_value VARCHAR(1024))";
 
-    if ((session->create_tables || db_type == SEAF_DB_TYPE_PGSQL)
+    if ((config_options->create_tables || db_type == SEAF_DB_TYPE_PGSQL)
         && seaf_db_query (session->db, sql) < 0)
         return;
 

@@ -91,6 +91,7 @@ add_file_to_archive (PackDirData *data,
     char *dec_out = NULL;
     int dec_out_len = -1;
     int ret = 0;
+    ConfigOptions *config_options = seaf->config_options;
 
     pathname = g_build_filename (top_dir_name, parent_dir, dent->name, NULL);
 
@@ -105,13 +106,13 @@ add_file_to_archive (PackDirData *data,
     entry = archive_entry_new ();
 
     /* File name fixup for WinRAR */
-    if (is_windows && seaf->http_server->windows_encoding) {
+    if (is_windows && config_options->windows_encoding) {
         char *win_file_name = do_iconv ("UTF-8",
-                                        seaf->http_server->windows_encoding,
+                                        config_options->windows_encoding,
                                         pathname);
         if (!win_file_name) {
             seaf_warning ("Failed to convert file name to %s\n",
-                          seaf->http_server->windows_encoding);
+                          config_options->windows_encoding);
             ret = -1;
             goto out;
         }
@@ -281,6 +282,7 @@ archive_dir (PackDirData *data,
     GList *ptr;
     char *subpath = NULL;
     int ret = 0;
+    ConfigOptions *config_options = seaf->config_options;
 
     dir = seaf_fs_manager_get_seafdir (seaf->fs_mgr,
                                        data->store_id, data->repo_version,
@@ -294,13 +296,13 @@ archive_dir (PackDirData *data,
         struct archive_entry *entry = archive_entry_new ();
         gboolean is_windows = data->is_windows;
 
-        if (is_windows && seaf->http_server->windows_encoding) {
+        if (is_windows && config_options->windows_encoding) {
             char *win_file_name = do_iconv ("UTF-8",
-                    seaf->http_server->windows_encoding,
+                    config_options->windows_encoding,
                     pathname);
             if (!win_file_name) {
                 seaf_warning ("Failed to convert file name to %s\n",
-                              seaf->http_server->windows_encoding);
+                              config_options->windows_encoding);
                 ret = -1;
                 goto out;
             }
@@ -373,9 +375,10 @@ pack_dir_data_new (const char *store_id,
     char *tmpfile_name = NULL ;
     int fd = -1;
     PackDirData *data = NULL;
+    ConfigOptions *config_options = seaf->config_options;
 
     tmpfile_name = g_strdup_printf ("%s/seafile-XXXXXX.zip",
-                                    seaf->http_server->http_temp_dir);
+                                    config_options->http_temp_dir);
     fd = g_mkstemp (tmpfile_name);
     if (fd < 0) {
         seaf_warning ("Failed to open temp file: %s.\n", strerror (errno));

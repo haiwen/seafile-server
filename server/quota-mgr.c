@@ -63,14 +63,16 @@ out:
 SeafQuotaManager *
 seaf_quota_manager_new (struct _SeafileSession *session)
 {
+    ConfigOptions *config_options = session->config_options;
+
     SeafQuotaManager *mgr = g_new0 (SeafQuotaManager, 1);
     if (!mgr)
         return NULL;
     mgr->session = session;
 
-    mgr->calc_share_usage = g_key_file_get_boolean (session->config,
-                                                    "quota", "calc_share_usage",
-                                                    NULL);
+    config_options->calc_share_usage = g_key_file_get_boolean (session->config,
+                                                               "quota", "calc_share_usage",
+                                                               NULL);
 
     return mgr;
 }
@@ -78,8 +80,9 @@ seaf_quota_manager_new (struct _SeafileSession *session)
 int
 seaf_quota_manager_init (SeafQuotaManager *mgr)
 {
+    ConfigOptions *config_options = seaf->config_options;
 
-    if (!mgr->session->create_tables && seaf_db_type (mgr->session->db) != SEAF_DB_TYPE_PGSQL)
+    if (!config_options->create_tables && seaf_db_type (mgr->session->db) != SEAF_DB_TYPE_PGSQL)
         return 0;
 
     SeafDB *db = mgr->session->db;

@@ -26,7 +26,9 @@ seaf_share_manager_new (SeafileSession *seaf)
 int
 seaf_share_manager_start (SeafShareManager *mgr)
 {
-    if (!mgr->seaf->create_tables && seaf_db_type (mgr->seaf->db) != SEAF_DB_TYPE_PGSQL)
+    ConfigOptions *config_options = seaf->config_options;
+
+    if (!config_options->create_tables && seaf_db_type (mgr->seaf->db) != SEAF_DB_TYPE_PGSQL)
         return 0;
 
     SeafDB *db = mgr->seaf->db;

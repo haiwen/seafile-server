@@ -1121,8 +1121,8 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
     GError *error = NULL;
     int tmp_fd = -1;
     int ret = 0;
-    HttpServerStruct *htp_server = seaf->http_server;
-    int cluster_shared_temp_file_mode = htp_server->cluster_shared_temp_file_mode;
+    ConfigOptions *config_options = seaf->config_options;
+    int cluster_shared_temp_file_mode = config_options->cluster_shared_temp_file_mode;
 
     abs_path = g_build_path ("/", parent_dir, file_name, NULL);
 
@@ -1138,7 +1138,8 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
 
     if (!temp_file) {
         temp_file = g_strdup_printf ("%s/cluster-shared/%sXXXXXX",
-                                     seaf->http_server->http_temp_dir,
+                                     config_options->http_temp_dir,
+
                                      file_name);
         tmp_fd = g_mkstemp_full (temp_file, O_RDWR, cluster_shared_temp_file_mode);
         if (tmp_fd < 0) {
@@ -2235,9 +2236,11 @@ open_temp_file (RecvFSM *fsm)
 {
     GString *temp_file = g_string_new (NULL);
     char *base_name = get_basename(fsm->file_name);
+    ConfigOptions *config_options = seaf->config_options;
 
     g_string_printf (temp_file, "%s/%sXXXXXX",
-                     seaf->http_server->http_temp_dir, base_name);
+                     config_options->http_temp_dir, base_name);
+
     g_free (base_name);
 
     fsm->fd = g_mkstemp (temp_file->str);

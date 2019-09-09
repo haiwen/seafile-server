@@ -36,6 +36,7 @@ SeafCopyManager *
 seaf_copy_manager_new (struct _SeafileSession *session)
 {
     SeafCopyManager *mgr = g_new0 (SeafCopyManager, 1);
+    ConfigOptions *config_options = session->config_options;
 
     mgr->session = session;
     mgr->priv = g_new0 (struct _SeafCopyManagerPriv, 1);
@@ -44,12 +45,12 @@ seaf_copy_manager_new (struct _SeafileSession *session)
                                                    (GDestroyNotify)copy_task_free);
     pthread_mutex_init (&mgr->priv->lock, NULL);
 
-    mgr->max_files = g_key_file_get_int64 (session->config,
-                                           "web_copy", "max_files", NULL);
-    mgr->max_size = g_key_file_get_int64 (session->config,
-                                          "web_copy", "max_size", NULL);
+    config_options->max_files = g_key_file_get_int64 (session->config,
+                                                      "web_copy", "max_files", NULL);
+    config_options->max_size = g_key_file_get_int64 (session->config,
+                                                     "web_copy", "max_size", NULL);
     /* size is given in MB */
-    mgr->max_size <<= 20;
+    config_options->max_size <<= 20;
 
     return mgr;
 }

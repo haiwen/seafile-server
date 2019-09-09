@@ -16,9 +16,6 @@ struct _SeafileCopyTask;
 struct _SeafCopyManager {
     struct _SeafileSession *session;
     struct _SeafCopyManagerPriv *priv;
-
-    gint64 max_files;
-    gint64 max_size;
 };
 typedef struct _SeafCopyManager SeafCopyManager;
 typedef struct _SeafCopyManagerPriv SeafCopyManagerPriv;

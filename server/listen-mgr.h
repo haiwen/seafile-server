@@ -24,7 +24,6 @@ typedef struct _SeafListenManager       SeafListenManager;
 typedef struct _SeafListenManagerPriv   SeafListenManagerPriv;
 
 struct _SeafListenManager {
-    int port;
     SeafListenManagerPriv *priv;
 };
 

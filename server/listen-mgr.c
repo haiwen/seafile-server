@@ -73,7 +73,8 @@ seaf_listen_manager_new (SeafileSession *session)
 {
     SeafListenManager *mgr;
     mgr = g_new0 (SeafListenManager, 1);
-    mgr->port = get_listen_port(session);
+    ConfigOptions *config_options = session->config_options;
+    config_options->port = get_listen_port(session);
 
     mgr->priv = g_new0 (SeafListenManagerPriv, 1);
     mgr->priv->token_hash = g_hash_table_new_full (
@@ -88,14 +89,15 @@ seaf_listen_manager_start (SeafListenManager *mgr)
     evutil_socket_t listenfd;
     unsigned flags;
     SeafListenManagerPriv *priv = mgr->priv;
+    ConfigOptions *config_options = seaf->config_options;
 
-    if (mgr->port == 0) {
+    if (config_options->port == 0) {
         return 0;
     }
 
-    listenfd = ccnet_net_bind_tcp (mgr->port, 1);
+    listenfd = ccnet_net_bind_tcp (config_options->port, 1);
     if (listenfd < 0) {
-        seaf_warning ("[listen mgr] failed to bind port %d\n", mgr->port);
+        seaf_warning ("[listen mgr] failed to bind port %d\n", config_options->port);
         return -1;
     }
 
@@ -117,7 +119,7 @@ seaf_listen_manager_start (SeafListenManager *mgr)
     priv->check_timer = ccnet_timer_new (token_expire_pulse, mgr,
                                          CHECK_EXPIRE_INTERVAL * 1000);
 
-    seaf_message ("listen on port %d for block tranfer\n", mgr->port);
+    seaf_message ("listen on port %d for block tranfer\n", config_options->port);
     return 0;
 }
 

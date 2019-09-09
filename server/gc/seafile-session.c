@@ -12,6 +12,15 @@
 
 #include "log.h"
 
+static void
+seafile_session_free (SeafileSession *session)
+{
+    if (session) {
+        g_free (session->config_options);
+        g_free (session);
+    }
+}
+
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
@@ -103,6 +112,6 @@ onerror:
     free (abs_seafile_dir);
     g_free (tmp_file_dir);
     g_free (config_file_path);
-    g_free (session);
+    seafile_session_free (session);
     return NULL;    
 }

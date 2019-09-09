@@ -2268,9 +2268,10 @@ check_file_count_and_size (SeafRepo *repo, SeafDirent *dent, gint64 total_files,
 {
     gint64 total_file_size = 0;
     gint64 size = -1;
+    ConfigOptions *config_options = seaf->config_options;
 
-    if (seaf->copy_mgr->max_files > 0 &&
-        total_files > seaf->copy_mgr->max_files) {
+    if (config_options->max_files > 0 &&
+        total_files > config_options->max_files) {
         *err_str = COPY_ERR_TOO_MANY_FILES;
         seaf_warning("Failed to copy/move file from repo %.8s: Too many files\n", repo->id);
         return FALSE;
@@ -2303,8 +2304,8 @@ check_file_count_and_size (SeafRepo *repo, SeafDirent *dent, gint64 total_files,
         total_file_size = *total_size_all;
     }
 
-    if (seaf->copy_mgr->max_size > 0) {
-        if (total_file_size > seaf->copy_mgr->max_size) {
+    if (config_options->max_size > 0) {
+        if (total_file_size > config_options->max_size) {
             *err_str = COPY_ERR_SIZE_TOO_LARGE;
             seaf_warning("Failed to copy/move file from repo %.8s: "
                          "Folder or file size is too large.\n", repo->id);

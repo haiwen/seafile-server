@@ -195,6 +195,7 @@ load_database_config (SeafileSession *session)
     GError *error = NULL;
     int ret = 0;
     gboolean create_tables = FALSE;
+    ConfigOptions *config_options = session->config_options;
 
     type = seaf_key_file_get_string (session->config, "database", "type", &error);
     /* Default to use sqlite if not set. */
@@ -219,7 +220,7 @@ load_database_config (SeafileSession *session)
         if (g_key_file_has_key (session->config, "database", "create_tables", NULL))
             create_tables = g_key_file_get_boolean (session->config,
                                                     "database", "create_tables", NULL);
-        session->create_tables = create_tables;
+        config_options->create_tables = create_tables;
     }
 
     g_free (type);

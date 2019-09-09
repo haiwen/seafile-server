@@ -36,8 +36,34 @@
 
 struct _CcnetClient;
 
+typedef struct _ConfigOptions ConfigOptions;
 typedef struct _SeafileSession SeafileSession;
 
+struct _ConfigOptions {
+    /* database config */
+    gboolean create_tables;
+    /* thread pool size config */
+    int rpc_thread_pool_size;
+    int sync_thread_pool_size;
+    /* quota config */
+    gboolean calc_share_usage;
+    /* network config */
+    int port;
+    /* web copy config */
+    gint64 max_files;
+    gint64 max_size;
+    /* fileserver config */
+    char *http_temp_dir;  /* temp dir for file upload */
+    char *bind_addr;
+    int bind_port;
+    int worker_threads;
+    gint64 fixed_block_size;
+    int web_token_expire_time;
+    int max_indexing_threads;
+    int max_index_processing_threads;
+    int cluster_shared_temp_file_mode;
+    char *windows_encoding;
+};
 
 struct _SeafileSession {
     struct _CcnetClient *session;
@@ -85,14 +111,11 @@ struct _SeafileSession {
 
     int                  cloud_mode;
 
-    int                  rpc_thread_pool_size;
-    int                  sync_thread_pool_size;
-
     HttpServerStruct    *http_server;
     ZipDownloadMgr      *zip_download_mgr;
     IndexBlksMgr        *index_blocks_mgr;
 
-    gboolean create_tables;
+    ConfigOptions *config_options;
 };
 
 extern SeafileSession *seaf;

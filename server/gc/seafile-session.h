@@ -15,7 +15,13 @@
 
 struct _CcnetClient;
 
+typedef struct _ConfigOptions ConfigOptions;
 typedef struct _SeafileSession SeafileSession;
+
+struct _ConfigOptions {
+    /* database config */
+    gboolean create_tables;
+};
 
 struct _SeafileSession {
     struct _CcnetClient *session;
@@ -33,7 +39,7 @@ struct _SeafileSession {
     SeafRepoManager     *repo_mgr;
     SeafCfgManager      *cfg_mgr;
 
-    gboolean create_tables;
+    ConfigOptions       *config_options;
 };
 
 extern SeafileSession *seaf;

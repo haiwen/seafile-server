@@ -14,9 +14,15 @@
 
 struct _CcnetClient;
 
+typedef struct _ConfigOptions ConfigOptions;
 typedef struct _SeafileSession SeafileSession;
 
 struct CcnetClientPool;
+
+struct _ConfigOptions {
+    /* database config */
+    gboolean create_tables;
+};
 
 struct _SeafileSession {
     struct _CcnetClient *session;
@@ -37,7 +43,7 @@ struct _SeafileSession {
 
     GHashTable          *excluded_users;
 
-    gboolean create_tables;
+    ConfigOptions       *config_options;
 };
 
 extern SeafileSession *seaf;
