@@ -640,7 +640,7 @@ static void start_rpc_service (const char *seafile_dir)
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_pop_event,
                                      "pop_event",
-                                     searpc_signature_string__string());
+                                     searpc_signature_json__string());
 
                                      
     searpc_server_register_function ("seafserv-threaded-rpcserver",
