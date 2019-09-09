@@ -63,10 +63,8 @@ json_t *
 seaf_mq_manager_pop_event (SeafMqManager *mgr, const char *channel)
 {
     GAsyncQueue *async_queue = g_hash_table_lookup (mgr->priv->chans, channel);
-    if (!async_queue) {
-        seaf_warning ("Unkonwn message channel %s.\n", channel);
+    if (!async_queue)
         return NULL;
-    }
 
     return g_async_queue_try_pop (async_queue);
 }
