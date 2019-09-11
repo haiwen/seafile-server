@@ -29,10 +29,6 @@
 #define CONNECT_INTERVAL_MSEC 10 * 1000
 
 #define DEFAULT_THREAD_POOL_SIZE 500
-#define DEFAULT_RPC_THREAD_POOL_SIZE 10
-
-static int
-load_thread_pool_config (SeafileSession *session);
 
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
@@ -99,12 +95,6 @@ seafile_session_new(const char *central_config_dir,
     session->cfg_mgr = seaf_cfg_manager_new (session);
     if (!session->cfg_mgr)
         goto onerror;
-
-    if (load_thread_pool_config (session) < 0) {
-        seaf_warning ("Failed to load thread pool config.\n");
-        goto onerror;
-    }
-
     session->fs_mgr = seaf_fs_manager_new (session, abs_seafile_dir);
     if (!session->fs_mgr)
         goto onerror;
@@ -141,7 +131,7 @@ seafile_session_new(const char *central_config_dir,
     if (!session->copy_mgr)
         goto onerror;
 
-    session->job_mgr = ccnet_job_manager_new (session->sync_thread_pool_size);
+    session->job_mgr = ccnet_job_manager_new (DEFAULT_THREAD_POOL_SIZE);
 
     session->size_sched = size_scheduler_new (session);
 
@@ -235,31 +225,6 @@ seafile_session_start (SeafileSession *session)
         seaf_warning ("Failed to start http server thread.\n");
         return -1;
     }
-
-    return 0;
-}
-
-static int
-load_thread_pool_config (SeafileSession *session)
-{
-    int rpc_tp_size, sync_tp_size;
-
-    rpc_tp_size = g_key_file_get_integer (session->config,
-                                          "thread pool size", "rpc",
-                                          NULL);
-    sync_tp_size = g_key_file_get_integer (session->config,
-                                           "thread pool size", "sync",
-                                           NULL);
-
-    if (rpc_tp_size > 0)
-        session->rpc_thread_pool_size = rpc_tp_size;
-    else
-        session->rpc_thread_pool_size = DEFAULT_RPC_THREAD_POOL_SIZE;
-
-    if (sync_tp_size > 0)
-        session->sync_thread_pool_size = sync_tp_size;
-    else
-        session->sync_thread_pool_size = DEFAULT_THREAD_POOL_SIZE;
 
     return 0;
 }

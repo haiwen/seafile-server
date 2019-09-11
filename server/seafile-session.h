@@ -64,9 +64,6 @@ struct _SeafileSession {
 
     int                  cloud_mode;
 
-    int                  rpc_thread_pool_size;
-    int                  sync_thread_pool_size;
-
     HttpServerStruct    *http_server;
     ZipDownloadMgr      *zip_download_mgr;
     IndexBlksMgr        *index_blocks_mgr;
