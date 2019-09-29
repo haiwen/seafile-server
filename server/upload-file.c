@@ -28,6 +28,7 @@
 #include "http-server.h"
 
 #include "seafile-error.h"
+#include "fileserver-config.h"
 
 enum RecvState {
     RECV_INIT,
@@ -959,8 +960,10 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
     GError *error = NULL;
     int tmp_fd = -1;
     int ret = 0;
-    HttpServerStruct *htp_server = seaf->http_server;
-    int cluster_shared_temp_file_mode = htp_server->cluster_shared_temp_file_mode;
+    char *cluster_shared_temp_file_mode_str = fileserver_config_get_string (seaf->cfg_mgr,
+                                                                            seaf->config,
+                                                                            "fixed_block_size");
+    int cluster_shared_temp_file_mode = strtol(cluster_shared_temp_file_mode_str, NULL, 8);
 
     abs_path = g_build_path ("/", parent_dir, file_name, NULL);
 

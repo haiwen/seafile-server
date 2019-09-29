@@ -13,6 +13,7 @@
 #include "utils.h"
 
 #include "log.h"
+#include "fileserver-config.h"
 
 #define CLEANING_INTERVAL_MSEC 1000*300	/* 5 minutes */
 #define TOKEN_EXPIRE_TIME 3600	        /* 1 hour */
@@ -136,6 +137,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
     long expire;
     char *t;
     SeafileWebAccess *webaccess;
+    int web_token_expire_time = fileserver_config_get_integer (seaf->cfg_mgr, seaf->config, "web_token_expire_time");
 
     if (strcmp(op, "view") != 0 &&
         strcmp(op, "download") != 0 &&
@@ -160,7 +162,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
     pthread_mutex_lock (&mgr->priv->lock);
 
     t = gen_new_token (mgr->priv->access_token_hash);
-    expire = now + seaf->http_server->web_token_expire_time;
+    expire = now + web_token_expire_time;
 
     info = g_new0 (AccessInfo, 1);
     info->repo_id = g_strdup (repo_id);

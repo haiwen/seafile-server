@@ -18,6 +18,7 @@
 #include "seafile-error.h"
 #include "seafile-crypt.h"
 #include "index-blocks-mgr.h"
+#include "fileserver-config.h"
 
 #define TOKEN_LEN 36
 #define PROGRESS_TTL 5 * 3600 // 5 hours
@@ -71,10 +72,13 @@ index_blocks_mgr_new (SeafileSession *session)
     GError *error = NULL;
     IndexBlksMgr *mgr = g_new0 (IndexBlksMgr, 1);
     IndexBlksMgrPriv *priv = g_new0 (IndexBlksMgrPriv, 1);
+    int max_index_processing_threads = fileserver_config_get_integer (session->cfg_mgr,
+                                                                      session->config,
+                                                                      "max_index_processing_threads");
 
     priv->idx_tpool = g_thread_pool_new (start_index_task,
                                          priv,
-                                         session->http_server->max_index_processing_threads,
+                                         max_index_processing_threads,
                                          FALSE, &error);
     if (!priv->idx_tpool) {
         if (error) {

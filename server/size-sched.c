@@ -52,10 +52,7 @@ size_scheduler_new (SeafileSession *session)
 
     sched->seaf = session;
 
-    sched_thread_num = g_key_file_get_integer (session->config, "scheduler", "size_sched_thread_num", NULL);
-
-    if (sched_thread_num == 0)
-        sched_thread_num = DEFAULT_SCHEDULE_THREAD_NUMBER;
+    sched_thread_num = seaf_cfg_manager_get_config_int (session->cfg_mgr, "scheduler", "size_sched_thread_num");
 
     sched->priv->compute_repo_size_thread_pool = g_thread_pool_new (compute_task, NULL,
                                                                     sched_thread_num, FALSE, &error);

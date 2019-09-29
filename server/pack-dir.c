@@ -91,6 +91,7 @@ add_file_to_archive (PackDirData *data,
     char *dec_out = NULL;
     int dec_out_len = -1;
     int ret = 0;
+    char *windows_encoding = NULL;
 
     pathname = g_build_filename (top_dir_name, parent_dir, dent->name, NULL);
 
@@ -105,13 +106,14 @@ add_file_to_archive (PackDirData *data,
     entry = archive_entry_new ();
 
     /* File name fixup for WinRAR */
-    if (is_windows && seaf->http_server->windows_encoding) {
+    windows_encoding = seaf_cfg_manager_get_config_string (seaf->cfg_mgr, "zip", "windows_encoding");
+    if (is_windows && windows_encoding) {
         char *win_file_name = do_iconv ("UTF-8",
-                                        seaf->http_server->windows_encoding,
+                                        windows_encoding,
                                         pathname);
         if (!win_file_name) {
             seaf_warning ("Failed to convert file name to %s\n",
-                          seaf->http_server->windows_encoding);
+                          windows_encoding);
             ret = -1;
             goto out;
         }
@@ -281,6 +283,7 @@ archive_dir (PackDirData *data,
     GList *ptr;
     char *subpath = NULL;
     int ret = 0;
+    char *windows_encoding = NULL;
 
     dir = seaf_fs_manager_get_seafdir (seaf->fs_mgr,
                                        data->store_id, data->repo_version,
@@ -294,13 +297,14 @@ archive_dir (PackDirData *data,
         struct archive_entry *entry = archive_entry_new ();
         gboolean is_windows = data->is_windows;
 
-        if (is_windows && seaf->http_server->windows_encoding) {
+        windows_encoding = seaf_cfg_manager_get_config_string (seaf->cfg_mgr, "zip", "windows_encoding");
+        if (is_windows && windows_encoding) {
             char *win_file_name = do_iconv ("UTF-8",
-                    seaf->http_server->windows_encoding,
+                    windows_encoding,
                     pathname);
             if (!win_file_name) {
                 seaf_warning ("Failed to convert file name to %s\n",
-                              seaf->http_server->windows_encoding);
+                              windows_encoding);
                 ret = -1;
                 goto out;
             }

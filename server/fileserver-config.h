@@ -4,12 +4,12 @@
 struct GKeyFile;
 
 int
-fileserver_config_get_integer(GKeyFile *config, char *key, GError **error);
+fileserver_config_get_integer(SeafCfgManager *mgr, GKeyFile *config, char *key);
 
 char *
-fileserver_config_get_string(GKeyFile *config, char *key, GError **error);
+fileserver_config_get_string(SeafCfgManager *mgr, GKeyFile *config, char *key);
 
 gboolean
-fileserver_config_get_boolean(GKeyFile *config, char *key, GError **error);
+fileserver_config_get_boolean(SeafCfgManager *mgr, GKeyFile *config, char *key);
 
 #endif // SEAFILE_FILESERVER_CONFIG_H

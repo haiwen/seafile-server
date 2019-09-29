@@ -295,16 +295,9 @@ scan_trash (void *data)
 static void
 init_scan_trash_timer (SeafRepoManagerPriv *priv, GKeyFile *config)
 {
-    int scan_days;
-    GError *error = NULL;
-
-    scan_days = g_key_file_get_integer (config,
-                                        "library_trash", "scan_days",
-                                        &error);
-    if (error) {
-       scan_days = SCAN_TRASH_DAYS;
-       g_clear_error (&error);
-    }
+    int scan_days = seaf_cfg_manager_get_config_int (seaf->cfg_mgr,
+                                                     "library_trash",
+                                                     "scan_days");
 
     priv->scan_trash_timer = ccnet_timer_new (scan_trash, NULL,
                                               scan_days * 24 * 3600 * 1000);

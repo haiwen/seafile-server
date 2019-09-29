@@ -74,6 +74,10 @@ seafile_session_new(const char *central_config_dir,
         goto onerror;
     }
 
+    session->cfg_mgr = seaf_cfg_manager_new (session);
+    if (!session->cfg_mgr)
+        goto onerror;
+
     if (read_excluded_users (session) < 0) {
         seaf_warning ("Failed to load excluded users.\n");
         goto onerror;
@@ -111,7 +115,7 @@ read_excluded_users (SeafileSession *session)
     int l, i;
     char *hash_value;
 
-    users = seaf_key_file_get_string (session->config, "fuse", "excluded_users", NULL);
+    users = seaf_cfg_manager_get_config_string (session->cfg_mgr, "fuse", "excluded_users");
     if (!users)
         return 0;
 
@@ -146,6 +150,12 @@ seafile_session_init (SeafileSession *session)
 
     if (seaf_repo_manager_init (session->repo_mgr) < 0)
         return -1;
+
+    if ((session->create_tables || seaf_db_type(session->db) == SEAF_DB_TYPE_PGSQL)
+        && seaf_cfg_manager_init (session->cfg_mgr) < 0) {
+        seaf_warning ("Failed to init config manager.\n");
+        return -1;
+    }
 
     return 0;
 }

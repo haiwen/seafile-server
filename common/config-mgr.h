@@ -7,6 +7,7 @@ typedef struct _SeafCfgManager SeafCfgManager;
 struct _SeafCfgManager {
     GKeyFile *config;
     SeafDB *db;
+    GHashTable *config_cache;
 };
 
 typedef struct _SeafileSession SeafileSession;

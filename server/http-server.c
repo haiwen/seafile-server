@@ -117,155 +117,6 @@ const char *POST_RECV_FS_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\
 const char *POST_PACK_FS_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/pack-fs";
 const char *GET_BLOCK_MAP_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/block-map/[\\da-z]{40}";
 
-static void
-load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
-{
-    GError *error = NULL;
-    char *host = NULL;
-    int port = 0;
-    int worker_threads;
-    int web_token_expire_time;
-    int fixed_block_size_mb;
-    char *encoding;
-    int max_indexing_threads;
-    int max_index_processing_threads;
-    char *cluster_shared_temp_file_mode = NULL;
-
-    host = fileserver_config_get_string (session->config, HOST, &error);
-    if (!error) {
-        htp_server->bind_addr = host;
-    } else {
-        if (error->code != G_KEY_FILE_ERROR_KEY_NOT_FOUND &&
-            error->code != G_KEY_FILE_ERROR_GROUP_NOT_FOUND) {
-            seaf_warning ("[conf] Error: failed to read the value of 'host'\n");
-            exit (1);
-        }
-
-        htp_server->bind_addr = g_strdup (DEFAULT_BIND_HOST);
-        g_clear_error (&error);
-    }
-
-    port = fileserver_config_get_integer (session->config, PORT, &error);
-    if (!error) {
-        htp_server->bind_port = port;
-    } else {
-        if (error->code != G_KEY_FILE_ERROR_KEY_NOT_FOUND &&
-            error->code != G_KEY_FILE_ERROR_GROUP_NOT_FOUND) {
-            seaf_warning ("[conf] Error: failed to read the value of 'port'\n");
-            exit (1);
-        }
-
-        htp_server->bind_port = DEFAULT_BIND_PORT;
-        g_clear_error (&error);
-    }
-
-    worker_threads = fileserver_config_get_integer (session->config, "worker_threads",
-                                                    &error);
-    if (error) {
-        htp_server->worker_threads = DEFAULT_WORKER_THREADS;
-        g_clear_error (&error);
-    } else {
-        if (worker_threads <= 0)
-            htp_server->worker_threads = DEFAULT_WORKER_THREADS;
-        else
-            htp_server->worker_threads = worker_threads;
-    }
-    seaf_message ("fileserver: worker_threads = %d\n", htp_server->worker_threads);
-
-    fixed_block_size_mb = fileserver_config_get_integer (session->config,
-                                                  "fixed_block_size",
-                                                  &error);
-    if (error){
-        htp_server->fixed_block_size = DEFAULT_FIXED_BLOCK_SIZE;
-        g_clear_error(&error);
-    } else {
-        if (fixed_block_size_mb <= 0)
-            htp_server->fixed_block_size = DEFAULT_FIXED_BLOCK_SIZE;
-        else
-            htp_server->fixed_block_size = fixed_block_size_mb * ((gint64)1 << 20);
-    }
-    seaf_message ("fileserver: fixed_block_size = %"G_GINT64_FORMAT"\n",
-                  htp_server->fixed_block_size);
-
-    web_token_expire_time = fileserver_config_get_integer (session->config,
-                                                "web_token_expire_time",
-                                                &error);
-    if (error){
-        htp_server->web_token_expire_time = 3600; /* default 3600s */
-        g_clear_error(&error);
-    } else {
-        if (web_token_expire_time <= 0)
-            htp_server->web_token_expire_time = 3600; /* default 3600s */
-        else
-            htp_server->web_token_expire_time = web_token_expire_time;
-    }
-    seaf_message ("fileserver: web_token_expire_time = %d\n",
-                  htp_server->web_token_expire_time);
-
-    max_indexing_threads = fileserver_config_get_integer (session->config,
-                                                          "max_indexing_threads",
-                                                          &error);
-    if (error) {
-        htp_server->max_indexing_threads = DEFAULT_MAX_INDEXING_THREADS;
-        g_clear_error (&error);
-    } else {
-        if (max_indexing_threads <= 0)
-            htp_server->max_indexing_threads = DEFAULT_MAX_INDEXING_THREADS;
-        else
-            htp_server->max_indexing_threads = max_indexing_threads;
-    }
-    seaf_message ("fileserver: max_indexing_threads = %d\n",
-                  htp_server->max_indexing_threads);
-
-    max_index_processing_threads = fileserver_config_get_integer (session->config,
-                                                                  "max_index_processing_threads",
-                                                                  &error);
-    if (error) {
-        htp_server->max_index_processing_threads = DEFAULT_MAX_INDEX_PROCESSING_THREADS;
-        g_clear_error (&error);
-    } else {
-        if (max_index_processing_threads <= 0)
-            htp_server->max_index_processing_threads = DEFAULT_MAX_INDEX_PROCESSING_THREADS;
-        else
-            htp_server->max_index_processing_threads = max_index_processing_threads;
-    }
-    seaf_message ("fileserver: max_index_processing_threads= %d\n",
-                  htp_server->max_index_processing_threads);
-
-    cluster_shared_temp_file_mode = fileserver_config_get_string (session->config,
-                                                                  "cluster_shared_temp_file_mode",
-                                                                  &error);
-    if (error) {
-        htp_server->cluster_shared_temp_file_mode = DEFAULT_CLUSTER_SHARED_TEMP_FILE_MODE;
-        g_clear_error (&error);
-    } else {
-        if (!cluster_shared_temp_file_mode) {
-            htp_server->cluster_shared_temp_file_mode = DEFAULT_CLUSTER_SHARED_TEMP_FILE_MODE;
-        } else {
-            htp_server->cluster_shared_temp_file_mode = strtol(cluster_shared_temp_file_mode, NULL, 8);
-
-            if (htp_server->cluster_shared_temp_file_mode < 0001 ||
-                htp_server->cluster_shared_temp_file_mode > 0777)
-                htp_server->cluster_shared_temp_file_mode = DEFAULT_CLUSTER_SHARED_TEMP_FILE_MODE;
-
-            g_free (cluster_shared_temp_file_mode);
-        }
-    }
-    seaf_message ("fileserver: cluster_shared_temp_file_mode = %o\n",
-                  htp_server->cluster_shared_temp_file_mode);
-
-    encoding = g_key_file_get_string (session->config,
-                                      "zip", "windows_encoding",
-                                      &error);
-    if (encoding) {
-        htp_server->windows_encoding = encoding;
-    } else {
-        g_clear_error (&error);
-        /* No windows specific encoding is specified. Set the ZIP_UTF8 flag. */
-        setlocale (LC_ALL, "en_US.UTF-8");
-    }
-}
-
 static int
 validate_token (HttpServer *htp_server, evhtp_request_t *req,
                 const char *repo_id, char **username,
@@ -2213,20 +2064,23 @@ http_server_run (void *arg)
 {
     HttpServerStruct *server = arg;
     HttpServer *priv = server->priv;
+    char *bind_addr = fileserver_config_get_string (seaf->cfg_mgr, seaf->config, HOST);
+    int bind_port = fileserver_config_get_integer (seaf->cfg_mgr, seaf->config, PORT);
+    int worker_threads = fileserver_config_get_integer (seaf->cfg_mgr, seaf->config, "worker_threads");
 
     priv->evbase = event_base_new();
     priv->evhtp = evhtp_new(priv->evbase, NULL);
 
     if (evhtp_bind_socket(priv->evhtp,
-                          server->bind_addr,
-                          server->bind_port, 128) < 0) {
+                          bind_addr,
+                          bind_port, 128) < 0) {
         seaf_warning ("Could not bind socket: %s\n", strerror (errno));
         exit(-1);
     }
 
     http_request_init (server);
 
-    evhtp_use_threads (priv->evhtp, NULL, server->worker_threads, NULL);
+    evhtp_use_threads (priv->evhtp, NULL, worker_threads, NULL);
 
     struct timeval tv;
     tv.tv_sec = CLEANING_INTERVAL_SEC;
@@ -2251,8 +2105,6 @@ seaf_http_server_new (struct _SeafileSession *session)
 
     priv->evbase = NULL;
     priv->evhtp = NULL;
-
-    load_http_config (server, session);
 
     priv->token_cache = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                g_free, token_cache_value_free);
