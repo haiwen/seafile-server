@@ -97,7 +97,14 @@ block_backend_fs_read_block (BlockBackend *bend,
                              BHandle *handle,
                              void *buf, int len)
 {
-    return (readn (handle->fd, buf, len));
+    int ret;
+
+    ret = readn (handle->fd, buf, len);
+    if (ret < 0)
+        seaf_warning ("Failed to read block %s:%s: %s.\n",
+                      handle->store_id, handle->block_id, strerror (errno));
+
+    return ret;
 }
 
 static int
@@ -105,7 +112,14 @@ block_backend_fs_write_block (BlockBackend *bend,
                                 BHandle *handle,
                                 const void *buf, int len)
 {
-    return (writen (handle->fd, buf, len));
+    int ret;
+
+    ret = writen (handle->fd, buf, len);
+    if (ret < 0)
+        seaf_warning ("Failed to write block %s:%s: %s.\n",
+                      handle->store_id, handle->block_id, strerror (errno));
+
+    return ret;
 }
 
 static int
