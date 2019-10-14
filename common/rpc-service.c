@@ -4336,6 +4336,12 @@ seafile_get_server_config_boolean (const char *group, const char *key, GError **
     return seaf_cfg_manager_get_config_boolean (seaf->cfg_mgr, group, key);
 }
 
+GList *
+seafile_list_config_options (GError **error)
+{
+    return NULL;
+}
+
 GObject *
 seafile_get_group_shared_repo_by_path (const char *repo_id,
                                        const char *path,

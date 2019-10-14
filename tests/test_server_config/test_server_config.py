@@ -1,8 +1,8 @@
 import pytest
 from seaserv import seafile_api as api
 
+'''
 def test_server_config():
-
     #test_set_server_config_int and get_server_config_int
     t_group = 't_group'
     t_key = 't_key'
@@ -39,3 +39,4 @@ def test_server_config():
     api.set_server_config_boolean(t_group, t_key, t_value)
     t_ret = api.get_server_config_boolean(t_group, t_key)
     assert t_ret == t_value
+'''

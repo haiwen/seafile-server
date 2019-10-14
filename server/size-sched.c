@@ -32,14 +32,10 @@ compute_task (void *data, void *user_data);
 static void*
 log_unprocessed_task_thread (void *arg);
 
-#define DEFAULT_SCHEDULE_THREAD_NUMBER 1;
-
 SizeScheduler *
 size_scheduler_new (SeafileSession *session)
 {
-    GError *error = NULL;
     SizeScheduler *sched = g_new0 (SizeScheduler, 1);
-    int sched_thread_num;
 
     if (!sched)
         return NULL;
@@ -52,14 +48,20 @@ size_scheduler_new (SeafileSession *session)
 
     sched->seaf = session;
 
-    sched_thread_num = g_key_file_get_integer (session->config, "scheduler", "size_sched_thread_num", NULL);
+    return sched;
+}
 
-    if (sched_thread_num == 0)
-        sched_thread_num = DEFAULT_SCHEDULE_THREAD_NUMBER;
+int
+size_scheduler_init (SizeScheduler *scheduler)
+{
+    GError *error = NULL;
+    int sched_thread_num;
 
-    sched->priv->compute_repo_size_thread_pool = g_thread_pool_new (compute_task, NULL,
-                                                                    sched_thread_num, FALSE, &error);
-    if (!sched->priv->compute_repo_size_thread_pool) {
+    sched_thread_num = seaf_cfg_manager_get_config_int (seaf->cfg_mgr, "scheduler", "size_sched_thread_num");
+
+    scheduler->priv->compute_repo_size_thread_pool = g_thread_pool_new (compute_task, NULL,
+                                                                        sched_thread_num, FALSE, &error);
+    if (!scheduler->priv->compute_repo_size_thread_pool) {
         if (error) {
             seaf_warning ("Failed to create compute repo size thread pool: %s.\n", error->message);
         } else {
@@ -67,12 +69,10 @@ size_scheduler_new (SeafileSession *session)
         }
 
         g_clear_error (&error);
-        g_free (sched->priv);
-        g_free (sched);
-        return NULL;
+        return -1;
     }
 
-    return sched;
+    return 0;
 }
 
 int

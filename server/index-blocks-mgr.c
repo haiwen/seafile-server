@@ -18,6 +18,7 @@
 #include "seafile-error.h"
 #include "seafile-crypt.h"
 #include "index-blocks-mgr.h"
+#include "config-mgr.h"
 
 #define TOKEN_LEN 36
 #define PROGRESS_TTL 5 * 3600 // 5 hours
@@ -68,25 +69,8 @@ free_progress (IdxProgress *progress)
 IndexBlksMgr *
 index_blocks_mgr_new (SeafileSession *session)
 {
-    GError *error = NULL;
     IndexBlksMgr *mgr = g_new0 (IndexBlksMgr, 1);
     IndexBlksMgrPriv *priv = g_new0 (IndexBlksMgrPriv, 1);
-
-    priv->idx_tpool = g_thread_pool_new (start_index_task,
-                                         priv,
-                                         session->http_server->max_index_processing_threads,
-                                         FALSE, &error);
-    if (!priv->idx_tpool) {
-        if (error) {
-            seaf_warning ("Failed to create index task thread pool: %s.\n", error->message);
-            g_clear_error (&error);
-        } else {
-            seaf_warning ("Failed to create index task thread pool.\n");
-        }
-        g_free (priv);
-        g_free (mgr);
-        return NULL;
-    }
 
     pthread_mutex_init (&priv->progress_lock, NULL);
     priv->progress_store = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
@@ -96,6 +80,34 @@ index_blocks_mgr_new (SeafileSession *session)
     mgr->priv = priv;
 
     return mgr;
+}
+
+int
+index_blocks_mgr_init (IndexBlksMgr *mgr)
+{
+    GError *error = NULL;
+    int max_index_processing_threads;
+    char *group = g_key_file_has_group (seaf->config, "fileserver") ? "fileserver" : "httpserver";
+
+    max_index_processing_threads = seaf_cfg_manager_get_config_int (seaf->cfg_mgr,
+                                                                    group,
+                                                                    "max_index_processing_threads");
+
+    mgr->priv->idx_tpool = g_thread_pool_new (start_index_task,
+                                              mgr->priv,
+                                              max_index_processing_threads,
+                                              FALSE, &error);
+    if (!mgr->priv->idx_tpool) {
+        if (error) {
+            seaf_warning ("Failed to create index task thread pool: %s.\n", error->message);
+            g_clear_error (&error);
+        } else {
+            seaf_warning ("Failed to create index task thread pool.\n");
+        }
+        return -1;
+    }
+
+    return 0;
 }
 
 static int

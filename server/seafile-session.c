@@ -83,10 +83,6 @@ seafile_session_new(const char *central_config_dir,
     session->tmp_file_dir = tmp_file_dir;
     session->config = config;
 
-    session->cloud_mode = g_key_file_get_boolean (config,
-                                                  "general", "cloud_mode",
-                                                  NULL);
-
     if (load_database_config (session) < 0) {
         seaf_warning ("Failed to load database config.\n");
         goto onerror;
@@ -95,6 +91,7 @@ seafile_session_new(const char *central_config_dir,
     session->cfg_mgr = seaf_cfg_manager_new (session);
     if (!session->cfg_mgr)
         goto onerror;
+
     session->fs_mgr = seaf_fs_manager_new (session, abs_seafile_dir);
     if (!session->fs_mgr)
         goto onerror;
@@ -134,6 +131,8 @@ seafile_session_new(const char *central_config_dir,
     session->job_mgr = ccnet_job_manager_new (DEFAULT_THREAD_POOL_SIZE);
 
     session->size_sched = size_scheduler_new (session);
+    if (!session->size_sched)
+        goto onerror;
 
     session->mq_mgr = seaf_mq_manager_new ();
     if (!session->mq_mgr)
@@ -163,6 +162,9 @@ onerror:
 int
 seafile_session_init (SeafileSession *session)
 {
+    if (seaf_cfg_manager_init (session->cfg_mgr) < 0)
+        return -1;
+
     if (seaf_commit_manager_init (session->commit_mgr) < 0)
         return -1;
 
@@ -184,9 +186,18 @@ seafile_session_init (SeafileSession *session)
         return -1;
     }
 
-    if ((session->create_tables || seaf_db_type(session->db) == SEAF_DB_TYPE_PGSQL)
-        && seaf_cfg_manager_init (session->cfg_mgr) < 0) {
-        seaf_warning ("Failed to init config manager.\n");
+    if (size_scheduler_init (session->size_sched) < 0) {
+        seaf_warning ("Failed to init size scheduler.\n");
+        return -1;
+    }
+
+    if (seaf_http_server_init () < 0) {
+        seaf_warning ("Falied to init http server.\n");
+        return -1;
+    }
+
+    if (index_blocks_mgr_init (session->index_blocks_mgr) < 0) {
+        seaf_warning ("Failed to init index blocks manager.\n");
         return -1;
     }
 

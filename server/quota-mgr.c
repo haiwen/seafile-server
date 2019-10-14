@@ -69,10 +69,6 @@ seaf_quota_manager_new (struct _SeafileSession *session)
         return NULL;
     mgr->session = session;
 
-    mgr->calc_share_usage = g_key_file_get_boolean (session->config,
-                                                    "quota", "calc_share_usage",
-                                                    NULL);
-
     return mgr;
 }
 

@@ -791,6 +791,9 @@ class SeafileAPI(object):
         i_value = 1 if bool(value) else 0
         return seafserv_threaded_rpc.set_server_config_boolean (group, key, i_value)
 
+    def list_config_options (self):
+        return seafserv_threaded_rpc.list_config_options()
+
     def del_org_group_repo(self, repo_id, org_id, group_id):
         seafserv_threaded_rpc.del_org_group_repo(repo_id, org_id, group_id)
 

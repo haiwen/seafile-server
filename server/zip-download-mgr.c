@@ -15,7 +15,6 @@
 #define MAX_ZIP_THREAD_NUM 5
 #define SCAN_PROGRESS_INTERVAL 24 * 3600 // 1 day
 #define PROGRESS_TTL 5 * 3600 // 5 hours
-#define DEFAULT_MAX_DOWNLOAD_DIR_SIZE 100 * ((gint64)1 << 20) /* 100MB */
 
 typedef struct ZipDownloadMgrPriv {
     pthread_mutex_t progress_lock;
@@ -443,10 +442,7 @@ validate_download_size (DownloadObj *obj, GError **error)
     /* default is MB */
     max_download_dir_size = seaf_cfg_manager_get_config_int64 (seaf->cfg_mgr, "fileserver",
                                                                "max_download_dir_size");
-    if (max_download_dir_size > 0)
-        max_download_dir_size = max_download_dir_size * ((gint64)1 << 20);
-    else
-        max_download_dir_size = DEFAULT_MAX_DOWNLOAD_DIR_SIZE;
+    max_download_dir_size = max_download_dir_size * ((gint64)1 << 20);
 
     if (download_size < 0) {
         seaf_warning ("Failed to get download size.\n");

@@ -34,7 +34,8 @@ seaf_fuse_SOURCES = seaf-fuse.c \
                     ../common/obj-store.c \
                     ../common/obj-backend-fs.c \
                     ../common/obj-backend-riak.c \
-                    ../common/seafile-crypt.c
+                    ../common/seafile-crypt.c \
+                    ../common/config-mgr.c
 
 seaf_fuse_LDADD = @CCNET_LIBS@ \
 		  @GLIB2_LIBS@ @GOBJECT_LIBS@ @SSL_LIBS@ @LIB_RT@ @LIB_UUID@ \

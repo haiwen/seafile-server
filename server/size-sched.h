@@ -15,6 +15,9 @@ SizeScheduler *
 size_scheduler_new (struct _SeafileSession *session);
 
 int
+size_scheduler_init (SizeScheduler *scheduler);
+
+int
 size_scheduler_start (SizeScheduler *scheduler);
 
 void

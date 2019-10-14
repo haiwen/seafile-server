@@ -28,6 +28,7 @@
 #include "http-server.h"
 
 #include "seafile-error.h"
+#include "config-mgr.h"
 
 enum RecvState {
     RECV_INIT,
@@ -190,6 +191,7 @@ check_tmp_file_list (GList *tmp_files, int *error_code)
     SeafStat st;
     gint64 total_size = 0;
     gint64 max_upload_size;
+    char *group = g_key_file_has_group (seaf->config, "fileserver") ? "fileserver" : "httpserver";
 
     for (ptr = tmp_files; ptr; ptr = ptr->next) {
         tmp_file = ptr->data;
@@ -203,12 +205,11 @@ check_tmp_file_list (GList *tmp_files, int *error_code)
         total_size += (gint64)st.st_size;
     }
     /* default is MB */
-    max_upload_size = seaf_cfg_manager_get_config_int64 (seaf->cfg_mgr, "fileserver",
+    max_upload_size = seaf_cfg_manager_get_config_int64 (seaf->cfg_mgr,
+                                                         group,
                                                          "max_upload_size");
     if (max_upload_size > 0)
         max_upload_size = max_upload_size * ((gint64)1 << 20);
-    else
-        max_upload_size = -1;
     
     if (max_upload_size > 0 && total_size > max_upload_size) {
         seaf_debug ("[upload] File size is too large.\n");
@@ -959,8 +960,12 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
     GError *error = NULL;
     int tmp_fd = -1;
     int ret = 0;
-    HttpServerStruct *htp_server = seaf->http_server;
-    int cluster_shared_temp_file_mode = htp_server->cluster_shared_temp_file_mode;
+    char *group = g_key_file_has_group (seaf->config, "fileserver") ? "fileserver" : "httpserver";
+
+    char *cluster_shared_temp_file_mode_str = seaf_cfg_manager_get_config_string (seaf->cfg_mgr,
+                                                                                  group,
+                                                                                  "cluster_shared_temp_file_mode");
+    int cluster_shared_temp_file_mode = strtol(cluster_shared_temp_file_mode_str, NULL, 8);
 
     abs_path = g_build_path ("/", parent_dir, file_name, NULL);
 
@@ -1033,6 +1038,7 @@ out:
     g_unlink (fsm->tmp_file);
     g_free (fsm->tmp_file);
     fsm->tmp_file = NULL;
+    g_free (cluster_shared_temp_file_mode_str);
 
     return ret;
 }

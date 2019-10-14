@@ -2,7 +2,7 @@
 
 #include <glib.h>
 
-#include "fileserver-config.h"
+#include "seafile-session.h"
 
 const char *OLD_GROUP_NAME = "httpserver";
 const char *GROUP_NAME = "fileserver";
@@ -14,22 +14,22 @@ get_group_name(GKeyFile *config)
 }
 
 int
-fileserver_config_get_integer(GKeyFile *config, char *key, GError **error)
+fileserver_config_get_integer(SeafCfgManager *mgr, GKeyFile *config, char *key)
 {
     const char *group = get_group_name(config);
-    return g_key_file_get_integer (config, group, key, error);
+    return seaf_cfg_manager_get_config_int (mgr, group, key);
 }
 
 char *
-fileserver_config_get_string(GKeyFile *config, char *key, GError **error)
+fileserver_config_get_string(SeafCfgManager *mgr, GKeyFile *config, char *key)
 {
     const char *group = get_group_name(config);
-    return g_key_file_get_string (config, group, key, error);
+    return seaf_cfg_manager_get_config_string (mgr, group, key);
 }
 
 gboolean
-fileserver_config_get_boolean(GKeyFile *config, char *key, GError **error)
+fileserver_config_get_boolean(SeafCfgManager *mgr, GKeyFile *config, char *key)
 {
     const char *group = get_group_name(config);
-    return g_key_file_get_boolean (config, group, key, error);
+    return seaf_cfg_manager_get_config_boolean (mgr, group, key);
 }

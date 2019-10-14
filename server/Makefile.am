@@ -29,7 +29,6 @@ noinst_HEADERS = web-accesstoken-mgr.h  seafile-session.h \
 	upload-file.h \
 	access-file.h \
 	pack-dir.h \
-	fileserver-config.h \
 	http-status-codes.h \
 	zip-download-mgr.h \
 	index-blocks-mgr.h

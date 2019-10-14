@@ -62,8 +62,6 @@ struct _SeafileSession {
 
     SizeScheduler       *size_sched;
 
-    int                  cloud_mode;
-
     HttpServerStruct    *http_server;
     ZipDownloadMgr      *zip_download_mgr;
     IndexBlksMgr        *index_blocks_mgr;

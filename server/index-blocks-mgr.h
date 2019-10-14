@@ -21,6 +21,9 @@ typedef struct IdxProgress {
 IndexBlksMgr *
 index_blocks_mgr_new (struct _SeafileSession *session);
 
+int
+index_blocks_mgr_init (IndexBlksMgr *mgr);
+
 char *
 index_blocks_mgr_query_progress (IndexBlksMgr *mgr,
                                  const char *token,
