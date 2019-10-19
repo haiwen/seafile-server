@@ -758,7 +758,7 @@ static void start_rpc_service (const char *seafile_dir)
                                      searpc_signature_int__string_string_int());
 
     pipe_path = g_build_path ("/", seafile_dir, SEAFILE_RPC_PIPE_NAME, NULL);
-    rpc_server = searpc_create_named_pipe_server(pipe_path, NAMED_PIPE_SERVER_THREAD_POOL_SIZE);
+    rpc_server = searpc_create_named_pipe_server_with_threadpool (pipe_path, NAMED_PIPE_SERVER_THREAD_POOL_SIZE);
 
     g_free(pipe_path);
     if (!rpc_server) {
