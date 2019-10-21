@@ -1562,6 +1562,8 @@ del_file_recursive(SeafRepo *repo,
 
         if (deleted_num == 0) {
             ret = g_strdup(olddir->dir_id);
+            if (newentries)
+                g_list_free_full (newentries, (GDestroyNotify)seaf_dirent_free);
             goto out;
         }
 
