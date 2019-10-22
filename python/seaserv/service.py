@@ -50,14 +50,9 @@ if config.has_option('General', 'SERVICE_URL'):
 
     SERVICE_URL = service_url
     CCNET_SERVER_ADDR = hostname
-    if config.has_option('Network', 'PORT'):
-        CCNET_SERVER_PORT = config.get('Network', 'PORT')
-    else:
-        CCNET_SERVER_PORT = 10001
 else:
     print("Warning: SERVICE_URL not set in ccnet.conf")
     CCNET_SERVER_ADDR = None
-    CCNET_SERVER_PORT = None
     SERVICE_URL = None
 
 if config.has_option('LDAP', 'HOST'):
@@ -65,7 +60,6 @@ if config.has_option('LDAP', 'HOST'):
 else:
     LDAP_HOST = None
 
-SERVER_ID = config.get('General', 'ID')
 config.read(os.path.join(SEAFILE_CENTRAL_CONF_DIR if SEAFILE_CENTRAL_CONF_DIR else SEAFILE_CONF_DIR,
                          'seafile.conf'))
 
