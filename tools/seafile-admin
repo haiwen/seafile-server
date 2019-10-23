@@ -47,11 +47,9 @@ SCRIPT_NAME = os.path.basename(sys.argv[0])
 PYTHON = sys.executable
 
 conf = {}
-CONF_SERVER_NAME = 'server_name'
 CONF_CCNET_DIR = 'ccnet_dir'
 CONF_SEAFILE_DIR = 'seafile_dir'
 CONF_SEAHUB_DIR = 'seafile_dir'
-CONF_CCNET_PORT = 'ccnet_port'
 CONF_SEAFILE_PORT = 'seafile_port'
 CONF_FILESERVER_PORT = 'fileserver_port'
 CONF_IP_OR_DOMAIN = 'ip_or_domain'
@@ -304,21 +302,6 @@ Press [ENTER] to continue
     print welcome_msg
     raw_input()
 
-
-def get_server_name():
-    def validate(name):
-        r = re.compile(r'^[\w]{3,15}$')
-        return bool(r.match(name))
-
-    question = 'What is the name of the server?'
-    key = 'server name'
-    note = '3 - 15 letters or digits'
-    conf[CONF_SERVER_NAME] = ask_question(question,
-                                          key=key,
-                                          note=note,
-                                          validate=validate)
-
-
 def get_server_ip_or_domain():
     def validate(s):
         r = r'^[^.].+\..+[^.]$'
@@ -350,24 +333,6 @@ def get_ccnet_conf_dir():
         conf[CONF_CCNET_CONF_EXISTS] = False
 
     conf[CONF_CCNET_DIR] = ccnet_conf_dir
-
-
-def get_ccnet_port():
-    def validate(s):
-        try:
-            port = int(s)
-        except ValueError:
-            return False
-
-        return port > 0 and port < 65536
-
-    question = 'Which port do you want to use for the ccnet server?'
-    key = 'ccnet server port'
-    default = '10001'
-    conf[CONF_CCNET_PORT] = ask_question(question,
-                                         key=key,
-                                         default=default,
-                                         validate=validate)
 
 
 def get_seafile_port():
@@ -568,9 +533,7 @@ def check_python_dependencies(silent=False):
 def config_ccnet_seafile():
     get_ccnet_conf_dir()
     if not conf[CONF_CCNET_CONF_EXISTS]:
-        get_server_name()
         get_server_ip_or_domain()
-        get_ccnet_port()
 
     get_seafile_data_dir()
     if not conf[CONF_SEAFILE_CONF_EXISTS]:
@@ -584,11 +547,8 @@ def config_ccnet_seafile():
              highlight(conf[CONF_CCNET_DIR]))
     else:
         info('ccnet conf dir:           %s' % highlight(conf[CONF_CCNET_DIR]))
-        info('server name:              %s' %
-             highlight(conf[CONF_SERVER_NAME]))
         info('server host:              %s' %
              highlight(conf[CONF_IP_OR_DOMAIN]))
-        info('ccnet port:               %s' % highlight(conf[CONF_CCNET_PORT]))
 
     if conf[CONF_SEAFILE_CONF_EXISTS]:
         info('seafile:             use existing config in %s' %
@@ -619,10 +579,6 @@ def init_ccnet_seafile():
             conf[CONF_SEAFILE_CENTRAL_CONF_DIR],
             '-c',
             conf[CONF_CCNET_DIR],
-            '--name',
-            conf[CONF_SERVER_NAME],
-            '--port',
-            conf[CONF_CCNET_PORT],
             '--host',
             conf[CONF_IP_OR_DOMAIN],
         ]

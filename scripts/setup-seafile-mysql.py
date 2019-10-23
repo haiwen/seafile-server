@@ -806,7 +806,6 @@ class CcnetConfigurator(AbstractConfigurator):
             ccnet_init,
             '-F', env_mgr.central_config_dir,
             '--config-dir', self.ccnet_dir,
-            '--name', self.server_name,
             '--host', self.ip_or_domain,
         ]
 
