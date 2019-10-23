@@ -56,8 +56,6 @@ class ServerCtl(object):
             self.central_conf_dir,
             '-c',
             self.ccnet_conf_dir,
-            '--name',
-            'test',
             '--host',
             'test.seafile.com',
         ]

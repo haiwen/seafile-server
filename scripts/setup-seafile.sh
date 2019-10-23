@@ -498,7 +498,6 @@ if [[ "${use_existing_ccnet}" != "true" ]]; then
     if ! LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH "${ccnet_init}" \
          -F "${default_conf_dir}" \
          -c "${default_ccnet_conf_dir}" \
-         --name "${server_name}" \
          --host "${ip_or_domain}"; then
         err_and_quit;
     fi

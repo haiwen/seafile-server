@@ -32,9 +32,9 @@ from .service import create_org, get_orgs_by_user, get_org_by_url_prefix, \
 from .service import get_related_users_by_repo, get_related_users_by_org_repo
 from .service import post_empty_file, del_file
 
-from .service import CCNET_CONF_PATH, CCNET_SERVER_ADDR, CCNET_SERVER_PORT, \
+from .service import CCNET_CONF_PATH, CCNET_SERVER_ADDR, \
     MAX_UPLOAD_FILE_SIZE, MAX_DOWNLOAD_DIR_SIZE, FILE_SERVER_ROOT, \
-    CALC_SHARE_USAGE, SERVICE_URL, FILE_SERVER_PORT, SERVER_ID, \
+    CALC_SHARE_USAGE, SERVICE_URL, FILE_SERVER_PORT, \
     SEAFILE_CENTRAL_CONF_DIR, LDAP_HOST
 
 from .service import send_message
