@@ -178,6 +178,8 @@ CREATE TABLE IF NOT EXISTS RepoInfo (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREME
   is_encrypted INTEGER,
   last_modifier VARCHAR(255),
   status INTEGER DEFAULT 0,
+  enc_version INTEGER,
+  salt CHAR(64),
   UNIQUE INDEX(repo_id)
 ) ENGINE=INNODB;
 

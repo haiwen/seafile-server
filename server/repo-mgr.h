@@ -861,7 +861,8 @@ seaf_repo_manager_update_repo_info (SeafRepoManager *mgr,
 
 int
 set_repo_commit_to_db (const char *repo_id, const char *repo_name, gint64 update_time,
-                       int version, gboolean is_encrypted, const char *last_modifier);
+                       int version, gboolean is_encrypted, const char *last_modifier,
+                       int enc_version, const char *salt);
 char *
 seaf_get_trash_repo_owner (const char *repo_id);
 
