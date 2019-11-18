@@ -91,6 +91,14 @@ def test_repo_manipulation():
     t_commit_list = api.get_commit_list(t_repo_id, t_offset, t_limit)
     assert t_commit_list and len(t_commit_list) == 1
 
+    #test search_repos_by_name
+    t_repo_list = api.search_repos_by_name (t_repo.name)
+    assert len (t_repo_list) == 1 and t_repo_list[0].id == t_repo_id
+    t_repo_list = api.search_repos_by_name (t_repo.name.upper())
+    assert len (t_repo_list) == 1 and t_repo_list[0].id == t_repo_id
+    t_repo_list = api.search_repos_by_name (t_repo.name.lower())
+    assert len (t_repo_list) == 1 and t_repo_list[0].id == t_repo_id
+
     #test remove_repo
     api.remove_repo(t_repo_id)
     t_repo = api.get_repo(t_repo_id)

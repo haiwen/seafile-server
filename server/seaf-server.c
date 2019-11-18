@@ -114,6 +114,10 @@ static void start_rpc_service (const char *seafile_dir)
                                      seafile_list_owned_repos,
                                      "seafile_list_owned_repos",
                                      searpc_signature_objlist__string_int_int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_search_repos_by_name,
+                                     "seafile_search_repos_by_name",
+                                     searpc_signature_objlist__string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_server_repo_size,

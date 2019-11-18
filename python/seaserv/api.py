@@ -136,6 +136,9 @@ class SeafileAPI(object):
                                                       1 if ret_corrupted else 0,
                                                       start, limit)
 
+    def search_repos_by_name(self, name):
+        return seafserv_threaded_rpc.search_repos_by_name(name)
+
     def get_orphan_repo_list(self):
         return seafserv_threaded_rpc.get_orphan_repo_list()
 
