@@ -66,6 +66,11 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     list_owned_repos = seafile_list_owned_repos
 
+    @searpc_func("objlist", ["string"])
+    def seafile_search_repos_by_name(name):
+        pass
+    search_repos_by_name = seafile_search_repos_by_name
+
     @searpc_func("int64", ["string"])
     def seafile_server_repo_size(repo_id):
         pass

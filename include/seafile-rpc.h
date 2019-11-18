@@ -449,6 +449,9 @@ GList *
 seafile_list_owned_repos (const char *email, int ret_corrupted, int start, int limit,
                           GError **error);
 
+GList *
+seafile_search_repos_by_name(const char *name, GError **error);
+
 /**
  * seafile_add_chunk_server:
  * @server: ID for the chunk server.

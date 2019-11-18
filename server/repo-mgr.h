@@ -603,6 +603,8 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                                       int ret_corrupted,
                                       int start,
                                       int limit);
+GList *
+seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name);
 
 GList *
 seaf_repo_manager_get_repo_ids_by_owner (SeafRepoManager *mgr,

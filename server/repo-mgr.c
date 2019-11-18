@@ -2351,6 +2351,58 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
 }
 
 GList *
+seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
+{
+    GList *repo_list = NULL;
+    char *sql = NULL;
+
+    char *db_patt = g_strdup_printf ("%%%s%%", name);
+
+    switch (seaf_db_type(seaf->db)) {
+    case SEAF_DB_TYPE_MYSQL:
+        sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+            "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+            "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+            "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+            "WHERE i.name COLLATE UTF8_GENERAL_CI LIKE ? AND "
+            "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+            "ORDER BY i.update_time DESC, i.repo_id";
+        break;
+    case SEAF_DB_TYPE_PGSQL:
+        sql = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
+            "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+            "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+            "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+            "WHERE i.name ILIKE ? AND "
+            "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+            "ORDER BY i.update_time DESC, i.repo_id";
+        break;
+    case SEAF_DB_TYPE_SQLITE:
+        sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+            "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+            "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+            "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+            "WHERE i.name LIKE ? COLLATE NOCASE AND "
+            "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+            "ORDER BY i.update_time DESC, i.repo_id";
+        break;
+    default:
+        g_free (db_patt);
+        return NULL;
+    }
+
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_repos_fill_size_commit, &repo_list,
+                                       1, "string", db_patt) < 0) {
+        g_free (db_patt);
+        return NULL;
+    }
+
+    g_free (db_patt);
+    return repo_list;
+}
+
+GList *
 seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
 {
     GList *ret = NULL;

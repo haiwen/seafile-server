@@ -1218,6 +1218,23 @@ seafile_list_owned_repos (const char *email, int ret_corrupted,
     return ret;
 }
 
+GList *
+seafile_search_repos_by_name (const char *name, GError **error)
+{
+    GList *ret = NULL;
+    GList *repos, *ptr;
+
+    repos = seaf_repo_manager_search_repos_by_name (seaf->repo_mgr, name);
+    ret = convert_repo_list (repos);
+
+    for (ptr = repos; ptr; ptr = ptr->next) {
+        seaf_repo_unref ((SeafRepo *)ptr->data);
+    }
+    g_list_free (repos);
+
+    return g_list_reverse(ret);
+}
+
 gint64
 seafile_get_user_quota_usage (const char *email, GError **error)
 {
