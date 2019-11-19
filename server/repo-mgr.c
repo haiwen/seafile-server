@@ -2365,6 +2365,7 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
             "WHERE i.name COLLATE UTF8_GENERAL_CI LIKE ? AND "
+            "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
             "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
             "ORDER BY i.update_time DESC, i.repo_id";
         break;
@@ -2374,6 +2375,7 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
             "WHERE i.name ILIKE ? AND "
+            "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
             "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
             "ORDER BY i.update_time DESC, i.repo_id";
         break;
@@ -2383,6 +2385,7 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
             "WHERE i.name LIKE ? COLLATE NOCASE AND "
+            "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
             "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
             "ORDER BY i.update_time DESC, i.repo_id";
         break;
