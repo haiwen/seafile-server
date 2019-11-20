@@ -59,6 +59,7 @@ typedef struct RecvFSM {
     char *user;
     char *boundary;        /* boundary of multipart form-data. */
     char *input_name;      /* input name of the current form field. */
+    char *obj_id;
     evbuf_t *line;          /* buffer for a line */
 
     GHashTable *form_kvs;       /* key/value of form fields */
@@ -287,6 +288,55 @@ check_parent_dir (evhtp_request_t *req, const char *repo_id,
 
     return ret;
 }
+static gboolean
+check_parent_dir_ex (evhtp_request_t *req, const char *repo_id, const char *obj_id,
+                  const char *parent_dir)
+{
+    char *canon_path = NULL;
+    SeafRepo *repo = NULL;
+    SeafCommit *commit = NULL;
+    GError *error = NULL;
+    gboolean ret = TRUE;
+    char *_obj_id = NULL;
+
+    repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
+    if (!repo) {
+        seaf_warning ("[upload] Failed to get repo %.8s.\n", repo_id);
+        send_error_reply (req, EVHTP_RES_SERVERR, "Failed to get repo.\n");
+        return FALSE;
+    }
+
+    commit = seaf_commit_manager_get_commit (seaf->commit_mgr,
+                                             repo->id, repo->version,
+                                             repo->head->commit_id);
+    if (!commit) {
+        seaf_warning ("[upload] Failed to get head commit for repo %.8s.\n", repo_id);
+        send_error_reply (req, EVHTP_RES_SERVERR, "Failed to get head commit.\n");
+        seaf_repo_unref (repo);
+        return FALSE;
+    }
+
+    canon_path = get_canonical_path (parent_dir);
+
+    guint32 mode = 0;
+    _obj_id = seaf_fs_manager_path_to_obj_id(seaf->fs_mgr,
+                                            repo->store_id, repo->version,
+					                        commit->root_id,
+					                        canon_path, &mode, &error);
+
+    if (strcmp (obj_id,_obj_id) != 0) {
+        send_error_reply (req, EVHTP_RES_FORBIDDEN, "Parent dir is invalid.\n");
+	    ret = FALSE;
+    }
+
+    g_clear_error (&error);
+    g_free (canon_path);
+    g_free (_obj_id);
+    seaf_commit_unref (commit);
+    seaf_repo_unref (repo);
+
+    return ret;
+}
 
 static char *
 file_list_to_json (GList *files)
@@ -476,6 +526,9 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     }
 
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
+        goto out;
+
+    if (!check_parent_dir_ex (req, fsm->repo_id, fsm->obj_id, parent_dir))
         goto out;
 
     if (!check_tmp_file_list (fsm->files, &error_code))
@@ -2341,12 +2394,14 @@ static int
 check_access_token (const char *token,
                     const char *url_op,
                     char **repo_id,
+                    char **obj_id,
                     char **user,
                     char **token_type)
 {
     SeafileWebAccess *webaccess;
     const char *op;
     const char *_repo_id;
+    const char *_obj_id;
 
     webaccess = (SeafileWebAccess *)
         seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
@@ -2359,6 +2414,8 @@ check_access_token (const char *token,
         g_object_unref (webaccess);
         return -1;
     }
+
+    _obj_id = seafile_web_access_get_obj_id(webaccess);
 
     /* token with op = "upload" can only be used for "upload-*" operations;
      * token with op = "update" can only be used for "update-*" operations.
@@ -2376,6 +2433,7 @@ check_access_token (const char *token,
     }
 
     *repo_id = g_strdup (_repo_id);
+    *obj_id = g_strdup (_obj_id);
     *user = g_strdup (seafile_web_access_get_username (webaccess));
 
     g_object_unref (webaccess);
@@ -2463,6 +2521,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
 {
     char **parts = NULL;
     char *token, *repo_id = NULL, *user = NULL;
+    char *obj_id = NULL;
     char *boundary = NULL;
     gint64 content_len;
     char *progress_id = NULL;
@@ -2490,7 +2549,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     }
     char *url_op = parts[0];
 
-    if (check_access_token (token, url_op, &repo_id, &user, &token_type) < 0) {
+    if (check_access_token (token, url_op, &repo_id, &obj_id, &user, &token_type) < 0) {
         err_msg = "Access denied";
         goto err;
     }
@@ -2525,6 +2584,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     fsm = g_new0 (RecvFSM, 1);
     fsm->boundary = boundary;
     fsm->repo_id = repo_id;
+    fsm->obj_id = obj_id;
     fsm->user = user;
     fsm->token_type = token_type;
     fsm->rstart = rstart;
