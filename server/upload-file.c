@@ -59,7 +59,7 @@ typedef struct RecvFSM {
     char *user;
     char *boundary;        /* boundary of multipart form-data. */
     char *input_name;      /* input name of the current form field. */
-    char *obj_id;
+    char *parent_dir;
     evbuf_t *line;          /* buffer for a line */
 
     GHashTable *form_kvs;       /* key/value of form fields */
@@ -288,55 +288,25 @@ check_parent_dir (evhtp_request_t *req, const char *repo_id,
 
     return ret;
 }
+
 static gboolean
-check_parent_dir_ex (evhtp_request_t *req, const char *obj_id,
+is_parent_matched (const char *upload_dir,
                      const char *parent_dir)
 {
-    const char *upload_dir = NULL;
-    char *upload_dir_spec = NULL;
-    char *parent_dir_spec = NULL;
-    char *_obj_id;
-    gsize len;
-    json_t *object;
-    json_error_t err;
     gboolean ret = TRUE;
+    char *upload_dir_canon = NULL;
+    char *parent_dir_canon = NULL;
 
-    _obj_id = g_strdup (obj_id);
-    len = strlen (_obj_id);
-    object = json_loadb (_obj_id, len, 0, &err);
-    if (!object) {
-        /* Perhaps the commit object contains invalid UTF-8 character. */
-        if (_obj_id[len-1] == 0)
-            clean_utf8_data (_obj_id, len - 1);
-        else
-            clean_utf8_data (_obj_id, len);
+    upload_dir_canon = get_canonical_path (upload_dir);
+    parent_dir_canon = get_canonical_path (parent_dir);
 
-        object = json_loadb (_obj_id, len, 0, &err);
-        if (!object) {
-            if (err.text)
-                seaf_warning ("Failed to load commit json: %s.\n", err.text);
-            else
-                seaf_warning ("Failed to load commit json.\n");
-            send_error_reply (req, EVHTP_RES_SERVERR, "Failed to get json.\n");
-            g_free (_obj_id);
-            return FALSE;
-        }
-    }
-
-    upload_dir = json_object_get_string_member (object, "parent_dir");
-
-    upload_dir_spec = get_canonical_path (upload_dir);
-    parent_dir_spec = get_canonical_path (parent_dir);
-
-    if (strcmp (upload_dir_spec,parent_dir_spec) != 0) {
-        send_error_reply (req, EVHTP_RES_FORBIDDEN, "Parent dir is invalid.\n");
+    if (strcmp (upload_dir_canon,parent_dir_canon) != 0) {
 	    ret = FALSE;
     }
 
-    json_decref (object);
-    g_free (upload_dir_spec);
-    g_free (parent_dir_spec);
-    g_free (_obj_id);
+    g_free (upload_dir_canon);
+    g_free (parent_dir_canon);
+
     return ret;
 }
 
@@ -530,8 +500,10 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;
 
-    if (!check_parent_dir_ex (req, fsm->obj_id, parent_dir))
+    if (!is_parent_matched (fsm->parent_dir, parent_dir)){
+        send_error_reply (req, EVHTP_RES_FORBIDDEN, "Invalid parent dir.\n");
         goto out;
+    }
 
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
@@ -1196,8 +1168,10 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;
-    if (!check_parent_dir_ex (req, fsm->obj_id, parent_dir))
+    if (!is_parent_matched (fsm->parent_dir, parent_dir)){
+        send_error_reply (req, EVHTP_RES_FORBIDDEN, "Invalid parent dir.\n");
         goto out;
+    }
 
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
@@ -1888,7 +1862,7 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
     /* Clean up FSM struct no matter upload succeed or not. */
 
     g_free (fsm->repo_id);
-    g_free (fsm->obj_id);
+    g_free (fsm->parent_dir);
     g_free (fsm->user);
     g_free (fsm->boundary);
     g_free (fsm->input_name);
@@ -2395,11 +2369,29 @@ get_boundary (evhtp_headers_t *hdr)
     return boundary;
 }
 
+static gboolean
+get_parent_dir_from_obj_id(const char *obj_id, char **parent_dir){
+    const char *_parent_dir = NULL;
+    json_t *object;
+    json_error_t err;
+
+    object = json_loads(obj_id,0,&err);
+    if (!object) {
+        return FALSE;
+    }
+    _parent_dir = json_object_get_string_member (object, "parent_dir");
+
+    *parent_dir = g_strdup(_parent_dir);
+    json_decref (object);
+
+    return TRUE;
+}
+
 static int
 check_access_token (const char *token,
                     const char *url_op,
                     char **repo_id,
-                    char **obj_id,
+                    char **parent_dir,
                     char **user,
                     char **token_type)
 {
@@ -2421,6 +2413,10 @@ check_access_token (const char *token,
     }
 
     _obj_id = seafile_web_access_get_obj_id(webaccess);
+    if (!get_parent_dir_from_obj_id (_obj_id, parent_dir)){
+        g_object_unref (webaccess);
+        return -1;
+    }
 
     /* token with op = "upload" can only be used for "upload-*" operations;
      * token with op = "update" can only be used for "update-*" operations.
@@ -2438,7 +2434,6 @@ check_access_token (const char *token,
     }
 
     *repo_id = g_strdup (_repo_id);
-    *obj_id = g_strdup (_obj_id);
     *user = g_strdup (seafile_web_access_get_username (webaccess));
 
     g_object_unref (webaccess);
@@ -2526,7 +2521,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
 {
     char **parts = NULL;
     char *token, *repo_id = NULL, *user = NULL;
-    char *obj_id = NULL;
+    char *parent_dir = NULL;
     char *boundary = NULL;
     gint64 content_len;
     char *progress_id = NULL;
@@ -2554,7 +2549,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     }
     char *url_op = parts[0];
 
-    if (check_access_token (token, url_op, &repo_id, &obj_id, &user, &token_type) < 0) {
+    if (check_access_token (token, url_op, &repo_id, &parent_dir, &user, &token_type) < 0) {
         err_msg = "Access denied";
         goto err;
     }
@@ -2589,7 +2584,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     fsm = g_new0 (RecvFSM, 1);
     fsm->boundary = boundary;
     fsm->repo_id = repo_id;
-    fsm->obj_id = obj_id;
+    fsm->parent_dir = parent_dir;
     fsm->user = user;
     fsm->token_type = token_type;
     fsm->rstart = rstart;

@@ -120,27 +120,27 @@ def test_ajax(repo):
     response = requests.post(upload_url_base, files = files)
     assert_upload_response(response, False, True)
 
-    #test upload file to subdir which parent dir is test dir.
+    #test upload file to subdir whose parent is test dir.
     files = {'file': open(file_path, 'rb'),
              'parent_dir':'/test',
              'relative_path':'subdir'}
     response = requests.post(upload_url_base,  files = files)
     assert response.status_code == 403
-    #test upload file to subdir which parent dir is root dir.
+    #test upload file to subdir whose parent is root dir.
     files = {'file': open(file_path, 'rb'),
              'parent_dir':'/',
              'relative_path':'subdir'}
     response = requests.post(upload_url_base,  files = files)
     assert_upload_response(response, False, False)
 
-    #test upload file to subdir which parent dir is test dir when file already exists.
+    #test upload file to subdir whose parent is test dir when file already exists.
     files = {'file': open(file_path, 'rb'),
              'parent_dir':'/test',
              'relative_path':'subdir'}
     response = requests.post(upload_url_base, files = files)
     assert response.status_code == 403
 
-    #test upload file to subdir which parent dir is root dir when file already exists.
+    #test upload file to subdir whose parent is root dir when file already exists.
     files = {'file': open(file_path, 'rb'),
              'parent_dir':'/',
              'relative_path':'subdir'}
@@ -172,6 +172,7 @@ def test_ajax(repo):
     response = requests.post(upload_url_base, headers = headers,
                              files = files)
     assert response.status_code == 403
+
     #test resumable upload file to root dir
     write_file(chunked_part1_path, chunked_part1_content)
     write_file(chunked_part2_path, chunked_part2_content)
@@ -201,7 +202,7 @@ def test_ajax(repo):
 
     #test update file.
     write_file(file_path, file_content)
-    token = api.get_fileserver_access_token(repo.id, file_id, 'update', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'update', USER, False)
     update_url_base = 'http://127.0.0.1:8082/update-aj/' + token
     files = {'file': open(file_path, 'rb'),
              'target_file':'/' + file_name}
@@ -264,7 +265,7 @@ def test_api(repo):
                              files = files)
     assert_upload_response(response, False, True)
 
-    #test upload the file to subdir which parent dir is test.
+    #test upload the file to subdir whose parent is test.
     files = {'file':open(file_path, 'rb'),
              'parent_dir':'/test',
              'relative_path':'subdir'}
@@ -280,7 +281,7 @@ def test_api(repo):
                              files = files)
     assert_upload_response(response, False, False)
 
-    #test upload the file to subdir which parent dir is test when file already exists and replace is set.
+    #test upload the file to subdir whose parent is test when file already exists and replace is set.
     files = {'file':open(file_path, 'rb'),
              'parent_dir':'/test',
              'relative_path':'subdir',
@@ -298,7 +299,7 @@ def test_api(repo):
                              files = files)
     assert_upload_response(response, True, True)
 
-    #unset test upload the file to subdir which parent_dir is test when file already exists and replace is unset.
+    #unset test upload the file to subdir whose parent is test dir when file already exists and replace is unset.
     files = {'file':open(file_path, 'rb'),
              'parent_dir':'/test',
              'relative_path':'subdir'}
@@ -369,7 +370,7 @@ def test_api(repo):
 
     #test update file.
     write_file(file_path, file_content)
-    token = api.get_fileserver_access_token(repo.id, file_id, 'update', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'update', USER, False)
     update_url_base = 'http://127.0.0.1:8082/update-api/' + token
     files = {'file':open(file_path, 'rb'),
              'target_file':'/' + file_name}
