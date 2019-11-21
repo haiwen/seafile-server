@@ -1888,6 +1888,7 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
     /* Clean up FSM struct no matter upload succeed or not. */
 
     g_free (fsm->repo_id);
+    g_free (fsm->obj_id);
     g_free (fsm->user);
     g_free (fsm->boundary);
     g_free (fsm->input_name);
