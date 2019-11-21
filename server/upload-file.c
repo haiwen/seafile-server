@@ -289,52 +289,54 @@ check_parent_dir (evhtp_request_t *req, const char *repo_id,
     return ret;
 }
 static gboolean
-check_parent_dir_ex (evhtp_request_t *req, const char *repo_id, const char *obj_id,
-                  const char *parent_dir)
+check_parent_dir_ex (evhtp_request_t *req, const char *obj_id,
+                     const char *parent_dir)
 {
-    char *canon_path = NULL;
-    SeafRepo *repo = NULL;
-    SeafCommit *commit = NULL;
-    GError *error = NULL;
+    const char *upload_dir = NULL;
+    char *upload_dir_spec = NULL;
+    char *parent_dir_spec = NULL;
+    char *_obj_id;
+    gsize len;
+    json_t *object;
+    json_error_t err;
     gboolean ret = TRUE;
-    char *_obj_id = NULL;
 
-    repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
-    if (!repo) {
-        seaf_warning ("[upload] Failed to get repo %.8s.\n", repo_id);
-        send_error_reply (req, EVHTP_RES_SERVERR, "Failed to get repo.\n");
-        return FALSE;
+    _obj_id = g_strdup (obj_id);
+    len = strlen (_obj_id);
+    object = json_loadb (_obj_id, len, 0, &err);
+    if (!object) {
+        /* Perhaps the commit object contains invalid UTF-8 character. */
+        if (_obj_id[len-1] == 0)
+            clean_utf8_data (_obj_id, len - 1);
+        else
+            clean_utf8_data (_obj_id, len);
+
+        object = json_loadb (_obj_id, len, 0, &err);
+        if (!object) {
+            if (err.text)
+                seaf_warning ("Failed to load commit json: %s.\n", err.text);
+            else
+                seaf_warning ("Failed to load commit json.\n");
+            send_error_reply (req, EVHTP_RES_SERVERR, "Failed to get json.\n");
+            g_free (_obj_id);
+            return FALSE;
+        }
     }
 
-    commit = seaf_commit_manager_get_commit (seaf->commit_mgr,
-                                             repo->id, repo->version,
-                                             repo->head->commit_id);
-    if (!commit) {
-        seaf_warning ("[upload] Failed to get head commit for repo %.8s.\n", repo_id);
-        send_error_reply (req, EVHTP_RES_SERVERR, "Failed to get head commit.\n");
-        seaf_repo_unref (repo);
-        return FALSE;
-    }
+    upload_dir = json_object_get_string_member (object, "parent_dir");
 
-    canon_path = get_canonical_path (parent_dir);
+    upload_dir_spec = get_canonical_path (upload_dir);
+    parent_dir_spec = get_canonical_path (parent_dir);
 
-    guint32 mode = 0;
-    _obj_id = seaf_fs_manager_path_to_obj_id(seaf->fs_mgr,
-                                            repo->store_id, repo->version,
-					                        commit->root_id,
-					                        canon_path, &mode, &error);
-
-    if (strcmp (obj_id,_obj_id) != 0) {
+    if (strcmp (upload_dir_spec,parent_dir_spec) != 0) {
         send_error_reply (req, EVHTP_RES_FORBIDDEN, "Parent dir is invalid.\n");
 	    ret = FALSE;
     }
 
-    g_clear_error (&error);
-    g_free (canon_path);
+    json_decref (object);
+    g_free (upload_dir_spec);
+    g_free (parent_dir_spec);
     g_free (_obj_id);
-    seaf_commit_unref (commit);
-    seaf_repo_unref (repo);
-
     return ret;
 }
 
@@ -528,7 +530,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;
 
-    if (!check_parent_dir_ex (req, fsm->repo_id, fsm->obj_id, parent_dir))
+    if (!check_parent_dir_ex (req, fsm->obj_id, parent_dir))
         goto out;
 
     if (!check_tmp_file_list (fsm->files, &error_code))
@@ -1193,6 +1195,8 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     }
 
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
+        goto out;
+    if (!check_parent_dir_ex (req, fsm->obj_id, parent_dir))
         goto out;
 
     if (!check_tmp_file_list (fsm->files, &error_code))
