@@ -18,6 +18,7 @@ orig_avatar_dir=${INSTALLPATH}/seahub/media/avatars
 dest_avatar_dir=${TOPDIR}/seahub-data/avatars
 seafile_server_symlink=${TOPDIR}/seafile-server-latest
 seahub_data_dir=${TOPDIR}/seahub-data
+elasticsearch_config_file=${seafile_server_symlink}/pro/elasticsearch/config/jvm.options
 
 function migrate_avatars() {
     echo
@@ -102,10 +103,22 @@ function update_latest_symlink() {
     fi
 }
 
+function move_old_elasticsearch_config_to_latest() {
+    # Move the elasticsearch's configuration file from the old version to the new version
+    echo
+    echo "Moving the elasticsearch's configuration file ..."
+    echo
+    if [[ -f ${elasticsearch_config_file} ]]; then
+        /bin/cp -avf ${elasticsearch_config_file} ${INSTALLPATH}/pro/elasticsearch/config/jvm.options
+    fi
+}
+
 migrate_avatars;
 
 move_old_customdir_outside;
 make_media_custom_symlink;
+
+move_old_elasticsearch_config_to_latest;
 
 update_latest_symlink;
 
