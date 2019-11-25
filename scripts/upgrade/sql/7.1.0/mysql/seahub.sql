@@ -57,3 +57,5 @@ CREATE TABLE IF NOT EXISTS `repo_share_invitation` (
   CONSTRAINT `repo_share_invitatio_invitation_id_b71effd2_fk_invitatio` FOREIGN KEY (`invitation_id`) REFERENCES `invitations_invitation` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+ALTER TABLE `post_office_attachment` add column `headers` longtext DEFAULT NULL;
+
