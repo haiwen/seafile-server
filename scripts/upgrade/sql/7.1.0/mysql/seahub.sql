@@ -1,3 +1,6 @@
+ALTER TABLE `constance_config` MODIFY `value` longtext DEFAULT NULL;
+ALTER TABLE `constance_config` CHANGE `key` `constance_key` varchar(255) NOT NULL;
+
 DROP INDEX `drafts_draft_origin_file_uuid_7c003c98_uniq` ON `drafts_draft`;
 ALTER TABLE `drafts_draft` ADD CONSTRAINT `drafts_draft_origin_file_uuid_7c003c98_uniq` UNIQUE (`origin_file_uuid`);
 CREATE INDEX `drafts_draft_origin_repo_id_8978ca2c` ON `drafts_draft` (`origin_repo_id`);

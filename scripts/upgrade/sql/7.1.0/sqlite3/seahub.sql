@@ -1,3 +1,10 @@
+ALTER TABLE "constance_config" RENAME TO "constance_config_old";
+CREATE TABLE "constance_config" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "constance_key" varchar(255) NOT NULL UNIQUE, "value" text NULL);
+INSERT INTO "constance_config" ("id", "constance_key", "value") SELECT "id", "constance_key", "value" FROM "constance_config_old";
+DROP TABLE "constance_config_old";
+
+
+
 DROP INDEX IF EXISTS "drafts_draft_origin_file_uuid_7c003c98_uniq" ON "drafts_draft";
 ALTER TABLE "drafts_draft" ADD CONSTRAINT "drafts_draft_origin_file_uuid_7c003c98_uniq" UNIQUE ("origin_file_uuid");
 CREATE INDEX  IF NOT EXISTS "drafts_draft_origin_repo_id_8978ca2c" ON "drafts_draft" ("origin_repo_id");
