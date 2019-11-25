@@ -1,3 +1,6 @@
+CREATE TABLE IF NOT EXISTS "base_reposecretkey" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "repo_id" varchar(36) NOT NULL UNIQUE, "secret_key" varchar(44) NOT NULL);
+
+
 ALTER TABLE "constance_config" RENAME TO "constance_config_old";
 CREATE TABLE "constance_config" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "constance_key" varchar(255) NOT NULL UNIQUE, "value" text NULL);
 INSERT INTO "constance_config" ("id", "constance_key", "value") SELECT "id", "constance_key", "value" FROM "constance_config_old";

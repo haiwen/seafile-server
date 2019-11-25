@@ -1,3 +1,12 @@
+CREATE TABLE IF NOT EXISTS `base_reposecretkey` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `repo_id` varchar(36) NOT NULL,
+  `secret_key` varchar(44) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `repo_id` (`repo_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+
 ALTER TABLE `constance_config` MODIFY `value` longtext DEFAULT NULL;
 ALTER TABLE `constance_config` CHANGE `key` `constance_key` varchar(255) NOT NULL;
 
