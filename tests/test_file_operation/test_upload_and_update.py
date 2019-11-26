@@ -71,6 +71,21 @@ def assert_update_response(response, is_json):
         new_file_id = response.text
         assert len(new_file_id) == 40 and new_file_id != file_id
 
+def request_resumable_upload(filepath, headers,upload_url_base,parent_dir,is_ajax):
+    write_file(chunked_part1_path, chunked_part1_content)
+    write_file(chunked_part2_path, chunked_part2_content)
+
+    files = {'file': open(filepath, 'rb'),
+             'parent_dir':parent_dir}
+    params = {'ret-json':'1'}
+    if is_ajax:
+        response = requests.post(upload_url_base, headers = headers,
+                             files = files)
+    else:
+        response = requests.post(upload_url_base, headers = headers,
+                             files = files, params = params)
+    return response
+
 def write_file(file_path, file_content):
     fp = open(file_path, 'w')
     fp.write(file_content)
@@ -148,18 +163,11 @@ def test_ajax(repo):
     assert_upload_response(response, False, True)
 
     #test resumable upload file to test dir
-    write_file(chunked_part1_path, chunked_part1_content)
-    write_file(chunked_part2_path, chunked_part2_content)
-
-    token = api.get_fileserver_access_token(repo.id, obj_id,
-                                            'upload', USER, False)
+    parent_dir = '/test'
     headers = {'Content-Range':'bytes 0-{}/{}'.format(str(len(chunked_part1_content) - 1),
                                                       str(total_size)),
                'Content-Disposition':'attachment; filename=\"{}\"'.format(resumable_file_name)}
-    files = {'file': open(chunked_part1_path, 'rb'),
-             'parent_dir':'/test'}
-    response = requests.post(upload_url_base, headers = headers,
-                             files = files)
+    response = request_resumable_upload(chunked_part1_path, headers, upload_url_base, parent_dir, True)
     assert_resumable_upload_response(response, repo.id,
                                      resumable_test_file_name, False)
 
@@ -167,25 +175,15 @@ def test_ajax(repo):
                                                        str(total_size - 1),
                                                        str(total_size)),
                'Content-Disposition':'attachment; filename=\"{}\"'.format(resumable_file_name)}
-    files = {'file': open(chunked_part2_path, 'rb'),
-             'parent_dir':'/test'}
-    response = requests.post(upload_url_base, headers = headers,
-                             files = files)
+    response = request_resumable_upload(chunked_part2_path, headers, upload_url_base, parent_dir, True)
     assert response.status_code == 403
 
     #test resumable upload file to root dir
-    write_file(chunked_part1_path, chunked_part1_content)
-    write_file(chunked_part2_path, chunked_part2_content)
-
-    token = api.get_fileserver_access_token(repo.id, obj_id,
-                                            'upload', USER, False)
+    parent_dir = '/'
     headers = {'Content-Range':'bytes 0-{}/{}'.format(str(len(chunked_part1_content) - 1),
                                                       str(total_size)),
                'Content-Disposition':'attachment; filename=\"{}\"'.format(resumable_file_name)}
-    files = {'file': open(chunked_part1_path, 'rb'),
-             'parent_dir':'/'}
-    response = requests.post(upload_url_base, headers = headers,
-                             files = files)
+    response = request_resumable_upload(chunked_part1_path, headers, upload_url_base, parent_dir, True)
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, False)
 
@@ -193,10 +191,9 @@ def test_ajax(repo):
                                                        str(total_size - 1),
                                                        str(total_size)),
                'Content-Disposition':'attachment; filename=\"{}\"'.format(resumable_file_name)}
-    files = {'file': open(chunked_part2_path, 'rb'),
-             'parent_dir':'/'}
     response = requests.post(upload_url_base, headers = headers,
                              files = files)
+    response = request_resumable_upload(chunked_part2_path, headers, upload_url_base, parent_dir, True)
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, True)
 
@@ -316,18 +313,11 @@ def test_api(repo):
     assert_upload_response(response, False, True)
 
     #test resumable upload file to test
-    write_file(chunked_part1_path, chunked_part1_content)
-    write_file(chunked_part2_path, chunked_part2_content)
-
-    token = api.get_fileserver_access_token(repo.id, obj_id,
-                                            'upload', USER, False)
+    parent_dir = '/test'
     headers = {'Content-Range':'bytes 0-{}/{}'.format(str(len(chunked_part1_content) - 1),
                                                       str(total_size)),
                'Content-Disposition':'attachment; filename=\"{}\"'.format(resumable_file_name)}
-    files = {'file': open(chunked_part1_path, 'rb'),
-             'parent_dir':'/test'}
-    response = requests.post(upload_url_base, headers = headers,
-                             files = files, params = params)
+    response = request_resumable_upload(chunked_part1_path, headers, upload_url_base, parent_dir, False)
     assert_resumable_upload_response(response, repo.id,
                                      resumable_test_file_name, False)
 
@@ -335,25 +325,15 @@ def test_api(repo):
                                                        str(total_size - 1),
                                                        str(total_size)),
                'Content-Disposition':'attachment; filename=\"{}\"'.format(resumable_file_name)}
-    files = {'file': open(chunked_part2_path, 'rb'),
-             'parent_dir':'/test'}
-    response = requests.post(upload_url_base, headers = headers,
-                             files = files, params = params)
+    response = request_resumable_upload(chunked_part2_path, headers, upload_url_base, parent_dir, False)
     assert response.status_code == 403
 
     #test resumable upload file to root dir
-    write_file(chunked_part1_path, chunked_part1_content)
-    write_file(chunked_part2_path, chunked_part2_content)
-
-    token = api.get_fileserver_access_token(repo.id, obj_id,
-                                            'upload', USER, False)
+    parent_dir = '/'
     headers = {'Content-Range':'bytes 0-{}/{}'.format(str(len(chunked_part1_content) - 1),
                                                       str(total_size)),
                'Content-Disposition':'attachment; filename=\"{}\"'.format(resumable_file_name)}
-    files = {'file': open(chunked_part1_path, 'rb'),
-             'parent_dir':'/'}
-    response = requests.post(upload_url_base, headers = headers,
-                             files = files, params = params)
+    response = request_resumable_upload(chunked_part1_path,headers, upload_url_base,parent_dir, False)
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, False)
 
@@ -361,10 +341,7 @@ def test_api(repo):
                                                        str(total_size - 1),
                                                        str(total_size)),
                'Content-Disposition':'attachment; filename=\"{}\"'.format(resumable_file_name)}
-    files = {'file': open(chunked_part2_path, 'rb'),
-             'parent_dir':'/'}
-    response = requests.post(upload_url_base, headers = headers,
-                             files = files, params = params)
+    response = request_resumable_upload(chunked_part2_path, headers, upload_url_base, parent_dir, False)
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, True)
 
