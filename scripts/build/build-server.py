@@ -25,6 +25,7 @@ import subprocess
 import optparse
 import atexit
 import platform
+import time
 
 ####################
 ### Global variables
@@ -630,16 +631,30 @@ def copy_scripts_and_libs():
     must_copy(os.path.join(scripts_srcdir, 'seahub.conf'),
               runtimedir)
 
+    if os.path.exists('/root/pkg/seafpkg/build/seafile-server-build/seafile-server/seahub/thirdpart/constance'):
+       info ("[MYDEBUG1] target file exist.")
+    else:
+       info ("[MYDEBUG1] target file dosen't exist.")
     # move seahub to seafile-server/seahub
     src_seahubdir = Seahub().projdir
     dst_seahubdir = os.path.join(serverdir, 'seahub')
+    info ('[MYDEBUG] src_seahubdir = {}, dst_seahubdir = {}'.format(src_seahubdir, dst_seahubdir))
     try:
         shutil.move(src_seahubdir, dst_seahubdir)
     except Exception as e:
         error('failed to move seahub to seafile-server/seahub: %s' % e)
+    
+    if os.path.exists('/root/pkg/seafpkg/build/seafile-server-build/seafile-server/seahub/thirdpart/constance'):
+       info ("[MYDEBUG2] target file exist.")
+    else:
+       info ("[MYDEBUG2] target file dosen't exist.")
 
     # copy seahub thirdpart libs
     seahub_thirdpart = os.path.join(dst_seahubdir, 'thirdpart')
+    if os.path.exists('/root/pkg/seafpkg/build/seafile-server-build/seafile-server/seahub/thirdpart/constance'):
+       info ("[MYDEBUG3] target file exist.")
+    else:
+       info ("[MYDEBUG3] target file dosen't exist.")
     copy_seahub_thirdpart_libs(seahub_thirdpart)
     copy_seafdav()
 
@@ -748,8 +763,13 @@ def copy_seahub_thirdpart_libs(seahub_thirdpart):
             src_path = os.path.join(src, name)
             target_path = os.path.join(dst, name)
             if os.path.isdir(src_path):
+                info('[MYDEBUG] copytree from {} to {}'.format(src_path, target_path))
+                if os.path.exists(target_path):
+                    info ("[MYDEBUG] target file exist.")
+                    continue
                 shutil.copytree(src_path, target_path)
             else:
+                info('[MYDEBUG] copy from {} to {}'.format(src_path, target_path))
                 shutil.copy(src_path, target_path)
     except Exception as e:
         error('failed to copy seahub thirdpart libs: %s' % e)
