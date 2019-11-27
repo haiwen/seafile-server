@@ -381,7 +381,7 @@ class AbstractDBConfigurator(AbstractConfigurator):
 
         self.seafile_mysql_user = ''
         self.seafile_mysql_password = ''
-        self.seafile_mysql_userhost = 'localhost'
+        self.seafile_mysql_userhost = '127.0.0.1'
 
         self.root_password = ''
         self.root_conn = ''
@@ -1445,7 +1445,7 @@ def check_params(args):
         if db_config.mysql_host != '127.0.0.1' and not mysql_user_host:
             raise InvalidParams('mysql user host parameter is missing in creating new db mode')
         if not mysql_user_host:
-            db_config.seafile_mysql_userhost = 'localhost'
+            db_config.seafile_mysql_userhost = '127.0.0.1'
         else:
             db_config.seafile_mysql_userhost = db_config.validate_mysql_user_host(mysql_user_host)
 
