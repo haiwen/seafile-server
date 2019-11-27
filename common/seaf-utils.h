@@ -3,6 +3,14 @@
 
 #include <searpc-client.h>
 
+#ifndef DEFAULT_MAX_CONNECTIONS
+#define DEFAULT_MAX_CONNECTIONS 100
+#endif
+
+#ifdef HAVE_MYSQL
+#define MYSQL_DEFAULT_PORT 3306
+#endif
+
 struct _SeafileSession;
 
 char *

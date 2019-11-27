@@ -807,4 +807,68 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     @searpc_func("json", ["string"])
     def pop_event(channel):
         pass
+
+    # merge from ccnet
+    @searpc_func("int", ["string", "string", "int", "int"])
+    def add_emailuser(self, email, passwd, is_staff, is_active):
+        pass
+
+    @searpc_func("int", ["string", "string"])
+    def remove_emailuser(self, source, email):
+        pass
+
+    @searpc_func("int", ["string", "string"])
+    def validate_emailuser(self, email, passwd):
+        pass
+
+    @searpc_func("object", ["string"])
+    def get_emailuser(self, email):
+        pass
+
+    @searpc_func("object", ["string"])
+    def get_emailuser_with_import(self, email):
+        pass
+
+    @searpc_func("object", ["int"])
+    def get_emailuser_by_id(self, user_id):
+        pass
+
+    @searpc_func("objlist", ["string", "int", "int", "string"])
+    def get_emailusers(self, source, start, limit, status):
+        pass
+
+    @searpc_func("objlist", ["string", "string", "int", "int"])
+    def search_emailusers(self, source, email_patt, start, limit):
+        pass
+
+    @searpc_func("objlist", ["string", "int", "int"])
+    def search_ldapusers(self, keyword, start, limit):
+        pass
+
+    @searpc_func("int64", ["string"])
+    def count_emailusers(self, source):
+        pass
+
+    @searpc_func("int64", ["string"])
+    def count_inactive_emailusers(self, source):
+        pass
+
+    @searpc_func("objlist", ["string"])
+    def filter_emailusers_by_emails(self):
+        pass
     
+    @searpc_func("int", ["string", "int", "string", "int", "int"])
+    def update_emailuser(self, source, user_id, password, is_staff, is_active):
+        pass
+
+    @searpc_func("int", ["string", "string"])
+    def update_role_emailuser(self, email, role):
+        pass
+
+    @searpc_func("objlist", [])
+    def get_superusers(self):
+        pass
+
+    @searpc_func("objlist", ["string", "string"])
+    def get_emailusers_in_list(self, source, user_list):
+        pass

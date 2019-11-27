@@ -1133,4 +1133,58 @@ seafile_publish_event(const char *channel, const char *content, GError **error);
 
 json_t *
 seafile_pop_event(const char *channel, GError **error);
+
+int
+ccnet_rpc_add_emailuser (const char *email, const char *passwd,
+                         int is_staff, int is_active, GError **error);
+
+int
+ccnet_rpc_remove_emailuser (const char *source, const char *email, GError **error);
+
+int
+ccnet_rpc_validate_emailuser (const char *email, const char *passwd, GError **error);
+
+GObject*
+ccnet_rpc_get_emailuser (const char *email, GError **error);
+
+GObject*
+ccnet_rpc_get_emailuser_with_import (const char *email, GError **error);
+
+GObject*
+ccnet_rpc_get_emailuser_by_id (int id, GError **error);
+
+GList*
+ccnet_rpc_get_emailusers (const char *source, int start, int limit, const char *status, GError **error);
+
+GList*
+ccnet_rpc_search_emailusers (const char *source,
+                             const char *email_patt,
+                             int start, int limit,
+                             GError **error);
+
+GList*
+ccnet_rpc_search_ldapusers (const char *keyword,
+                            int start, int limit,
+                            GError **error);
+
+/* Get total counts of email users. */
+gint64
+ccnet_rpc_count_emailusers (const char *source, GError **error);
+
+gint64
+ccnet_rpc_count_inactive_emailusers (const char *source, GError **error);
+
+int
+ccnet_rpc_update_emailuser (const char *source, int id, const char* passwd,
+                            int is_staff, int is_active,
+                            GError **error);
+
+int
+ccnet_rpc_update_role_emailuser (const char* email, const char* role, GError **error);
+
+GList*
+ccnet_rpc_get_superusers (GError **error);
+
+GList *
+ccnet_rpc_get_emailusers_in_list(const char *source, const char *user_list, GError **error);
 #endif

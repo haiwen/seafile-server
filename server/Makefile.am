@@ -23,6 +23,7 @@ noinst_HEADERS = web-accesstoken-mgr.h  seafile-session.h \
 	share-mgr.h \
 	passwd-mgr.h \
 	quota-mgr.h \
+	user-mgr.h \
 	size-sched.h \
 	copy-mgr.h \
 	http-server.h \
@@ -42,6 +43,7 @@ seaf_server_SOURCES = \
 	share-mgr.c \
 	passwd-mgr.c \
 	quota-mgr.c \
+	user-mgr.c \
 	repo-op.c \
 	repo-perm.c \
 	size-sched.c \

@@ -27,6 +27,8 @@
 #define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"
 
+#define CCNET_ERR_INTERNAL 500
+
 #ifndef SEAFILE_SERVER
 #include "../daemon/vc-utils.h"
 
@@ -4527,4 +4529,200 @@ seafile_get_repo_status(const char *repo_id, GError **error)
     return (status == -1) ? 0 : status;
 }
 
+/*merger from ccnet-server*/
+int
+ccnet_rpc_add_emailuser (const char *email, const char *passwd,
+                         int is_staff, int is_active, GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr; 
+    int ret;
+    
+    if (!email || !passwd) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email and passwd can not be NULL");
+        return -1;
+    }
+
+    ret = ccnet_user_manager_add_emailuser (user_mgr, email, passwd,
+                                            is_staff, is_active);
+    
+    return ret;
+}
+
+int
+ccnet_rpc_remove_emailuser (const char *source, const char *email, GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr; 
+    int ret;
+
+    if (!email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email can not be NULL");
+        return -1;
+    }
+
+    ret = ccnet_user_manager_remove_emailuser (user_mgr, source, email);
+
+    return ret;
+}
+
+int
+ccnet_rpc_validate_emailuser (const char *email, const char *passwd, GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr; 
+    int ret;
+    
+    if (!email || !passwd) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email and passwd can not be NULL");
+        return -1;
+    }
+
+    if (passwd[0] == 0)
+        return -1;
+
+    ret = ccnet_user_manager_validate_emailuser (user_mgr, email, passwd);
+
+    return ret;
+}
+
+GObject*
+ccnet_rpc_get_emailuser (const char *email, GError **error)
+{
+    if (!email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email can not be NULL");
+        return NULL;
+    }
+
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+    CcnetEmailUser *emailuser = NULL;
+    
+    emailuser = ccnet_user_manager_get_emailuser (user_mgr, email);
+    
+    return (GObject *)emailuser;
+}
+
+GObject*
+ccnet_rpc_get_emailuser_with_import (const char *email, GError **error)
+{
+    if (!email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email can not be NULL");
+        return NULL;
+    }
+
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+    CcnetEmailUser *emailuser = NULL;
+
+    emailuser = ccnet_user_manager_get_emailuser_with_import (user_mgr, email);
+
+    return (GObject *)emailuser;
+}
+
+GObject*
+ccnet_rpc_get_emailuser_by_id (int id, GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr; 
+    CcnetEmailUser *emailuser = NULL;
+    
+    emailuser = ccnet_user_manager_get_emailuser_by_id (user_mgr, id);
+    
+    return (GObject *)emailuser;
+}
+
+GList*
+ccnet_rpc_get_emailusers (const char *source,
+                          int start, int limit,
+                          const char *status,
+                          GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr; 
+    GList *emailusers = NULL;
+
+    emailusers = ccnet_user_manager_get_emailusers (user_mgr, source, start, limit, status);
+    
+    return emailusers;
+}
+
+GList*
+ccnet_rpc_search_emailusers (const char *source,
+                             const char *email_patt,
+                             int start, int limit,
+                             GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr; 
+    GList *emailusers = NULL;
+
+    emailusers = ccnet_user_manager_search_emailusers (user_mgr,
+                                                       source,
+                                                       email_patt,
+                                                       start, limit);
+    
+    return emailusers;
+}
+
+GList*
+ccnet_rpc_search_ldapusers (const char *keyword,
+                            int start, int limit,
+                            GError **error)
+{
+    GList *ldapusers = NULL;
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    ldapusers = ccnet_user_manager_search_ldapusers (user_mgr, keyword,
+                                                     start, limit);
+    return ldapusers;
+}
+
+gint64
+ccnet_rpc_count_emailusers (const char *source, GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr; 
+
+   return ccnet_user_manager_count_emailusers (user_mgr, source);
+}
+
+gint64
+ccnet_rpc_count_inactive_emailusers (const char *source, GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr;
+
+   return ccnet_user_manager_count_inactive_emailusers (user_mgr, source);
+}
+
+int
+ccnet_rpc_update_emailuser (const char *source, int id, const char* passwd,
+                            int is_staff, int is_active,
+                            GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    return ccnet_user_manager_update_emailuser(user_mgr, source, id, passwd,
+                                               is_staff, is_active);
+}
+
+int
+ccnet_rpc_update_role_emailuser (const char* email, const char* role,
+                            GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    return ccnet_user_manager_update_role_emailuser(user_mgr, email, role);
+}
+
+GList*
+ccnet_rpc_get_superusers (GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr; 
+
+    return ccnet_user_manager_get_superusers(user_mgr);
+}
+
+GList *
+ccnet_rpc_get_emailusers_in_list(const char *source, const char *user_list, GError **error)
+{
+    if (!user_list || !source) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return NULL;
+    }
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    return ccnet_user_manager_get_emailusers_in_list (user_mgr, source, user_list, error);
+}
 #endif  /* SEAFILE_SERVER */

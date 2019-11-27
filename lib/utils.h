@@ -403,4 +403,8 @@ seaf_key_file_get_string (GKeyFile *key_file,
                           const char *key,
                           GError **error);
 
+gchar* ccnet_key_file_get_string (GKeyFile *keyf,
+                                  const char *category,
+                                  const char *key);
+
 #endif

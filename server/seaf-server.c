@@ -767,6 +767,68 @@ static void start_rpc_service (const char *seafile_dir,
                                      "set_server_config_boolean",
                                      searpc_signature_int__string_string_int());
 
+    /*merge from ccnet-server*/
+   searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_add_emailuser,
+                                     "add_emailuser",
+                                     searpc_signature_int__string_string_int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_remove_emailuser,
+                                     "remove_emailuser",
+                                     searpc_signature_int__string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_validate_emailuser,
+                                     "validate_emailuser",
+                                     searpc_signature_int__string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_emailuser,
+                                     "get_emailuser",
+                                     searpc_signature_object__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_emailuser_with_import,
+                                     "get_emailuser_with_import",
+                                     searpc_signature_object__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_emailuser_by_id,
+                                     "get_emailuser_by_id",
+                                     searpc_signature_object__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_emailusers,
+                                     "get_emailusers",
+                                     searpc_signature_objlist__string_int_int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_search_emailusers,
+                                     "search_emailusers",
+                                     searpc_signature_objlist__string_string_int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_search_ldapusers,
+                                     "search_ldapusers",
+                                     searpc_signature_objlist__string_int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_count_emailusers,
+                                     "count_emailusers",
+                                     searpc_signature_int64__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_count_inactive_emailusers,
+                                     "count_inactive_emailusers",
+                                     searpc_signature_int64__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_update_emailuser,
+                                     "update_emailuser",
+                                     searpc_signature_int__string_int_string_int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_update_role_emailuser,
+                                     "update_role_emailuser",
+                                     searpc_signature_int__string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_superusers,
+                                     "get_superusers",
+                                     searpc_signature_objlist__void());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_emailusers_in_list,
+                                     "get_emailusers_in_list",
+                                     searpc_signature_objlist__string_string());
+
     if (rpc_pipe_path) {
         pipe_path = g_build_path ("/", rpc_pipe_path, SEAFILE_RPC_PIPE_NAME, NULL);
     } else {

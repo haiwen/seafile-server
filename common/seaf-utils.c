@@ -30,8 +30,6 @@ seafile_session_get_tmp_file_path (SeafileSession *session,
 
 #define SQLITE_DB_NAME "seafile.db"
 
-#define DEFAULT_MAX_CONNECTIONS 100
-
 static int
 sqlite_db_start (SeafileSession *session)
 {
@@ -55,8 +53,6 @@ sqlite_db_start (SeafileSession *session)
 }
 
 #ifdef HAVE_MYSQL
-
-#define MYSQL_DEFAULT_PORT 3306
 
 static int
 mysql_db_start (SeafileSession *session)
