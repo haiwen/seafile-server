@@ -8,9 +8,7 @@
 #include <ccnet/ccnet-object.h>
 #include "utils.h"
 
-
 #include "seafile-session.h"
-#include "seafile-object.h"
 #include "seafile-error.h"
 #include "user-mgr.h"
 #include "seaf-db.h"
