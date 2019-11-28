@@ -767,7 +767,7 @@ static void start_rpc_service (const char *seafile_dir,
                                      "set_server_config_boolean",
                                      searpc_signature_int__string_string_int());
 
-    /*merge from ccnet-server*/
+    /*user management*/
    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      ccnet_rpc_add_emailuser,
                                      "add_emailuser",
@@ -828,6 +828,205 @@ static void start_rpc_service (const char *seafile_dir,
                                      ccnet_rpc_get_emailusers_in_list,
                                      "get_emailusers_in_list",
                                      searpc_signature_objlist__string_string());
+
+    /*group management*/
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_create_group,
+                                     "create_group",
+                                     searpc_signature_int__string_string_string_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_create_org_group,
+                                     "create_org_group",
+                                 searpc_signature_int__int_string_string_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_remove_group,
+                                     "remove_group",
+                                     searpc_signature_int__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_group_add_member,
+                                     "group_add_member",
+                                     searpc_signature_int__int_string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_group_remove_member,
+                                     "group_remove_member",
+                                     searpc_signature_int__int_string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_group_set_admin,
+                                     "group_set_admin",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_group_unset_admin,
+                                     "group_unset_admin",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_set_group_name,
+                                     "set_group_name",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_quit_group,
+                                     "quit_group",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_groups,
+                                     "get_groups",
+                                     searpc_signature_objlist__string_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                      ccnet_rpc_list_all_departments,
+                                     "list_all_departments",
+                                     searpc_signature_objlist__void());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_all_groups,
+                                     "get_all_groups",
+                                     searpc_signature_objlist__int_int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_ancestor_groups,
+                                     "get_ancestor_groups",
+                                     searpc_signature_objlist__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_group,
+                                     "get_group",
+                                     searpc_signature_object__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_group_members,
+                                     "get_group_members",
+                                     searpc_signature_objlist__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_members_with_prefix,
+                                     "get_members_with_prefix",
+                                     searpc_signature_objlist__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_check_group_staff,
+                                     "check_group_staff",
+                                     searpc_signature_int__int_string_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_remove_group_user,
+                                     "remove_group_user",
+                                     searpc_signature_int__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_is_group_user,
+                                     "is_group_user",
+                                     searpc_signature_int__int_string_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_set_group_creator,
+                                     "set_group_creator",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_search_groups,
+                                     "search_groups",
+                                     searpc_signature_objlist__string_int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_top_groups,
+                                     "get_top_groups",
+                                     searpc_signature_objlist__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_child_groups,
+                                     "get_child_groups",
+                                     searpc_signature_objlist__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_descendants_groups,
+                                     "get_descendants_groups",
+                                     searpc_signature_objlist__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_groups_members,
+                                     "get_groups_members",
+                                     searpc_signature_objlist__string());
+    /*org management*/
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_create_org,
+                                     "create_org",
+                                     searpc_signature_int__string_string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_remove_org,
+                                     "remove_org",
+                                     searpc_signature_int__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_all_orgs,
+                                     "get_all_orgs",
+                                     searpc_signature_objlist__int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_count_orgs,
+                                     "count_orgs",
+                                     searpc_signature_int64__void());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_org_by_url_prefix,
+                                     "get_org_by_url_prefix",
+                                     searpc_signature_object__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_org_by_id,
+                                     "get_org_by_id",
+                                     searpc_signature_object__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_add_org_user,
+                                     "add_org_user",
+                                     searpc_signature_int__int_string_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_remove_org_user,
+                                     "remove_org_user",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_orgs_by_user,
+                                     "get_orgs_by_user",
+                                     searpc_signature_objlist__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_org_emailusers,
+                                     "get_org_emailusers",
+                                     searpc_signature_objlist__string_int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_add_org_group,
+                                     "add_org_group",
+                                     searpc_signature_int__int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_remove_org_group,
+                                     "remove_org_group",
+                                     searpc_signature_int__int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_is_org_group,
+                                     "is_org_group",
+                                     searpc_signature_int__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_org_id_by_group,
+                                     "get_org_id_by_group",
+                                     searpc_signature_int__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_org_groups,
+                                     "get_org_groups",
+                                     searpc_signature_objlist__int_int_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_org_groups_by_user,
+                                     "get_org_groups_by_user",
+                                     searpc_signature_objlist__string_int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_org_top_groups,
+                                     "get_org_top_groups",
+                                     searpc_signature_objlist__int());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_org_user_exists,
+                                     "org_user_exists",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_is_org_staff,
+                                     "is_org_staff",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_set_org_staff,
+                                     "set_org_staff",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_unset_org_staff,
+                                     "unset_org_staff",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_set_org_name,
+                                     "set_org_name",
+                                     searpc_signature_int__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_set_reference_id,
+                                     "set_reference_id",
+                                     searpc_signature_int__string_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_get_primary_id,
+                                     "get_primary_id",
+                                     searpc_signature_string__string());
 
     if (rpc_pipe_path) {
         pipe_path = g_build_path ("/", rpc_pipe_path, SEAFILE_RPC_PIPE_NAME, NULL);

@@ -56,8 +56,6 @@ struct _CcnetUserManagerClass
     GObjectClass    parent_class;
 };
 
-int load_ccnet_database_config (struct _SeafileSession *session);
-
 GType ccnet_user_manager_get_type  (void);
 
 CcnetUserManager* ccnet_user_manager_new (SeafileSession *);

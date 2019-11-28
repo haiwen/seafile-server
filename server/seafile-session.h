@@ -16,6 +16,8 @@
 #include "seaf-db.h"
 #include "mq-mgr.h"
 #include "user-mgr.h"
+#include "group-mgr.h"
+#include "org-mgr.h"
 
 #include "share-mgr.h"
 #include "web-accesstoken-mgr.h"
@@ -58,8 +60,8 @@ struct _SeafileSession {
     SeafCopyManager     *copy_mgr;
     SeafCfgManager      *cfg_mgr;
     CcnetUserManager     *user_mgr;
-    //CcnetGroupManager    *group_mgr;
-    //CcnetOrgManager      *org_mgr;
+    CcnetGroupManager    *group_mgr;
+    CcnetOrgManager      *org_mgr;
     
     SeafWebAccessTokenManager	*web_at_mgr;
 
