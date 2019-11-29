@@ -4529,7 +4529,7 @@ seafile_get_repo_status(const char *repo_id, GError **error)
     return (status == -1) ? 0 : status;
 }
 
-/*merger from ccnet-server*/
+/*RPC functions merged from ccnet-server*/
 int
 ccnet_rpc_add_emailuser (const char *email, const char *passwd,
                          int is_staff, int is_active, GError **error)

@@ -23,6 +23,9 @@ seaf_fuse_SOURCES = seaf-fuse.c \
                     readdir.c \
                     repo-mgr.c \
                     ../common/block-mgr.c \
+                    ../common/user-mgr.c \
+                    ../common/group-mgr.c \
+                    ../common/org-mgr.c \
                     ../common/block-backend.c \
                     ../common/block-backend-fs.c \
                     ../common/branch-mgr.c \

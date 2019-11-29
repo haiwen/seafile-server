@@ -1134,6 +1134,7 @@ seafile_publish_event(const char *channel, const char *content, GError **error);
 json_t *
 seafile_pop_event(const char *channel, GError **error);
 
+/*Following is ccnet rpc*/
 int
 ccnet_rpc_add_emailuser (const char *email, const char *passwd,
                          int is_staff, int is_active, GError **error);

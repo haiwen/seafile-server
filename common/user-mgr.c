@@ -141,7 +141,7 @@ ccnet_user_manager_prepare (CcnetUserManager *manager)
         return -1;
 #endif
 
-    int iter = g_key_file_get_integer (manager->session->keyf,
+    int iter = g_key_file_get_integer (manager->session->ccnet_config,
                                        "USER", "PASSWORD_HASH_ITERATIONS",
                                        NULL);
     if (iter <= 0)
@@ -190,7 +190,7 @@ ccnet_user_manager_set_max_users (CcnetUserManager *manager, gint64 max_users)
 
 static int try_load_ldap_settings (CcnetUserManager *manager)
 {
-    GKeyFile *config = manager->session->keyf;
+    GKeyFile *config = manager->session->ccnet_config;
 
     manager->ldap_host = ccnet_key_file_get_string (config, "LDAP", "HOST");
     if (!manager->ldap_host)

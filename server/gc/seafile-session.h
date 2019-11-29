@@ -21,7 +21,9 @@ struct _SeafileSession {
     char                *tmp_file_dir;
     /* Config that's only loaded on start */
     GKeyFile            *config;
+    GKeyFile            *ccnet_config;
     SeafDB              *db;
+    SeafDB              *ccnet_db;
 
     SeafBlockManager    *block_mgr;
     SeafFSManager       *fs_mgr;
@@ -31,6 +33,7 @@ struct _SeafileSession {
     SeafCfgManager      *cfg_mgr;
 
     gboolean create_tables;
+    gboolean ccnet_create_tables;
 };
 
 extern SeafileSession *seaf;

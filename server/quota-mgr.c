@@ -355,7 +355,6 @@ get_num_shared_to (const char *user, const char *repo_id)
     GHashTable *user_hash;
     int dummy;
     GList *personal = NULL, *groups = NULL, *members = NULL, *p;
-    SearpcClient *client = NULL;
     gint n_shared_to = -1;
 
     /* seaf_debug ("Computing share usage for repo %s.\n", repo_id); */
@@ -376,16 +375,10 @@ get_num_shared_to (const char *user, const char *repo_id)
     }
 
     /* Then groups... */
-    client = create_ccnet_rpc_client ();
-    if (!client) {
-        seaf_warning ("Failed to alloc ccnet rpc client.\n");
-        goto out;
-    }
-
     groups = seaf_repo_manager_get_groups_by_repo (seaf->repo_mgr,
                                                    repo_id, NULL);
     for (p = groups; p; p = p->next) {
-        members = ccnet_get_group_members (client, (int)(long)p->data);
+        members = ccnet_group_manager_get_group_members (seaf->group_mgr, (int)(long)p->data, NULL);
         if (!members) {
             seaf_warning ("Cannot get member list for groupd %d.\n", (int)(long)p->data);
             goto out;
@@ -404,7 +397,6 @@ out:
     g_hash_table_destroy (user_hash);
     string_list_free (personal);
     g_list_free (groups);
-    release_ccnet_rpc_client (client);
 
     return n_shared_to;
 }

@@ -45,7 +45,7 @@ struct _SeafileSession {
     char                *tmp_file_dir;
     /* Config that's only loaded on start */
     GKeyFile            *config;
-    GKeyFile            *keyf;
+    GKeyFile            *ccnet_config;
     SeafDB              *db;
     CcnetDB             *ccnet_db;
 
@@ -59,9 +59,9 @@ struct _SeafileSession {
     SeafQuotaManager    *quota_mgr;
     SeafCopyManager     *copy_mgr;
     SeafCfgManager      *cfg_mgr;
-    CcnetUserManager     *user_mgr;
-    CcnetGroupManager    *group_mgr;
-    CcnetOrgManager      *org_mgr;
+    CcnetUserManager    *user_mgr;
+    CcnetGroupManager   *group_mgr;
+    CcnetOrgManager     *org_mgr;
     
     SeafWebAccessTokenManager	*web_at_mgr;
 

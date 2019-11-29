@@ -23,9 +23,6 @@ noinst_HEADERS = web-accesstoken-mgr.h  seafile-session.h \
 	share-mgr.h \
 	passwd-mgr.h \
 	quota-mgr.h \
-	user-mgr.h \
-	group-mgr.h \
-	org-mgr.h \
 	size-sched.h \
 	copy-mgr.h \
 	http-server.h \
@@ -35,6 +32,9 @@ noinst_HEADERS = web-accesstoken-mgr.h  seafile-session.h \
 	fileserver-config.h \
 	http-status-codes.h \
 	zip-download-mgr.h \
+	../common/user-mgr.h \
+	../common/group-mgr.h \
+	../common/org-mgr.h \
 	index-blocks-mgr.h
 
 seaf_server_SOURCES = \
@@ -45,9 +45,6 @@ seaf_server_SOURCES = \
 	share-mgr.c \
 	passwd-mgr.c \
 	quota-mgr.c \
-	user-mgr.c \
-	group-mgr.c \
-	org-mgr.c \
 	repo-op.c \
 	repo-perm.c \
 	size-sched.c \
@@ -71,6 +68,9 @@ seaf_server_SOURCES = \
 	../common/seafile-crypt.c \
 	../common/diff-simple.c \
 	../common/mq-mgr.c \
+	../common/user-mgr.c \
+	../common/group-mgr.c \
+	../common/org-mgr.c \
 	../common/block-mgr.c \
 	../common/block-backend.c \
 	../common/block-backend-fs.c \
