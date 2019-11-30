@@ -13,6 +13,8 @@
 #include "utils.h"
 #include "log.h"
 
+#define DEFAULT_MAX_CONNECTIONS 100
+
 struct _CcnetGroupManagerPriv {
     CcnetDB	*db;
     const char *table_name;

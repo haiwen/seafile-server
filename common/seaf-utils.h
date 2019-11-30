@@ -3,10 +3,6 @@
 
 #include <searpc-client.h>
 
-#ifndef DEFAULT_MAX_CONNECTIONS
-#define DEFAULT_MAX_CONNECTIONS 100
-#endif
-
 struct _SeafileSession;
 
 char *

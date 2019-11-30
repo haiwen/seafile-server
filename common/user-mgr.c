@@ -36,6 +36,7 @@
 
 #define DEFAULT_SAVING_INTERVAL_MSEC 30000
 
+#define DEFAULT_MAX_CONNECTIONS 100
 
 G_DEFINE_TYPE (CcnetUserManager, ccnet_user_manager, G_TYPE_OBJECT);
 

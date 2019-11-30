@@ -130,9 +130,6 @@ seafile_session_new(const char *central_config_dir,
     session->group_mgr = ccnet_group_manager_new (session);
     if (!session->group_mgr)
         goto onerror;
-    session->org_mgr = ccnet_org_manager_new (session);
-    if (!session->org_mgr)
-        goto onerror;
 
     return session;
 
@@ -193,11 +190,6 @@ seafile_session_init (SeafileSession *session)
 
     if (ccnet_group_manager_prepare (session->group_mgr) < 0) {
         seaf_warning ("Failed to init group manager.\n");
-        return -1;
-    }
-
-    if (ccnet_org_manager_prepare (session->org_mgr) < 0) {
-        seaf_warning ("Failed to init org manager.\n");
         return -1;
     }
 
