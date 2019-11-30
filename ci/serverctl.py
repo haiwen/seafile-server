@@ -156,9 +156,6 @@ connection_charset = utf8
     def start(self):
         logger.info('Starting to create ccnet and seafile db tables')
         self.create_database_tables()
-        logger.info('Starting ccnet server')
-        self.start_ccnet()
-        self.wait_ccnet_ready()
         logger.info('Starting seafile server')
         self.start_seafile()
 
