@@ -50,7 +50,7 @@
 #endif
 
 #ifndef ccnet_debug
-  #define ccnet_debug(fmt, ...) g_debug(fmt, ##__VA_ARGS__)
+#define ccnet_debug(fmt, ...) g_debug(fmt, ##__VA_ARGS__)
 #endif
 
 #endif
