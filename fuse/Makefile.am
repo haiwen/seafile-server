@@ -44,5 +44,5 @@ seaf_fuse_LDADD = @CCNET_LIBS@ \
                   -lsqlite3 @LIBEVENT_LIBS@ \
 		  $(top_builddir)/common/cdc/libcdc.la \
 		  @SEARPC_LIBS@ @JANSSON_LIBS@ @FUSE_LIBS@ @ZLIB_LIBS@ \
-		  @MYSQL_LIBS@ -lsqlite3
+		  @LDAP_LIBS@ @MYSQL_LIBS@ -lsqlite3
 

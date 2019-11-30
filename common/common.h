@@ -49,4 +49,8 @@
 #define ccnet_message(fmt, ...) g_message("%s(%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #endif
 
+#ifndef ccnet_debug
+  #define ccnet_debug(fmt, ...) g_debug(fmt, ##__VA_ARGS__)
+#endif
+
 #endif

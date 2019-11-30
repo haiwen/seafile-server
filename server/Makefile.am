@@ -83,4 +83,4 @@ seaf_server_LDADD = @CCNET_LIBS@ \
 	$(top_builddir)/common/cdc/libcdc.la \
 	@SEARPC_LIBS@ @JANSSON_LIBS@ ${LIB_WS32} @ZLIB_LIBS@ \
 	@LIBARCHIVE_LIBS@ @LIB_ICONV@ \
-	@MYSQL_LIBS@ -lsqlite3
+	@LDAP_LIBS@ @MYSQL_LIBS@ -lsqlite3

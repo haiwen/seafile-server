@@ -1112,7 +1112,6 @@ static char*
 ccnet_user_manager_get_role_emailuser (CcnetUserManager *manager,
                                      const char* email);
 
-/*
 static gboolean
 get_ldap_emailuser_cb (CcnetDBRow *row, void *data)
 {
@@ -1139,7 +1138,6 @@ get_ldap_emailuser_cb (CcnetDBRow *row, void *data)
 
     return FALSE;
 }
-*/
 
 static CcnetEmailUser*
 get_emailuser (CcnetUserManager *manager,
