@@ -476,12 +476,13 @@ Please choose a way to initialize seafile databases:
 
         print('done')
 
-    def check_mysql_user(self, user, password, host=None):
+    def check_mysql_user(self, user, password, host=None, unix_socket=None):
         print('\nverifying password of user %s ... ' % user, end=' ')
         kwargs = dict(host=host or self.mysql_host,
                       port=self.mysql_port,
                       user=user,
-                      passwd=password)
+                      passwd=password,
+                      unix_socket=unix_socket)
 
         try:
             conn = pymysql.connect(**kwargs)
@@ -565,7 +566,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
             # accessed from localhost with unix socket. So we retry with
             # localhost when failing with 127.0.0.1.
             if self.mysql_host == '127.0.0.1':
-                self.root_conn = self.check_mysql_user('root', password, host='localhost')
+                self.root_conn = self.check_mysql_user('root', password, unix_socket="/var/run/mysqld/mysqld.sock")
             else:
                 raise
         return password
