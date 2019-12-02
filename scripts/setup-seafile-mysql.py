@@ -478,11 +478,13 @@ Please choose a way to initialize seafile databases:
 
     def check_mysql_user(self, user, password, host=None, unix_socket=None):
         print('\nverifying password of user %s ... ' % user, end=' ')
-        kwargs = dict(host=host or self.mysql_host,
-                      port=self.mysql_port,
+        kwargs = dict(port=self.mysql_port,
                       user=user,
-                      passwd=password,
-                      unix_socket=unix_socket)
+                      passwd=password)
+        if unix_socket:
+            kwargs['unix_socket'] = unix_socket
+        else:
+            kwargs['host'] = host or self.mysql_host
 
         try:
             conn = pymysql.connect(**kwargs)
