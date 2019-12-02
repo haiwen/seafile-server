@@ -376,6 +376,7 @@ class AbstractDBConfigurator(AbstractConfigurator):
         AbstractConfigurator.__init__(self)
         self.mysql_host = 'localhost'
         self.mysql_port = 3306
+        self.unix_socket = "/var/run/mysqld/mysqld.sock"
 
         self.use_existing_db = False
 
@@ -568,7 +569,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
             # accessed from localhost with unix socket. So we retry with
             # localhost when failing with 127.0.0.1.
             if self.mysql_host == '127.0.0.1':
-                self.root_conn = self.check_mysql_user('root', password, unix_socket="/var/run/mysqld/mysqld.sock")
+                self.root_conn = self.check_mysql_user('root', password, unix_socket=self.unix_socket)
             else:
                 raise
         return password
