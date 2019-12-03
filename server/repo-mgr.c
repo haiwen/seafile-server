@@ -2494,7 +2494,7 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit)
         rc = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
                                             collect_repos_fill_size_commit, &ret,
                                             0);
-    }else {
+    } else {
         switch (seaf_db_type(mgr->seaf->db)) {
         case SEAF_DB_TYPE_MYSQL:
             sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
