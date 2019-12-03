@@ -6,6 +6,7 @@ SCRIPT=$(readlink -f "$0")
 INSTALLPATH=$(dirname "${SCRIPT}")
 TOPDIR=$(dirname "${INSTALLPATH}")
 default_ccnet_conf_dir=${TOPDIR}/ccnet
+default_seafile_data_dir=${TOPDIR}/seafile-data
 default_conf_dir=${TOPDIR}/conf
 seaf_fsck=${INSTALLPATH}/seafile/bin/seaf-fsck
 
@@ -28,16 +29,10 @@ function validate_ccnet_conf_dir () {
     fi
 }
 
-function read_seafile_data_dir () {
-    seafile_ini=${default_ccnet_conf_dir}/seafile.ini
-    if [[ ! -f ${seafile_ini} ]]; then
-        echo "${seafile_ini} not found. Now quit"
-        exit 1
-    fi
-    seafile_data_dir=$(cat "${seafile_ini}")
-    if [[ ! -d ${seafile_data_dir} ]]; then
-        echo "Your seafile server data directory \"${seafile_data_dir}\" is invalid or doesn't exits."
-        echo "Please check it first, or create this directory yourself."
+function validate_seafile_data_dir () {
+    if [[ ! -d ${default_seafile_data_dir} ]]; then
+        echo "Error: there is no seafile server data directory."
+        echo "Have you run setup-seafile.sh before this?"
         echo ""
         exit 1;
     fi
@@ -45,13 +40,13 @@ function read_seafile_data_dir () {
 
 function run_seaf_fsck () {
     validate_ccnet_conf_dir;
-    read_seafile_data_dir;
+    validate_seafile_data_dir;
 
     echo "Starting seaf-fsck, please wait ..."
     echo
 
     LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH ${seaf_fsck} \
-        -c "${default_ccnet_conf_dir}" -d "${seafile_data_dir}" \
+        -c "${default_ccnet_conf_dir}" -d "${default_seafile_data_dir}" \
         -F "${default_conf_dir}" \
         ${seaf_fsck_opts}
 

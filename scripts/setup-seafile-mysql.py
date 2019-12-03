@@ -24,7 +24,7 @@ except ImportError:
     pass
 
 
-SERVER_MANUAL_HTTP = 'https://github.com/haiwen/seafile/wiki'
+SERVER_MANUAL_HTTP = 'https://download.seafile.com/published/seafile-manual/home.md'
 
 class Utils(object):
     '''Groups all helper functions here'''
@@ -376,6 +376,7 @@ class AbstractDBConfigurator(AbstractConfigurator):
         AbstractConfigurator.__init__(self)
         self.mysql_host = 'localhost'
         self.mysql_port = 3306
+        self.unix_socket = "/var/run/mysqld/mysqld.sock"
 
         self.use_existing_db = False
 
@@ -476,12 +477,15 @@ Please choose a way to initialize seafile databases:
 
         print('done')
 
-    def check_mysql_user(self, user, password, host=None):
+    def check_mysql_user(self, user, password, host=None, unix_socket=None):
         print('\nverifying password of user %s ... ' % user, end=' ')
-        kwargs = dict(host=host or self.mysql_host,
-                      port=self.mysql_port,
+        kwargs = dict(port=self.mysql_port,
                       user=user,
                       passwd=password)
+        if unix_socket:
+            kwargs['unix_socket'] = unix_socket
+        else:
+            kwargs['host'] = host or self.mysql_host
 
         try:
             conn = pymysql.connect(**kwargs)
@@ -565,7 +569,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
             # accessed from localhost with unix socket. So we retry with
             # localhost when failing with 127.0.0.1.
             if self.mysql_host == '127.0.0.1':
-                self.root_conn = self.check_mysql_user('root', password, host='localhost')
+                self.root_conn = self.check_mysql_user('root', password, unix_socket=self.unix_socket)
             else:
                 raise
         return password
@@ -915,14 +919,14 @@ class CcnetConfigurator(AbstractConfigurator):
 class SeafileConfigurator(AbstractConfigurator):
     def __init__(self):
         AbstractConfigurator.__init__(self)
-        self.seafile_dir = None
+        self.seafile_dir = os.path.join(env_mgr.top_dir, 'seafile-data')
         self.port = 12001
         self.fileserver_port = None
         self.seafile_conf = os.path.join(env_mgr.central_config_dir, 'seafile.conf')
 
     def ask_questions(self):
-        if not self.seafile_dir:
-            self.ask_seafile_dir()
+        # if not self.seafile_dir:
+        #     self.ask_seafile_dir()
         # self.ask_port()
         if not self.fileserver_port:
             self.ask_fileserver_port()
@@ -942,7 +946,10 @@ class SeafileConfigurator(AbstractConfigurator):
 
         time.sleep(1)
         self.generate_db_conf()
-        self.write_seafile_ini()
+
+        ## use default seafile-data path: seafile_data_dir=${TOPDIR}/seafile-data
+        # self.write_seafile_ini()
+
         print('done')
 
     def generate_db_conf(self):

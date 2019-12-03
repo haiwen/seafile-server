@@ -16,9 +16,9 @@ SCRIPT=$(readlink -f "$0")
 INSTALLPATH=$(dirname "${SCRIPT}")
 TOPDIR=$(dirname "${INSTALLPATH}")
 default_ccnet_conf_dir=${TOPDIR}/ccnet
+default_seafile_data_dir=${TOPDIR}/seafile-data
 central_config_dir=${TOPDIR}/conf
 seaf_controller="${INSTALLPATH}/seafile/bin/seafile-controller"
-
 
 export PATH=${INSTALLPATH}/seafile/bin:$PATH
 export ORIG_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
@@ -38,7 +38,7 @@ if [[ $# != 1 || ( "$1" != "start" && "$1" != "stop" && "$1" != "restart" ) ]]; 
 fi
 
 function validate_running_user () {
-    real_data_dir=`readlink -f ${seafile_data_dir}`
+    real_data_dir=`readlink -f ${default_seafile_data_dir}`
     running_user=`id -un`
     data_dir_owner=`stat -c %U ${real_data_dir}`
 
@@ -66,16 +66,10 @@ function validate_central_conf_dir () {
     fi
 }
 
-function read_seafile_data_dir () {
-    seafile_ini=${default_ccnet_conf_dir}/seafile.ini
-    if [[ ! -f ${seafile_ini} ]]; then
-        echo "${seafile_ini} not found. Now quit"
-        exit 1
-    fi
-    seafile_data_dir=$(cat "${seafile_ini}")
-    if [[ ! -d ${seafile_data_dir} ]]; then
-        echo "Your seafile server data directory \"${seafile_data_dir}\" is invalid or doesn't exits."
-        echo "Please check it first, or create this directory yourself."
+function validate_seafile_data_dir () {
+    if [[ ! -d ${default_seafile_data_dir} ]]; then
+        echo "Error: there is no seafile server data directory."
+        echo "Have you run setup-seafile.sh before this?"
         echo ""
         exit 1;
     fi
@@ -84,7 +78,7 @@ function read_seafile_data_dir () {
 function test_config() {
     if ! LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH ${seaf_controller} --test \
          -c "${default_ccnet_conf_dir}" \
-         -d "${seafile_data_dir}" \
+         -d "${default_seafile_data_dir}" \
          -F "${central_config_dir}" ; then
         exit 1;
     fi
@@ -121,7 +115,7 @@ function start_seafile_server () {
     validate_already_running;
     validate_central_conf_dir;
     validate_ccnet_conf_dir;
-    read_seafile_data_dir;
+    validate_seafile_data_dir;
     validate_running_user;
     test_config;
 
@@ -130,7 +124,7 @@ function start_seafile_server () {
     mkdir -p $TOPDIR/logs
     LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH ${seaf_controller} \
                    -c "${default_ccnet_conf_dir}" \
-                   -d "${seafile_data_dir}" \
+                   -d "${default_seafile_data_dir}" \
                    -F "${central_config_dir}"
 
     sleep 3

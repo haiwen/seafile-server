@@ -12,10 +12,7 @@ default_logs_dir=${TOPDIR}/logs
 
 export SEAFILE_LD_LIBRARY_PATH=${INSTALLPATH}/seafile/lib/:${INSTALLPATH}/seafile/lib64:${LD_LIBRARY_PATH}
 
-use_existing_ccnet="false"
-use_existing_seafile="false"
-
-server_manual_http="https://github.com/haiwen/seafile/wiki"
+server_manual_http='https://download.seafile.com/published/seafile-manual/home.md'
 
 function welcome () {
     echo "-----------------------------------------------------------------"
@@ -72,20 +69,18 @@ function read_yes_no () {
 
 function check_existing_ccnet () {
     if [[ -d ${default_ccnet_conf_dir} ]]; then
-        echo "It seems that you have created a ccnet configuration before. "
-        echo "Would you like to use the existing configuration?"
+        echo "\033[31m Error: \033[0m Ccnet config dir \"${default_ccnet_conf_dir}\" already exists."
+        echo
+        exit 1;
+    fi
+    echo
+}
 
-        if ! read_yes_no; then
-            echo
-            echo "Please remove the existing configuration before continuing."
-            echo "You can do it by running \"rm -rf ${default_ccnet_conf_dir}\""
-            echo
-            exit 1;
-        else
-            echo
-            echo "Existing ccnet configuration is being used." 
-            use_existing_ccnet=true
-        fi
+function check_existing_seafile () {
+    if [[ -d ${default_seafile_data_dir} ]]; then
+        echo "\033[31m Error: \033[0m Seafile server data dir \"${default_seafile_data_dir}\" already exists."
+        echo
+        exit 1;
     fi
     echo
 }
@@ -201,37 +196,37 @@ function get_server_ip_or_domain () {
     echo
 }
 
-function get_ccnet_server_port () {
-    question="What tcp port do you want to use for ccnet server?" 
-    hint="10001 is the recommended port."
-    default="10001"
-    ask_question "${question}\n${hint}" "${default}"
-    read server_port
-    if [[ "${server_port}" == "" ]]; then
-        server_port="${default}"
-    fi
-    if [[ ! ${server_port} =~ ^[0-9]+$ ]]; then
-        echo "\"${server_port}\" is not a valid port number. "
-        get_ccnet_server_port
-    fi
-    echo
-}
+# function get_ccnet_server_port () {
+#     question="What tcp port do you want to use for ccnet server?" 
+#     hint="10001 is the recommended port."
+#     default="10001"
+#     ask_question "${question}\n${hint}" "${default}"
+#     read server_port
+#     if [[ "${server_port}" == "" ]]; then
+#         server_port="${default}"
+#     fi
+#     if [[ ! ${server_port} =~ ^[0-9]+$ ]]; then
+#         echo "\"${server_port}\" is not a valid port number. "
+#         get_ccnet_server_port
+#     fi
+#     echo
+# }
 
-function get_seafile_server_port () {
-    question="What tcp port would you like to use for seafile server?" 
-    hint="12001 is the recommended port."
-    default="12001"
-    ask_question "${question}\n${hint}" "${default}"
-    read seafile_server_port
-    if [[ "${seafile_server_port}" == "" ]]; then
-        seafile_server_port="${default}"
-    fi
-    if [[ ! ${seafile_server_port} =~ ^[0-9]+$ ]]; then
-        echo "\"${seafile_server_port}\" is not a valid port number. "
-        get_seafile_server_port
-    fi
-    echo
-}
+# function get_seafile_server_port () {
+#     question="What tcp port would you like to use for seafile server?" 
+#     hint="12001 is the recommended port."
+#     default="12001"
+#     ask_question "${question}\n${hint}" "${default}"
+#     read seafile_server_port
+#     if [[ "${seafile_server_port}" == "" ]]; then
+#         seafile_server_port="${default}"
+#     fi
+#     if [[ ! ${seafile_server_port} =~ ^[0-9]+$ ]]; then
+#         echo "\"${seafile_server_port}\" is not a valid port number. "
+#         get_seafile_server_port
+#     fi
+#     echo
+# }
 
 function get_fileserver_port () {
     question="What tcp port do you want to use for seafile fileserver?" 
@@ -250,45 +245,45 @@ function get_fileserver_port () {
 }
 
 
-function get_seafile_data_dir () {
-    question="Where would you like to store your seafile data?"
-    note="Please use a volume with enough free space." 
-    default=${default_seafile_data_dir}
-    ask_question "${question} \n\033[33mNote: \033[m${note}" "${default}"
-    read seafile_data_dir
-    if [[ "${seafile_data_dir}" == "" ]]; then
-        seafile_data_dir=${default}
-    fi
-
-    if [[ -d ${seafile_data_dir} && -f ${seafile_data_dir}/seafile.conf ]]; then
-        echo
-        echo "It seems that you have already existing seafile data in ${seafile_data_dir}."
-        echo "Would you like to use the existing seafile data?"
-        if ! read_yes_no; then
-            echo "You have chosen not to use existing seafile data in ${seafile_data_dir}"
-            echo "You need to specify a different seafile data directory or remove ${seafile_data_dir} before continuing."
-            get_seafile_data_dir
-        else
-            use_existing_seafile="true"
-        fi
-    elif [[ -d ${seafile_data_dir} && $(ls -A ${seafile_data_dir}) != "" ]]; then
-        echo 
-        echo "${seafile_data_dir} is an existing non-empty directory. Please specify a different directory"
-        echo 
-        get_seafile_data_dir
-    elif [[ ! ${seafile_data_dir} =~ ^/ ]]; then
-        echo 
-        echo "\"${seafile_data_dir}\" is not an absolute path. Please specify an absolute path."
-        echo 
-        get_seafile_data_dir
-    elif [[ ! -d $(dirname ${seafile_data_dir}) ]]; then
-        echo 
-        echo "The path $(dirname ${seafile_data_dir}) does not exist."
-        echo 
-        get_seafile_data_dir
-    fi
-    echo
-}
+# function get_seafile_data_dir () {
+#     question="Where would you like to store your seafile data?"
+#     note="Please use a volume with enough free space." 
+#     default=${default_seafile_data_dir}
+#     ask_question "${question} \n\033[33mNote: \033[m${note}" "${default}"
+#     read seafile_data_dir
+#     if [[ "${seafile_data_dir}" == "" ]]; then
+#         seafile_data_dir=${default}
+#     fi
+#
+#     if [[ -d ${seafile_data_dir} && -f ${seafile_data_dir}/seafile.conf ]]; then
+#         echo
+#         echo "It seems that you have already existing seafile data in ${seafile_data_dir}."
+#         echo "Would you like to use the existing seafile data?"
+#         if ! read_yes_no; then
+#             echo "You have chosen not to use existing seafile data in ${seafile_data_dir}"
+#             echo "You need to specify a different seafile data directory or remove ${seafile_data_dir} before continuing."
+#             get_seafile_data_dir
+#         else
+#             use_existing_seafile="true"
+#         fi
+#     elif [[ -d ${seafile_data_dir} && $(ls -A ${seafile_data_dir}) != "" ]]; then
+#         echo 
+#         echo "${seafile_data_dir} is an existing non-empty directory. Please specify a different directory"
+#         echo 
+#         get_seafile_data_dir
+#     elif [[ ! ${seafile_data_dir} =~ ^/ ]]; then
+#         echo 
+#         echo "\"${seafile_data_dir}\" is not an absolute path. Please specify an absolute path."
+#         echo 
+#         get_seafile_data_dir
+#     elif [[ ! -d $(dirname ${seafile_data_dir}) ]]; then
+#         echo 
+#         echo "The path $(dirname ${seafile_data_dir}) does not exist."
+#         echo 
+#         get_seafile_data_dir
+#     fi
+#     echo
+# }
 
 function gen_gunicorn_conf () {
     mkdir -p ${default_conf_dir}
@@ -336,13 +331,13 @@ fi
 
 function copy_user_manuals() {
     src_docs_dir=${INSTALLPATH}/seafile/docs/
-    library_template_dir=${seafile_data_dir}/library-template
+    library_template_dir=${default_seafile_data_dir}/library-template
     mkdir -p ${library_template_dir}
     cp -f ${src_docs_dir}/*.doc ${library_template_dir}
 }
 
 function parse_params() {
-    while getopts n:i:p:d arg; do
+    while getopts n:i:p arg; do
         case $arg in
             n)
                 server_name=${OPTARG}
@@ -352,9 +347,6 @@ function parse_params() {
                 ;;
             p)
                 fileserver_port=${OPTARG}
-                ;;
-            d)
-                seafile_data_dir=${OPTARG}
                 ;;
         esac
     done
@@ -386,20 +378,6 @@ function validate_params() {
     if [[ ! ${fileserver_port} =~ ^[0-9]+$ ]]; then
         echo "Invalid fileserver port param"
         err_and_quit;
-    fi
-
-    if [[ "${seafile_data_dir}" == "" ]]; then
-        seafile_data_dir=${SEAFILE_DIR:-${default_seafile_data_dir}}
-    fi
-    if [[ -d ${seafile_data_dir} && $(ls -A ${seafile_data_dir}) != "" ]]; then
-        echo "${seafile_data_dir} is an existing non-empty directory. Please specify a different directory"
-        err_and_quit
-    elif [[ ! ${seafile_data_dir} =~ ^/ ]]; then
-        echo "\"${seafile_data_dir}\" is not an absolute path. Please specify an absolute path."
-        err_and_quit
-    elif [[ ! -d $(dirname ${seafile_data_dir}) ]]; then
-        echo "The path $(dirname ${seafile_data_dir}) does not exist."
-        err_and_quit
     fi
 }
 
@@ -444,43 +422,32 @@ check_system_dependency;
 sleep .5
 
 check_existing_ccnet;
-if [[ ${use_existing_ccnet} != "true" ]]; then
-    if [[ "${server_name}" == "" ]]; then
-        get_server_name;
-    fi
-    if [[ "${ip_or_domain}" == "" ]]; then
-        get_server_ip_or_domain;
-    fi
-    # get_ccnet_server_port;
+check_existing_seafile;
+
+if [[ "${server_name}" == "" ]]; then
+    get_server_name;
 fi
 
-if [[ "$seafile_data_dir" == "" ]]; then
-    get_seafile_data_dir;
+if [[ "${ip_or_domain}" == "" ]]; then
+    get_server_ip_or_domain;
 fi
-if [[ ${use_existing_seafile} != "true" ]]; then
-    # get_seafile_server_port
-    if [[ "$fileserver_port" == "" ]]; then
-        get_fileserver_port
-    fi
+
+if [[ "$fileserver_port" == "" ]]; then
+    get_fileserver_port
 fi
+
 
 sleep .5
 
 printf "\nThis is your config information:\n\n"
 
-if [[ ${use_existing_ccnet} != "true" ]]; then
-    printf "server name:        \033[33m${server_name}\033[m\n"
-    printf "server ip/domain:   \033[33m${ip_or_domain}\033[m\n"
-else
-    printf "ccnet config:       use existing config in  \033[33m${default_ccnet_conf_dir}\033[m\n"
-fi
+printf "server name:        \033[33m${server_name}\033[m\n"
+printf "server ip/domain:   \033[33m${ip_or_domain}\033[m\n"
 
-if [[ ${use_existing_seafile} != "true" ]]; then
-    printf "seafile data dir:   \033[33m${seafile_data_dir}\033[m\n"
-    printf "fileserver port:    \033[33m${fileserver_port}\033[m\n"
-else
-    printf "seafile data dir:   use existing data in    \033[33m${seafile_data_dir}\033[m\n"
-fi
+
+printf "seafile data dir:   \033[33m${default_seafile_data_dir}\033[m\n"
+printf "fileserver port:    \033[33m${fileserver_port}\033[m\n"
+
 
 if [[ "${need_pause}" == "1" ]]; then
     echo
@@ -494,44 +461,45 @@ seaf_server_init=${INSTALLPATH}/seafile/bin/seaf-server-init
 # -------------------------------------------
 # Create ccnet conf 
 # -------------------------------------------
-if [[ "${use_existing_ccnet}" != "true" ]]; then
-    echo "Generating ccnet configuration in ${default_ccnet_conf_dir}..."
-    echo
-    if ! LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH "${ccnet_init}" \
-         -F "${default_conf_dir}" \
-         -c "${default_ccnet_conf_dir}" \
-         --host "${ip_or_domain}"; then
-        err_and_quit;
-    fi
 
-    echo
+echo "Generating ccnet configuration in ${default_ccnet_conf_dir}..."
+echo
+if ! LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH "${ccnet_init}" \
+        -F "${default_conf_dir}" \
+        -c "${default_ccnet_conf_dir}" \
+        --host "${ip_or_domain}"; then
+    err_and_quit;
 fi
+
+echo
+
 
 sleep 0.5
 
 # -------------------------------------------
 # Create seafile conf
 # -------------------------------------------
-if [[ "${use_existing_seafile}" != "true" ]]; then
-    echo "Generating seafile configuration in ${seafile_data_dir} ..."
-    echo
-    if ! LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH ${seaf_server_init} \
-         --central-config-dir "${default_conf_dir}" \
-         --seafile-dir "${seafile_data_dir}" \
-         --fileserver-port ${fileserver_port}; then
-        
-        echo "Failed to generate seafile configuration"
-        err_and_quit;
-    fi
+
+echo "Generating seafile configuration in ${default_seafile_data_dir} ..."
+echo
+if ! LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH ${seaf_server_init} \
+        --central-config-dir "${default_conf_dir}" \
+        --seafile-dir "${default_seafile_data_dir}" \
+        --fileserver-port ${fileserver_port}; then
     
-    echo
+    echo "Failed to generate seafile configuration"
+    err_and_quit;
 fi
+
+echo
+
 
 # -------------------------------------------
 # Write seafile.ini
 # -------------------------------------------
 
-echo "${seafile_data_dir}" > "${default_ccnet_conf_dir}/seafile.ini"
+## use default seafile-data path: seafile_data_dir=${TOPDIR}/seafile-data
+# echo "${seafile_data_dir}" > "${default_ccnet_conf_dir}/seafile.ini"
 
 # -------------------------------------------
 # Generate gunicorn.conf
@@ -729,7 +697,7 @@ echo
 
 chmod 0600 "$dest_settings_py"
 chmod 0700 "$default_ccnet_conf_dir"
-chmod 0700 "$seafile_data_dir"
+chmod 0700 "$default_seafile_data_dir"
 chmod 0700 "$default_conf_dir"
 
 # -------------------------------------------
