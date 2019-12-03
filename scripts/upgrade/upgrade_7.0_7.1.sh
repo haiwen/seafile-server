@@ -67,6 +67,13 @@ function read_seafile_data_dir () {
         echo "Please check it first, or create this directory yourself."
         echo ""
         exit 1;
+    else
+        if [[ ${seafile_data_dir} != ${TOPDIR}/seafile-data ]]; then
+            if [[ ! -L ${TOPDIR}/seafile-data ]]; then
+                ln -s ${seafile_data_dir} ${TOPDIR}/seafile-data
+                echo "Created the symlink ${TOPDIR}/seafile-data for ${seafile_data_dir}."
+            fi
+        fi
     fi
 
     export SEAFILE_CONF_DIR=$seafile_data_dir
@@ -195,31 +202,6 @@ function move_old_customdir_outside() {
     cp -rf "${old_customdir}" "${seahub_data_dir}/"
 }
 
-function add_gunicorn_conf() {
-    gunicorn_conf=${default_conf_dir}/gunicorn.conf
-    if ! $(cat > ${gunicorn_conf} <<EOF
-import os
-
-daemon = True
-workers = 5
-
-# default localhost:8000
-bind = "127.0.0.1:8000"
-
-# Pid
-pids_dir = '$default_pids_dir'
-pidfile = os.path.join(pids_dir, 'seahub.pid')
-
-# for file upload, we need a longer timeout value (default is only 30s, too short)
-timeout = 1200
-
-limit_request_line = 8190
-EOF
-); then
-    echo "failed to generate gunicorn.conf";
-fi
-}
-
 #################
 # The main execution flow of the script
 ################
@@ -235,7 +217,6 @@ move_old_customdir_outside;
 make_media_custom_symlink;
 upgrade_seafile_server_latest_symlink;
 
-add_gunicorn_conf;
 
 echo
 echo "-----------------------------------------------------------------"
