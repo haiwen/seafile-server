@@ -2420,6 +2420,7 @@ seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
     return ret;
 }
 
+#if 0
 typedef struct FileCount {
     char *repo_id;
     gint64 file_count;
@@ -2450,6 +2451,7 @@ get_file_count_cb (SeafDBRow *row, void *data)
 
     return TRUE;
 }
+#endif
 
 GList *
 seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit)
