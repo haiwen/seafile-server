@@ -2454,38 +2454,85 @@ get_file_count_cb (SeafDBRow *row, void *data)
 GList *
 seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit)
 {
-    GList *file_counts = NULL, *ptr;
     GList *ret = NULL;
-    SeafRepo *repo;
-    FileCount *file_count;
+    char *sql = NULL;
     int rc;
 
-    if (start == -1 && limit == -1)
-        rc = seaf_db_statement_foreach_row (mgr->seaf->db,
-                                            "SELECT r.repo_id, c.file_count FROM Repo r LEFT JOIN RepoFileCount c "
-                                            "ON r.repo_id = c.repo_id",
-                                            get_file_count_cb, &file_counts,
+    if (start == -1 && limit == -1) {
+        switch (seaf_db_type(mgr->seaf->db)) {
+        case SEAF_DB_TYPE_MYSQL:
+            sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id";
+            break;
+        case SEAF_DB_TYPE_PGSQL:
+            sql = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id";
+            break;
+        case SEAF_DB_TYPE_SQLITE:
+            sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id";
+            break;
+        default:
+            return NULL;
+        }
+
+        rc = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                            collect_repos_fill_size_commit, &ret,
                                             0);
-    else
-        rc = seaf_db_statement_foreach_row (mgr->seaf->db,
-                                            "SELECT r.repo_id, c.file_count FROM Repo r LEFT JOIN RepoFileCount c "
-                                            "ON r.repo_id = c.repo_id ORDER BY r.repo_id LIMIT ? OFFSET ?",
-                                            get_file_count_cb, &file_counts,
-                                            2, "int", limit, "int", start);
+    }else {
+        switch (seaf_db_type(mgr->seaf->db)) {
+        case SEAF_DB_TYPE_MYSQL:
+            sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id LIMIT ? OFFSET ?";
+            break;
+        case SEAF_DB_TYPE_PGSQL:
+            sql = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id LIMIT ? OFFSET ?";
+            break;
+        case SEAF_DB_TYPE_SQLITE:
+            sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id LIMIT ? OFFSET ?";
+            break;
+        default:
+            return NULL;
+        }
+    rc = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                        collect_repos_fill_size_commit, &ret,
+                                        2, "int", limit, "int", start);
+    }
 
     if (rc < 0)
         return NULL;
-
-    for (ptr = file_counts; ptr; ptr = ptr->next) {
-        file_count = ptr->data;
-        repo = seaf_repo_manager_get_repo_ex (mgr, file_count->repo_id);
-        if (repo != NULL) {
-            repo->file_count = file_count->file_count;
-            ret = g_list_prepend (ret, repo);
-        }
-    }
-
-    g_list_free_full (file_counts, free_file_count);
 
     return ret;
 }
