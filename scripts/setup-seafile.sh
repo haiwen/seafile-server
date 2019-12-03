@@ -69,7 +69,7 @@ function read_yes_no () {
 
 function check_existing_ccnet () {
     if [[ -d ${default_ccnet_conf_dir} ]]; then
-        echo "Error: Ccnet config dir \"${default_ccnet_conf_dir}\" already exists."
+        echo "\033[31m Error: \033[0m Ccnet config dir \"${default_ccnet_conf_dir}\" already exists."
         echo
         exit 1;
     fi
@@ -78,7 +78,7 @@ function check_existing_ccnet () {
 
 function check_existing_seafile () {
     if [[ -d ${default_seafile_data_dir} ]]; then
-        echo "Error: Seafile server data dir \"${default_seafile_data_dir}\" already exists."
+        echo "\033[31m Error: \033[0m Seafile server data dir \"${default_seafile_data_dir}\" already exists."
         echo
         exit 1;
     fi
