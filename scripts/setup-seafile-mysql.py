@@ -919,14 +919,14 @@ class CcnetConfigurator(AbstractConfigurator):
 class SeafileConfigurator(AbstractConfigurator):
     def __init__(self):
         AbstractConfigurator.__init__(self)
-        self.seafile_dir = None
+        self.seafile_dir = os.path.join(env_mgr.top_dir, 'seafile-data')
         self.port = 12001
         self.fileserver_port = None
         self.seafile_conf = os.path.join(env_mgr.central_config_dir, 'seafile.conf')
 
     def ask_questions(self):
-        if not self.seafile_dir:
-            self.ask_seafile_dir()
+        # if not self.seafile_dir:
+        #     self.ask_seafile_dir()
         # self.ask_port()
         if not self.fileserver_port:
             self.ask_fileserver_port()
