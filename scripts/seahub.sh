@@ -16,8 +16,8 @@ SCRIPT=$(readlink -f "$0")
 INSTALLPATH=$(dirname "${SCRIPT}")
 TOPDIR=$(dirname "${INSTALLPATH}")
 default_ccnet_conf_dir=${TOPDIR}/ccnet
-central_config_dir=${TOPDIR}/conf
 default_seafile_data_dir=${TOPDIR}/seafile-data
+central_config_dir=${TOPDIR}/conf
 
 manage_py=${INSTALLPATH}/seahub/manage.py
 gunicorn_conf=${TOPDIR}/conf/gunicorn.conf
@@ -83,8 +83,8 @@ function validate_ccnet_conf_dir () {
 
 function validate_seafile_data_dir () {
     if [[ ! -d ${default_seafile_data_dir} ]]; then
-        echo "Your seafile server data directory \"${default_seafile_data_dir}\" is invalid or doesn't exits."
-        echo "Please check it first, or create this directory yourself."
+        echo "Error: there is no seafile server data directory."
+        echo "Have you run setup-seafile.sh before this?"
         echo ""
         exit 1;
     fi
