@@ -15,7 +15,7 @@ export SEAFILE_LD_LIBRARY_PATH=${INSTALLPATH}/seafile/lib/:${INSTALLPATH}/seafil
 use_existing_ccnet="false"
 use_existing_seafile="false"
 
-server_manual_http="https://github.com/haiwen/seafile/wiki"
+server_manual_http='https://download.seafile.com/published/seafile-manual/home.md'
 
 function welcome () {
     echo "-----------------------------------------------------------------"
