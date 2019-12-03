@@ -531,7 +531,8 @@ fi
 # Write seafile.ini
 # -------------------------------------------
 
-echo "${seafile_data_dir}" > "${default_ccnet_conf_dir}/seafile.ini"
+## use default seafile-data path: seafile_data_dir=${TOPDIR}/seafile-data
+# echo "${seafile_data_dir}" > "${default_ccnet_conf_dir}/seafile.ini"
 
 # -------------------------------------------
 # Generate gunicorn.conf

@@ -946,7 +946,10 @@ class SeafileConfigurator(AbstractConfigurator):
 
         time.sleep(1)
         self.generate_db_conf()
-        self.write_seafile_ini()
+
+        ## use default seafile-data path: seafile_data_dir=${TOPDIR}/seafile-data
+        # self.write_seafile_ini()
+
         print('done')
 
     def generate_db_conf(self):
