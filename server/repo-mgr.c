@@ -2420,39 +2420,6 @@ seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
     return ret;
 }
 
-#if 0
-typedef struct FileCount {
-    char *repo_id;
-    gint64 file_count;
-} FileCount;
-
-static void
-free_file_count (gpointer data)
-{
-    if (!data)
-        return;
-
-    FileCount *file_count = data;
-    g_free (file_count->repo_id);
-    g_free (file_count);
-}
-
-static gboolean
-get_file_count_cb (SeafDBRow *row, void *data)
-{
-    GList **file_counts = data;
-    const char *repo_id = seaf_db_row_get_column_text (row, 0);
-    gint64 fcount = seaf_db_row_get_column_int64 (row, 1);
-
-    FileCount *file_count = g_new0 (FileCount, 1);
-    file_count->repo_id = g_strdup (repo_id);
-    file_count->file_count = fcount;
-    *file_counts = g_list_prepend (*file_counts, file_count);
-
-    return TRUE;
-}
-#endif
-
 GList *
 seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit)
 {
@@ -2528,9 +2495,10 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit)
         default:
             return NULL;
         }
-    rc = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
-                                        collect_repos_fill_size_commit, &ret,
-                                        2, "int", limit, "int", start);
+
+        rc = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                            collect_repos_fill_size_commit, &ret,
+                                            2, "int", limit, "int", start);
     }
 
     if (rc < 0)
