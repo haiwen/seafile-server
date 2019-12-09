@@ -6001,7 +6001,7 @@ find_deleted_recursive (SeafRepo *repo,
                 add_deleted_entry (repo, entries, dent2, base, child, parent);
             } else if (S_ISDIR(dent1->mode) && strcmp(dent1->id, dent2->id) != 0) {
                 SeafDir *n1 = seaf_fs_manager_get_seafdir_sorted (seaf->fs_mgr,
-                                                                  repo->id,
+                                                                  repo->store_id,
                                                                   repo->version,
                                                                   dent1->id);
                 if (!n1) {
@@ -6010,7 +6010,7 @@ find_deleted_recursive (SeafRepo *repo,
                 }
 
                 SeafDir *n2 = seaf_fs_manager_get_seafdir_sorted (seaf->fs_mgr,
-                                                                  repo->id,
+                                                                  repo->store_id,
                                                                   repo->version,
                                                                   dent2->id);
                 if (!n2) {
@@ -6054,7 +6054,7 @@ find_deleted (SeafRepo *repo,
     int ret = 0;
 
     d1 = seaf_fs_manager_get_seafdir_sorted_by_path (seaf->fs_mgr,
-                                                     repo->id,
+                                                     repo->store_id,
                                                      repo->version,
                                                      child->root_id, base);
     if (!d1) {
@@ -6062,7 +6062,7 @@ find_deleted (SeafRepo *repo,
     }
 
     d2 = seaf_fs_manager_get_seafdir_sorted_by_path (seaf->fs_mgr,
-                                                     repo->id,
+                                                     repo->store_id,
                                                      repo->version,
                                                      parent->root_id, base);
     if (!d2) {
