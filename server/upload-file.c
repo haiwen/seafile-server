@@ -42,6 +42,7 @@ enum UploadError {
     ERROR_NOT_EXIST,
     ERROR_SIZE,
     ERROR_QUOTA,
+    ERROR_FORBIDDEN,
     ERROR_RECV,
     ERROR_BLOCK_MISSING,
     ERROR_INTERNAL,
@@ -59,6 +60,7 @@ typedef struct RecvFSM {
     char *user;
     char *boundary;        /* boundary of multipart form-data. */
     char *input_name;      /* input name of the current form field. */
+    char *parent_dir;
     evbuf_t *line;          /* buffer for a line */
 
     GHashTable *form_kvs;       /* key/value of form fields */
@@ -288,6 +290,27 @@ check_parent_dir (evhtp_request_t *req, const char *repo_id,
     return ret;
 }
 
+static gboolean
+is_parent_matched (const char *upload_dir,
+                   const char *parent_dir)
+{
+    gboolean ret = TRUE;
+    char *upload_dir_canon = NULL;
+    char *parent_dir_canon = NULL;
+
+    upload_dir_canon = get_canonical_path (upload_dir);
+    parent_dir_canon = get_canonical_path (parent_dir);
+
+    if (strcmp (upload_dir_canon,parent_dir_canon) != 0) {
+        ret = FALSE;
+    }
+
+    g_free (upload_dir_canon);
+    g_free (parent_dir_canon);
+
+    return ret;
+}
+
 static char *
 file_list_to_json (GList *files)
 {
@@ -478,6 +501,11 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;
 
+    if (!fsm->parent_dir || !is_parent_matched (fsm->parent_dir, parent_dir)){
+        error_code = ERROR_FORBIDDEN;
+        goto error;
+    }
+
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
@@ -576,6 +604,9 @@ error:
         break;
     case ERROR_QUOTA:
         send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.\n");
+        break;
+    case ERROR_FORBIDDEN:
+        send_error_reply (req, SEAF_HTTP_RES_FORBIDDEN, "Permission denied.");
         break;
     case ERROR_RECV:
     case ERROR_INTERNAL:
@@ -1142,6 +1173,11 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;
 
+    if (!fsm->parent_dir || !is_parent_matched (fsm->parent_dir, parent_dir)){
+        error_code = ERROR_FORBIDDEN;
+        goto error;
+    }
+
     if (!check_tmp_file_list (fsm->files, &error_code))
         goto error;
 
@@ -1233,6 +1269,9 @@ error:
         break;
     case ERROR_QUOTA:
         send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.");
+        break;
+    case ERROR_FORBIDDEN:
+        send_error_reply (req, SEAF_HTTP_RES_FORBIDDEN, "Permission denied.");
         break;
     case ERROR_RECV:
     case ERROR_INTERNAL:
@@ -1831,6 +1870,7 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
     /* Clean up FSM struct no matter upload succeed or not. */
 
     g_free (fsm->repo_id);
+    g_free (fsm->parent_dir);
     g_free (fsm->user);
     g_free (fsm->boundary);
     g_free (fsm->input_name);
@@ -2341,12 +2381,16 @@ static int
 check_access_token (const char *token,
                     const char *url_op,
                     char **repo_id,
+                    char **parent_dir,
                     char **user,
                     char **token_type)
 {
     SeafileWebAccess *webaccess;
     const char *op;
     const char *_repo_id;
+    const char *_obj_id;
+    const char *_parent_dir;
+    json_t *parent_dir_json;
 
     webaccess = (SeafileWebAccess *)
         seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
@@ -2377,6 +2421,17 @@ check_access_token (const char *token,
 
     *repo_id = g_strdup (_repo_id);
     *user = g_strdup (seafile_web_access_get_username (webaccess));
+
+    _obj_id  = seafile_web_access_get_obj_id (webaccess);
+    parent_dir_json = json_loadb (_obj_id, strlen (_obj_id), 0, NULL);
+    if (parent_dir_json) {
+        _parent_dir = json_object_get_string_member (parent_dir_json, "parent_dir");
+        
+        if (_parent_dir){
+            *parent_dir = g_strdup(_parent_dir);
+        }
+        json_decref (parent_dir_json);
+    }
 
     g_object_unref (webaccess);
 
@@ -2463,6 +2518,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
 {
     char **parts = NULL;
     char *token, *repo_id = NULL, *user = NULL;
+    char *parent_dir = NULL;
     char *boundary = NULL;
     gint64 content_len;
     char *progress_id = NULL;
@@ -2490,7 +2546,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     }
     char *url_op = parts[0];
 
-    if (check_access_token (token, url_op, &repo_id, &user, &token_type) < 0) {
+    if (check_access_token (token, url_op, &repo_id, &parent_dir, &user, &token_type) < 0) {
         err_msg = "Access denied";
         goto err;
     }
@@ -2525,6 +2581,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     fsm = g_new0 (RecvFSM, 1);
     fsm->boundary = boundary;
     fsm->repo_id = repo_id;
+    fsm->parent_dir = parent_dir;
     fsm->user = user;
     fsm->token_type = token_type;
     fsm->rstart = rstart;
