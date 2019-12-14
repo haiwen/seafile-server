@@ -141,7 +141,6 @@ function migrate_avatars() {
     echo "Done"
 }
 
-
 function update_database() {
     echo
     echo "Updating seafile/seahub database ..."
