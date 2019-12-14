@@ -17,6 +17,8 @@ media_dir=${INSTALLPATH}/seahub/media
 orig_avatar_dir=${INSTALLPATH}/seahub/media/avatars
 dest_avatar_dir=${TOPDIR}/seahub-data/avatars
 seafile_server_symlink=${TOPDIR}/seafile-server-latest
+default_conf_dir=${TOPDIR}/conf
+default_ccnet_conf_dir=${TOPDIR}/ccnet
 seahub_data_dir=${TOPDIR}/seahub-data
 elasticsearch_config_file=${seafile_server_symlink}/pro/elasticsearch/config/jvm.options
 
@@ -113,6 +115,44 @@ function move_old_elasticsearch_config_to_latest() {
     fi
 }
 
+function read_seafile_data_dir() {
+    seafile_ini=${default_ccnet_conf_dir}/seafile.ini
+    if [[ -f ${seafile_ini} ]]; then
+        seafile_data_dir=$(cat "${seafile_ini}")
+        if [[ ! -d ${seafile_data_dir} ]]; then
+            echo "Your seafile server data directory \"${seafile_data_dir}\" is invalid or doesn't exits."
+            echo "Please check it first, or create this directory yourself."
+            echo ""
+            exit 1;
+        else
+            if [[ ${seafile_data_dir} != ${TOPDIR}/seafile-data ]]; then
+                if [[ ! -L ${TOPDIR}/seafile-data ]]; then
+                    ln -s ${seafile_data_dir} ${TOPDIR}/seafile-data
+                    echo "Created the symlink ${TOPDIR}/seafile-data for ${seafile_data_dir}."
+                fi  
+            fi  
+        fi
+    fi
+}
+
+function rename_gunicorn_config() {
+    echo
+    echo "renaming the gunicorn.conf to gunicon.conf.py ..."
+    echo
+    if [[ -f "${default_conf_dir}/gunicorn.conf" ]]; then
+        mv "${default_conf_dir}/gunicorn.conf" "${default_conf_dir}/gunicon.conf.py" 1>/dev/null
+    fi
+
+    if [[ -f "${default_conf_dir}/gunicon.conf.py" ]]; then
+        echo 'Done'
+    else
+        echo "Failed to renamed the gunicorn.conf to gunicon.conf.py."
+        exit 1
+    fi
+}
+ 
+read_seafile_data_dir;
+rename_gunicorn_config;
 migrate_avatars;
 
 move_old_customdir_outside;
