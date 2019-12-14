@@ -79,6 +79,22 @@ function read_seafile_data_dir () {
     export SEAFILE_CONF_DIR=$seafile_data_dir
 }
 
+function rename_gunicorn_config() {
+    echo
+    echo "renaming the gunicorn.conf to gunicon.conf.py ..."
+    echo
+    if [[ -f "${default_conf_dir}/gunicorn.conf" ]]; then
+        mv "${default_conf_dir}/gunicorn.conf" "${default_conf_dir}/gunicon.conf.py" 1>/dev/null
+    fi  
+
+    if [[ -f "${default_conf_dir}/gunicon.conf.py" ]]; then
+        echo 'Done'
+    else
+        echo "Failed to renamed the gunicorn.conf to gunicon.conf.py."
+        exit 1
+    fi  
+}
+
 function ensure_server_not_running() {
     # test whether seafile server has been stopped.
     if pgrep seaf-server 2>/dev/null 1>&2 ; then
@@ -208,6 +224,7 @@ function move_old_customdir_outside() {
 
 check_python_executable;
 read_seafile_data_dir;
+rename_gunicorn_config;
 ensure_server_not_running;
 
 update_database;
