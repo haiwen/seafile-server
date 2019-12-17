@@ -1248,7 +1248,7 @@ class GunicornConfigurator(AbstractConfigurator):
         pass
 
     def generate(self):
-        self.gunicorn_conf = os.path.join(env_mgr.central_config_dir, 'gunicorn.conf')
+        self.gunicorn_conf = os.path.join(env_mgr.central_config_dir, 'gunicorn.conf.py')
         template = '''
 import os
 

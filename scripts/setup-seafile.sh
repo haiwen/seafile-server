@@ -287,7 +287,7 @@ function get_fileserver_port () {
 
 function gen_gunicorn_conf () {
     mkdir -p ${default_conf_dir}
-    gunicorn_conf=${default_conf_dir}/gunicorn.conf
+    gunicorn_conf=${default_conf_dir}/gunicorn.conf.py
     if ! $(cat > ${gunicorn_conf} <<EOF
 import os
 
@@ -307,7 +307,7 @@ timeout = 1200
 limit_request_line = 8190
 EOF
 ); then
-    echo "failed to generate gunicorn.conf";
+    echo "failed to generate gunicorn.conf.py";
     err_and_quit
 fi
 }
@@ -502,7 +502,7 @@ echo
 # echo "${seafile_data_dir}" > "${default_ccnet_conf_dir}/seafile.ini"
 
 # -------------------------------------------
-# Generate gunicorn.conf
+# Generate gunicorn.conf.py
 # -------------------------------------------
 
 gen_gunicorn_conf;
