@@ -20,7 +20,7 @@ default_seafile_data_dir=${TOPDIR}/seafile-data
 central_config_dir=${TOPDIR}/conf
 
 manage_py=${INSTALLPATH}/seahub/manage.py
-gunicorn_conf=${TOPDIR}/conf/gunicorn.conf
+gunicorn_conf=${TOPDIR}/conf/gunicorn.conf.py
 pidfile=${TOPDIR}/pids/seahub.pid
 errorlog=${TOPDIR}/logs/gunicorn_error.log
 accesslog=${TOPDIR}/logs/gunicorn_access.log
