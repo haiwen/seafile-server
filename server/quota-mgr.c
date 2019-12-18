@@ -427,6 +427,8 @@ seaf_quota_manager_check_quota_with_delta (SeafQuotaManager *mgr,
 
     user = seaf_repo_manager_get_repo_owner (seaf->repo_mgr, r_repo_id);
     if (user != NULL) {
+        if (g_strrstr (user, "dtable@seafile") != NULL)
+            goto out;
         quota = seaf_quota_manager_get_user_quota (mgr, user);
     } else {
         seaf_warning ("Repo %s has no owner.\n", r_repo_id);
