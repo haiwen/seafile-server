@@ -220,10 +220,7 @@ get_python_executable() {
     }
 
     static const char *try_list[] = {
-        "python2.7",
-        "python27",
-        "python2.6",
-        "python26",
+        "python3"
     };
 
     int i;
@@ -289,16 +286,10 @@ setup_python_path()
         g_build_filename (installpath, "seahub/seahub-extra/thirdparts", NULL));
 
     path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib/python2.6/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib/python3.6/site-packages", NULL));
 
     path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib64/python2.6/site-packages", NULL));
-
-    path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib/python2.7/site-packages", NULL));
-
-    path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib64/python2.7/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib64/python3.6/site-packages", NULL));
 
     path_list = g_list_reverse (path_list);
 
