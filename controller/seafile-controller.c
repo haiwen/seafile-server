@@ -373,33 +373,17 @@ start_seafdav() {
 
     char *argv[] = {
         (char *)get_python_executable(),
-        "-m", "wsgidav.server.run_server",
-        "--log-file", seafdav_log_file,
+        "-m", "wsgidav.server.server_cli",
+        "--server", "gunicorn",
+        "--root", "/",
+        "--log-file", seafdav_log_file, 
         "--pid", ctl->pidfile[PID_SEAFDAV],
         "--port", port,
         "--host", conf.host,
         NULL
     };
 
-    char *argv_fastcgi[] = {
-        (char *)get_python_executable(),
-        "-m", "wsgidav.server.run_server",
-        "runfcgi",
-        "--log-file", seafdav_log_file,
-        "--pid", ctl->pidfile[PID_SEAFDAV],
-        "--port", port,
-        "--host", conf.host,
-        NULL
-    };
-
-    char **args;
-    if (ctl->seafdav_config.fastcgi) {
-        args = argv_fastcgi;
-    } else {
-        args = argv;
-    }
-
-    int pid = spawn_process (args);
+    int pid = spawn_process (argv);
 
     if (pid <= 0) {
         seaf_warning ("Failed to spawn seafdav\n");
@@ -746,21 +730,11 @@ read_seafdav_config()
         goto out;
     }
 
-    /* fastcgi */
-    ctl->seafdav_config.fastcgi = g_key_file_get_boolean(key_file, "WEBDAV", "fastcgi", &error);
-    if (error != NULL) {
-        if (error->code != G_KEY_FILE_ERROR_KEY_NOT_FOUND) {
-            seaf_message ("Error when reading WEBDAV.fastcgi, use default value 'false'\n");
-        }
-        ctl->seafdav_config.fastcgi = FALSE;
-        g_clear_error (&error);
-    }
-
     /* host */
     char *host = seaf_key_file_get_string (key_file, "WEBDAV", "host", &error);
     if (error != NULL) {
         g_clear_error(&error);
-        ctl->seafdav_config.host = g_strdup(ctl->seafdav_config.fastcgi ? "localhost" : "0.0.0.0");
+        ctl->seafdav_config.host = g_strdup("0.0.0.0");
     } else {
         ctl->seafdav_config.host = host;
     }

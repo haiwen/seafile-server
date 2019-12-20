@@ -32,7 +32,6 @@ enum {
 
 typedef struct SeafDavConfig {
     gboolean enabled;
-    gboolean fastcgi;
     int port;
     char *host;
 
