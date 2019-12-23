@@ -71,7 +71,7 @@ static int readdir_root(SeafileSession *seaf,
     }
     g_list_free (users);
 
-    users = get_users_from_ccnet (client, "LDAP");
+    users = get_users_from_ccnet (client, "LDAPImport");
     for (p = users; p; p = p->next) {
         user = p->data;
         email = ccnet_email_user_get_email (user);
