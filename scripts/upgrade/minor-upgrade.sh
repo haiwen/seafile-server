@@ -137,16 +137,16 @@ function read_seafile_data_dir() {
 
 function rename_gunicorn_config() {
     echo
-    echo "renaming the gunicorn.conf to gunicon.conf.py ..."
+    echo "renaming the gunicorn.conf to gunicorn.conf.py ..."
     echo
     if [[ -f "${default_conf_dir}/gunicorn.conf" ]]; then
-        mv "${default_conf_dir}/gunicorn.conf" "${default_conf_dir}/gunicon.conf.py" 1>/dev/null
+        mv "${default_conf_dir}/gunicorn.conf" "${default_conf_dir}/gunicorn.conf.py" 1>/dev/null
     fi
 
-    if [[ -f "${default_conf_dir}/gunicon.conf.py" ]]; then
+    if [[ -f "${default_conf_dir}/gunicorn.conf.py" ]]; then
         echo 'Done'
     else
-        echo "Failed to renamed the gunicorn.conf to gunicon.conf.py."
+        echo "Failed to renamed the gunicorn.conf to gunicorn.conf.py."
         exit 1
     fi
 }
