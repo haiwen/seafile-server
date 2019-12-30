@@ -74,6 +74,7 @@ func_table = [
     [ "objlist", ["int", "int"] ],
     [ "objlist", ["int", "string"] ],
     [ "objlist", ["int", "int", "int"] ],
+    [ "objlist", ["int", "int", "string"] ],
     [ "objlist", ["string"] ],        
     [ "objlist", ["string", "int"] ],
     [ "objlist", ["string", "int", "int"] ],

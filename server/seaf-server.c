@@ -78,7 +78,7 @@ static void start_rpc_service (const char *seafile_dir)
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_get_repo_list,
                                      "seafile_get_repo_list",
-                                     searpc_signature_objlist__int_int());
+                                     searpc_signature_objlist__int_int_string());
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_count_repos,
                                      "seafile_count_repos",
@@ -609,6 +609,10 @@ static void start_rpc_service (const char *seafile_dir)
                                      seafile_check_quota,
                                      "check_quota",
                                      searpc_signature_int__string_int64());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_list_user_quota_usage,
+                                     "list_user_quota_usage",
+                                     searpc_signature_objlist__void());
 
     /* repo permission */
     searpc_server_register_function ("seafserv-threaded-rpcserver",

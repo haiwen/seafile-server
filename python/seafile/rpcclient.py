@@ -27,7 +27,7 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     remove_repo = seafile_destroy_repo
 
     @searpc_func("objlist", ["int", "int"])
-    def seafile_get_repo_list(start, limit):
+    def seafile_get_repo_list(start, limit, order_by):
         pass
     get_repo_list = seafile_get_repo_list
 
@@ -462,6 +462,10 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
 
     @searpc_func("int", ["string", "int64"])
     def check_quota(repo_id, delta):
+        pass
+
+    @searpc_func("objlist", [])
+    def list_user_quota_usage():
         pass
 
     # password management

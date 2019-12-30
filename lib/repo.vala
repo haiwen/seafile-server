@@ -204,4 +204,9 @@ public class EncryptionInfo: Object {
     public string salt { get; set; }
 }
 
+public class UserQuotaUsage: Object {
+    public string user { get; set; }
+    public int64 usage { get; set; }
+}
+
 } // namespace

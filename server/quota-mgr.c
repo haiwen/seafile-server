@@ -565,3 +565,53 @@ seaf_quota_manager_get_org_user_usage (SeafQuotaManager *mgr,
     return seaf_db_statement_get_int64 (mgr->session->db, sql,
                                         2, "int", org_id, "string", user);
 }
+
+static gboolean
+collect_user_and_usage (SeafDBRow *row, void *data)
+{
+    GList **p = data;
+    const char *user;
+    gint64 usage;
+
+    user = seaf_db_row_get_column_text (row, 0);
+    usage = seaf_db_row_get_column_int64 (row, 1);
+
+    if (!user)
+        return FALSE;
+
+    SeafileUserQuotaUsage *user_usage= g_object_new (SEAFILE_TYPE_USER_QUOTA_USAGE,
+                                                     "user", user,
+                                                     "usage", usage,
+                                                     NULL);
+    if (!user_usage)
+        return FALSE;
+
+    *p = g_list_prepend (*p, user_usage);
+
+    return TRUE;
+}
+
+GList *
+seaf_repo_quota_manager_list_user_quota_usage (SeafQuotaManager *mgr)
+{
+    GList *ret = NULL;
+    char *sql = NULL;
+
+    sql = "SELECT owner_id,SUM(size) FROM "
+          "RepoOwner o LEFT JOIN VirtualRepo v ON o.repo_id=v.repo_id, "
+          "RepoSize WHERE "
+          "o.repo_id=RepoSize.repo_id "
+          "AND v.repo_id IS NULL";
+
+    if (seaf_db_statement_foreach_row (mgr->session->db, sql,
+                                       collect_user_and_usage,
+                                       &ret, 0) < 0) {
+        while (ret) {
+            g_object_unref (ret->data);
+            ret = g_list_delete_link (ret, ret);
+        }
+        return NULL;
+    }
+
+    return g_list_reverse (ret);
+}

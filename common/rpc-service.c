@@ -261,11 +261,33 @@ seafile_pop_event(const char *channel, GError **error)
 }
 #endif
 
+static gint
+comp_repo_size_func (gconstpointer a, gconstpointer b)
+{
+    const SeafRepo *repo_a = a, *repo_b = b;
+
+    return (repo_a->size - repo_b->size);
+}
+
+static gint
+comp_repo_file_count_func (gconstpointer a, gconstpointer b)
+{
+    const SeafRepo *repo_a = a, *repo_b = b;
+
+    return (repo_a->file_count - repo_b->file_count);
+}
+
 GList*
-seafile_get_repo_list (int start, int limit, GError **error)
+seafile_get_repo_list (int start, int limit, const char *order_by, GError **error)
 {
     GList *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, start, limit);
     GList *ret = NULL;
+
+    if (g_strcmp0 (order_by, "size") == 0) {
+        repos = g_list_sort (repos, comp_repo_size_func);
+    } else if (g_strcmp0 (order_by, "file_count") == 0) {
+        repos = g_list_sort (repos, comp_repo_file_count_func);
+    }
 
     ret = convert_repo_list (repos);
 
@@ -3120,6 +3142,12 @@ seafile_check_quota (const char *repo_id, gint64 delta, GError **error)
     if (rc == 1)
         return -1;
     return rc;
+}
+
+GList *
+seafile_list_user_quota_usage (GError **error)
+{
+    return seaf_repo_quota_manager_list_user_quota_usage (seaf->quota_mgr);
 }
 
 static char *

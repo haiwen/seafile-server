@@ -101,11 +101,11 @@ class SeafileAPI(object):
     def remove_repo(self, repo_id):
         return seafserv_threaded_rpc.remove_repo(repo_id)
 
-    def get_repo_list(self, start, limit):
+    def get_repo_list(self, start, limit, order_by):
         """
         Return: a list of Repo objects (lib/repo.vala)
         """
-        return seafserv_threaded_rpc.get_repo_list(start, limit)
+        return seafserv_threaded_rpc.get_repo_list(start, limit, order_by)
 
     def count_repos(self):
         return seafserv_threaded_rpc.count_repos()
@@ -725,6 +725,9 @@ class SeafileAPI(object):
 
     def check_quota(self, repo_id, delta=0):
         return seafserv_threaded_rpc.check_quota(repo_id, delta)
+
+    def list_user_quota_usage(self):
+        return seafserv_threaded_rpc.list_user_quota_usage()
 
     # virtual repo
     def create_virtual_repo(self, origin_repo_id, path, repo_name, repo_desc, owner, passwd=''):
