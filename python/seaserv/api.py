@@ -101,7 +101,7 @@ class SeafileAPI(object):
     def remove_repo(self, repo_id):
         return seafserv_threaded_rpc.remove_repo(repo_id)
 
-    def get_repo_list(self, start, limit, order_by):
+    def get_repo_list(self, start, limit, order_by=None):
         """
         Return: a list of Repo objects (lib/repo.vala)
         """

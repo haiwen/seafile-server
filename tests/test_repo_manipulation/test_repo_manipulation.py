@@ -5,6 +5,10 @@ from seaserv import seafile_api as api
 def get_repo_list_order_by(t_start, t_limit, order_by):
     t_repo_list = api.get_repo_list(t_start, t_limit, order_by)
     assert t_repo_list and len(t_repo_list)
+    if order_by == "size":
+        assert t_repo_list[0].size >= t_repo_list[1].size
+    if order_by == "file_count":
+        assert t_repo_list[0].file_count >= t_repo_list[1].file_count
 
 def test_repo_manipulation():
 
