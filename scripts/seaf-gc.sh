@@ -64,7 +64,7 @@ function validate_already_running () {
     check_component_running "ccnet-server" "ccnet-server -c ${default_ccnet_conf_dir}"
     check_component_running "seaf-server" "seaf-server -c ${default_ccnet_conf_dir}"
     check_component_running "fileserver" "fileserver -c ${default_ccnet_conf_dir}"
-    check_component_running "seafdav" "wsgidav.server.run_server"
+    check_component_running "seafdav" "wsgidav.server.server_cli"
 }
 
 function run_seaf_gc () {
