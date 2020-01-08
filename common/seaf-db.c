@@ -509,10 +509,7 @@ seaf_db_trans_foreach_selected_row (SeafDBTrans *trans, const char *sql,
 int
 seaf_db_row_get_column_count (SeafDBRow *row)
 {
-#ifdef HAVE_MYSQL
-    return mysql_db_row_get_column_count (row);
-#endif
-    return sqlite_db_row_get_column_count (row);
+    return db_ops.row_get_column_count(row);
 }
 
 #ifdef HAVE_MYSQL

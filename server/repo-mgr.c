@@ -2449,21 +2449,6 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
             else
                 snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id", sql_base);
             break;
-        case SEAF_DB_TYPE_PGSQL:
-            sql_base = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status, f.\"file_count\" FROM "
-                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
-                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
-                "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
-                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
-                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
-            if (g_strcmp0 (order_by, "size") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY s.\"size\", i.repo_id", sql_base);
-            else if (g_strcmp0 (order_by, "file_count") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY f.\"file_count\", i.repo_id", sql_base);
-            else
-                snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id", sql_base);
-            break;
         case SEAF_DB_TYPE_SQLITE:
             sql_base= "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
                 "i.version, i.is_encrypted, i.last_modifier, i.status, f.file_count FROM "
@@ -2500,21 +2485,6 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
                 snprintf (sql, sizeof(sql), "%sORDER BY s.size, i.repo_id LIMIT ? OFFSET ?", sql_base);
             else if (g_strcmp0 (order_by, "file_count") == 0)
                 snprintf (sql, sizeof(sql), "%sORDER BY f.file_count, i.repo_id LIMIT ? OFFSET ?", sql_base);
-            else
-                snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
-            break;
-        case SEAF_DB_TYPE_PGSQL:
-            sql_base = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status, f.\"file_count\" FROM "
-                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
-                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
-                "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
-                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
-                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
-            if (g_strcmp0 (order_by, "size") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY s.\"size\", i.repo_id LIMIT ? OFFSET ?", sql_base);
-            else if (g_strcmp0 (order_by, "file_count") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY f.\"file_count\", i.repo_id LIMIT ? OFFSET ?", sql_base);
             else
                 snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
             break;
