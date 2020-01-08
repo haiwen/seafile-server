@@ -17,7 +17,7 @@ seafile_get_session_info (GError **error);
  *
  * Returns repository list.
  */
-GList* seafile_get_repo_list (int start, int limit, GError **error);
+GList* seafile_get_repo_list (int start, int limit, const char *order_by, GError **error);
 
 gint64
 seafile_count_repos (GError **error);
@@ -814,6 +814,9 @@ seafile_get_user_quota (const char *user, GError **error);
 
 int
 seafile_check_quota (const char *repo_id, gint64 delta, GError **error);
+
+GList *
+seafile_list_user_quota_usage (GError **error);
 
 char *
 seafile_get_file_id_by_path (const char *repo_id, const char *path,

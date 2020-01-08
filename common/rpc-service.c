@@ -262,9 +262,9 @@ seafile_pop_event(const char *channel, GError **error)
 #endif
 
 GList*
-seafile_get_repo_list (int start, int limit, GError **error)
+seafile_get_repo_list (int start, int limit, const char *order_by, GError **error)
 {
-    GList *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, start, limit);
+    GList *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, start, limit, order_by);
     GList *ret = NULL;
 
     ret = convert_repo_list (repos);
@@ -3120,6 +3120,12 @@ seafile_check_quota (const char *repo_id, gint64 delta, GError **error)
     if (rc == 1)
         return -1;
     return rc;
+}
+
+GList *
+seafile_list_user_quota_usage (GError **error)
+{
+    return seaf_repo_quota_manager_list_user_quota_usage (seaf->quota_mgr);
 }
 
 static char *

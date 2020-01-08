@@ -97,6 +97,9 @@ seaf_db_trans_foreach_selected_row (SeafDBTrans *trans, const char *sql,
                                     SeafDBRowFunc callback, void *data,
                                     int n, ...);
 
+int
+seaf_db_row_get_column_count (SeafDBRow *row);
+
 /* Prepared Statements */
 
 int

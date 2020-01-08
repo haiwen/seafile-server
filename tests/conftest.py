@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 @retry(wait=wait_fixed(2), stop=stop_after_attempt(10))
 def wait_for_server():
-    seafile_api.get_repo_list(0, 1)
+    seafile_api.get_repo_list(0, 1, None)
 
 
 @pytest.fixture(scope='session', autouse=True)
