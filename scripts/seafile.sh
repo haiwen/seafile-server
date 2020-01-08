@@ -108,7 +108,7 @@ function validate_already_running () {
     check_component_running "ccnet-server" "ccnet-server -c ${default_ccnet_conf_dir}"
     check_component_running "seaf-server" "seaf-server -c ${default_ccnet_conf_dir}"
     check_component_running "fileserver" "fileserver -c ${default_ccnet_conf_dir}"
-    check_component_running "seafdav" "wsgidav.server.run_server"
+    check_component_running "seafdav" "wsgidav.server.server_cli"
 }
 
 function start_seafile_server () {
@@ -151,7 +151,7 @@ function stop_seafile_server () {
     pkill -f "seaf-server -c ${default_ccnet_conf_dir}"
     pkill -f "fileserver -c ${default_ccnet_conf_dir}"
     pkill -f "soffice.*--invisible --nocrashreport"
-    pkill -f  "wsgidav.server.run_server"
+    pkill -f  "wsgidav.server.server_cli"
     return 0
 }
 
