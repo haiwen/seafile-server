@@ -11,6 +11,7 @@
 #include "branch-mgr.h"
 #include "commit-mgr.h"
 #include "repo-mgr.h"
+#include "config-mgr.h"
 
 typedef struct _SeafileSession SeafileSession;
 
@@ -27,6 +28,7 @@ struct _SeafileSession {
     SeafBranchManager   *branch_mgr;
     SeafCommitManager   *commit_mgr;
     SeafRepoManager     *repo_mgr;
+    SeafCfgManager      *cfg_mgr;
 
     GHashTable          *excluded_users;
 

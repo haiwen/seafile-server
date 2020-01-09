@@ -93,6 +93,9 @@ check_repo_share_permission (SeafRepoManager *mgr,
                              const char *user_name)
 {
     char *permission;
+    gboolean cloud_mode = seaf_cfg_manager_get_config_boolean (seaf->cfg_mgr,
+                                                               "general",
+                                                               "cloud_mode");
 
     permission = seaf_share_manager_check_permission (seaf->share_mgr,
                                                       repo_id,
@@ -104,7 +107,7 @@ check_repo_share_permission (SeafRepoManager *mgr,
     if (permission != NULL)
         return permission;
 
-    if (!mgr->seaf->cloud_mode)
+    if (!cloud_mode)
         return seaf_repo_manager_get_inner_pub_repo_perm (mgr, repo_id);
 
     return NULL;

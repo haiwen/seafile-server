@@ -2,11 +2,11 @@
 #define SEAF_CONFIG_MGR_H
 
 typedef struct _SeafCfgManager SeafCfgManager;
+typedef struct _SeafCfgManagerPriv SeafCfgManagerPriv;
 #include "seafile-session.h"
 
 struct _SeafCfgManager {
-    GKeyFile *config;
-    SeafDB *db;
+    struct _SeafCfgManagerPriv *priv;
 };
 
 typedef struct _SeafileSession SeafileSession;

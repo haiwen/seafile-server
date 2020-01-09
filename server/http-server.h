@@ -12,22 +12,16 @@ struct _HttpServerStruct {
 
     struct _HttpServer *priv;
 
-    char *bind_addr;
-    int bind_port;
     char *http_temp_dir;        /* temp dir for file upload */
-    char *windows_encoding;
-    gint64 fixed_block_size;
-    int web_token_expire_time;
-    int max_indexing_threads;
-    int worker_threads;
-    int max_index_processing_threads;
-    int cluster_shared_temp_file_mode;
 };
 
 typedef struct _HttpServerStruct HttpServerStruct;
 
 HttpServerStruct *
 seaf_http_server_new (struct _SeafileSession *session);
+
+int
+seaf_http_server_init ();
 
 int
 seaf_http_server_start (HttpServerStruct *htp_server);

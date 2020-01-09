@@ -765,6 +765,11 @@ static void start_rpc_service (const char *seafile_dir)
                                      "set_server_config_boolean",
                                      searpc_signature_int__string_string_int());
 
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_list_config_options,
+                                     "list_config_options",
+                                     searpc_signature_objlist__void());
+
     pipe_path = g_build_path ("/", seafile_dir, SEAFILE_RPC_PIPE_NAME, NULL);
     rpc_server = searpc_create_named_pipe_server_with_threadpool (pipe_path, NAMED_PIPE_SERVER_THREAD_POOL_SIZE);
 

@@ -623,6 +623,12 @@ chunking_worker (gpointer vdata, gpointer user_data)
     int fd = -1;
     ssize_t n;
     int idx;
+    gint64 fixed_block_size;
+    int fixed_block_size_mb;
+    char *group = g_key_file_has_group (seaf->config, "fileserver") ? "fileserver" : "httpserver";
+
+    fixed_block_size_mb = seaf_cfg_manager_get_config_int (seaf->cfg_mgr, group, "fixed_block_size");
+    fixed_block_size = fixed_block_size_mb * ((gint64)1 << 20);
 
     chunk->block_buf = g_new0 (char, chunk->len);
     if (!chunk->block_buf) {
@@ -657,7 +663,7 @@ chunking_worker (gpointer vdata, gpointer user_data)
     if (chunk->result < 0)
         goto out;
 
-    idx = chunk->offset / seaf->http_server->fixed_block_size;
+    idx = chunk->offset / fixed_block_size;
     memcpy (data->blk_sha1s + idx * CHECKSUM_LENGTH, chunk->checksum, CHECKSUM_LENGTH);
 
 out:
@@ -684,8 +690,22 @@ split_file_to_block (const char *repo_id,
     int n_pending = 0;
     CDCDescriptor *chunk;
     int ret = 0;
+    int fixed_block_size_mb;
+    int max_indexing_threads;
+    gint64 fixed_block_size;
+    char *group = g_key_file_has_group (seaf->config, "fileserver") ? "fileserver" : "httpserver";
 
-    n_blocks = (file_size + seaf->http_server->fixed_block_size - 1) / seaf->http_server->fixed_block_size;
+    fixed_block_size_mb = seaf_cfg_manager_get_config_int (seaf->cfg_mgr,
+                                                           group,
+                                                           "fixed_block_size");
+    fixed_block_size = fixed_block_size_mb * ((gint64)1 << 20);
+
+    max_indexing_threads = seaf_cfg_manager_get_config_int (seaf->cfg_mgr,
+                                                            group,
+                                                            "max_indexing_threads");
+
+    n_blocks = (file_size + fixed_block_size - 1) / fixed_block_size;
+
     block_sha1s = g_new0 (uint8_t, n_blocks * CHECKSUM_LENGTH);
     if (!block_sha1s) {
         seaf_warning ("Failed to allocate block_sha1s.\n");
@@ -705,7 +725,7 @@ split_file_to_block (const char *repo_id,
     data.finished_tasks = finished_tasks;
 
     tpool = g_thread_pool_new (chunking_worker, &data,
-                               seaf->http_server->max_indexing_threads, FALSE, NULL);
+                               max_indexing_threads, FALSE, NULL);
     if (!tpool) {
         seaf_warning ("Failed to allocate thread pool\n");
         ret = -1;
@@ -716,7 +736,7 @@ split_file_to_block (const char *repo_id,
     guint64 len;
     guint64 left = (guint64)file_size;
     while (left > 0) {
-        len = ((left >= seaf->http_server->fixed_block_size) ? seaf->http_server->fixed_block_size : left);
+        len = ((left >= fixed_block_size) ? fixed_block_size : left);
 
         chunk = g_new0 (CDCDescriptor, 1);
         chunk->offset = offset;
@@ -736,7 +756,7 @@ split_file_to_block (const char *repo_id,
             goto out;
         }
         if (indexed)
-            *indexed += seaf->http_server->fixed_block_size;
+            *indexed += fixed_block_size;
 
         if ((--n_pending) <= 0) {
             if (indexed)

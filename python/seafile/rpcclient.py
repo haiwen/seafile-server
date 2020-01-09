@@ -722,6 +722,10 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def set_server_config_boolean (group, key, value):
         pass
 
+    @searpc_func("objlist", [])
+    def list_config_options ():
+        pass
+
     @searpc_func("int", ["string", "int"])
     def repo_has_been_shared (repo_id, including_groups):
         pass

@@ -25,8 +25,6 @@
 
 #define REAP_TOKEN_INTERVAL 300 /* 5 mins */
 #define DECRYPTED_TOKEN_TTL 3600 /* 1 hour */
-#define SCAN_TRASH_DAYS 1 /* one day */
-#define TRASH_EXPIRE_DAYS 30 /* one month */
 
 typedef struct DecryptedToken {
     char *token;
@@ -258,13 +256,10 @@ scan_trash (void *data)
 {
     GList *repo_ids = NULL;
     SeafRepoManager *mgr = seaf->repo_mgr;
-    gint64 trash_expire_interval = TRASH_EXPIRE_DAYS * 24 * 3600;
     int expire_days = seaf_cfg_manager_get_config_int (seaf->cfg_mgr,
                                                        "library_trash",
                                                        "expire_days");
-    if (expire_days > 0) {
-        trash_expire_interval = expire_days * 24 * 3600;
-    }
+    gint64 trash_expire_interval = expire_days * 24 * 3600;
 
     gint64 expire_time = time(NULL) - trash_expire_interval;
     char *sql = "SELECT repo_id FROM RepoTrash WHERE del_time <= ?";
@@ -293,18 +288,11 @@ scan_trash (void *data)
 }
 
 static void
-init_scan_trash_timer (SeafRepoManagerPriv *priv, GKeyFile *config)
+init_scan_trash_timer (SeafRepoManagerPriv *priv)
 {
-    int scan_days;
-    GError *error = NULL;
-
-    scan_days = g_key_file_get_integer (config,
-                                        "library_trash", "scan_days",
-                                        &error);
-    if (error) {
-       scan_days = SCAN_TRASH_DAYS;
-       g_clear_error (&error);
-    }
+    int scan_days = seaf_cfg_manager_get_config_int (seaf->cfg_mgr,
+                                                     "library_trash",
+                                                     "scan_days");
 
     priv->scan_trash_timer = ccnet_timer_new (scan_trash, NULL,
                                               scan_days * 24 * 3600 * 1000);
@@ -325,14 +313,14 @@ seaf_repo_manager_new (SeafileSession *seaf)
     mgr->priv->reap_token_timer = ccnet_timer_new (reap_token, mgr,
                                                    REAP_TOKEN_INTERVAL * 1000);
 
-    init_scan_trash_timer (mgr->priv, seaf->config);
-
     return mgr;
 }
 
 int
 seaf_repo_manager_init (SeafRepoManager *mgr)
 {
+    init_scan_trash_timer (mgr->priv);
+
     /* On the server, we load repos into memory on-demand, because
      * there are too many repos.
      */
@@ -437,6 +425,9 @@ remove_virtual_repo_ondisk (SeafRepoManager *mgr,
                             const char *repo_id)
 {
     SeafDB *db = mgr->seaf->db;
+    gboolean cloud_mode = seaf_cfg_manager_get_config_boolean (seaf->cfg_mgr,
+                                                               "general",
+                                                               "cloud_mode");
 
     /* Remove record in repo table first.
      * Once this is commited, we can gc the other tables later even if
@@ -466,7 +457,7 @@ remove_virtual_repo_ondisk (SeafRepoManager *mgr,
     seaf_db_statement_query (db, "DELETE FROM RepoGroup WHERE repo_id = ?",
                    1, "string", repo_id);
 
-    if (!seaf->cloud_mode) {
+    if (!cloud_mode) {
         seaf_db_statement_query (db, "DELETE FROM InnerPubRepo WHERE repo_id = ?",
                                  1, "string", repo_id);
     }
@@ -533,6 +524,9 @@ seaf_repo_manager_del_repo (SeafRepoManager *mgr,
                             GError **error)
 {
     gboolean has_err = FALSE;
+    gboolean cloud_mode = seaf_cfg_manager_get_config_boolean (seaf->cfg_mgr,
+                                                               "general",
+                                                               "cloud_mode");
 
     SeafCommit *head_commit = get_head_commit (mgr, repo_id, &has_err);
     if (has_err) {
@@ -580,7 +574,7 @@ del_repo:
     seaf_db_statement_query (mgr->seaf->db, "DELETE FROM RepoGroup WHERE repo_id = ?",
                              1, "string", repo_id);
 
-    if (!seaf->cloud_mode) {
+    if (!cloud_mode) {
         seaf_db_statement_query (mgr->seaf->db, "DELETE FROM InnerPubRepo WHERE repo_id = ?",
                                  1, "string", repo_id);
     }
@@ -1971,13 +1965,9 @@ seaf_repo_manager_get_repo_history_limit (SeafRepoManager *mgr,
                                          &per_repo_days, 1, "string", r_repo_id);
     if (ret == 0) {
         // limit not set, return global one
-        per_repo_days= seaf_cfg_manager_get_config_int (mgr->seaf->cfg_mgr,
+        per_repo_days = seaf_cfg_manager_get_config_int (mgr->seaf->cfg_mgr,
                                                         "history", "keep_days");
     }
-
-    // db error or limit set as negative, means keep full history, return -1
-    if (per_repo_days < 0)
-        per_repo_days = -1;
 
     seaf_virtual_repo_info_free (vinfo);
 
@@ -2068,6 +2058,9 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
     char sql[256];
     char *orig_owner = NULL;
     int ret = 0;
+    gboolean cloud_mode = seaf_cfg_manager_get_config_boolean (seaf->cfg_mgr,
+                                                               "general",
+                                                               "cloud_mode");
 
     orig_owner = seaf_repo_manager_get_repo_owner (mgr, repo_id);
     if (g_strcmp0 (orig_owner, email) == 0)
@@ -2113,7 +2106,7 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
     seaf_db_statement_query (mgr->seaf->db, "DELETE FROM RepoGroup WHERE repo_id = ?",
                              1, "string", repo_id);
 
-    if (!seaf->cloud_mode) {
+    if (!cloud_mode) {
         seaf_db_statement_query (mgr->seaf->db, "DELETE FROM InnerPubRepo WHERE repo_id = ?",
                                  1, "string", repo_id);
     }

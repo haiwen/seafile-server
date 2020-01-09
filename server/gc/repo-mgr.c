@@ -498,10 +498,6 @@ seaf_repo_manager_get_repo_history_limit (SeafRepoManager *mgr,
                                                          "history", "keep_days");
     }
 
-    if (per_repo_days < 0) {
-        per_repo_days = -1;
-    }
-
     return per_repo_days;
 }
 
