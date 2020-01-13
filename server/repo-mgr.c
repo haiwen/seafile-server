@@ -2443,9 +2443,9 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
                 "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
                 "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
             if (g_strcmp0 (order_by, "size") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY s.size, i.repo_id", sql_base);
+                snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id", sql_base);
             else if (g_strcmp0 (order_by, "file_count") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count, i.repo_id", sql_base);
+                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count DESC, i.repo_id", sql_base);
             else
                 snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id", sql_base);
             break;
@@ -2458,9 +2458,9 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
                 "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
                 "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
             if (g_strcmp0 (order_by, "size") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY s.size, i.repo_id", sql_base);
+                snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id", sql_base);
             else if (g_strcmp0 (order_by, "file_count") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count, i.repo_id", sql_base);
+                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count DESC, i.repo_id", sql_base);
             else
                 snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id", sql_base);
             break;
@@ -2482,9 +2482,9 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
                 "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
                 "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
             if (g_strcmp0 (order_by, "size") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY s.size, i.repo_id LIMIT ? OFFSET ?", sql_base);
+                snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
             else if (g_strcmp0 (order_by, "file_count") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count, i.repo_id LIMIT ? OFFSET ?", sql_base);
+                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
             else
                 snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
             break;
@@ -2497,9 +2497,9 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
                 "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
                 "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
             if (g_strcmp0 (order_by, "size") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY s.size, i.repo_id LIMIT ? OFFSET ?", sql_base);
+                snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
             else if (g_strcmp0 (order_by, "file_count") == 0)
-                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count, i.repo_id LIMIT ? OFFSET ?", sql_base);
+                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
             else
                 snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
             break;
@@ -2515,7 +2515,7 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
     if (rc < 0)
         return NULL;
 
-    return ret;
+    return g_list_reverse (ret);
 }
 
 gint64
