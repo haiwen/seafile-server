@@ -3,3 +3,4 @@ requests>=2.8.0
 pytest>=3.3.2
 backports.functools_lru_cache>=1.4
 tenacity>=4.8.0
+future

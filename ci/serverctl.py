@@ -167,7 +167,7 @@ connection_charset = utf8
            ccnet_sql_path = join(self.sql_dir, 'mysql', 'ccnet.sql')
            seafile_sql_path = join(self.sql_dir, 'mysql', 'seafile.sql')
            sql = f'USE ccnet; source {ccnet_sql_path}; USE seafile; source {seafile_sql_path};'.encode()
-           shell('mysql -u root', inputdata=sql, wait=False)
+           shell('sudo mysql -u root -proot', inputdata=sql, wait=False)
         else:
            config_sql_path = join(self.sql_dir, 'sqlite', 'config.sql')
            groupmgr_sql_path = join(self.sql_dir, 'sqlite', 'groupmgr.sql')
@@ -257,4 +257,4 @@ GRANT ALL PRIVILEGES ON `ccnet`.* to `seafile`@localhost;
 GRANT ALL PRIVILEGES ON `seafile`.* to `seafile`@localhost;
     '''
 
-    shell('mysql -u root', inputdata=sql)
+    shell('sudo mysql -u root -proot', inputdata=sql)
