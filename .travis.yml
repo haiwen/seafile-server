@@ -20,6 +20,7 @@ addons:
     - libonig-dev
     - libfuse-dev
     - net-tools
+    - libevhtp-dev
 cache:
   directories:
   - "$HOME/.cache/pip"
