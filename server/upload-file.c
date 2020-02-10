@@ -1420,6 +1420,12 @@ update_api_cb(evhtp_request_t *req, void *arg)
         g_free (abs_path);
     }
 
+out:
+    g_free (parent_dir);
+    g_free (filename);
+    g_free (new_file_id);
+    return;
+
 error:
     switch (error_code) {
     case ERROR_FILENAME:
@@ -1443,12 +1449,6 @@ error:
         send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
         break;
     }
-
-out:
-    g_free (parent_dir);
-    g_free (filename);
-    g_free (new_file_id);
-    return;
 }
 
 static void
