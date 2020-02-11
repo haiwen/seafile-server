@@ -184,6 +184,38 @@ send_success_reply_ie8_compatible (evhtp_request_t *req, evhtp_res code)
     evhtp_send_reply (req, code);
 }
 
+static void
+send_replay_by_error_code (evhtp_request_t *req, int error_code)
+{
+    switch (error_code) {
+    case ERROR_FILENAME:
+        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.\n");
+        break;
+    case ERROR_EXISTS:
+        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.\n");
+        break;
+    case ERROR_NOT_EXIST:
+        send_error_reply (req, SEAF_HTTP_RES_NOT_EXISTS, "File does not exist.\n");
+        break;
+    case ERROR_SIZE:
+        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.\n");
+        break;
+    case ERROR_QUOTA:
+        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.\n");
+        break;
+    case ERROR_BLOCK_MISSING:
+        send_error_reply (req, SEAF_HTTP_RES_BLOCK_MISSING, "Block missing.\n");
+        break;
+    case ERROR_FORBIDDEN:
+        send_error_reply (req, SEAF_HTTP_RES_FORBIDDEN, "Permission denied.");
+        break;
+    case ERROR_RECV:
+    case ERROR_INTERNAL:
+        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error\n");
+        break;
+    }
+}
+
 static gboolean
 check_tmp_file_list (GList *tmp_files, int *error_code)
 {
@@ -396,7 +428,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     char *parent_dir, *replace_str;
     char *relative_path = NULL, *new_parent_dir = NULL;
     GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
+    int error_code = -1;
     char *filenames_json, *tmp_files_json;
     int replace = 0;
     int rc;
@@ -482,7 +514,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data) < 0) {
             error_code = ERROR_INTERNAL;
-            goto error;
+            goto out;
         }
         if (fsm->rend != fsm->fsize - 1) {
             const char *success_str = "{\"success\": true}";
@@ -503,11 +535,11 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
     if (!fsm->parent_dir || !is_parent_matched (fsm->parent_dir, parent_dir)){
         error_code = ERROR_FORBIDDEN;
-        goto error;
+        goto out;
     }
 
     if (!check_tmp_file_list (fsm->files, &error_code))
-        goto error;
+        goto out;
 
     gint64 content_len;
     if (fsm->fsize > 0)
@@ -518,12 +550,14 @@ upload_api_cb(evhtp_request_t *req, void *arg)
                                                    fsm->repo_id,
                                                    content_len) != 0) {
         error_code = ERROR_QUOTA;
-        goto error;
+        goto out;
     }
 
     rc = create_relative_path (fsm, parent_dir, relative_path);
-    if (rc < 0)
-        goto error;
+    if (rc < 0) {
+        error_code = ERROR_INTERNAL;
+        goto out;
+    }
 
     filenames_json = file_list_to_json (fsm->filenames);
     tmp_files_json = file_list_to_json (fsm->files);
@@ -543,13 +577,14 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     g_free (filenames_json);
     g_free (tmp_files_json);
     if (rc < 0) {
+        error_code = ERROR_INTERNAL;
         if (error) {
             if (error->code == POST_FILE_ERR_FILENAME) {
                 error_code = ERROR_FILENAME;
             }
             g_clear_error (&error);
         }
-        goto error;
+        goto out;
     }
 
     if (task_id) {
@@ -587,32 +622,9 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
 out:
     g_free(new_parent_dir);
+    send_replay_by_error_code (req, error_code);
 
     return;
-
-error:
-    g_free(new_parent_dir);
-    switch (error_code) {
-    case ERROR_FILENAME:
-        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.\n");
-        break;
-    case ERROR_EXISTS:
-        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.\n");
-        break;
-    case ERROR_SIZE:
-        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.\n");
-        break;
-    case ERROR_QUOTA:
-        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.\n");
-        break;
-    case ERROR_FORBIDDEN:
-        send_error_reply (req, SEAF_HTTP_RES_FORBIDDEN, "Permission denied.");
-        break;
-    case ERROR_RECV:
-    case ERROR_INTERNAL:
-        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error\n");
-        break;
-    }
 }
 
 
@@ -621,7 +633,7 @@ upload_raw_blks_api_cb(evhtp_request_t *req, void *arg)
 {
     RecvFSM *fsm = arg;
     GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
+    int error_code = -1;
     char *blockids_json, *tmp_files_json;
 
     /* After upload_headers_cb() returns an error, libevhtp may still
@@ -632,7 +644,7 @@ upload_raw_blks_api_cb(evhtp_request_t *req, void *arg)
         return;
 
     if (!check_tmp_file_list (fsm->files, &error_code))
-        goto error;
+        goto out;
 
     blockids_json = file_list_to_json (fsm->filenames);
     tmp_files_json = file_list_to_json (fsm->files);
@@ -646,40 +658,25 @@ upload_raw_blks_api_cb(evhtp_request_t *req, void *arg)
     g_free (blockids_json);
     g_free (tmp_files_json);
     if (rc < 0) {
+        error_code = ERROR_INTERNAL;
         if (error) {
             if (error->code == POST_FILE_ERR_FILENAME) {
                 error_code = ERROR_FILENAME;
             }
             g_clear_error (&error);
         }
-        goto error;
+        goto out;
     }
     guint64 content_len = (guint64)get_content_length(req);
     send_statistic_msg(fsm->repo_id, fsm->user, "web-file-upload", content_len);
 
     evbuffer_add (req->buffer_out, "\"OK\"", 4);
     send_success_reply (req);
-    return;
 
-error:
-    switch (error_code) {
-    case ERROR_FILENAME:
-        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.\n");
-        break;
-    case ERROR_EXISTS:
-        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.\n");
-        break;
-    case ERROR_SIZE:
-        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.\n");
-        break;
-    case ERROR_QUOTA:
-        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.\n");
-        break;
-    case ERROR_RECV:
-    case ERROR_INTERNAL:
-        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
-        break;
-    }
+out:
+    send_replay_by_error_code (req, error_code);
+
+    return;
 }
 
 static void
@@ -688,7 +685,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
     RecvFSM *fsm = arg;
     const char *parent_dir, *file_name, *size_str, *replace_str, *commitonly_str;
     GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
+    int error_code = -1;
     char *blockids_json;
     gint64 file_size = -1;
     int replace = 0;
@@ -777,6 +774,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
                                                &new_file_id,
                                                &error);
     if (rc < 0) {
+        error_code = ERROR_INTERNAL;
         if (error) {
             if (error->code == POST_FILE_ERR_FILENAME) {
                 error_code = ERROR_FILENAME;
@@ -787,7 +785,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
             }
             g_clear_error (&error);
         }
-        goto error;
+        goto out;
     }
 
     const char *use_json = evhtp_kv_find (req->uri->query, "ret-json");
@@ -803,32 +801,13 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
         evbuffer_add (req->buffer_out, new_file_id, strlen(new_file_id));
         evbuffer_add (req->buffer_out, "\"", 1);
     }
-    g_free (new_file_id);
     send_success_reply (req);
-    return;
 
-error:
-    switch (error_code) {
-    case ERROR_FILENAME:
-        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.\n");
-        break;
-    case ERROR_EXISTS:
-        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.\n");
-        break;
-    case ERROR_SIZE:
-        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.\n");
-        break;
-    case ERROR_QUOTA:
-        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.\n");
-        break;
-    case ERROR_BLOCK_MISSING:
-        send_error_reply (req, SEAF_HTTP_RES_BLOCK_MISSING, "Block missing.\n");
-        break;
-    case ERROR_RECV:
-    case ERROR_INTERNAL:
-        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
-        break;
-    }
+out:
+    g_free (new_file_id);
+    send_replay_by_error_code (req, error_code);
+
+    return;
 }
 
 /* static void */
@@ -1077,7 +1056,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     RecvFSM *fsm = arg;
     char *parent_dir = NULL, *relative_path = NULL, *new_parent_dir = NULL;
     GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
+    int error_code = -1;
     char *filenames_json, *tmp_files_json;
     int rc;
 
@@ -1154,7 +1133,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data) < 0) {
             error_code = ERROR_INTERNAL;
-            goto error;
+            goto out;
         }
         if (fsm->rend != fsm->fsize - 1) {
             const char *success_str = "{\"success\": true}";
@@ -1175,11 +1154,11 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
     if (!fsm->parent_dir || !is_parent_matched (fsm->parent_dir, parent_dir)){
         error_code = ERROR_FORBIDDEN;
-        goto error;
+        goto out;
     }
 
     if (!check_tmp_file_list (fsm->files, &error_code))
-        goto error;
+        goto out;
 
     gint64 content_len;
     if (fsm->fsize > 0)
@@ -1191,12 +1170,14 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
                                                    fsm->repo_id,
                                                    content_len) != 0) {
         error_code = ERROR_QUOTA;
-        goto error;
+        goto out;
     }
 
     rc = create_relative_path (fsm, parent_dir, relative_path);
-    if (rc < 0)
-        goto error;
+    if (rc < 0) {
+        error_code = ERROR_INTERNAL;
+        goto out;
+    }
 
     filenames_json = file_list_to_json (fsm->filenames);
     tmp_files_json = file_list_to_json (fsm->files);
@@ -1216,13 +1197,14 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     g_free (filenames_json);
     g_free (tmp_files_json);
     if (rc < 0) {
+        error_code = ERROR_INTERNAL;
         if (error) {
             if (error->code == POST_FILE_ERR_FILENAME) {
                 error_code = ERROR_FILENAME;
             }
             g_clear_error (&error);
         }
-        goto error;
+        goto out;
     }
 
     if (task_id) {
@@ -1252,32 +1234,9 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
 out:
     g_free (new_parent_dir);
+    send_replay_by_error_code (req, error_code);
 
     return;
-
-error:
-    g_free(new_parent_dir);
-    switch (error_code) {
-    case ERROR_FILENAME:
-        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.");
-        break;
-    case ERROR_EXISTS:
-        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.");
-        break;
-    case ERROR_SIZE:
-        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.");
-        break;
-    case ERROR_QUOTA:
-        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.");
-        break;
-    case ERROR_FORBIDDEN:
-        send_error_reply (req, SEAF_HTTP_RES_FORBIDDEN, "Permission denied.");
-        break;
-    case ERROR_RECV:
-    case ERROR_INTERNAL:
-        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
-        break;
-    }
 }
 
 static void
@@ -1287,7 +1246,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
     char *target_file, *parent_dir = NULL, *filename = NULL;
     const char *head_id = NULL;
     GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
+    int error_code = -1;
     char *new_file_id = NULL;
 
     evhtp_headers_add_header (req->headers_out,
@@ -1332,7 +1291,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
     if (!filename || filename[0] == '\0') {
         seaf_debug ("[Update] Bad target_file.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid targe_file.\n");
-        return;
+        goto out;
     }
 
     if (fsm->rstart >= 0) {
@@ -1364,14 +1323,14 @@ update_api_cb(evhtp_request_t *req, void *arg)
     if (!fsm->files) {
         seaf_debug ("[Update] No file uploaded.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
-        return;
+        goto out;
     }
 
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;
 
     if (!check_tmp_file_list (fsm->files, &error_code))
-        goto error;
+        goto out;
 
     head_id = evhtp_kv_find (req->uri->query, "head");
 
@@ -1384,7 +1343,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
                                                    fsm->repo_id,
                                                    content_len) != 0) {
         error_code = ERROR_QUOTA;
-        goto error;
+        goto out;
     }
 
     int rc = seaf_repo_manager_put_file (seaf->repo_mgr,
@@ -1397,13 +1356,14 @@ update_api_cb(evhtp_request_t *req, void *arg)
                                          &new_file_id,
                                          &error);
     if (rc < 0) {
+        error_code = ERROR_INTERNAL;
         if (error) {
             if (g_strcmp0 (error->message, "file does not exist") == 0) {
                 error_code = ERROR_NOT_EXIST;
             }
             g_clear_error (&error);
         }
-        goto error;
+        goto out;
     }
 
     /* Send back the new file id, so that the mobile client can update local cache */
@@ -1424,31 +1384,9 @@ out:
     g_free (parent_dir);
     g_free (filename);
     g_free (new_file_id);
-    return;
+    send_replay_by_error_code (req, error_code);
 
-error:
-    switch (error_code) {
-    case ERROR_FILENAME:
-        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.\n");
-        break;
-    case ERROR_EXISTS:
-        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.\n");
-        break;
-    case ERROR_SIZE:
-        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.\n");
-        break;
-    case ERROR_QUOTA:
-        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.\n");
-        break;
-    case ERROR_NOT_EXIST:
-        send_error_reply (req, SEAF_HTTP_RES_NOT_EXISTS, "File does not exist.\n");
-        break;
-    case ERROR_RECV:
-    case ERROR_INTERNAL:
-    default:
-        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
-        break;
-    }
+    return;
 }
 
 static void
@@ -1458,7 +1396,7 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
     char *target_file, *parent_dir = NULL, *filename = NULL, *size_str = NULL;
     const char *commitonly_str;
     GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
+    int error_code = -1;
     char *new_file_id = NULL;
     char *blockids_json;
     gint64 file_size = -1;
@@ -1483,7 +1421,7 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
     filename = g_path_get_basename (target_file);
 
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
-        return;
+        goto out;
 
     int rc = 0;
     /* if (!commitonly_str) { */
@@ -1519,7 +1457,7 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
     if (blockids_json == NULL) {
         seaf_debug ("[upload-blks] No blockids given.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
-        return;
+        goto out;
     }
     rc = seaf_repo_manager_commit_file_blocks (seaf->repo_mgr,
                                                fsm->repo_id,
@@ -1531,10 +1469,9 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
                                                1,
                                                &new_file_id,
                                                &error);
-    g_free (parent_dir);
-    g_free (filename);
 
     if (rc < 0) {
+        error_code = ERROR_INTERNAL;
         if (error) {
             if (g_strcmp0 (error->message, "file does not exist") == 0) {
                 error_code = ERROR_NOT_EXIST;
@@ -1543,39 +1480,20 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
             }
             g_clear_error (&error);
         }
-        goto error;
+        goto out;
     }
 
     /* Send back the new file id, so that the mobile client can update local cache */
     evbuffer_add(req->buffer_out, new_file_id, strlen(new_file_id));
     send_success_reply (req);
 
+out:
+    g_free (parent_dir);
+    g_free (filename);
     g_free (new_file_id);
-    return;
+    send_replay_by_error_code (req, error_code);
 
-error:
-    switch (error_code) {
-    case ERROR_FILENAME:
-        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.\n");
-        break;
-    case ERROR_EXISTS:
-        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.\n");
-        break;
-    case ERROR_SIZE:
-        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.\n");
-        break;
-    case ERROR_QUOTA:
-        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.\n");
-        break;
-    case ERROR_NOT_EXIST:
-        send_error_reply (req, SEAF_HTTP_RES_NOT_EXISTS, "File does not exist.\n");
-        break;
-    case ERROR_RECV:
-    case ERROR_INTERNAL:
-    default:
-        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
-        break;
-    }
+    return;
 }
 
 /* static void */
@@ -1727,7 +1645,7 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
     char *target_file, *parent_dir = NULL, *filename = NULL;
     const char *head_id = NULL;
     GError *error = NULL;
-    int error_code = ERROR_INTERNAL;
+    int error_code = -1;
     char *new_file_id = NULL;
     gint64 size;
 
@@ -1773,16 +1691,17 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
     filename = g_path_get_basename (target_file);
 
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
-        return;
+        goto out;
 
     if (!check_tmp_file_list (fsm->files, &error_code))
-        goto error;
+        goto out;
 
     SeafStat st;
     char *tmp_file_path = fsm->files->data;
     if (seaf_stat (tmp_file_path, &st) < 0) {
         seaf_warning ("Failed to stat tmp file %s.\n", tmp_file_path);
-        goto error;
+        error_code = ERROR_INTERNAL;
+        goto out;
     }
     size = (gint64)st.st_size;
 
@@ -1793,7 +1712,7 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
                                                    fsm->repo_id,
                                                    content_len) != 0) {
         error_code = ERROR_QUOTA;
-        goto error;
+        goto out;
     }
 
     int rc = seaf_repo_manager_put_file (seaf->repo_mgr,
@@ -1805,16 +1724,16 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
                                          head_id,
                                          &new_file_id,
                                          &error);
-    g_free (parent_dir);
 
     if (rc < 0) {
+        error_code = ERROR_INTERNAL;
         if (error) {
             if (g_strcmp0 (error->message, "file does not exist") == 0) {
                 error_code = ERROR_NOT_EXIST;
             }
             g_clear_error (&error);
         }
-        goto error;
+        goto out;
     }
     send_statistic_msg(fsm->repo_id, fsm->user, "web-file-upload", (guint64)content_len);
 
@@ -1822,40 +1741,15 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
 
     evbuffer_add (req->buffer_out, json_ret, strlen(json_ret));
     send_success_reply (req);
-
-
-    g_free (new_file_id);
-    g_free (filename);
     g_free (json_ret);
 
-    return;
-
-error:
+out:
+    g_free (parent_dir);
     g_free (new_file_id);
     g_free (filename);
+    send_replay_by_error_code (req, error_code);
 
-    switch (error_code) {
-    case ERROR_FILENAME:
-        send_error_reply (req, SEAF_HTTP_RES_BADFILENAME, "Invalid filename.");
-        break;
-    case ERROR_EXISTS:
-        send_error_reply (req, SEAF_HTTP_RES_EXISTS, "File already exists.");
-        break;
-    case ERROR_SIZE:
-        send_error_reply (req, SEAF_HTTP_RES_TOOLARGE, "File size is too large.");
-        break;
-    case ERROR_QUOTA:
-        send_error_reply (req, SEAF_HTTP_RES_NOQUOTA, "Out of quota.");
-        break;
-    case ERROR_NOT_EXIST:
-        send_error_reply (req, SEAF_HTTP_RES_NOT_EXISTS, "File does not exist.");
-        break;
-    case ERROR_RECV:
-    case ERROR_INTERNAL:
-    default:
-        send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
-        break;
-    }
+    return;
 }
 
 static evhtp_res
