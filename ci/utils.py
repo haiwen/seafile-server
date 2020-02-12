@@ -95,8 +95,8 @@ def mkdirs(*paths):
         if not exists(path):
             os.mkdir(path)
 
-def on_travis():
-    return 'TRAVIS_BUILD_NUMBER' in os.environ
+def on_github_actions():
+    return 'GITHUB_ACTIONS' in os.environ
 
 @contextmanager
 def cd(path):

@@ -8,11 +8,10 @@ SETUP_DIR=${TESTS_DIR}/ci
 
 cd $SETUP_DIR
 
-pip install -r requirements.txt
+sudo apt-get update
+sudo apt-get install -y intltool libarchive-dev libcurl4-openssl-dev libevent-dev \
+libfuse-dev libglib2.0-dev libjansson-dev libmysqlclient-dev libonig-dev \
+sqlite3 libsqlite3-dev libtool net-tools uuid-dev valac mysql-client
 
-# download precompiled libevhtp
-# TODO(lins05): we should consider build from source with https://github.com/criticalstack/libevhtp in the future
-libevhtp_bin=libevhtp-bin_1.2.0.tar.gz
-wget https://dl.bintray.com/lins05/generic/libevhtp-bin/$libevhtp_bin
-# tar xvf $libevhtp_bin --strip-components=3 -C /usr
-tar xf $libevhtp_bin -C $HOME
+pip install wheel
+pip install -r requirements.txt
