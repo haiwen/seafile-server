@@ -185,7 +185,7 @@ send_success_reply_ie8_compatible (evhtp_request_t *req, evhtp_res code)
 }
 
 static void
-send_replay_by_error_code (evhtp_request_t *req, int error_code)
+send_reply_by_error_code (evhtp_request_t *req, int error_code)
 {
     switch (error_code) {
     case ERROR_FILENAME:
@@ -622,7 +622,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
 out:
     g_free(new_parent_dir);
-    send_replay_by_error_code (req, error_code);
+    send_reply_by_error_code (req, error_code);
 
     return;
 }
@@ -674,7 +674,7 @@ upload_raw_blks_api_cb(evhtp_request_t *req, void *arg)
     send_success_reply (req);
 
 out:
-    send_replay_by_error_code (req, error_code);
+    send_reply_by_error_code (req, error_code);
 
     return;
 }
@@ -805,7 +805,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
 
 out:
     g_free (new_file_id);
-    send_replay_by_error_code (req, error_code);
+    send_reply_by_error_code (req, error_code);
 
     return;
 }
@@ -1234,7 +1234,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
 out:
     g_free (new_parent_dir);
-    send_replay_by_error_code (req, error_code);
+    send_reply_by_error_code (req, error_code);
 
     return;
 }
@@ -1384,7 +1384,7 @@ out:
     g_free (parent_dir);
     g_free (filename);
     g_free (new_file_id);
-    send_replay_by_error_code (req, error_code);
+    send_reply_by_error_code (req, error_code);
 
     return;
 }
@@ -1491,7 +1491,7 @@ out:
     g_free (parent_dir);
     g_free (filename);
     g_free (new_file_id);
-    send_replay_by_error_code (req, error_code);
+    send_reply_by_error_code (req, error_code);
 
     return;
 }
@@ -1747,7 +1747,7 @@ out:
     g_free (parent_dir);
     g_free (new_file_id);
     g_free (filename);
-    send_replay_by_error_code (req, error_code);
+    send_reply_by_error_code (req, error_code);
 
     return;
 }
