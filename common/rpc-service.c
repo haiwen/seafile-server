@@ -4091,8 +4091,6 @@ seafile_get_dirent_by_path (const char *repo_id, const char *path,
 
     char *rpath = format_dir_path (path);
     if (strcmp (rpath, "/") == 0) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "invalid path");
         g_free (rpath);
         return NULL;
     }
