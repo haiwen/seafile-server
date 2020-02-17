@@ -320,11 +320,12 @@ compute_repo_size (void *vjob)
         goto out;
     }
 
-    if (info){
+    if (info)
         old_head = seaf_commit_manager_get_commit (sched->seaf->commit_mgr,
                                                    repo->id, repo->version,
                                                    info->head_id);
 
+    if (info && old_head){
         gint64 change_size = 0;
         gint64 change_file_count = 0;
         GList *diff_entries = NULL;
