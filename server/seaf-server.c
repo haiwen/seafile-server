@@ -27,7 +27,7 @@ SeafileSession *seaf;
 
 char *pidfile = NULL;
 
-static const char *short_options = "hvc:d:l:fP:D:F:";
+static const char *short_options = "hvc:d:l:fP:D:F:p:";
 static struct option long_options[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
@@ -38,6 +38,7 @@ static struct option long_options[] = {
     { "debug", required_argument, NULL, 'D' },
     { "foreground", no_argument, NULL, 'f' },
     { "pidfile", required_argument, NULL, 'P' },
+    { "rpc-pipe-path", required_argument, NULL, 'p' },
     { NULL, 0, NULL, 0, },
 };
 
@@ -55,7 +56,8 @@ static void usage ()
 
 #define NAMED_PIPE_SERVER_THREAD_POOL_SIZE 50
 
-static void start_rpc_service (const char *seafile_dir)
+static void start_rpc_service (const char *seafile_dir,
+                               const char *rpc_pipe_path)
 {
     SearpcNamedPipeServer *rpc_server = NULL;
     char *pipe_path = NULL;
@@ -765,7 +767,11 @@ static void start_rpc_service (const char *seafile_dir)
                                      "set_server_config_boolean",
                                      searpc_signature_int__string_string_int());
 
-    pipe_path = g_build_path ("/", seafile_dir, SEAFILE_RPC_PIPE_NAME, NULL);
+    if (rpc_pipe_path) {
+        pipe_path = g_build_path ("/", rpc_pipe_path, SEAFILE_RPC_PIPE_NAME, NULL);
+    } else {
+        pipe_path = g_build_path ("/", seafile_dir, SEAFILE_RPC_PIPE_NAME, NULL);
+    }
     rpc_server = searpc_create_named_pipe_server_with_threadpool (pipe_path, NAMED_PIPE_SERVER_THREAD_POOL_SIZE);
 
     g_free(pipe_path);
@@ -877,6 +883,7 @@ main (int argc, char **argv)
     char *seafile_dir = NULL;
     char *central_config_dir = NULL;
     char *logfile = NULL;
+    char *rpc_pipe_path = NULL;
     const char *debug_str = NULL;
     int daemon_mode = 1;
 
@@ -914,6 +921,9 @@ main (int argc, char **argv)
             break;
         case 'P':
             pidfile = optarg;
+            break;
+        case 'p':
+            rpc_pipe_path = g_strdup (optarg);
             break;
         default:
             usage ();
@@ -973,7 +983,7 @@ main (int argc, char **argv)
 
     event_init ();
 
-    start_rpc_service (seafile_dir);
+    start_rpc_service (seafile_dir, rpc_pipe_path);
 
     seaf = seafile_session_new (central_config_dir, seafile_dir, ccnet_dir);
     if (!seaf) {
@@ -988,6 +998,7 @@ main (int argc, char **argv)
 
     g_free (seafile_dir);
     g_free (logfile);
+    g_free (rpc_pipe_path);
 
     set_signal_handlers (seaf);
 

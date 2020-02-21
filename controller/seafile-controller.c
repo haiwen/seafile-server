@@ -194,6 +194,10 @@ start_seaf_server ()
         logfile = g_build_filename (ctl->logdir, "seafile.log", NULL);
     }
 
+    static char *rpc_pipe_path = NULL;
+    if (rpc_pipe_path == NULL)
+        rpc_pipe_path = g_build_filename (ctl->rpc_pipe_path, "seafile.sock", NULL);
+
     char *argv[] = {
         "seaf-server",
         "-F", ctl->central_config_dir,
@@ -201,6 +205,7 @@ start_seaf_server ()
         "-d", ctl->seafile_dir,
         "-l", logfile,
         "-P", ctl->pidfile[PID_SERVER],
+        "-p", rpc_pipe_path,
         NULL};
 
     int pid = spawn_process (argv);
@@ -314,6 +319,7 @@ setup_env ()
     g_setenv ("CCNET_CONF_DIR", ctl->config_dir, TRUE);
     g_setenv ("SEAFILE_CONF_DIR", ctl->seafile_dir, TRUE);
     g_setenv ("SEAFILE_CENTRAL_CONF_DIR", ctl->central_config_dir, TRUE);
+    g_setenv ("SEAFILE_RPC_PIPE_PATH", ctl->rpc_pipe_path, TRUE);
 
     char *seahub_dir = g_build_filename (installpath, "seahub", NULL);
     char *seafdav_conf = g_build_filename (ctl->central_config_dir, "seafdav.conf", NULL);
@@ -524,6 +530,7 @@ seaf_controller_init (SeafileController *ctl,
     ctl->central_config_dir = central_config_dir;
     ctl->config_dir = config_dir;
     ctl->seafile_dir = seafile_dir;
+    ctl->rpc_pipe_path = g_build_filename (installpath, "runtime", NULL);
     ctl->logdir = logdir;
 
     if (read_seafdav_config() < 0) {
