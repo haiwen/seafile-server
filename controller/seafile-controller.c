@@ -194,10 +194,6 @@ start_seaf_server ()
         logfile = g_build_filename (ctl->logdir, "seafile.log", NULL);
     }
 
-    static char *rpc_pipe_path = NULL;
-    if (rpc_pipe_path == NULL)
-        rpc_pipe_path = g_build_filename (ctl->rpc_pipe_path, "seafile.sock", NULL);
-
     char *argv[] = {
         "seaf-server",
         "-F", ctl->central_config_dir,
@@ -205,7 +201,7 @@ start_seaf_server ()
         "-d", ctl->seafile_dir,
         "-l", logfile,
         "-P", ctl->pidfile[PID_SERVER],
-        "-p", rpc_pipe_path,
+        "-p", ctl->rpc_pipe_path,
         NULL};
 
     int pid = spawn_process (argv);

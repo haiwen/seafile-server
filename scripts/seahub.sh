@@ -18,6 +18,7 @@ TOPDIR=$(dirname "${INSTALLPATH}")
 default_ccnet_conf_dir=${TOPDIR}/ccnet
 default_seafile_data_dir=${TOPDIR}/seafile-data
 central_config_dir=${TOPDIR}/conf
+seafile_rpc_pipe_path=${INSTALLPATH}/runtime
 
 manage_py=${INSTALLPATH}/seahub/manage.py
 gunicorn_conf=${TOPDIR}/conf/gunicorn.conf.py
@@ -212,6 +213,7 @@ function prepare_env() {
     export CCNET_CONF_DIR=${default_ccnet_conf_dir}
     export SEAFILE_CONF_DIR=${default_seafile_data_dir}
     export SEAFILE_CENTRAL_CONF_DIR=${central_config_dir}
+    export SEAFILE_RPC_PIPE_PATH=${seafile_rpc_pipe_path}
     export PYTHONPATH=${INSTALLPATH}/seafile/lib/python3.6/site-packages:${INSTALLPATH}/seafile/lib64/python3.6/site-packages:${INSTALLPATH}/seahub:${INSTALLPATH}/seahub/thirdpart:$PYTHONPATH
 
 
