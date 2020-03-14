@@ -6,6 +6,10 @@
 #include <locale.h>
 #include <sys/types.h>
 
+#include <ccnet.h>
+#include <ccnet/ccnet-object.h>
+#include "seaf-utils.h"
+
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
 #include <event2/event.h>
 #else
@@ -2076,11 +2080,12 @@ fill_obj_from_seafilerepo (SeafileRepo *srepo, GHashTable *table)
                          "name", &repo_name,
                          "last_modify", &last_modify,
                          "permission", &permission,
+                         "user", &owner,
                          NULL);
 
     if (!repo_id)
         goto out;
-    //the repo_id will be free when the table is broken.
+    //the repo_id will be free when the table is destroyed.
     if (g_hash_table_lookup (table, repo_id)) {
         g_free (repo_id);
         goto out;
@@ -2093,7 +2098,6 @@ fill_obj_from_seafilerepo (SeafileRepo *srepo, GHashTable *table)
     json_object_set_new (obj, "name", json_string (repo_name));
     json_object_set_new (obj, "mtime", json_integer (last_modify));
     json_object_set_new (obj, "permission", json_string (permission));
-    owner = seaf_repo_manager_get_repo_owner (seaf->repo_mgr, repo_id);
     json_object_set_new (obj, "owner", json_string (owner));
 
 out:
@@ -2112,6 +2116,10 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     SeafRepo *repo = NULL;
     char *user = NULL;
     GList *repos = NULL;
+    SearpcClient *rpc_client = NULL;
+    GList *orgs = NULL;
+    CcnetOrganization *org = NULL;
+    int org_id = -1;
     const char *repo_id = evhtp_kv_find (req->uri->query, "repo_id");
 
     if (!repo_id || !is_uuid_valid (repo_id)) {
@@ -2124,6 +2132,20 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     if (token_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, token_status);
         return;
+    }
+
+    rpc_client = create_ccnet_rpc_client ();
+    if (!rpc_client)
+        return;
+
+    orgs = ccnet_get_orgs_by_user (rpc_client, user);
+
+    release_ccnet_rpc_client (rpc_client);
+
+    if (orgs) {
+        org = orgs->data;
+        g_object_get (org, "org_id", &org_id, NULL);
+        g_list_free (orgs);
     }
 
     json_t *obj;
@@ -2179,7 +2201,7 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     g_list_free (repos);
 
     //get group repo list
-    repos = seaf_get_group_repos_by_user (seaf->repo_mgr, user, -1, &error);
+    repos = seaf_get_group_repos_by_user (seaf->repo_mgr, user, org_id, &error);
     for (iter = repos; iter; iter = iter->next) {
         srepo = iter->data;
         obj = fill_obj_from_seafilerepo (srepo, obtained_repos);
