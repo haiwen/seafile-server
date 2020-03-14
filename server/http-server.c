@@ -6,10 +6,6 @@
 #include <locale.h>
 #include <sys/types.h>
 
-#include <ccnet.h>
-#include <ccnet/ccnet-object.h>
-#include "seaf-utils.h"
-
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
 #include <event2/event.h>
 #else
@@ -2116,9 +2112,6 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     SeafRepo *repo = NULL;
     char *user = NULL;
     GList *repos = NULL;
-    SearpcClient *rpc_client = NULL;
-    GList *orgs = NULL;
-    CcnetOrganization *org = NULL;
     int org_id = -1;
     const char *repo_id = evhtp_kv_find (req->uri->query, "repo_id");
 
@@ -2132,20 +2125,6 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     if (token_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, token_status);
         return;
-    }
-
-    rpc_client = create_ccnet_rpc_client ();
-    if (!rpc_client)
-        return;
-
-    orgs = ccnet_get_orgs_by_user (rpc_client, user);
-
-    release_ccnet_rpc_client (rpc_client);
-
-    if (orgs) {
-        org = orgs->data;
-        g_object_get (org, "org_id", &org_id, NULL);
-        g_list_free (orgs);
     }
 
     json_t *obj;
