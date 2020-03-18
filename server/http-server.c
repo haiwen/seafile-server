@@ -2104,6 +2104,71 @@ out:
     return obj;
 }
 
+static GHashTable *
+filter_group_repos (GList *repos)
+{
+    if (!repos)
+        return NULL;
+
+    SeafileRepo *srepo = NULL;
+    SeafileRepo *srepo_tmp = NULL;
+    GList *iter;
+    GHashTable *table = NULL;
+    char *permission = NULL;
+    char *repo_id = NULL;
+
+    table = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                   g_free,
+                                   NULL);
+
+    for (iter = repos; iter; iter = iter->next) {
+        srepo = iter->data;
+        g_object_get (srepo, "id", &repo_id,
+                             "permission", &permission,
+                             NULL);
+        srepo_tmp = g_hash_table_lookup (table, repo_id);
+        if (srepo_tmp) {
+            if (g_strcmp0 (permission, "rw") == 0) {
+                g_object_unref (srepo_tmp);
+                g_hash_table_remove (table, repo_id);
+                g_hash_table_insert (table, g_strdup (repo_id), srepo);
+            } else {
+                g_object_unref (srepo);
+            }
+        } else {
+            g_hash_table_insert (table, g_strdup (repo_id), srepo);
+        }
+    }
+
+    g_free (repo_id);
+    g_free (permission);
+    return table;
+}
+
+static void
+group_repos_to_json (json_t *repo_array, GHashTable *group_repos,
+                     GHashTable *obtained_repos)
+{
+    GHashTableIter iter;
+    gpointer key, value;
+    SeafileRepo *srepo = NULL;
+    json_t *obj;
+
+    g_hash_table_iter_init (&iter, group_repos);
+    while (g_hash_table_iter_next (&iter, &key, &value)) {
+        srepo = value;
+        obj = fill_obj_from_seafilerepo (srepo, obtained_repos);
+        if (!obj) {
+            g_object_unref (srepo);
+            continue;
+        }
+        json_object_set_new (obj, "type", json_string ("grepo"));
+
+        json_array_append_new (repo_array, obj);
+        g_object_unref (srepo);
+    }
+}
+
 static void
 get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
 {
@@ -2180,19 +2245,11 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     g_list_free (repos);
 
     //get group repo list
+    GHashTable *group_repos = NULL;
     repos = seaf_get_group_repos_by_user (seaf->repo_mgr, user, org_id, &error);
-    for (iter = repos; iter; iter = iter->next) {
-        srepo = iter->data;
-        obj = fill_obj_from_seafilerepo (srepo, obtained_repos);
-        if (!obj) {
-            g_object_unref (srepo);
-            continue;
-        }
-        json_object_set_new (obj, "type", json_string ("grepo"));
-
-        json_array_append_new (repo_array, obj);
-        g_object_unref (srepo);
-    }
+    group_repos = filter_group_repos (repos);
+    group_repos_to_json (repo_array, group_repos, obtained_repos);
+    g_hash_table_destroy (group_repos);
     g_list_free (repos);
 
     //get inner public repo list
