@@ -2115,6 +2115,7 @@ filter_group_repos (GList *repos)
     GList *iter;
     GHashTable *table = NULL;
     char *permission = NULL;
+    char *permission_prev = NULL;
     char *repo_id = NULL;
 
     table = g_hash_table_new_full (g_str_hash, g_str_equal,
@@ -2128,13 +2129,16 @@ filter_group_repos (GList *repos)
                              NULL);
         srepo_tmp = g_hash_table_lookup (table, repo_id);
         if (srepo_tmp) {
-            if (g_strcmp0 (permission, "rw") == 0) {
+            g_object_get (srepo, "permission", &permission_prev,
+                          NULL);
+            if (g_strcmp0 (permission, "rw") == 0 && g_strcmp0 (permission_prev, "r") == 0) {
                 g_object_unref (srepo_tmp);
                 g_hash_table_remove (table, repo_id);
                 g_hash_table_insert (table, g_strdup (repo_id), srepo);
             } else {
                 g_object_unref (srepo);
             }
+            g_free (permission_prev);
         } else {
             g_hash_table_insert (table, g_strdup (repo_id), srepo);
         }
