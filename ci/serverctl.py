@@ -231,10 +231,10 @@ connection_charset = utf8
     def stop(self):
         if self.ccnet_proc:
             logger.info('Stopping ccnet server')
-            self.ccnet_proc.terminate()
+            self.ccnet_proc.kill()
         if self.seafile_proc:
             logger.info('Stopping seafile server')
-            self.seafile_proc.terminate()
+            self.seafile_proc.kill()
 
     def get_seaserv_envs(self):
         envs = dict(os.environ)
