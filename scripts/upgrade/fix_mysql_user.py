@@ -45,7 +45,7 @@ class Utils(object):
 
     @staticmethod
     def read_config(config_path, defaults):
-        cp = configparser.ConfigParser(defaults)
+        cp = configparser.ConfigParser(defaults, interpolation=None)
         cp.read(config_path)
         return cp
 
