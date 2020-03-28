@@ -2570,7 +2570,7 @@ collect_trash_repo (SeafDBRow *row, void *data)
 
 
     if (!repo_id || !repo_name || !head_id || !owner_id)
-        return FALSE;
+        return TRUE;
 
     SeafileTrashRepo *trash_repo = g_object_new (SEAFILE_TYPE_TRASH_REPO,
                                                  "repo_id", repo_id,
@@ -2588,7 +2588,7 @@ collect_trash_repo (SeafDBRow *row, void *data)
     if (!commit) {
         seaf_warning ("Commit %s not found in repo %s\n", head_id, repo_id);
         g_object_unref (trash_repo);
-        return FALSE;
+        return TRUE;
     }
     g_object_set (trash_repo, "encrypted", commit->encrypted, NULL);
     seaf_commit_unref (commit);
