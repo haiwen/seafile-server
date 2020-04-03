@@ -92,6 +92,12 @@ class SeafileAPI(object):
     def create_enc_repo(self, repo_id, name, desc, username, magic, random_key, salt, enc_version):
         return seafserv_threaded_rpc.create_enc_repo(repo_id, name, desc, username, magic, random_key, salt, enc_version)
 
+    def get_repos_by_id_prefix(self, id_prefix, start=-1, limit=-1):
+        """
+        Return: a list of Repo objects
+        """
+        return seafserv_threaded_rpc.get_repos_by_id_prefix(id_prefix,
+                                                            start, limit)
     def get_repo(self, repo_id):
         """
         Return: a Repo object (lib/repo.vala)

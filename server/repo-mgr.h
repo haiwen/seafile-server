@@ -605,6 +605,13 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                                       int start,
                                       int limit,
                                       gboolean *db_err);
+
+GList *
+seaf_repo_manager_get_repos_by_id_prefix (SeafRepoManager *mgr,
+                                          const char *id_prefix,
+                                          int start,
+                                          int limit);
+
 GList *
 seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name);
 
