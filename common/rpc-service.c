@@ -4527,4 +4527,29 @@ seafile_get_repo_status(const char *repo_id, GError **error)
     return (status == -1) ? 0 : status;
 }
 
+GList*
+seafile_get_repos_by_id_prefix  (const char *id_prefix, int ret_corrupted,
+                                 int start, int limit, GError **error)
+{
+    GList *ret = NULL;
+    GList *repos, *ptr;
+
+    if (!id_prefix) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return NULL;
+    }
+
+    repos = seaf_repo_manager_get_repos_by_id_prefix (seaf->repo_mgr, id_prefix, ret_corrupted,
+                                                      start, limit);
+
+    ret = convert_repo_list (repos);
+
+    for(ptr = repos; ptr; ptr = ptr->next) {
+        seaf_repo_unref ((SeafRepo *)ptr->data);
+    }
+    g_list_free (repos);
+
+    return ret;
+}
+
 #endif  /* SEAFILE_SERVER */

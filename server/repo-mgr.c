@@ -2355,6 +2355,117 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
 }
 
 GList *
+seaf_repo_manager_get_repos_by_id_prefix (SeafRepoManager *mgr,
+                                          const char *id_prefix,
+                                          int ret_corrupted,
+                                          int start,
+                                          int limit)
+{
+    GList *repo_list = NULL, *ptr;
+    GList *ret = NULL;
+    char *sql;
+    SeafRepo *repo = NULL;
+    int len = strlen(id_prefix);
+
+    if (len >= 37)
+        return NULL;
+
+    int db_type = seaf_db_type(mgr->seaf->db);
+    char *db_patt = g_strdup_printf ("%s%%", id_prefix);
+
+    if (start == -1 && limit == -1) {
+        if (db_type != SEAF_DB_TYPE_PGSQL)
+            sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id LIKE ? AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id";
+        else
+            sql = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id LIKE ? AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id";
+
+        if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                           collect_repos_fill_size_commit, &repo_list,
+                                           1, "string", db_patt) < 0) {
+            g_free(db_patt);
+            return NULL;
+        }
+    } else {
+        if (db_type != SEAF_DB_TYPE_PGSQL)
+            sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id LIKE ? AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id "
+                "LIMIT ? OFFSET ?";
+        else
+            sql = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "WHERE i.repo_id LIKE ? AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "ORDER BY i.update_time DESC, i.repo_id "
+                "LIMIT ? OFFSET ?";
+
+        if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                           collect_repos_fill_size_commit,
+                                           &repo_list,
+                                           3, "string", db_patt,
+                                           "int", limit,
+                                           "int", start) < 0) {
+            g_free(db_patt);
+            return NULL;
+        }
+    }
+
+    g_free(db_patt);
+
+    for (ptr = repo_list; ptr; ptr = ptr->next) {
+        repo = ptr->data;
+        if (ret_corrupted) {
+            if (!repo->is_corrupted && (!repo->name || !repo->last_modifier)) {
+                load_mini_repo (mgr, repo);
+                if (!repo->is_corrupted)
+                    set_repo_commit_to_db (repo->id, repo->name, repo->last_modify,
+                                           repo->version, (repo->encrypted ? 1 : 0),
+                                           repo->last_modifier);
+            }
+        } else {
+            if (repo->is_corrupted) {
+                seaf_repo_unref (repo);
+                continue;
+            }
+            if (!repo->name || !repo->last_modifier) {
+                load_mini_repo (mgr, repo);
+                if (!repo->is_corrupted)
+                    set_repo_commit_to_db (repo->id, repo->name, repo->last_modify,
+                                           repo->version, (repo->encrypted ? 1 : 0),
+                                           repo->last_modifier);
+            }
+            if (repo->is_corrupted) {
+                seaf_repo_unref (repo);
+                continue;
+            }
+        }
+        if (repo != NULL)
+            ret = g_list_prepend (ret, repo);
+    }
+    g_list_free (repo_list);
+
+    return ret;
+}
+
+GList *
 seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
 {
     GList *repo_list = NULL;

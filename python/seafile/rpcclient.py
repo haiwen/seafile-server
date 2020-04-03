@@ -16,6 +16,11 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     create_enc_repo = seafile_create_enc_repo
 
+    @searpc_func("objlist", ["string", "int", "int", "int"])
+    def seafile_get_repos_by_id_prefix(id_prefix, ret_corrupted, start, limit):
+        pass
+    get_repos_by_id_prefix = seafile_get_repos_by_id_prefix
+
     @searpc_func("object", ["string"])
     def seafile_get_repo(repo_id):
         pass
