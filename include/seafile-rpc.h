@@ -1129,8 +1129,8 @@ int
 seafile_get_repo_status(const char *repo_id, GError **error);
 
 GList*
-seafile_get_repos_by_id_prefix  (const char *id_prefix, int ret_corrupted,
-                                 int start, int limit, GError **error);
+seafile_get_repos_by_id_prefix  (const char *id_prefix, int start,
+                                 int limit, GError **error);
 
 int
 seafile_publish_event(const char *channel, const char *content, GError **error);

@@ -4528,8 +4528,8 @@ seafile_get_repo_status(const char *repo_id, GError **error)
 }
 
 GList*
-seafile_get_repos_by_id_prefix  (const char *id_prefix, int ret_corrupted,
-                                 int start, int limit, GError **error)
+seafile_get_repos_by_id_prefix  (const char *id_prefix, int start,
+                                 int limit, GError **error)
 {
     GList *ret = NULL;
     GList *repos, *ptr;
@@ -4539,7 +4539,7 @@ seafile_get_repos_by_id_prefix  (const char *id_prefix, int ret_corrupted,
         return NULL;
     }
 
-    repos = seaf_repo_manager_get_repos_by_id_prefix (seaf->repo_mgr, id_prefix, ret_corrupted,
+    repos = seaf_repo_manager_get_repos_by_id_prefix (seaf->repo_mgr, id_prefix,
                                                       start, limit);
 
     ret = convert_repo_list (repos);

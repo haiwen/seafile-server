@@ -2357,12 +2357,10 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
 GList *
 seaf_repo_manager_get_repos_by_id_prefix (SeafRepoManager *mgr,
                                           const char *id_prefix,
-                                          int ret_corrupted,
                                           int start,
                                           int limit)
 {
     GList *repo_list = NULL, *ptr;
-    GList *ret = NULL;
     char *sql;
     SeafRepo *repo = NULL;
     int len = strlen(id_prefix);
@@ -2430,39 +2428,7 @@ seaf_repo_manager_get_repos_by_id_prefix (SeafRepoManager *mgr,
 
     g_free(db_patt);
 
-    for (ptr = repo_list; ptr; ptr = ptr->next) {
-        repo = ptr->data;
-        if (ret_corrupted) {
-            if (!repo->is_corrupted && (!repo->name || !repo->last_modifier)) {
-                load_mini_repo (mgr, repo);
-                if (!repo->is_corrupted)
-                    set_repo_commit_to_db (repo->id, repo->name, repo->last_modify,
-                                           repo->version, (repo->encrypted ? 1 : 0),
-                                           repo->last_modifier);
-            }
-        } else {
-            if (repo->is_corrupted) {
-                seaf_repo_unref (repo);
-                continue;
-            }
-            if (!repo->name || !repo->last_modifier) {
-                load_mini_repo (mgr, repo);
-                if (!repo->is_corrupted)
-                    set_repo_commit_to_db (repo->id, repo->name, repo->last_modify,
-                                           repo->version, (repo->encrypted ? 1 : 0),
-                                           repo->last_modifier);
-            }
-            if (repo->is_corrupted) {
-                seaf_repo_unref (repo);
-                continue;
-            }
-        }
-        if (repo != NULL)
-            ret = g_list_prepend (ret, repo);
-    }
-    g_list_free (repo_list);
-
-    return ret;
+    return repo_list;
 }
 
 GList *

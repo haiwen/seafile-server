@@ -75,7 +75,7 @@ def test_repo_manipulation():
 
     #test get_repos_by_id_prefix
     t_id_prefix = '826d1b7b'
-    t_repo_list = api.get_repos_by_id_prefix(t_id_prefix, False, -1, -1)
+    t_repo_list = api.get_repos_by_id_prefix(t_id_prefix, -1, -1)
     assert t_repo_list[0].id == '826d1b7b-f110-46f2-8d5e-7b5ac3e11f4d'
 
     #test get_repo_list
