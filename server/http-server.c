@@ -2158,9 +2158,6 @@ group_repos_to_json (json_t *repo_array, GHashTable *group_repos,
     SeafileRepo *srepo = NULL;
     json_t *obj;
 
-    if (!group_repos)
-        return;
-
     g_hash_table_iter_init (&iter, group_repos);
     while (g_hash_table_iter_next (&iter, &key, &value)) {
         srepo = value;
@@ -2254,10 +2251,12 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     //get group repo list
     GHashTable *group_repos = NULL;
     repos = seaf_get_group_repos_by_user (seaf->repo_mgr, user, org_id, &error);
-    group_repos = filter_group_repos (repos);
-    group_repos_to_json (repo_array, group_repos, obtained_repos);
-    g_hash_table_destroy (group_repos);
-    g_list_free (repos);
+    if (repos) {
+        group_repos = filter_group_repos (repos);
+        group_repos_to_json (repo_array, group_repos, obtained_repos);
+        g_hash_table_destroy (group_repos);
+        g_list_free (repos);
+    }
 
     //get inner public repo list
     repos = seaf_repo_manager_list_inner_pub_repos (seaf->repo_mgr);
