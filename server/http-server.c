@@ -2158,6 +2158,9 @@ group_repos_to_json (json_t *repo_array, GHashTable *group_repos,
     SeafileRepo *srepo = NULL;
     json_t *obj;
 
+    if (!group_repos)
+        return;
+
     g_hash_table_iter_init (&iter, group_repos);
     while (g_hash_table_iter_next (&iter, &key, &value)) {
         srepo = value;
