@@ -2478,3 +2478,22 @@ seaf_key_file_get_string (GKeyFile *key_file,
 
     return g_strchomp(v);
 }
+
+gchar*
+ccnet_key_file_get_string (GKeyFile *keyf,
+                           const char *category,
+                           const char *key)
+{
+    gchar *v;
+
+    if (!g_key_file_has_key (keyf, category, key, NULL))
+        return NULL;
+
+    v = g_key_file_get_string (keyf, category, key, NULL);
+    if (v != NULL && v[0] == '\0') {
+        g_free(v);
+        return NULL;
+    }
+
+    return g_strchomp(v);
+}

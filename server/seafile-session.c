@@ -40,7 +40,9 @@ seafile_session_new(const char *central_config_dir,
     char *abs_ccnet_dir = NULL;
     char *tmp_file_dir;
     char *config_file_path;
+    char *config_file_ccnet;
     GKeyFile *config;
+    GKeyFile *ccnet_config;
     SeafileSession *session = NULL;
 
     abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
@@ -62,9 +64,19 @@ seafile_session_new(const char *central_config_dir,
         goto onerror;
     }
 
+    if (checkdir_with_mkdir (abs_ccnet_dir) < 0) {
+        seaf_warning ("Ccnet config dir %s does not exist and is unable to create\n",
+                   abs_ccnet_dir);
+        goto onerror;
+    }
+
     config_file_path = g_build_filename(
         abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir,
         "seafile.conf", NULL);
+
+    config_file_ccnet = g_build_filename(
+        abs_central_config_dir ? abs_central_config_dir : abs_ccnet_dir,
+        "ccnet.conf", NULL);
 
     GError *error = NULL;
     config = g_key_file_new ();
@@ -75,13 +87,25 @@ seafile_session_new(const char *central_config_dir,
         g_free (config_file_path);
         goto onerror;
     }
+    ccnet_config = g_key_file_new ();
+    g_key_file_set_list_separator (ccnet_config, ',');
+    if (!g_key_file_load_from_file (ccnet_config, config_file_ccnet,
+                                    G_KEY_FILE_KEEP_COMMENTS, NULL))
+    {
+        seaf_warning ("Can't load ccnet config file %s.\n", config_file_ccnet);
+        g_key_file_free (ccnet_config);
+        g_free (config_file_ccnet);
+        goto onerror;
+    }
     g_free (config_file_path);
+    g_free (config_file_ccnet);
 
     session = g_new0(SeafileSession, 1);
     session->seaf_dir = abs_seafile_dir;
     session->ccnet_dir = abs_ccnet_dir;
     session->tmp_file_dir = tmp_file_dir;
     session->config = config;
+    session->ccnet_config = ccnet_config;
 
     session->cloud_mode = g_key_file_get_boolean (config,
                                                   "general", "cloud_mode",
@@ -89,6 +113,11 @@ seafile_session_new(const char *central_config_dir,
 
     if (load_database_config (session) < 0) {
         seaf_warning ("Failed to load database config.\n");
+        goto onerror;
+    }
+
+    if (load_ccnet_database_config (session) < 0) {
+        seaf_warning ("Failed to load ccnet database config.\n");
         goto onerror;
     }
 
@@ -151,10 +180,23 @@ seafile_session_new(const char *central_config_dir,
     if (!session->index_blocks_mgr)
         goto onerror;
 
+    session->user_mgr = ccnet_user_manager_new (session);
+    if (!session->user_mgr)
+        goto onerror;
+
+    session->group_mgr = ccnet_group_manager_new (session);
+    if (!session->group_mgr)
+        goto onerror;
+
+    session->org_mgr = ccnet_org_manager_new (session);
+    if (!session->org_mgr)
+        goto onerror;
+
     return session;
 
 onerror:
     free (abs_seafile_dir);
+    free (abs_ccnet_dir);
     g_free (tmp_file_dir);
     g_free (session);
     return NULL;    
@@ -181,6 +223,21 @@ seafile_session_init (SeafileSession *session)
 
     if (seaf_quota_manager_init (session->quota_mgr) < 0) {
         seaf_warning ("Failed to init quota manager.\n");
+        return -1;
+    }
+
+    if (ccnet_user_manager_prepare (session->user_mgr) < 0) {
+        seaf_warning ("Failed to init user manager.\n");
+        return -1;
+    }
+
+    if (ccnet_group_manager_prepare (session->group_mgr) < 0) {
+        seaf_warning ("Failed to init group manager.\n");
+        return -1;
+    }
+
+    if (ccnet_org_manager_prepare (session->org_mgr) < 0) {
+        seaf_warning ("Failed to init org manager.\n");
         return -1;
     }
 

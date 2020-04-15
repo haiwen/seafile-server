@@ -27,6 +27,8 @@
 #define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"
 
+#define CCNET_ERR_INTERNAL 500
+
 #ifndef SEAFILE_SERVER
 #include "../daemon/vc-utils.h"
 
@@ -4525,6 +4527,939 @@ seafile_get_repo_status(const char *repo_id, GError **error)
     status = seaf_repo_manager_get_repo_status(seaf->repo_mgr, repo_id);
 
     return (status == -1) ? 0 : status;
+}
+
+/*RPC functions merged from ccnet-server*/
+int
+ccnet_rpc_add_emailuser (const char *email, const char *passwd,
+                         int is_staff, int is_active, GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr; 
+    int ret;
+    
+    if (!email || !passwd) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email and passwd can not be NULL");
+        return -1;
+    }
+
+    ret = ccnet_user_manager_add_emailuser (user_mgr, email, passwd,
+                                            is_staff, is_active);
+    
+    return ret;
+}
+
+int
+ccnet_rpc_remove_emailuser (const char *source, const char *email, GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr; 
+    int ret;
+
+    if (!email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email can not be NULL");
+        return -1;
+    }
+
+    ret = ccnet_user_manager_remove_emailuser (user_mgr, source, email);
+
+    return ret;
+}
+
+int
+ccnet_rpc_validate_emailuser (const char *email, const char *passwd, GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr; 
+    int ret;
+    
+    if (!email || !passwd) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email and passwd can not be NULL");
+        return -1;
+    }
+
+    if (passwd[0] == 0)
+        return -1;
+
+    ret = ccnet_user_manager_validate_emailuser (user_mgr, email, passwd);
+
+    return ret;
+}
+
+GObject*
+ccnet_rpc_get_emailuser (const char *email, GError **error)
+{
+    if (!email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email can not be NULL");
+        return NULL;
+    }
+
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+    CcnetEmailUser *emailuser = NULL;
+    
+    emailuser = ccnet_user_manager_get_emailuser (user_mgr, email);
+    
+    return (GObject *)emailuser;
+}
+
+GObject*
+ccnet_rpc_get_emailuser_with_import (const char *email, GError **error)
+{
+    if (!email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Email can not be NULL");
+        return NULL;
+    }
+
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+    CcnetEmailUser *emailuser = NULL;
+
+    emailuser = ccnet_user_manager_get_emailuser_with_import (user_mgr, email);
+
+    return (GObject *)emailuser;
+}
+
+GObject*
+ccnet_rpc_get_emailuser_by_id (int id, GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr; 
+    CcnetEmailUser *emailuser = NULL;
+    
+    emailuser = ccnet_user_manager_get_emailuser_by_id (user_mgr, id);
+    
+    return (GObject *)emailuser;
+}
+
+GList*
+ccnet_rpc_get_emailusers (const char *source,
+                          int start, int limit,
+                          const char *status,
+                          GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr; 
+    GList *emailusers = NULL;
+
+    emailusers = ccnet_user_manager_get_emailusers (user_mgr, source, start, limit, status);
+    
+    return emailusers;
+}
+
+GList*
+ccnet_rpc_search_emailusers (const char *source,
+                             const char *email_patt,
+                             int start, int limit,
+                             GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr; 
+    GList *emailusers = NULL;
+
+    emailusers = ccnet_user_manager_search_emailusers (user_mgr,
+                                                       source,
+                                                       email_patt,
+                                                       start, limit);
+    
+    return emailusers;
+}
+
+GList*
+ccnet_rpc_search_groups (const char *group_patt,
+                         int start, int limit,
+                         GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *groups = NULL;
+
+    groups = ccnet_group_manager_search_groups (group_mgr,
+                                                group_patt,
+                                                start, limit);
+    return groups;
+}
+
+GList*
+ccnet_rpc_get_top_groups (int including_org, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *groups = NULL;
+
+    groups = ccnet_group_manager_get_top_groups (group_mgr, including_org ? TRUE : FALSE, error);
+
+    return groups;
+}
+
+GList*
+ccnet_rpc_get_child_groups (int group_id, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *groups = NULL;
+
+    groups = ccnet_group_manager_get_child_groups (group_mgr, group_id, error);
+
+    return groups;
+}
+
+GList*
+ccnet_rpc_get_descendants_groups(int group_id, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *groups = NULL;
+
+    groups = ccnet_group_manager_get_descendants_groups (group_mgr, group_id, error);
+
+    return groups;
+}
+
+GList*
+ccnet_rpc_search_ldapusers (const char *keyword,
+                            int start, int limit,
+                            GError **error)
+{
+    GList *ldapusers = NULL;
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    ldapusers = ccnet_user_manager_search_ldapusers (user_mgr, keyword,
+                                                     start, limit);
+    return ldapusers;
+}
+
+gint64
+ccnet_rpc_count_emailusers (const char *source, GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr; 
+
+   return ccnet_user_manager_count_emailusers (user_mgr, source);
+}
+
+gint64
+ccnet_rpc_count_inactive_emailusers (const char *source, GError **error)
+{
+   CcnetUserManager *user_mgr = seaf->user_mgr;
+
+   return ccnet_user_manager_count_inactive_emailusers (user_mgr, source);
+}
+
+int
+ccnet_rpc_update_emailuser (const char *source, int id, const char* passwd,
+                            int is_staff, int is_active,
+                            GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    return ccnet_user_manager_update_emailuser(user_mgr, source, id, passwd,
+                                               is_staff, is_active);
+}
+
+int
+ccnet_rpc_update_role_emailuser (const char* email, const char* role,
+                            GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    return ccnet_user_manager_update_role_emailuser(user_mgr, email, role);
+}
+
+GList*
+ccnet_rpc_get_superusers (GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr; 
+
+    return ccnet_user_manager_get_superusers(user_mgr);
+}
+
+GList *
+ccnet_rpc_get_emailusers_in_list(const char *source, const char *user_list, GError **error)
+{
+    if (!user_list || !source) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return NULL;
+    }
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    return ccnet_user_manager_get_emailusers_in_list (user_mgr, source, user_list, error);
+}
+
+int
+ccnet_rpc_create_group (const char *group_name, const char *user_name,
+                        const char *type, int parent_group_id, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    int ret;
+
+    if (!group_name || !user_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "Group name and user name can not be NULL");
+        return -1;
+    }
+
+    ret = ccnet_group_manager_create_group (group_mgr, group_name, user_name, parent_group_id, error);
+
+    return ret;
+}
+
+int
+ccnet_rpc_create_org_group (int org_id, const char *group_name,
+                            const char *user_name, int parent_group_id, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    int ret;
+
+    if (org_id < 0 || !group_name || !user_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad args");
+        return -1;
+    }
+
+    ret = ccnet_group_manager_create_org_group (group_mgr, org_id,
+                                                group_name, user_name, parent_group_id, error);
+
+    return ret;
+}
+
+int
+ccnet_rpc_remove_group (int group_id, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    int ret;
+
+    if (group_id <= 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "Invalid group_id parameter");
+        return -1;
+    }
+
+    ret = ccnet_group_manager_remove_group (group_mgr, group_id, FALSE, error);
+
+    return ret;
+
+}
+
+int
+ccnet_rpc_group_add_member (int group_id, const char *user_name,
+                            const char *member_name, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    int ret;
+
+    if (group_id <= 0 || !user_name || !member_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "Group id and user name and member name can not be NULL");
+        return -1;
+    }
+
+    ret = ccnet_group_manager_add_member (group_mgr, group_id, user_name, member_name,
+                                          error);
+
+    return ret;
+}
+
+int
+ccnet_rpc_group_remove_member (int group_id, const char *user_name,
+                               const char *member_name, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    int ret;
+
+    if (!user_name || !member_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "User name and member name can not be NULL");
+        return -1;
+    }
+
+    ret = ccnet_group_manager_remove_member (group_mgr, group_id, user_name,
+                                             member_name, error);
+
+    return ret;
+}
+
+int
+ccnet_rpc_group_set_admin (int group_id, const char *member_name,
+                           GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    int ret;
+
+    if (group_id <= 0 || !member_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "Bad arguments");
+        return -1;
+    }
+
+    ret = ccnet_group_manager_set_admin (group_mgr, group_id, member_name,
+                                         error);
+    return ret;
+}
+
+int
+ccnet_rpc_group_unset_admin (int group_id, const char *member_name,
+                           GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    int ret;
+
+    if (group_id <= 0 || !member_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "Bad arguments");
+        return -1;
+    }
+
+    ret = ccnet_group_manager_unset_admin (group_mgr, group_id, member_name,
+                                           error);
+    return ret;
+}
+
+int
+ccnet_rpc_set_group_name (int group_id, const char *group_name,
+                          GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    int ret;
+
+    if (group_id <= 0 || !group_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "Bad arguments");
+        return -1;
+    }
+
+    ret = ccnet_group_manager_set_group_name (group_mgr, group_id, group_name,
+                                              error);
+    return ret;
+}
+
+int
+ccnet_rpc_quit_group (int group_id, const char *user_name, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    int ret;
+
+    if (group_id <= 0 || !user_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "Group id and user name can not be NULL");
+        return -1;
+    }
+
+    ret = ccnet_group_manager_quit_group (group_mgr, group_id, user_name, error);
+
+    return ret;
+}
+
+GList *
+ccnet_rpc_get_groups (const char *username, int return_ancestors, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *ret = NULL;
+
+    if (!username) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "User name can not be NULL");
+        return NULL;
+    }
+
+    ret = ccnet_group_manager_get_groups_by_user (group_mgr, username,
+                                                  return_ancestors ? TRUE : FALSE, error);
+    return ret;
+}
+
+GList *
+ccnet_rpc_list_all_departments (GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *ret = NULL;
+
+    ret = ccnet_group_manager_list_all_departments (group_mgr, error);
+
+    return ret;
+}
+
+GList *
+ccnet_rpc_get_all_groups (int start, int limit,
+                          const char *source, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *ret = NULL;
+
+    ret = ccnet_group_manager_get_all_groups (group_mgr, start, limit, error);
+
+    return ret;
+}
+
+GList *
+ccnet_rpc_get_ancestor_groups (int group_id, GError ** error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *ret = NULL;
+
+    ret = ccnet_group_manager_get_ancestor_groups (group_mgr, group_id);
+
+    return ret;
+}
+
+GObject *
+ccnet_rpc_get_group (int group_id, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    CcnetGroup *group = NULL;
+
+    group = ccnet_group_manager_get_group (group_mgr, group_id, error);
+    if (!group) {
+        return NULL;
+    }
+
+    /* g_object_ref (group); */
+    return (GObject *)group;
+}
+
+
+GList *
+ccnet_rpc_get_group_members (int group_id, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *ret = NULL;
+
+    ret = ccnet_group_manager_get_group_members (group_mgr, group_id, error);
+    if (ret == NULL)
+        return NULL;
+
+    return g_list_reverse (ret);
+}
+
+GList *
+ccnet_rpc_get_members_with_prefix(int group_id, const char *prefix, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    GList *ret = NULL;
+
+    ret = ccnet_group_manager_get_members_with_prefix (group_mgr, group_id, prefix, error);
+
+    return ret;
+}
+
+int
+ccnet_rpc_check_group_staff (int group_id, const char *user_name, int in_structure,
+                             GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+
+    if (group_id <= 0 || !user_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL,
+                     "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_group_manager_check_group_staff (group_mgr,
+                                                  group_id, user_name,
+                                                  in_structure ? TRUE : FALSE);
+}
+
+int
+ccnet_rpc_remove_group_user (const char *user, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    if (!user) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_group_manager_remove_group_user (group_mgr, user);
+}
+
+int
+ccnet_rpc_is_group_user (int group_id, const char *user, int in_structure, GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    if (!user || group_id < 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return 0;
+    }
+
+    return ccnet_group_manager_is_group_user (group_mgr, group_id, user, in_structure ? TRUE : FALSE);
+}
+
+int
+ccnet_rpc_set_group_creator (int group_id, const char *user_name,
+                             GError **error)
+{
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+    if (!user_name || group_id < 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_group_manager_set_group_creator (group_mgr, group_id,
+                                                  user_name);
+}
+
+GList *
+ccnet_rpc_get_groups_members (const char *group_ids, GError **error)
+{
+    if (!group_ids || g_strcmp0(group_ids, "") == 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return NULL;
+    }
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+
+    return ccnet_group_manager_get_groups_members (group_mgr, group_ids, error);
+}
+
+int
+ccnet_rpc_create_org (const char *org_name, const char *url_prefix,
+                      const char *creator, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (!org_name || !url_prefix || !creator) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_create_org (org_mgr, org_name, url_prefix, creator,
+                                         error);
+}
+
+int
+ccnet_rpc_remove_org (int org_id, GError **error)
+{
+    GList *group_ids = NULL, *email_list=NULL, *ptr;
+    const char *url_prefix = NULL;
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
+
+    if (org_id < 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    url_prefix = ccnet_org_manager_get_url_prefix_by_org_id (org_mgr, org_id,
+                                                             error);
+    email_list = ccnet_org_manager_get_org_emailusers (org_mgr, url_prefix,
+                                                       0, INT_MAX);
+    ptr = email_list;
+    while (ptr) {
+        ccnet_user_manager_remove_emailuser (user_mgr, "DB", (gchar *)ptr->data);
+        ptr = ptr->next;
+    }
+    string_list_free (email_list);
+
+    group_ids = ccnet_org_manager_get_org_group_ids (org_mgr, org_id, 0, INT_MAX);
+    ptr = group_ids;
+    while (ptr) {
+        ccnet_group_manager_remove_group (group_mgr, (int)(long)ptr->data, TRUE, error);
+        ptr = ptr->next;
+    }
+    g_list_free (group_ids);
+
+    return ccnet_org_manager_remove_org (org_mgr, org_id, error);
+}
+
+GList *
+ccnet_rpc_get_all_orgs (int start, int limit, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+    GList *ret = NULL;
+
+    ret = ccnet_org_manager_get_all_orgs (org_mgr, start, limit);
+
+    return ret;
+}
+
+gint64
+ccnet_rpc_count_orgs (GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    return ccnet_org_manager_count_orgs(org_mgr);
+}
+
+
+GObject *
+ccnet_rpc_get_org_by_url_prefix (const char *url_prefix, GError **error)
+{
+    CcnetOrganization *org = NULL;
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (!url_prefix) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return NULL;
+    }
+
+    org = ccnet_org_manager_get_org_by_url_prefix (org_mgr, url_prefix, error);
+    if (!org)
+        return NULL;
+
+    return (GObject *)org;
+}
+
+GObject *
+ccnet_rpc_get_org_by_id (int org_id, GError **error)
+{
+    CcnetOrganization *org = NULL;
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id <= 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return NULL;
+    }
+
+    org = ccnet_org_manager_get_org_by_id (org_mgr, org_id, error);
+    if (!org)
+        return NULL;
+
+    return (GObject *)org;
+}
+
+int
+ccnet_rpc_add_org_user (int org_id, const char *email, int is_staff,
+                        GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id < 0 || !email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_add_org_user (org_mgr, org_id, email, is_staff,
+                                           error);
+}
+
+int
+ccnet_rpc_remove_org_user (int org_id, const char *email, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id < 0 || !email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_remove_org_user (org_mgr, org_id, email, error);
+}
+
+GList *
+ccnet_rpc_get_orgs_by_user (const char *email, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+    GList *org_list = NULL;
+
+    org_list = ccnet_org_manager_get_orgs_by_user (org_mgr, email, error);
+
+    return org_list;
+}
+
+GList *
+ccnet_rpc_get_org_emailusers (const char *url_prefix, int start , int limit,
+                              GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+    GList *email_list = NULL, *ptr;
+    GList *ret = NULL;
+
+    if (!url_prefix) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return NULL;
+    }
+
+    email_list = ccnet_org_manager_get_org_emailusers (org_mgr, url_prefix,
+                                                       start, limit);
+    if (email_list == NULL) {
+        return NULL;
+    }
+
+    ptr = email_list;
+    while (ptr) {
+        char *email = ptr->data;
+        CcnetEmailUser *emailuser = ccnet_user_manager_get_emailuser (user_mgr,
+                                                                      email);
+        if (emailuser != NULL) {
+            ret = g_list_prepend (ret, emailuser);
+        }
+
+        ptr = ptr->next;
+    }
+
+    string_list_free (email_list);
+
+    return g_list_reverse (ret);
+}
+
+int
+ccnet_rpc_add_org_group (int org_id, int group_id, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id < 0 || group_id < 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_add_org_group (org_mgr, org_id, group_id, error);
+}
+
+int
+ccnet_rpc_remove_org_group (int org_id, int group_id, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id < 0 || group_id < 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_remove_org_group (org_mgr, org_id, group_id,
+                                               error);
+}
+
+int
+ccnet_rpc_is_org_group (int group_id, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (group_id <= 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_is_org_group (org_mgr, group_id, error);
+}
+
+int
+ccnet_rpc_get_org_id_by_group (int group_id, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (group_id <= 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_get_org_id_by_group (org_mgr, group_id, error);
+}
+
+GList *
+ccnet_rpc_get_org_groups (int org_id, int start, int limit, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+    GList *ret = NULL;
+
+    if (org_id < 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return NULL;
+    }
+
+    /* correct parameter */
+    if (start < 0 ) {
+        start = 0;
+    }
+
+    ret = ccnet_org_manager_get_org_groups (org_mgr, org_id, start, limit);
+
+    return ret;
+}
+
+GList *
+ccnet_rpc_get_org_groups_by_user (const char *user, int org_id, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+    GList *ret = NULL;
+
+    if (org_id < 0 || !user) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return NULL;
+    }
+    ret = ccnet_org_manager_get_org_groups_by_user (org_mgr, user, org_id);
+
+    return ret;
+}
+
+GList *
+ccnet_rpc_get_org_top_groups (int org_id, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+    GList *ret = NULL;
+
+    if (org_id < 0) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return NULL;
+    }
+    ret = ccnet_org_manager_get_org_top_groups (org_mgr, org_id, error);
+
+    return ret;
+}
+
+int
+ccnet_rpc_org_user_exists (int org_id, const char *email, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id < 0 || !email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_org_user_exists (org_mgr, org_id, email, error);
+}
+
+int
+ccnet_rpc_is_org_staff (int org_id, const char *email, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id < 0 || !email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_is_org_staff (org_mgr, org_id, email, error);
+}
+
+int
+ccnet_rpc_set_org_staff (int org_id, const char *email, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id < 0 || !email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_set_org_staff (org_mgr, org_id, email, error);
+}
+
+int
+ccnet_rpc_unset_org_staff (int org_id, const char *email, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id < 0 || !email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_unset_org_staff (org_mgr, org_id, email, error);
+}
+
+int
+ccnet_rpc_set_org_name (int org_id, const char *org_name, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+
+    if (org_id < 0 || !org_name) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+
+    return ccnet_org_manager_set_org_name (org_mgr, org_id, org_name, error);
+}
+
+int
+ccnet_rpc_set_reference_id (const char *primary_id, const char *reference_id, GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    return ccnet_user_manager_set_reference_id (user_mgr, primary_id, reference_id, error);
+}
+
+char *
+ccnet_rpc_get_primary_id (const char *email, GError **error)
+{
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    return ccnet_user_manager_get_primary_id (user_mgr, email);
 }
 
 #endif  /* SEAFILE_SERVER */

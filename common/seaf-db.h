@@ -8,10 +8,14 @@ enum {
 };
 
 typedef struct SeafDB SeafDB;
+typedef struct SeafDB CcnetDB;
 typedef struct SeafDBRow SeafDBRow;
+typedef struct SeafDBRow CcnetDBRow;
 typedef struct SeafDBTrans SeafDBTrans;
+typedef struct SeafDBTrans CcnetDBTrans;
 
 typedef gboolean (*SeafDBRowFunc) (SeafDBRow *, void *);
+typedef gboolean (*CcnetDBRowFunc) (CcnetDBRow *, void *);
 
 SeafDB *
 seaf_db_new_mysql (const char *host,

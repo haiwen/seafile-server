@@ -33,12 +33,10 @@ SEAFILE_CONF_DIR = _load_path_from_env('SEAFILE_CONF_DIR')
 SEAFILE_CENTRAL_CONF_DIR = _load_path_from_env('SEAFILE_CENTRAL_CONF_DIR', check=False)
 SEAFILE_RPC_PIPE_PATH = _load_path_from_env ("SEAFILE_RPC_PIPE_PATH", check=False)
 
-ccnet_pipe_path = os.path.join (CCNET_CONF_PATH, 'ccnet-rpc.sock')
-ccnet_threaded_rpc = ccnet.CcnetThreadedRpcClient(ccnet_pipe_path)
-
 seafile_pipe_path = os.path.join(SEAFILE_RPC_PIPE_PATH if SEAFILE_RPC_PIPE_PATH else SEAFILE_CONF_DIR,
                                  'seafile.sock')
 seafserv_threaded_rpc = seafile.ServerThreadedRpcClient(seafile_pipe_path)
+ccnet_threaded_rpc = seafserv_threaded_rpc
 
 # load ccnet server addr and port from ccnet.conf.
 # 'addr:port' is used when downloading a repo

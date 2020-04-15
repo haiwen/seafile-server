@@ -42,23 +42,17 @@ check_group_permission_by_user (SeafRepoManager *mgr,
                                 const char *user_name)
 {
     char *permission = NULL;
-    SearpcClient *rpc_client = NULL;
     GList *groups = NULL, *p1;
     CcnetGroup *group;
     int group_id;
     GString *sql;
 
-    rpc_client = create_ccnet_rpc_client ();
-    if (!rpc_client)
-        return NULL;
-
     /* Get the groups this user belongs to. */
-    groups = ccnet_get_groups_by_user (rpc_client, user_name, 1);
+    groups = ccnet_group_manager_get_groups_by_user (seaf->group_mgr, user_name,
+                                                     1, NULL);
     if (!groups) {
-        release_ccnet_rpc_client (rpc_client);
         goto out;
     }
-    release_ccnet_rpc_client (rpc_client);
 
     sql = g_string_new ("");
     g_string_printf (sql, "SELECT permission FROM RepoGroup WHERE repo_id = ? AND group_id IN (");
@@ -139,7 +133,6 @@ check_perm_on_parent_repo (const char *origin_repo_id,
 {
     GHashTable *user_perms = NULL;
     GHashTable *group_perms = NULL;
-    SearpcClient *rpc_client = NULL;
     GList *groups = NULL;
     GList *iter;
     char *perm = NULL;
@@ -161,17 +154,11 @@ check_perm_on_parent_repo (const char *origin_repo_id,
     }
     g_hash_table_destroy (user_perms);
 
-    rpc_client = create_ccnet_rpc_client ();
-    if (!rpc_client) {
-        return NULL;
-    }
-
-    groups = ccnet_get_groups_by_user (rpc_client, user, 1);
+    groups = ccnet_group_manager_get_groups_by_user (seaf->group_mgr, user,
+                                                     1, NULL);
     if (!groups) {
-        release_ccnet_rpc_client (rpc_client);
         return NULL;
     }
-    release_ccnet_rpc_client (rpc_client);
 
     group_perms = seaf_share_manager_get_shared_dirs_to_group (seaf->share_mgr,
                                                                origin_repo_id,
