@@ -539,27 +539,11 @@ int ccnet_group_manager_add_member (CcnetGroupManager *mgr,
 {
     CcnetDB *db = mgr->priv->db;
 
-    /* check whether user is the staff of the group */
-    if (!check_group_staff (db, group_id, user_name, TRUE)) {
-        g_set_error (error, CCNET_DOMAIN, 0,
-                     "Permission error: only group staff can add member");
-        return -1; 
-    }    
-
     /* check whether group exists */
     if (!check_group_exists (mgr, db, group_id)) {
         g_set_error (error, CCNET_DOMAIN, 0, "Group not exists");
         return -1;
     }
-
-    /* check whether group is full */
-    /* snprintf (sql, sizeof(sql), "SELECT count(group_id) FROM `GroupUser` " */
-    /*           "WHERE `group_id` = %d", group_id); */
-    /* int count = seaf_db_get_int (db, sql); */
-    /* if (count >= MAX_GROUP_MEMBERS) { */
-    /*     g_set_error (error, CCNET_DOMAIN, 0, "Group is full"); */
-    /*     return -1; */
-    /* } */
 
     char *member_name_l = g_ascii_strdown (member_name, -1);
     int rc = seaf_db_statement_query (db, "INSERT INTO GroupUser (group_id, user_name, is_staff) VALUES (?, ?, ?)",
@@ -582,13 +566,6 @@ int ccnet_group_manager_remove_member (CcnetGroupManager *mgr,
 {
     CcnetDB *db = mgr->priv->db;
     char *sql;
-
-    /* check whether user is the staff of the group */
-    if (!check_group_staff (db, group_id, user_name, TRUE)) {
-        g_set_error (error, CCNET_DOMAIN, 0,
-                     "Only group staff can remove member");
-        return -1; 
-    }    
 
     /* check whether group exists */
     if (!check_group_exists (mgr, db, group_id)) {
