@@ -41,6 +41,10 @@
 #define HOST "host"
 #define PORT "port"
 
+#define HTTP_TEMP_SCAN_INTERVAL  1 /*1s*/
+#define HTTP_TEMP_FILE_TTL "http_temp_file_ttl"
+#define HTTP_TEMP_DIR "httptemp"
+
 #define INIT_INFO "If you see this page, Seafile HTTP syncing component works."
 #define PROTO_VERSION "{\"version\": 2}"
 
@@ -2509,6 +2513,83 @@ seaf_http_server_new (struct _SeafileSession *session)
 }
 
 int
+get_last_modify_time (const char *path)
+{
+    struct stat st;
+    if (stat (path, &st) < 0) {
+        return -1;
+    }
+
+    return st.st_mtime;
+}
+
+static void
+check_httptemp_dir_recursive (const char *parent_dir, int expired_time)
+{
+    char path[SEAF_PATH_MAX];
+    char *pos;
+    const char *dname;
+    uint64_t cur_time;
+    int last_modify = -1;
+    int dir_len;
+    GDir *dir = NULL;
+
+    dir_len = strlen (parent_dir);
+    dir = g_dir_open (parent_dir, 0, NULL);
+
+    memcpy (path, parent_dir, dir_len);
+    pos = path + dir_len;
+    while ((dname = g_dir_read_name(dir)) != NULL) {
+        snprintf (pos, sizeof(path) - dir_len, "/%s", dname);
+
+        if (g_file_test (path, G_FILE_TEST_IS_DIR)) {
+            check_httptemp_dir_recursive (path, expired_time);
+        } else {
+            cur_time = time (NULL);
+            last_modify = get_last_modify_time (path);
+            if (last_modify == -1)
+                continue;
+            /*remove blokc cache from local*/
+            if (last_modify + expired_time <= cur_time) {
+                g_unlink (path);
+            }
+        }
+    }
+
+    return;
+}
+
+static void
+scan_httptemp_dir (SeafileSession *session, int expired_time)
+{
+    char *httptemp_dir = g_build_filename (session->seaf_dir, HTTP_TEMP_DIR, NULL);
+
+    check_httptemp_dir_recursive (httptemp_dir, expired_time);
+}
+
+static void *
+cleanup_expired_httptemp_file (void *arg)
+{
+    GError *error = NULL;
+    HttpServerStruct *server = arg;
+    SeafileSession *session = server->seaf_session;
+    int ttl = 0;
+
+    ttl = fileserver_config_get_integer (session->config, HTTP_TEMP_FILE_TTL, &error);
+    if (error) {
+        g_clear_error (&error);
+        return NULL;
+    }
+
+    while (TRUE) {
+        sleep (HTTP_TEMP_SCAN_INTERVAL);
+        scan_httptemp_dir (session, ttl);
+    }
+
+    return NULL;
+}
+
+int
 seaf_http_server_start (HttpServerStruct *server)
 {
    int ret = pthread_create (&server->priv->thread_id, NULL, http_server_run, server);
@@ -2516,6 +2597,13 @@ seaf_http_server_start (HttpServerStruct *server)
        return -1;
 
    pthread_detach (server->priv->thread_id);
+
+   pthread_t tid;
+   ret = pthread_create (&tid, NULL, cleanup_expired_httptemp_file, server);
+   if (ret != 0)
+       return -1;
+
+   pthread_detach (tid);
    return 0;
 }
 
