@@ -41,8 +41,10 @@
 #define HOST "host"
 #define PORT "port"
 
-#define HTTP_TEMP_SCAN_INTERVAL  1 /*1s*/
+#define HTTP_TEMP_FILE_SCAN_INTERVAL  3600 /*1h*/
+#define HTTP_TEMP_FILE_DEFAULT_TTL 3600 * 24 * 3 /*3days*/
 #define HTTP_TEMP_FILE_TTL "http_temp_file_ttl"
+#define HTTP_SCAN_INTERVAL "http_temp_scan_interval"
 #define HTTP_TEMP_DIR "httptemp"
 
 #define INIT_INFO "If you see this page, Seafile HTTP syncing component works."
@@ -2523,48 +2525,44 @@ get_last_modify_time (const char *path)
     return st.st_mtime;
 }
 
-static void
+static int
 check_httptemp_dir_recursive (const char *parent_dir, int expired_time)
 {
     char path[SEAF_PATH_MAX];
-    char *pos;
+    char *full_path;
     const char *dname;
     uint64_t cur_time;
     int last_modify = -1;
-    int dir_len;
     GDir *dir = NULL;
+    int file_num = 0;
 
-    dir_len = strlen (parent_dir);
     dir = g_dir_open (parent_dir, 0, NULL);
 
-    memcpy (path, parent_dir, dir_len);
-    pos = path + dir_len;
     while ((dname = g_dir_read_name(dir)) != NULL) {
-        snprintf (pos, sizeof(path) - dir_len, "/%s", dname);
+        full_path = g_build_path ("/", parent_dir, dname, NULL);
 
-        if (g_file_test (path, G_FILE_TEST_IS_DIR)) {
-            check_httptemp_dir_recursive (path, expired_time);
+        if (g_file_test (full_path, G_FILE_TEST_IS_DIR)) {
+            file_num += check_httptemp_dir_recursive (full_path, expired_time);
         } else {
             cur_time = time (NULL);
-            last_modify = get_last_modify_time (path);
+            last_modify = get_last_modify_time (full_path);
             if (last_modify == -1)
                 continue;
             /*remove blokc cache from local*/
             if (last_modify + expired_time <= cur_time) {
-                g_unlink (path);
+                g_unlink (full_path);
+                file_num ++;
             }
         }
     }
 
-    return;
+    return file_num;
 }
 
-static void
-scan_httptemp_dir (SeafileSession *session, int expired_time)
+static int
+scan_httptemp_dir (const char *httptemp_dir, int expired_time)
 {
-    char *httptemp_dir = g_build_filename (session->seaf_dir, HTTP_TEMP_DIR, NULL);
-
-    check_httptemp_dir_recursive (httptemp_dir, expired_time);
+    return check_httptemp_dir_recursive (httptemp_dir, expired_time);
 }
 
 static void *
@@ -2574,16 +2572,28 @@ cleanup_expired_httptemp_file (void *arg)
     HttpServerStruct *server = arg;
     SeafileSession *session = server->seaf_session;
     int ttl = 0;
+    int scan_interval = 0;
+    int file_num = 0;
 
     ttl = fileserver_config_get_integer (session->config, HTTP_TEMP_FILE_TTL, &error);
     if (error) {
+        ttl = HTTP_TEMP_FILE_DEFAULT_TTL;
         g_clear_error (&error);
-        return NULL;
+    }
+
+    scan_interval = fileserver_config_get_integer (session->config, HTTP_SCAN_INTERVAL, &error);
+    if (error) {
+        scan_interval = HTTP_TEMP_FILE_SCAN_INTERVAL;
+        g_clear_error (&error);
     }
 
     while (TRUE) {
-        sleep (HTTP_TEMP_SCAN_INTERVAL);
-        scan_httptemp_dir (session, ttl);
+        sleep (scan_interval);
+        file_num = scan_httptemp_dir (server->http_temp_dir, ttl);
+        if (file_num) {
+            seaf_message ("Clean up %d http temp files\n", file_num);
+            file_num = 0;
+        }
     }
 
     return NULL;
