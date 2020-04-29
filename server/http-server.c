@@ -2525,16 +2525,15 @@ get_last_modify_time (const char *path)
     return st.st_mtime;
 }
 
-static int
+static gint64
 check_httptemp_dir_recursive (const char *parent_dir, int expired_time)
 {
-    char path[SEAF_PATH_MAX];
     char *full_path;
     const char *dname;
     uint64_t cur_time;
     int last_modify = -1;
     GDir *dir = NULL;
-    int file_num = 0;
+    gint64 file_num = 0;
 
     dir = g_dir_open (parent_dir, 0, NULL);
 
@@ -2546,21 +2545,26 @@ check_httptemp_dir_recursive (const char *parent_dir, int expired_time)
         } else {
             cur_time = time (NULL);
             last_modify = get_last_modify_time (full_path);
-            if (last_modify == -1)
+            if (last_modify == -1) {
+                g_free (full_path);
                 continue;
+            }
             /*remove blokc cache from local*/
             if (last_modify + expired_time <= cur_time) {
                 g_unlink (full_path);
                 file_num ++;
             }
         }
+        g_free (full_path);
     }
+
+    g_dir_close (dir);
 
     return file_num;
 }
 
 static int
-scan_httptemp_dir (const char *httptemp_dir, int expired_time)
+scan_httptemp_dir (const char *httptemp_dir, gint64 expired_time)
 {
     return check_httptemp_dir_recursive (httptemp_dir, expired_time);
 }
@@ -2571,17 +2575,17 @@ cleanup_expired_httptemp_file (void *arg)
     GError *error = NULL;
     HttpServerStruct *server = arg;
     SeafileSession *session = server->seaf_session;
-    int ttl = 0;
-    int scan_interval = 0;
-    int file_num = 0;
+    gint64 ttl = 0;
+    gint64 scan_interval = 0;
+    gint64 file_num = 0;
 
-    ttl = fileserver_config_get_integer (session->config, HTTP_TEMP_FILE_TTL, &error);
+    ttl = fileserver_config_get_int64 (session->config, HTTP_TEMP_FILE_TTL, &error);
     if (error) {
         ttl = HTTP_TEMP_FILE_DEFAULT_TTL;
         g_clear_error (&error);
     }
 
-    scan_interval = fileserver_config_get_integer (session->config, HTTP_SCAN_INTERVAL, &error);
+    scan_interval = fileserver_config_get_int64 (session->config, HTTP_SCAN_INTERVAL, &error);
     if (error) {
         scan_interval = HTTP_TEMP_FILE_SCAN_INTERVAL;
         g_clear_error (&error);
@@ -2591,7 +2595,7 @@ cleanup_expired_httptemp_file (void *arg)
         sleep (scan_interval);
         file_num = scan_httptemp_dir (server->http_temp_dir, ttl);
         if (file_num) {
-            seaf_message ("Clean up %d http temp files\n", file_num);
+            seaf_message ("Clean up %ld http temp files\n", file_num);
             file_num = 0;
         }
     }
