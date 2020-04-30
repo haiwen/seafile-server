@@ -45,7 +45,6 @@
 #define HTTP_TEMP_FILE_DEFAULT_TTL 3600 * 24 * 3 /*3days*/
 #define HTTP_TEMP_FILE_TTL "http_temp_file_ttl"
 #define HTTP_SCAN_INTERVAL "http_temp_scan_interval"
-#define HTTP_TEMP_DIR "httptemp"
 
 #define INIT_INFO "If you see this page, Seafile HTTP syncing component works."
 #define PROTO_VERSION "{\"version\": 2}"
@@ -2514,7 +2513,7 @@ seaf_http_server_new (struct _SeafileSession *session)
     return server;
 }
 
-int
+gint64
 get_last_modify_time (const char *path)
 {
     struct stat st;
@@ -2526,12 +2525,12 @@ get_last_modify_time (const char *path)
 }
 
 static gint64
-check_httptemp_dir_recursive (const char *parent_dir, int expired_time)
+check_httptemp_dir_recursive (const char *parent_dir, gint64 expired_time)
 {
     char *full_path;
     const char *dname;
-    uint64_t cur_time;
-    int last_modify = -1;
+    gint64 cur_time;
+    gint64 last_modify = -1;
     GDir *dir = NULL;
     gint64 file_num = 0;
 
