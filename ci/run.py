@@ -190,7 +190,6 @@ def fetch_and_build():
 
     libsearpc.compile_and_install()
     libevhtp.compile_and_install()
-    ccnet.compile_and_install()
     seafile.compile_and_install()
 
 
