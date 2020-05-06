@@ -17,8 +17,6 @@
 #include <sys/types.h>
 #include <fcntl.h>
 
-#include <ccnet.h>
-
 #include "seafile-object.h"
 #include "seafile-crypt.h"
 

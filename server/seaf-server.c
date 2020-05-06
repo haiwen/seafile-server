@@ -12,9 +12,11 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ccnet.h>
 #include <searpc-server.h>
 #include <searpc-client.h>
+
+#include "option.h"
+#include <cevent.h>
 
 #include "seafile-session.h"
 #include "seafile-rpc.h"

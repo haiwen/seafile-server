@@ -7,8 +7,7 @@
 #include <openssl/sha.h>
 #include <openssl/rand.h>
 
-#include <ccnet.h>
-#include <ccnet/ccnet-object.h>
+#include <timer.h>
 #include "utils.h"
 #include "log.h"
 

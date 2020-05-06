@@ -3,8 +3,6 @@
 #define DEBUG_FLAG SEAFILE_DEBUG_HTTP
 #include "log.h"
 
-#include <ccnet.h>
-
 #include "seafile-object.h"
 #include "seafile-crypt.h"
 #include "seafile-error.h"

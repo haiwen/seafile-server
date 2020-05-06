@@ -10,12 +10,12 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ccnet.h>
 #include <seaf-db.h>
 
 #include "log.h"
 #include "utils.h"
 
+#include "option.h"
 #include "seaf-fuse.h"
 
 SeafileSession *seaf = NULL;

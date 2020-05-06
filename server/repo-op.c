@@ -7,8 +7,6 @@
 #include <jansson.h>
 #include <openssl/sha.h>
 
-#include <ccnet.h>
-#include <ccnet/ccnet-object.h>
 #include "utils.h"
 #define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"

@@ -3,7 +3,7 @@
 
 #include <getopt.h>
 
-#include <ccnet.h>
+#include "option.h"
 
 #include "seafile-session.h"
 #include "gc-core.h"

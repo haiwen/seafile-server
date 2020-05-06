@@ -5,9 +5,6 @@
 #include "log.h"
 #include "utils.h"
 
-#include <ccnet.h>
-#include <ccnet/ccnet-object.h>
-
 #include "seafile-session.h"
 #include "seaf-db.h"
 #include "quota-mgr.h"

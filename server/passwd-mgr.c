@@ -2,7 +2,7 @@
 #include "log.h"
 
 #include <glib.h>
-#include <ccnet/timer.h>
+#include <timer.h>
 
 #include "seafile-session.h"
 #include "seafile-object.h"

@@ -2,8 +2,6 @@
 
 #include "common.h"
 
-#include <ccnet/ccnet-object.h>
-
 #include "seafile-session.h"
 #include "seaf-db.h"
 #include "group-mgr.h"

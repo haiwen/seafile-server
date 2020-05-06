@@ -1,6 +1,5 @@
 #include "common.h"
 
-#include <ccnet/timer.h>
 #include <pthread.h>
 
 #include "seafile-session.h"

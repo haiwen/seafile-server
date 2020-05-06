@@ -6,7 +6,6 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ccnet.h>
 #include <seaf-db.h>
 
 #include "log.h"

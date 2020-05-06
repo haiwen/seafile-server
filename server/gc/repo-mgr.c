@@ -3,7 +3,6 @@
 #include "common.h"
 #include <glib/gstdio.h>
 
-#include <ccnet.h>
 #include "utils.h"
 #include "log.h"
 

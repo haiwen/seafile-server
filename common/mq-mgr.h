@@ -1,6 +1,8 @@
 #ifndef SEAF_MQ_MANAGER_H
 #define SEAF_MQ_MANAGER_H
 
+#include <jansson.h>
+
 #define SEAFILE_SERVER_CHANNEL_EVENT "seaf_server.event"
 #define SEAFILE_SERVER_CHANNEL_STATS "seaf_server.stats"
 

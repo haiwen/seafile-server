@@ -2,8 +2,6 @@
 
 #include "common.h"
 
-#include <ccnet.h>
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>

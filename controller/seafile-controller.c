@@ -11,7 +11,8 @@
 #include <getopt.h>
 
 #include <glib.h>
-#include <ccnet.h>
+
+#include "option.h"
 
 #include "utils.h"
 #include "log.h"
