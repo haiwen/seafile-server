@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class ServerCtl(object):
-    def __init__(self, topdir, datadir, db='sqlite3', seaf_server_bin='seaf-server', ccnet_server_bin='ccnet-server'):
+    def __init__(self, topdir, projectdir, datadir, fileserver, db='sqlite3', seaf_server_bin='seaf-server', ccnet_server_bin='ccnet-server'):
         self.db = db
         self.datadir = datadir
         self.central_conf_dir = join(datadir, 'conf')
@@ -33,6 +33,7 @@ class ServerCtl(object):
         mkdirs(self.log_dir)
         self.ccnet_log = join(self.log_dir, 'ccnet.log')
         self.seafile_log = join(self.log_dir, 'seafile.log')
+        self.fileserver_log = join(self.log_dir, 'fileserver.log')
 
         self.ccnet_server_bin = ccnet_server_bin
         self.seaf_server_bin = seaf_server_bin
@@ -41,6 +42,9 @@ class ServerCtl(object):
 
         self.ccnet_proc = None
         self.seafile_proc = None
+        self.fileserver_proc = None
+        self.projectdir = projectdir
+        self.fileserver = fileserver
 
     def setup(self):
         if self.db == 'mysql':
@@ -86,7 +90,14 @@ CONNECTION_CHARSET = utf8
 
     def init_seafile(self):
         seafile_conf = join(self.central_conf_dir, 'seafile.conf')
-        seafile_fileserver_conf = '''\
+        if self.fileserver == 'go_fileserver':
+            seafile_fileserver_conf = '''\
+[fileserver]
+use_go_fileserver = true
+port=8082
+'''
+        else:
+            seafile_fileserver_conf = '''\
 [fileserver]
 port=8082
 '''
@@ -150,6 +161,7 @@ connection_charset = utf8
         self.create_database_tables()
         logger.info('Starting seafile server')
         self.start_seafile()
+        self.start_fileserver()
 
     def create_database_tables(self):
         if self.db == 'mysql':
@@ -217,6 +229,24 @@ connection_charset = utf8
         ]
         self.seafile_proc = shell(cmd, wait=False)
 
+    def start_fileserver(self):
+        cmd = [
+            "./fileserver",
+            "-F",
+            self.central_conf_dir,
+            "-c",
+            self.central_conf_dir,
+            "-d",
+            self.seafile_conf_dir,
+            "-l",
+            self.fileserver_log,
+        ]
+        fileserver_path = join(self.projectdir, 'fileserver')
+        with cd(fileserver_path):
+            shell("go build")
+            self.fileserver_proc = shell(cmd, wait=False)
+
+
     def stop(self):
         if self.ccnet_proc:
             logger.info('Stopping ccnet server')
@@ -224,6 +254,11 @@ connection_charset = utf8
         if self.seafile_proc:
             logger.info('Stopping seafile server')
             self.seafile_proc.kill()
+        if self.fileserver_proc:
+            logger.info('Stopping go fileserver')
+            self.fileserver_proc.kill()
+        if self.db == 'mysql':
+            del_mysql_dbs()
 
     def get_seaserv_envs(self):
         envs = dict(os.environ)
@@ -244,6 +279,15 @@ create user 'seafile'@'localhost' identified by 'seafile';
 
 GRANT ALL PRIVILEGES ON `ccnet`.* to `seafile`@localhost;
 GRANT ALL PRIVILEGES ON `seafile`.* to `seafile`@localhost;
+    '''
+
+    shell('sudo mysql -u root -proot', inputdata=sql)
+
+def del_mysql_dbs():
+    sql = b'''\
+drop database `ccnet`;
+drop database `seafile`;
+drop user 'seafile'@'localhost';
     '''
 
     shell('sudo mysql -u root -proot', inputdata=sql)
