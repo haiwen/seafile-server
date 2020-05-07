@@ -12,8 +12,6 @@
 
 #include <glib.h>
 
-#include "option.h"
-
 #include "utils.h"
 #include "log.h"
 #include "seafile-controller.h"

@@ -15,7 +15,6 @@
 #include "log.h"
 #include "utils.h"
 
-#include "option.h"
 #include "seaf-fuse.h"
 
 SeafileSession *seaf = NULL;

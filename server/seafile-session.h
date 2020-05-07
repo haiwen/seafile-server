@@ -3,7 +3,6 @@
 #ifndef SEAFILE_SESSION_H
 #define SEAFILE_SESSION_H
 
-#include <cevent.h>
 #include <job-mgr.h>
 
 #include "block-mgr.h"

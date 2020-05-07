@@ -3,8 +3,6 @@
 
 #include <getopt.h>
 
-#include "option.h"
-
 #include "seafile-session.h"
 #include "fsck.h"
 

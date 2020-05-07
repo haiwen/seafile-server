@@ -10,12 +10,7 @@
 
 #include <sys/time.h>
 
-#ifdef CCNET_LIB
-    #include "libccnet_utils.h"
-    #define timeval_from_msec ccnet_util_timeval_from_msec
-#else
-    #include "utils.h"
-#endif
+#include "utils.h"
 
 #include "timer.h"
 

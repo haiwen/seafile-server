@@ -9,7 +9,6 @@
 #include <glib.h>
 
 #include "utils.h"
-#include "libccnet_utils.h"
 
 #ifndef ccnet_warning
   #define ccnet_warning(fmt, ...) g_warning( "%s: " fmt,  __func__ , ##__VA_ARGS__)

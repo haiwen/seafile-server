@@ -2,6 +2,12 @@
 
 #include "common.h"
 
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+#include <event2/event.h>
+#else
+#include <event.h>
+#endif
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,9 +20,6 @@
 
 #include <searpc-server.h>
 #include <searpc-client.h>
-
-#include "option.h"
-#include <cevent.h>
 
 #include "seafile-session.h"
 #include "seafile-rpc.h"

@@ -15,15 +15,7 @@
 #define MAX_THREADS 50
 #define MAX_IDLE_THREADS 10
 
-#ifdef CCNET_LIB
-    #include "libccnet_utils.h"
-    #define pipereadn       ccnet_util_pipereadn
-    #define pipewriten      ccnet_util_pipewriten
-    #define pipeclose       ccnet_util_pipeclose
-    #define ccnet_pipe      ccnet_util_pipe
-#else
-    #include "utils.h"
-#endif
+#include "utils.h"
 
 #include "job-mgr.h"
 

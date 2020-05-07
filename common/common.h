@@ -53,4 +53,23 @@
 #define ccnet_debug(fmt, ...) g_debug(fmt, ##__VA_ARGS__)
 #endif
 
+#ifdef WIN32
+static inline char *GetDeafaultDir()
+{
+    static char buf[128];
+    static int inited = 0;
+
+    if (!inited) {
+        const char *home = g_get_home_dir();
+        inited = 1;
+        snprintf(buf, 128, "%s/ccnet", home);
+    }
+    return buf;
+}
+
+  #define DEFAULT_CONFIG_DIR GetDeafaultDir()
+#else
+  #define DEFAULT_CONFIG_DIR "~/.ccnet"
+#endif
+
 #endif
