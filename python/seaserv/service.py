@@ -6,7 +6,6 @@ import sys
 import configparser
 from urllib.parse import urlparse
 
-import ccnet
 import seafile
 import re
 from pysearpc import SearpcError

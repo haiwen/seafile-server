@@ -5,7 +5,6 @@ AM_CFLAGS = -DPKGDATADIR=\"$(pkgdatadir)\" \
 	-I$(top_srcdir)/lib \
 	-I$(top_builddir)/lib \
 	-I$(top_srcdir)/common \
-	@CCNET_CFLAGS@ \
 	@SEARPC_CFLAGS@ \
 	@GLIB2_CFLAGS@ \
 	@FUSE_CFLAGS@ \
@@ -39,8 +38,7 @@ seaf_fuse_SOURCES = seaf-fuse.c \
                     ../common/obj-backend-riak.c \
                     ../common/seafile-crypt.c
 
-seaf_fuse_LDADD = @CCNET_LIBS@ \
-		  @GLIB2_LIBS@ @GOBJECT_LIBS@ @SSL_LIBS@ @LIB_RT@ @LIB_UUID@ \
+seaf_fuse_LDADD = @GLIB2_LIBS@ @GOBJECT_LIBS@ @SSL_LIBS@ @LIB_RT@ @LIB_UUID@ \
                   -lsqlite3 @LIBEVENT_LIBS@ \
 		  $(top_builddir)/common/cdc/libcdc.la \
 		  @SEARPC_LIBS@ @JANSSON_LIBS@ @FUSE_LIBS@ @ZLIB_LIBS@ \

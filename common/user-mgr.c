@@ -5,7 +5,6 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-#include <ccnet/ccnet-object.h>
 #include "utils.h"
 
 #include "seafile-session.h"

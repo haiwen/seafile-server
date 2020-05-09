@@ -2,8 +2,6 @@
 
 #include "common.h"
 
-#include <ccnet.h>
-#include <ccnet/ccnet-object.h>
 #include "utils.h"
 #include "log.h"
 

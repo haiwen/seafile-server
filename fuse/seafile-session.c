@@ -4,7 +4,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include <ccnet.h>
 #include <utils.h>
 #include <locale.h>
 

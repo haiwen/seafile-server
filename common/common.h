@@ -53,4 +53,6 @@
 #define ccnet_debug(fmt, ...) g_debug(fmt, ##__VA_ARGS__)
 #endif
 
+#define DEFAULT_CONFIG_DIR "~/.ccnet"
+
 #endif

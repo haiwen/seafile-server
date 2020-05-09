@@ -50,16 +50,8 @@ class ServerCtl(object):
         self.init_seafile()
 
     def init_ccnet(self):
-        cmd = [
-            'ccnet-init',
-            '-F',
-            self.central_conf_dir,
-            '-c',
-            self.ccnet_conf_dir,
-            '--host',
-            'test.seafile.com',
-        ]
-        shell(cmd)
+        os.mkdir (self.central_conf_dir, 0o755)
+        os.mkdir (self.ccnet_conf_dir, 0o755)
         if self.db == 'mysql':
             self.add_ccnet_db_conf()
         else:

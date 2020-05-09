@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-#include <ccnet/timer.h>
+#include <timer.h>
 
 #include <pthread.h>
 

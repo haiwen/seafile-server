@@ -3,9 +3,7 @@
 #ifndef SEAFILE_SESSION_H
 #define SEAFILE_SESSION_H
 
-#include <ccnet.h>
-#include <ccnet/cevent.h>
-#include <ccnet/job-mgr.h>
+#include <job-mgr.h>
 
 #include "block-mgr.h"
 #include "fs-mgr.h"

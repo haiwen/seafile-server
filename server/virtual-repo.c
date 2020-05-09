@@ -7,8 +7,7 @@
 #define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"
 
-#include <ccnet.h>
-#include <ccnet/job-mgr.h>
+#include <timer.h>
 #include <pthread.h>
 
 #include "seafile-session.h"

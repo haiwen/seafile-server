@@ -44,10 +44,6 @@ struct _SeafileController {
     char *rpc_pipe_path;
     char *logdir;
 
-    CcnetClient         *client;
-    CcnetClient         *sync_client;
-    CcnetMqclientProc   *mqclient_proc;
-
     guint               check_process_timer;
     guint               client_io_id;
     /* Decide whether to start seaf-server in cloud mode  */

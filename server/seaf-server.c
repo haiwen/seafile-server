@@ -2,6 +2,12 @@
 
 #include "common.h"
 
+#if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
+#include <event2/event.h>
+#else
+#include <event.h>
+#endif
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,7 +18,6 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ccnet.h>
 #include <searpc-server.h>
 #include <searpc-client.h>
 

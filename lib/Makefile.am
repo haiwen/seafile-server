@@ -5,7 +5,6 @@ pkgconfigdir = $(libdir)/pkgconfig
 AM_CPPFLAGS = @GLIB2_CFLAGS@ -I$(top_srcdir)/include \
 	-I$(top_srcdir)/lib \
 	-I$(top_srcdir)/common \
-	@CCNET_CFLAGS@ \
 	@SEARPC_CFLAGS@ \
 	@MSVC_CFLAGS@ \
 	-Wall
@@ -14,7 +13,7 @@ BUILT_SOURCES = gensource
 
 ## source file rules
 seafile_object_define = repo.vala commit.vala dirent.vala dir.vala \
-	task.vala branch.vala crypt.vala webaccess.vala copy-task.vala
+	task.vala branch.vala crypt.vala webaccess.vala copy-task.vala ccnetobj.vala
 
 seafile_object_gen = $(seafile_object_define:.vala=.c)
 
@@ -22,7 +21,7 @@ valac_gen = ${seafile_object_gen} seafile-object.h
 
 EXTRA_DIST = ${seafile_object_define} rpc_table.py $(pcfiles) vala.stamp
 
-utils_headers = net.h bloom-filter.h utils.h db.h
+utils_headers = net.h bloom-filter.h utils.h db.h job-mgr.h timer.h
 
 utils_srcs = $(utils_headers:.h=.c)
 

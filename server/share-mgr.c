@@ -11,7 +11,6 @@
 #include "seaf-db.h"
 #include "log.h"
 #include "seafile-error.h"
-#include <ccnet/ccnet-object.h>
 
 SeafShareManager *
 seaf_share_manager_new (SeafileSession *seaf)

@@ -5,7 +5,6 @@
 
 #include <glib.h>
 #include <glib-object.h>
-#include <ccnet/ccnet-object.h>
 
 #define CCNET_TYPE_USER_MANAGER                  (ccnet_user_manager_get_type ())
 #define CCNET_USER_MANAGER(obj)                  (G_TYPE_CHECK_INSTANCE_CAST ((obj), CCNET_TYPE_USER_MANAGER, CcnetUserManager))

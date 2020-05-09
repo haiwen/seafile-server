@@ -1,9 +1,8 @@
 #include <pthread.h>
 #include <jansson.h>
 
-#include <ccnet.h>
-
 #include "common.h"
+#include <timer.h>
 #include "utils.h"
 #include "log.h"
 #include "seafile-error.h"

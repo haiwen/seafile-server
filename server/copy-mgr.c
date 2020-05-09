@@ -3,8 +3,6 @@
 
 #include <pthread.h>
 
-#include <ccnet/job-mgr.h>
-
 #include "seafile-session.h"
 #include "seafile-object.h"
 #include "seafile-error.h"
