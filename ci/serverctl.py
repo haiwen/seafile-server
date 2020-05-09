@@ -46,12 +46,14 @@ class ServerCtl(object):
         if self.db == 'mysql':
             create_mysql_dbs()
 
+        os.mkdir (self.central_conf_dir, 0o755)
+        os.mkdir (self.seafile_conf_dir, 0o755)
+        os.mkdir (self.ccnet_conf_dir, 0o755)
+
         self.init_ccnet()
         self.init_seafile()
 
     def init_ccnet(self):
-        os.mkdir (self.central_conf_dir, 0o755)
-        os.mkdir (self.ccnet_conf_dir, 0o755)
         if self.db == 'mysql':
             self.add_ccnet_db_conf()
         else:
@@ -83,17 +85,15 @@ CONNECTION_CHARSET = utf8
             fp.write(ccnet_db_conf)
 
     def init_seafile(self):
-        cmd = [
-            'seaf-server-init',
-            '--central-config-dir',
-            self.central_conf_dir,
-            '--seafile-dir',
-            self.seafile_conf_dir,
-            '--fileserver-port',
-            '8082',
-        ]
+        seafile_conf = join(self.central_conf_dir, 'seafile.conf')
+        seafile_fileserver_conf = '''\
+[fileserver]
+port=8082
+'''
+        with open(seafile_conf, 'a+') as fp:
+            fp.write('\n')
+            fp.write(seafile_fileserver_conf)
 
-        shell(cmd)
         if self.db == 'mysql':
             self.add_seafile_db_conf()
         else:
