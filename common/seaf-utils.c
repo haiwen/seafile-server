@@ -68,11 +68,7 @@ mysql_db_start (SeafileSession *session)
     GError *error = NULL;
 
     host = seaf_key_file_get_string (session->config, "database", "host", &error);
-    if (!host) {
-        seaf_warning ("DB host not set in config.\n");
-        return -1;
-    }
-
+  
     port = g_key_file_get_integer (session->config, "database", "port", &error);
     if (error) {
         port = MYSQL_DEFAULT_PORT;
@@ -111,7 +107,13 @@ mysql_db_start (SeafileSession *session)
     if (max_connections <= 0)
         max_connections = DEFAULT_MAX_CONNECTIONS;
 
-    session->db = seaf_db_new_mysql (host, port, user, passwd, db, unix_socket, use_ssl, charset, max_connections);
+    if (unix_socket) {session->db = seaf_db_new_mysql (NULL, 0, user, passwd, db, unix_socket, NULL, charset, max_connections);}
+       else if (host) {session->db = seaf_db_new_mysql (host, port, user, passwd, db, NULL, use_ssl, charset, max_connections);}
+               else {
+                   g_warning ("DB host or socket not set in config.\n");
+                   return -1;
+               }
+
     if (!session->db) {
         seaf_warning ("Failed to start mysql db.\n");
         return -1;
