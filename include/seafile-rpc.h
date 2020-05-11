@@ -1190,6 +1190,9 @@ GList *
 ccnet_rpc_get_emailusers_in_list(const char *source, const char *user_list, GError **error);
 
 int
+ccnet_rpc_update_emailuser_id (const char *old_email, const char *new_email, GError **error);
+
+int
 ccnet_rpc_create_group (const char *group_name, const char *user_name,
                         const char *type, int parent_group_id, GError **error);
 

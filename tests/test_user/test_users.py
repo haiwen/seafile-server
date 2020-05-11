@@ -36,5 +36,8 @@ def test_user_management():
     assert email2_new.is_active == True
     assert email2_new.is_staff == True
 
-    ccnet_api.remove_emailuser('DB', email1)
+    new_email1 = '%s@%s.com' % (randstring(6), randstring(6))
+    assert ccnet_api.update_emailuser_id (email1, new_email1) == 0
+
+    ccnet_api.remove_emailuser('DB', new_email1)
     ccnet_api.remove_emailuser('DB', email2)

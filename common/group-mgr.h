@@ -144,5 +144,10 @@ ccnet_group_manager_get_ancestor_groups (CcnetGroupManager *mgr, int group_id);
 GList *
 ccnet_group_manager_get_groups_members (CcnetGroupManager *mgr, const char *group_ids,
                                         GError **error);
+
+int
+ccnet_group_manager_update_group_user (CcnetGroupManager *mgr,
+                                       const char *old_email,
+                                       const char *new_email);
 #endif /* GROUP_MGR_H */
 

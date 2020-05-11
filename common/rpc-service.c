@@ -4773,6 +4773,18 @@ ccnet_rpc_get_emailusers_in_list(const char *source, const char *user_list, GErr
 }
 
 int
+ccnet_rpc_update_emailuser_id (const char *old_email, const char *new_email, GError **error)
+{
+    if (!old_email || !new_email) {
+        g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Bad arguments");
+        return -1;
+    }
+    CcnetUserManager *user_mgr = seaf->user_mgr;
+
+    return ccnet_user_manager_update_emailuser_id (user_mgr, old_email, new_email, error);
+}
+
+int
 ccnet_rpc_create_group (const char *group_name, const char *user_name,
                         const char *type, int parent_group_id, GError **error)
 {

@@ -872,6 +872,11 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     @searpc_func("objlist", ["string", "string"])
     def get_emailusers_in_list(self, source, user_list):
         pass
+
+    @searpc_func("int", ["string", "string"])
+    def update_emailuser_id (self, old_email, new_email):
+        pass
+
     #group management
     @searpc_func("int", ["string", "string", "string", "int"])
     def create_group(self, group_name, user_name, gtype, parent_group_id):
