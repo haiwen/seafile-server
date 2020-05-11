@@ -539,13 +539,13 @@ mysql_db_new (const char *host,
 {
     MySQLDB *db = g_new0 (MySQLDB, 1);
 
-    db->host = g_strdup (host);
+    if (host) {db->host = g_strdup (host);} else {db->host = NULL;}
     db->user = g_strdup (user);
     db->password = g_strdup (password);
     db->port = port;
     db->db_name = g_strdup(db_name);
-    db->unix_socket = g_strdup(unix_socket);
-    db->use_ssl = use_ssl;
+    if (unix_socket) {db->unix_socket = g_strdup(unix_socket);} else {db->unix_socket = NULL;}
+    if (use_ssl) {db->use_ssl = use_ssl;} else {db->use_ssl = NULL;}
     db->charset = g_strdup(charset);
 
     mysql_library_init (0, NULL, NULL);
