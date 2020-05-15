@@ -1433,3 +1433,22 @@ ccnet_group_manager_get_groups_members (CcnetGroupManager *mgr, const char *grou
 
     return ret;
 }
+
+int
+ccnet_group_manager_update_group_user (CcnetGroupManager *mgr,
+                                       const char *old_email,
+                                       const char *new_email)
+{
+    int rc;
+    CcnetDB *db = mgr->priv->db;
+
+    rc = seaf_db_statement_query (db,
+                                  "UPDATE GroupUser SET user_name=? "
+                                  "WHERE user_name = ?",
+                                  2, "string", new_email, "string", old_email);
+    if (rc < 0){
+        return -1;
+    }
+
+    return 0;
+}

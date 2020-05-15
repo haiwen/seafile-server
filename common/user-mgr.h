@@ -175,4 +175,10 @@ ccnet_user_manager_get_emailusers_in_list (CcnetUserManager *manager,
                                            const char *source,
                                            const char *user_list,
                                            GError **error);
+
+int
+ccnet_user_manager_update_emailuser_id (CcnetUserManager *manager,
+                                        const char *old_email,
+                                        const char *new_email,
+                                        GError **error);
 #endif

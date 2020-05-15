@@ -834,6 +834,11 @@ static void start_rpc_service (const char *seafile_dir,
                                      "get_emailusers_in_list",
                                      searpc_signature_objlist__string_string());
 
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_update_emailuser_id,
+                                     "update_emailuser_id",
+                                     searpc_signature_int__string_string());
+
     /*group management*/
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      ccnet_rpc_create_group,

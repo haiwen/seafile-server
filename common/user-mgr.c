@@ -1990,3 +1990,94 @@ out:
 
     return ret;
 }
+
+int
+ccnet_user_manager_update_emailuser_id (CcnetUserManager *manager,
+                                        const char *old_email,
+                                        const char *new_email,
+                                        GError **error)
+{
+    int ret = -1;
+    int rc;
+    GString *sql = g_string_new ("");
+
+    //1.update RepoOwner
+    g_string_printf (sql, "UPDATE RepoOwner SET owner_id=? WHERE owner_id=?");
+    rc = seaf_db_statement_query (seaf->db, sql->str, 2,
+                                  "string", new_email,
+                                  "string", old_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update repo owner\n");
+        goto out;
+    }
+
+    //2.update SharedRepo
+    g_string_printf (sql, "UPDATE SharedRepo SET from_email=? WHERE from_email=?");
+    rc = seaf_db_statement_query (seaf->db, sql->str, 2,
+                                  "string", new_email,
+                                  "string", old_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update from_email\n");
+        goto out;
+    }
+
+    g_string_printf (sql, "UPDATE SharedRepo SET to_email=? WHERE to_email=?");
+    rc = seaf_db_statement_query (seaf->db, sql->str, 2,
+                                  "string", new_email,
+                                  "string", old_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update to_email\n");
+        goto out;
+    }
+
+    //3.update GroupUser
+    rc = ccnet_group_manager_update_group_user (seaf->group_mgr, old_email, new_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update group member\n");
+        goto out;
+    }
+
+    //4.update RepoUserToken
+    g_string_printf (sql, "UPDATE RepoUserToken SET email=? WHERE email=?");
+    rc = seaf_db_statement_query (seaf->db, sql->str, 2,
+                                  "string", new_email,
+                                  "string", old_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update repo user token\n");
+        goto out;
+    }
+
+    //5.uptede FolderUserPerm
+    g_string_printf (sql, "UPDATE FolderUserPerm SET user=? WHERE user=?");
+    rc = seaf_db_statement_query (seaf->db, sql->str, 2,
+                                  "string", new_email,
+                                  "string", old_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update user folder permission\n");
+        goto out;
+    }
+
+    //6.update EmailUser
+    g_string_printf (sql, "UPDATE EmailUser SET email=? WHERE email=?");
+    rc = seaf_db_statement_query (manager->priv->db, sql->str, 2,
+                                  "string", new_email,
+                                  "string", old_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update email user\n");
+        goto out;
+    }
+
+    g_string_printf (sql, "UPDATE LDAPUsers SET email=? WHERE email=?");
+    rc = seaf_db_statement_query (manager->priv->db, sql->str, 2,
+                                  "string", new_email,
+                                  "string", old_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update LDAP user\n");
+        goto out;
+    }
+
+    ret = 0;
+out:
+    g_string_free (sql, TRUE);
+    return ret;
+}
