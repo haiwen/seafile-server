@@ -48,5 +48,5 @@ func Init(seafDB *sql.DB) {
 
 // Get returns Repo object by repo ID.
 func Get(id string) *Repo {
-
+	return nil
 }

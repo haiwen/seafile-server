@@ -14,4 +14,5 @@ type Client struct {
 // The true returned type can be int32, int64, string, struct (object), list of struct (objects) or JSON
 func (c *Client) Call(funcname string, params ...interface{}) interface{} {
 	// TODO: use reflection to compose requests and parse results.
+	return nil
 }
