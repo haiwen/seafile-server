@@ -27,7 +27,10 @@ type storageBackend interface {
 // New returns a new object store for a given type of objects.
 // objType can be "commit", "fs", or "block".
 func New(seafileConfPath string, seafileDataDir string, objType string) *ObjectStore {
-	return nil
+	obj := new(ObjectStore)
+	obj.ObjType = objType
+	obj.backend, _ = newFSBackend(seafileDataDir, objType)
+	return obj
 }
 
 func (s *ObjectStore) read(repoID string, objID string, w io.Writer) (err error) {
