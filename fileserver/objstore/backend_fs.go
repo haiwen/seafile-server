@@ -14,55 +14,65 @@ type fsBackend struct {
 	objType string
 }
 
-func newFSBackend(seafileDataDir string, objType string) (b *fsBackend, err error) {
+func newFSBackend(seafileDataDir string, objType string) (*fsBackend, error) {
+	objDir := path.Join(seafileDataDir, "storage", objType)
+	err := os.MkdirAll(objDir, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
 	backend := new(fsBackend)
-	backend.objDir = path.Join(seafileDataDir, "storage", objType)
+	backend.objDir = objDir
 	backend.objType = objType
 	return backend, nil
 }
 
-func (b *fsBackend) read(repoID string, objID string, w io.Writer) (err error) {
-	path := path.Join(b.objDir, repoID, objID[:2], objID[2:])
-	buf, err := ioutil.ReadFile(path)
+func (b *fsBackend) read(repoID string, objID string, w io.Writer) error {
+	p := path.Join(b.objDir, repoID, objID[:2], objID[2:])
+	fd, err := os.Open(p)
 	if err != nil {
-		return
+		return err
 	}
-	w.Write(buf)
+	defer fd.Close()
+
+	_, err = io.Copy(w, fd)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (b *fsBackend) write(repoID string, objID string, r io.Reader, sync bool) (err error) {
-	parent_dir := path.Join(b.objDir, repoID, objID[:2])
-	path := path.Join(parent_dir, objID[2:])
-	err = os.MkdirAll(parent_dir, os.ModePerm)
+func (b *fsBackend) write(repoID string, objID string, r io.Reader, sync bool) error {
+	parentDir := path.Join(b.objDir, repoID, objID[:2])
+	p := path.Join(parentDir, objID[2:])
+	err := os.MkdirAll(parentDir, os.ModePerm)
 	if err != nil {
-		return
+		return err
 	}
 
-	outputFile, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0644)
+	outputFile, err := os.OpenFile(p, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return
+		return err
 	}
 	defer outputFile.Close()
 
 	buf, err := ioutil.ReadAll(r)
 	if err != nil {
-		return
+		return err
 	}
 	outputFile.Write(buf)
 
 	return nil
 }
 
-func (b *fsBackend) exists(repoID string, objID string) (res bool, err error) {
+func (b *fsBackend) exists(repoID string, objID string) (bool, error) {
 	path := path.Join(b.objDir, repoID, objID[:2], objID[2:])
-	_, err = os.Stat(path)
+	_, err := os.Stat(path)
 	if err != nil {
-		if os.IsExist(err) {
-			return true, err
+		if os.IsNotExist(err) {
+			return false, err
 		}
-		return false, err
+		return true, err
 	}
 	return true, nil
 }
