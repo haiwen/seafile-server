@@ -12,6 +12,7 @@ type fsBackend struct {
 	// Path of the object directory
 	objDir  string
 	objType string
+	tmpDir  string
 }
 
 func newFSBackend(seafileDataDir string, objType string) (*fsBackend, error) {
@@ -20,9 +21,15 @@ func newFSBackend(seafileDataDir string, objType string) (*fsBackend, error) {
 	if err != nil {
 		return nil, err
 	}
+	tmpDir := path.Join(seafileDataDir, "tmpfiles")
+	err = os.MkdirAll(tmpDir, os.ModePerm)
+	if err != nil {
+		return nil, err
+	}
 	backend := new(fsBackend)
 	backend.objDir = objDir
 	backend.objType = objType
+	backend.tmpDir = tmpDir
 	return backend, nil
 }
 
@@ -50,17 +57,24 @@ func (b *fsBackend) write(repoID string, objID string, r io.Reader, sync bool) e
 		return err
 	}
 
-	outputFile, err := os.OpenFile(p, os.O_RDWR|os.O_CREATE, 0644)
+	tFile, err := ioutil.TempFile(b.tmpDir, objID)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tFile.Name())
+
+	outputFile, err := os.OpenFile(tFile.Name(), os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
 	defer outputFile.Close()
 
-	buf, err := ioutil.ReadAll(r)
+	_, err = io.Copy(outputFile, r)
 	if err != nil {
 		return err
 	}
-	outputFile.Write(buf)
+
+	err = os.Rename(tFile.Name(), p)
 
 	return nil
 }

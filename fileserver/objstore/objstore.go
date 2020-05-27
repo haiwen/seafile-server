@@ -33,14 +33,14 @@ func New(seafileConfPath string, seafileDataDir string, objType string) *ObjectS
 	return obj
 }
 
-func (s *ObjectStore) read(repoID string, objID string, w io.Writer) (err error) {
+func (s *ObjectStore) Read(repoID string, objID string, w io.Writer) (err error) {
 	return s.backend.read(repoID, objID, w)
 }
 
-func (s *ObjectStore) write(repoID string, objID string, r io.Reader, sync bool) (err error) {
+func (s *ObjectStore) Write(repoID string, objID string, r io.Reader, sync bool) (err error) {
 	return s.backend.write(repoID, objID, r, sync)
 }
 
-func (s *ObjectStore) exists(repoID string, objID string) (res bool, err error) {
+func (s *ObjectStore) Exists(repoID string, objID string) (res bool, err error) {
 	return s.backend.exists(repoID, objID)
 }
