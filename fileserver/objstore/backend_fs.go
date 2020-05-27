@@ -63,18 +63,16 @@ func (b *fsBackend) write(repoID string, objID string, r io.Reader, sync bool) e
 	}
 	defer os.Remove(tFile.Name())
 
-	outputFile, err := os.OpenFile(tFile.Name(), os.O_RDWR, 0644)
-	if err != nil {
-		return err
-	}
-	defer outputFile.Close()
-
-	_, err = io.Copy(outputFile, r)
+	_, err = io.Copy(tFile, r)
 	if err != nil {
 		return err
 	}
 
+	tFile.Close()
 	err = os.Rename(tFile.Name(), p)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
