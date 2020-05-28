@@ -43,7 +43,7 @@ func (s *ObjectStore) Write(repoID string, objID string, r io.Reader, sync bool)
 	return s.backend.write(repoID, objID, r, sync)
 }
 
-//Check if storage backends exist.
+//Check whether object exists.
 func (s *ObjectStore) Exists(repoID string, objID string) (res bool, err error) {
 	return s.backend.exists(repoID, objID)
 }
