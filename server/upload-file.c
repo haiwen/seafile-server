@@ -479,7 +479,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     parent_dir = g_hash_table_lookup (fsm->form_kvs, "parent_dir");
     if (!parent_dir) {
         seaf_debug ("[upload] No parent dir given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid parent dir.\n");
         return;
     }
     relative_path = g_hash_table_lookup (fsm->form_kvs, "relative_path");
@@ -1091,7 +1091,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     parent_dir = g_hash_table_lookup (fsm->form_kvs, "parent_dir");
     if (!parent_dir) {
         seaf_debug ("[upload] No parent dir given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.");
+        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid parent dir.");
         return;
     }
 
