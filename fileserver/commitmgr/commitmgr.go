@@ -2,6 +2,7 @@
 package commitmgr
 
 import (
+	"bytes"
 	"encoding/json"
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"io"
@@ -35,12 +36,12 @@ type Commit struct {
 
 var store *objstore.ObjectStore
 
-//Init objstore.
+// Init initializes commit manager and creates underlying object store.
 func Init(seafileConfPath string, seafileDataDir string) {
 	store = objstore.New(seafileConfPath, seafileDataDir, "commit")
 }
 
-//Write parse the JSON-encoded data and stores the result int the commit.
+// Write parses the JSON-encoded data and save in commit.
 func (commit *Commit) Write(p []byte) (int, error) {
 	err := json.Unmarshal(p, commit)
 	if err != nil {
@@ -50,18 +51,32 @@ func (commit *Commit) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-//Read traverses the commit to JSON-encoded data.
-func (c *Commit) Read(p []byte) (int, error) {
-	jsonstr, err := json.Marshal(c)
+func (commit *Commit) FromData(p []byte) error {
+	err := json.Unmarshal(p, commit)
 	if err != nil {
-		return -1, err
+		return err
 	}
-	copy(p, jsonstr)
 
-	return len(jsonstr), io.EOF
+	return nil
 }
 
-func readRaw(repoID string, commitID string, w io.Writer) error {
+// Read traverses the commit to JSON-encoded data.
+func (c *Commit) ToData(w io.Writer) error {
+	jsonstr, err := json.Marshal(c)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Write(jsonstr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ReadRaw reads data in binary format from storage backend.
+func ReadRaw(repoID string, commitID string, w io.Writer) error {
 	err := store.Read(repoID, commitID, w)
 	if err != nil {
 		return err
@@ -69,7 +84,8 @@ func readRaw(repoID string, commitID string, w io.Writer) error {
 	return nil
 }
 
-func writeRaw(repoID string, commitID string, r io.Reader) error {
+// WrtieRaw writes data in binary format to storage backend.
+func WriteRaw(repoID string, commitID string, r io.Reader) error {
 	err := store.Write(repoID, commitID, r, false)
 	if err != nil {
 		return err
@@ -77,10 +93,15 @@ func writeRaw(repoID string, commitID string, r io.Reader) error {
 	return nil
 }
 
-//Load commit from storage backend.
+// Load commit from storage backend.
 func Load(repoID string, commitID string) (*Commit, error) {
+	var buf bytes.Buffer
 	commit := new(Commit)
-	err := readRaw(repoID, commitID, commit)
+	err := ReadRaw(repoID, commitID, &buf)
+	if err != nil {
+		return nil, err
+	}
+	err = commit.FromData(buf.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -88,9 +109,18 @@ func Load(repoID string, commitID string) (*Commit, error) {
 	return commit, nil
 }
 
-//Save commit to storage backend.
+// Save commit to storage backend.
 func Save(commit *Commit) error {
-	err := writeRaw(commit.RepoID, commit.CommitID, commit)
+	var buf bytes.Buffer
+	err := commit.ToData(&buf)
+	if err != nil {
+		return err
+	}
+
+	err = WriteRaw(commit.RepoID, commit.CommitID, &buf)
+	if err != nil {
+		return err
+	}
 
 	return err
 }
