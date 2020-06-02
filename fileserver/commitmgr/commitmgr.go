@@ -41,6 +41,7 @@ func Init(seafileConfPath string, seafileDataDir string) {
 	store = objstore.New(seafileConfPath, seafileDataDir, "commit")
 }
 
+// FromData reads from p and converts JSON-encoded data to commit.
 func (commit *Commit) FromData(p []byte) error {
 	err := json.Unmarshal(p, commit)
 	if err != nil {
@@ -50,7 +51,7 @@ func (commit *Commit) FromData(p []byte) error {
 	return nil
 }
 
-// Read traverses the commit to JSON-encoded data.
+// ToData converts commit to JSON-encoded data and writes to w.
 func (c *Commit) ToData(w io.Writer) error {
 	jsonstr, err := json.Marshal(c)
 	if err != nil {
