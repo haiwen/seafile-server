@@ -9,29 +9,29 @@ import (
 )
 
 type Commit struct {
-	CommitID       string  `json:"commit_id"`
-	RepoID         string  `json:"repo_id"`
-	RootID         string  `json:"root_id"`
-	CreaterName    string  `json:"creater_name,omitempty"`
-	CreaterID      string  `json:"creater"`
-	Desc           string  `json:"description"`
-	Ctime          int64   `json:"ctime"`
-	ParentID       *string `json:"parent_id"`
-	SecondParentID *string `json:"second_parent_id"`
-	RepoName       string  `json:"repo_name"`
-	RepoDesc       string  `json:"repo_desc"`
-	RepoCategory   *string `json:"repo_category"`
-	DeviceName     string  `json:"device_name,omitempty"`
-	ClientVersion  string  `json:"client_version,omitempty"`
-	Encrypted      string  `json:"encrypted,omitempty"`
-	EncVersion     int     `json:"enc_version,omitempty"`
-	Magic          string  `json:"magic,omitempty"`
-	RandomKey      string  `json:"key,omitempty"`
-	Salt           string  `json:"salt,omitempty"`
-	Version        int     `json:"version,omitempty"`
-	Conflict       int     `json:"conflict,omitempty"`
-	NewMerge       int     `json:"new_merge,omitempty"`
-	Repaired       int     `json:"repaired,omitempty"`
+	CommitID       string `json:"commit_id"`
+	RepoID         string `json:"repo_id"`
+	RootID         string `json:"root_id"`
+	CreaterName    string `json:"creater_name,omitempty"`
+	CreaterID      string `json:"creater"`
+	Desc           string `json:"description"`
+	Ctime          int64  `json:"ctime"`
+	ParentID       string `json:"parent_id"`
+	SecondParentID string `json:"second_parent_id"`
+	RepoName       string `json:"repo_name"`
+	RepoDesc       string `json:"repo_desc"`
+	RepoCategory   string `json:"repo_category"`
+	DeviceName     string `json:"device_name,omitempty"`
+	ClientVersion  string `json:"client_version,omitempty"`
+	Encrypted      string `json:"encrypted,omitempty"`
+	EncVersion     int    `json:"enc_version,omitempty"`
+	Magic          string `json:"magic,omitempty"`
+	RandomKey      string `json:"key,omitempty"`
+	Salt           string `json:"salt,omitempty"`
+	Version        int    `json:"version,omitempty"`
+	Conflict       int    `json:"conflict,omitempty"`
+	NewMerge       int    `json:"new_merge,omitempty"`
+	Repaired       int    `json:"repaired,omitempty"`
 }
 
 var store *objstore.ObjectStore
@@ -39,16 +39,6 @@ var store *objstore.ObjectStore
 // Init initializes commit manager and creates underlying object store.
 func Init(seafileConfPath string, seafileDataDir string) {
 	store = objstore.New(seafileConfPath, seafileDataDir, "commit")
-}
-
-// Write parses the JSON-encoded data and save in commit.
-func (commit *Commit) Write(p []byte) (int, error) {
-	err := json.Unmarshal(p, commit)
-	if err != nil {
-		return -1, err
-	}
-
-	return len(p), nil
 }
 
 func (commit *Commit) FromData(p []byte) error {
