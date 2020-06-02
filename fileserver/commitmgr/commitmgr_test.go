@@ -2,7 +2,6 @@ package commitmgr
 
 import (
 	"fmt"
-	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"os"
 	"testing"
 	"time"
@@ -41,7 +40,7 @@ func assertEqual(t *testing.T, a, b interface{}) {
 }
 
 func TestCommit(t *testing.T) {
-	store := objstore.New(seafileConfPath, seafileDataDir, "commit")
+	Init(seafileConfPath, seafileDataDir)
 	newCommit := new(Commit)
 	newCommit.CommitID = commitID
 	newCommit.RepoID = repoID
@@ -52,10 +51,15 @@ func TestCommit(t *testing.T) {
 	parentID := repoID
 	newCommit.ParentID = &parentID
 	newCommit.DeviceName = "Linux"
-	newCommit.SaveCommit(store, repoID, commitID)
+	err := Save(newCommit)
+	if err != nil {
+		t.Errorf("Failed to save commit.\n")
+	}
 
-	commit := new(Commit)
-	commit.LoadCommit(store, repoID, commitID)
+	commit, err := Load(repoID, commitID)
+	if err != nil {
+		t.Errorf("Failed to load commit.\n")
+	}
 	assertEqual(t, commit.CommitID, commitID)
 	assertEqual(t, commit.RepoID, repoID)
 	assertEqual(t, commit.CreaterName, "seafile")

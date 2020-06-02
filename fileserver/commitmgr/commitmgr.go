@@ -2,7 +2,6 @@
 package commitmgr
 
 import (
-	// Change to non-blank import when use
 	"encoding/json"
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"io"
@@ -28,11 +27,17 @@ type Commit struct {
 	Magic          string  `json:"magic,omitempty"`
 	RandomKey      string  `json:"key,omitempty"`
 	Salt           string  `json:"salt,omitempty"`
-	NoLocalHistory int     `json:"no_local_history,omitempty"`
 	Version        int     `json:"version,omitempty"`
 	Conflict       int     `json:"conflict,omitempty"`
 	NewMerge       int     `json:"new_merge,omitempty"`
 	Repaired       int     `json:"repaired,omitempty"`
+}
+
+var store *objstore.ObjectStore
+
+//Init objstore.
+func Init(seafileConfPath string, seafileDataDir string) {
+	store = objstore.New(seafileConfPath, seafileDataDir, "commit")
 }
 
 //Write parse the JSON-encoded data and stores the result int the commit.
@@ -56,22 +61,36 @@ func (c *Commit) Read(p []byte) (int, error) {
 	return len(jsonstr), io.EOF
 }
 
-//Load commit from storage backend.
-func (commit *Commit) LoadCommit(store *objstore.ObjectStore, repoID string, commitID string) error {
-	err := store.Read(repoID, commitID, commit)
+func readRaw(repoID string, commitID string, w io.Writer) error {
+	err := store.Read(repoID, commitID, w)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
-//Save commit to storage backend.
-func (commit *Commit) SaveCommit(store *objstore.ObjectStore, repoID string, commitID string) error {
-	err := store.Write(repoID, commitID, commit, false)
+func writeRaw(repoID string, commitID string, r io.Reader) error {
+	err := store.Write(repoID, commitID, r, false)
 	if err != nil {
 		return err
 	}
-
 	return nil
+}
+
+//Load commit from storage backend.
+func Load(repoID string, commitID string) (*Commit, error) {
+	commit := new(Commit)
+	err := readRaw(repoID, commitID, commit)
+	if err != nil {
+		return nil, err
+	}
+
+	return commit, nil
+}
+
+//Save commit to storage backend.
+func Save(commit *Commit) error {
+	err := writeRaw(commit.RepoID, commit.CommitID, commit)
+
+	return err
 }
