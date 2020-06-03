@@ -3,7 +3,6 @@ package blockmgr
 import (
 	"bytes"
 	"fmt"
-	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"os"
 	"path"
 	"testing"
@@ -63,8 +62,7 @@ func TestMain(m *testing.M) {
 
 func testBlockRead(t *testing.T) {
 	var buf bytes.Buffer
-	store := objstore.New(seafileConfPath, seafileDataDir, "block")
-	err := BlockRead(store, repoID, blockID, &buf)
+	err := Read(repoID, blockID, &buf)
 	if err != nil {
 		t.Errorf("Failed to read block.\n")
 	}
@@ -77,16 +75,14 @@ func testBlockWrite(t *testing.T) {
 	}
 	defer inputFile.Close()
 
-	store := objstore.New(seafileConfPath, seafileDataDir, "block")
-	err = BlockWrite(store, repoID, blockID, inputFile)
+	err = Write(repoID, blockID, inputFile)
 	if err != nil {
 		t.Errorf("Failed to write block.\n")
 	}
 }
 
 func testBlockExists(t *testing.T) {
-	store := objstore.New(seafileConfPath, seafileDataDir, "block")
-	ret, _ := BlockExists(store, repoID, blockID)
+	ret := Exists(repoID, blockID)
 	if !ret {
 		t.Errorf("Block is not exist\n")
 	}
@@ -100,6 +96,7 @@ func testBlockExists(t *testing.T) {
 }
 
 func TestBlock(t *testing.T) {
+	Init(seafileConfPath, seafileDataDir)
 	testBlockWrite(t)
 	testBlockRead(t)
 	testBlockExists(t)
