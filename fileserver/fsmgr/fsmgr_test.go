@@ -1,11 +1,7 @@
 package fsmgr
 
 import (
-	"bytes"
-	"compress/zlib"
-	"encoding/json"
 	"fmt"
-	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"os"
 	"testing"
 )
@@ -18,57 +14,27 @@ const (
 	dirID           = "0401fc662e3bc87a41f299a907c056aaf8322a27"
 )
 
-func compress(p []byte) *bytes.Buffer {
-	var b bytes.Buffer
-	w := zlib.NewWriter(&b)
-	w.Write(p)
-	w.Close()
-
-	return &b
-}
-
 func createFile() error {
-	store := objstore.New(seafileConfPath, seafileDataDir, "fs")
-
 	seafile := new(Seafile)
-	seafile.FileType = SeafMetaDataTypeFile
 	seafile.Version = 1
 	seafile.FileSize = 100
 	for i := 0; i < 2; i++ {
 		blkshal := fileID
-		seafile.BlkShals = append(seafile.BlkShals, blkshal)
+		seafile.BlkIDs = append(seafile.BlkIDs, blkshal)
 	}
 
-	fileJsonstr, err := json.Marshal(seafile)
-	if err != nil {
-		return err
-	}
-	fileBuf := bytes.NewBuffer(fileJsonstr)
-
-	fileBuf = compress(fileBuf.Bytes())
-
-	err = store.Write(repoID, fileID, fileBuf, false)
+	err := SaveSeafile(repoID, fileID, seafile)
 	if err != nil {
 		return err
 	}
 
 	seafdir := new(SeafDir)
-	seafdir.FileType = SeafMetaDataTypeDir
 	seafdir.Version = 1
 	for i := 0; i < 2; i++ {
 		dirent := SeafDirent{ID: dirID}
 		seafdir.Entries = append(seafdir.Entries, dirent)
 	}
-
-	dirJsonstr, err := json.Marshal(seafdir)
-	if err != nil {
-		return err
-	}
-	dirBuf := bytes.NewBuffer(dirJsonstr)
-
-	dirBuf = compress(dirBuf.Bytes())
-
-	err = store.Write(repoID, dirID, dirBuf, false)
+	err = SaveSeafdir(repoID, dirID, seafdir)
 	if err != nil {
 		return err
 	}
@@ -107,7 +73,7 @@ func TestGetSeafile(t *testing.T) {
 		t.FailNow()
 	}
 
-	for _, v := range seafile.BlkShals {
+	for _, v := range seafile.BlkIDs {
 		if v != fileID {
 			t.Errorf("Wrong file content.\n")
 		}

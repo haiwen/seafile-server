@@ -6,6 +6,7 @@ import (
 	"compress/zlib"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"io"
 )
@@ -18,11 +19,9 @@ const (
 )
 
 type Seafile struct {
-	FileType int    `json:"type"`
-	Version  int    `json:"version"`
-	FileSize uint64 `json:"size"`
-	Aa       string
-	BlkShals []interface{} `json:"block_ids"`
+	Version  int      `json:"version"`
+	FileSize uint64   `json:"size"`
+	BlkIDs   []string `json:"block_ids"`
 }
 
 type SeafDirent struct {
@@ -35,9 +34,8 @@ type SeafDirent struct {
 }
 
 type SeafDir struct {
-	FileType int          `json:"type"`
-	Version  int          `json:"version"`
-	Entries  []SeafDirent `json:"dirents"`
+	Version int          `json:"version"`
+	Entries []SeafDirent `json:"dirents"`
 }
 
 var store *objstore.ObjectStore
@@ -55,7 +53,17 @@ func uncompress(p []byte) ([]byte, error) {
 		return nil, err
 	}
 	io.Copy(&out, r)
+	r.Close()
 	return out.Bytes(), nil
+}
+
+func compress(p []byte) []byte {
+	var out bytes.Buffer
+	w := zlib.NewWriter(&out)
+	w.Write(p)
+	w.Close()
+
+	return out.Bytes()
 }
 
 // FromData reads from p and converts JSON-encoded data to Seafile.
@@ -65,6 +73,40 @@ func (seafile *Seafile) FromData(p []byte) error {
 		return err
 	}
 	err = json.Unmarshal(b, seafile)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ToData converts seafile to JSON-encoded data and writes to w.
+func (seafile *Seafile) ToData(w io.Writer) error {
+	jsonstr, err := json.Marshal(seafile)
+	if err != nil {
+		return err
+	}
+
+	buf := compress(jsonstr)
+
+	_, err = w.Write(buf)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ToData converts seafdir to JSON-encoded data and writes to w.
+func (seafdir *SeafDir) ToData(w io.Writer) error {
+	jsonstr, err := json.Marshal(seafdir)
+	if err != nil {
+		return err
+	}
+
+	buf := compress(jsonstr)
+
+	_, err = w.Write(buf)
 	if err != nil {
 		return err
 	}
@@ -105,60 +147,96 @@ func WriteRaw(repoID string, objID string, r io.Reader) error {
 	return nil
 }
 
-// GetSeafile gets seafile from storage backend
+// GetSeafile gets seafile from storage backend.
 func GetSeafile(repoID string, fileID string) (*Seafile, error) {
 	var buf bytes.Buffer
 	seafile := new(Seafile)
 	err := ReadRaw(repoID, fileID, &buf)
 	if err != nil {
-		return nil, err
+		str := fmt.Sprintf("Failed to read seafile object %s/%s from storage : %v.\n", repoID, fileID, err)
+		return nil, errors.New(str)
 	}
 
 	err = seafile.FromData(buf.Bytes())
 	if err != nil {
-		return nil, err
-	}
-
-	if seafile.FileType != SeafMetaDataTypeFile {
-		return nil, errors.New("Object is not a file.\n")
+		str := fmt.Sprintf("Failed to parse seafile object %s/%s : %v.\n", repoID, fileID, err)
+		return nil, errors.New(str)
 	}
 
 	if seafile.Version < 1 {
-		return nil, errors.New("Seafile object version should be > 0.\n")
-	}
-
-	if seafile.BlkShals == nil {
-		return nil, errors.New("No blkoc id array in seafile object.\n")
+		str := fmt.Sprintf("Seafile object %s/%s version should be > 0.\n", repoID, fileID)
+		return nil, errors.New(str)
 	}
 
 	return seafile, nil
 }
 
-// GetSeafdir gets seafdir from storage backend
+// SaveSeafile saves seafile to storage backend.
+func SaveSeafile(repoID string, fileID string, seafile *Seafile) error {
+	exist, _ := store.Exists(repoID, fileID)
+	if exist {
+		return nil
+	}
+
+	var buf bytes.Buffer
+	err := seafile.ToData(&buf)
+	if err != nil {
+		str := fmt.Sprintf("Failed to parse seafile object %s/%s : %v.\n", repoID, fileID, err)
+		return errors.New(str)
+	}
+
+	err = WriteRaw(repoID, fileID, &buf)
+	if err != nil {
+		str := fmt.Sprintf("Failed to write seafile object %s/%s to storage : %v.\n", repoID, fileID, err)
+		return errors.New(str)
+	}
+
+	return nil
+}
+
+// GetSeafdir gets seafdir from storage backend.
 func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
 	var buf bytes.Buffer
 	seafdir := new(SeafDir)
 	err := ReadRaw(repoID, dirID, &buf)
 	if err != nil {
-		return nil, err
+		str := fmt.Sprintf("Failed to read seafdir object %s/%s from storage : %v.\n", repoID, dirID, err)
+		return nil, errors.New(str)
 	}
 
 	err = seafdir.FromData(buf.Bytes())
 	if err != nil {
-		return nil, err
-	}
-
-	if seafdir.FileType != SeafMetaDataTypeDir {
-		return nil, errors.New("Object is not a dir.\n")
+		str := fmt.Sprintf("Failed to parse seafdir object %s/%s : %v.\n", repoID, dirID, err)
+		return nil, errors.New(str)
 	}
 
 	if seafdir.Version < 1 {
-		return nil, errors.New("Dir object version should be > 0.\n")
-	}
-
-	if seafdir.Entries == nil {
-		return nil, errors.New("No dirents in dir object.\n")
+		str := fmt.Sprintf("Seadir object %s/%s version should be > 0.\n", repoID, dirID)
+		return nil, errors.New(str)
 	}
 
 	return seafdir, nil
+}
+
+// SaveSeafdir saves seafdir to storage backend.
+func SaveSeafdir(repoID string, dirID string, seafdir *SeafDir) error {
+	exist, _ := store.Exists(repoID, dirID)
+	if exist {
+		return nil
+	}
+
+	var buf bytes.Buffer
+	err := seafdir.ToData(&buf)
+	if err != nil {
+		str := fmt.Sprintf("Failed to parse seafdir object %s/%s : %v.\n", repoID, dirID, err)
+		return errors.New(str)
+	}
+
+	err = WriteRaw(repoID, dirID, &buf)
+	if err != nil {
+		str := fmt.Sprintf("Failed to write seafdir object %s/%s to storage : %v.\n", repoID, dirID, err)
+		return errors.New(str)
+	}
+
+	return nil
 }
