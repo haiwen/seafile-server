@@ -5,36 +5,30 @@ import (
 	"bytes"
 	"compress/zlib"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"io"
 )
 
-const (
-	SeafMetaDataTypeInvalid = iota
-	SeafMetaDataTypeFile
-	SeafMetaDataTypeLink
-	SeafMetaDataTypeDir
-)
-
 type Seafile struct {
 	Version  int      `json:"version"`
+	FileID   string   `json:"file_id,omitempty"`
 	FileSize uint64   `json:"size"`
 	BlkIDs   []string `json:"block_ids"`
 }
 
 type SeafDirent struct {
-	Mode    uint32 `json:"mode"`
-	ID      string `json:"id"`
-	Name    string `json:"name"`
-	Mtime   int64  `json:"mtime"`
-	Modifer string `json:"modifire"`
-	Size    int64  `json:"size"`
+	Mode     uint32 `json:"mode"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Mtime    int64  `json:"mtime"`
+	Modifier string `json:"modifier"`
+	Size     int64  `json:"size"`
 }
 
 type SeafDir struct {
 	Version int          `json:"version"`
+	DirID   string       `json:"dir_id,omitempty"`
 	Entries []SeafDirent `json:"dirents"`
 }
 
@@ -52,18 +46,31 @@ func uncompress(p []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	io.Copy(&out, r)
+
+	_, err = io.Copy(&out, r)
+	if err != nil {
+		r.Close()
+		return nil, err
+	}
+
 	r.Close()
+
 	return out.Bytes(), nil
 }
 
-func compress(p []byte) []byte {
+func compress(p []byte) ([]byte, error) {
 	var out bytes.Buffer
 	w := zlib.NewWriter(&out)
-	w.Write(p)
+
+	_, err := w.Write(p)
+	if err != nil {
+		w.Close()
+		return nil, err
+	}
+
 	w.Close()
 
-	return out.Bytes()
+	return out.Bytes(), nil
 }
 
 // FromData reads from p and converts JSON-encoded data to Seafile.
@@ -87,7 +94,10 @@ func (seafile *Seafile) ToData(w io.Writer) error {
 		return err
 	}
 
-	buf := compress(jsonstr)
+	buf, err := compress(jsonstr)
+	if err != nil {
+		return err
+	}
 
 	_, err = w.Write(buf)
 	if err != nil {
@@ -104,7 +114,10 @@ func (seafdir *SeafDir) ToData(w io.Writer) error {
 		return err
 	}
 
-	buf := compress(jsonstr)
+	buf, err := compress(jsonstr)
+	if err != nil {
+		return err
+	}
 
 	_, err = w.Write(buf)
 	if err != nil {
@@ -153,20 +166,22 @@ func GetSeafile(repoID string, fileID string) (*Seafile, error) {
 	seafile := new(Seafile)
 	err := ReadRaw(repoID, fileID, &buf)
 	if err != nil {
-		str := fmt.Sprintf("Failed to read seafile object %s/%s from storage : %v.\n", repoID, fileID, err)
-		return nil, errors.New(str)
+		errors := fmt.Errorf("failed to read seafile object from storage : %v.\n", err)
+		return nil, errors
 	}
 
 	err = seafile.FromData(buf.Bytes())
 	if err != nil {
-		str := fmt.Sprintf("Failed to parse seafile object %s/%s : %v.\n", repoID, fileID, err)
-		return nil, errors.New(str)
+		errors := fmt.Errorf("failed to parse seafile object %s/%s : %v.\n", repoID, fileID, err)
+		return nil, errors
 	}
 
 	if seafile.Version < 1 {
-		str := fmt.Sprintf("Seafile object %s/%s version should be > 0.\n", repoID, fileID)
-		return nil, errors.New(str)
+		errors := fmt.Errorf("seafile object %s/%s version should be > 0.\n", repoID, fileID)
+		return nil, errors
 	}
+
+	seafile.FileID = fileID
 
 	return seafile, nil
 }
@@ -181,14 +196,14 @@ func SaveSeafile(repoID string, fileID string, seafile *Seafile) error {
 	var buf bytes.Buffer
 	err := seafile.ToData(&buf)
 	if err != nil {
-		str := fmt.Sprintf("Failed to parse seafile object %s/%s : %v.\n", repoID, fileID, err)
-		return errors.New(str)
+		errors := fmt.Errorf("failed to convert seafile object %s/%s to json.\n", repoID, fileID)
+		return errors
 	}
 
 	err = WriteRaw(repoID, fileID, &buf)
 	if err != nil {
-		str := fmt.Sprintf("Failed to write seafile object %s/%s to storage : %v.\n", repoID, fileID, err)
-		return errors.New(str)
+		errors := fmt.Errorf("failed to write seafile object to storage : %v.\n", err)
+		return errors
 	}
 
 	return nil
@@ -200,20 +215,22 @@ func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
 	seafdir := new(SeafDir)
 	err := ReadRaw(repoID, dirID, &buf)
 	if err != nil {
-		str := fmt.Sprintf("Failed to read seafdir object %s/%s from storage : %v.\n", repoID, dirID, err)
-		return nil, errors.New(str)
+		errors := fmt.Errorf("failed to read seafdir object from storage : %v.\n", err)
+		return nil, errors
 	}
 
 	err = seafdir.FromData(buf.Bytes())
 	if err != nil {
-		str := fmt.Sprintf("Failed to parse seafdir object %s/%s : %v.\n", repoID, dirID, err)
-		return nil, errors.New(str)
+		errors := fmt.Errorf("failed to parse seafdir object %s/%s : %v.\n", repoID, dirID, err)
+		return nil, errors
 	}
 
 	if seafdir.Version < 1 {
-		str := fmt.Sprintf("Seadir object %s/%s version should be > 0.\n", repoID, dirID)
-		return nil, errors.New(str)
+		errors := fmt.Errorf("seadir object %s/%s version should be > 0.\n", repoID, dirID)
+		return nil, errors
 	}
+
+	seafdir.DirID = dirID
 
 	return seafdir, nil
 }
@@ -228,14 +245,14 @@ func SaveSeafdir(repoID string, dirID string, seafdir *SeafDir) error {
 	var buf bytes.Buffer
 	err := seafdir.ToData(&buf)
 	if err != nil {
-		str := fmt.Sprintf("Failed to parse seafdir object %s/%s : %v.\n", repoID, dirID, err)
-		return errors.New(str)
+		errors := fmt.Errorf("failed to convert seafdir object %s/%s to json.\n", repoID, dirID)
+		return errors
 	}
 
 	err = WriteRaw(repoID, dirID, &buf)
 	if err != nil {
-		str := fmt.Sprintf("Failed to write seafdir object %s/%s to storage : %v.\n", repoID, dirID, err)
-		return errors.New(str)
+		errors := fmt.Errorf("failed to write seafdir object to storage : %v.\n", err)
+		return errors
 	}
 
 	return nil
