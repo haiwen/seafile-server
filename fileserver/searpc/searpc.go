@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"reflect"
 )
 
 // Client represents a connections to the RPC server.
@@ -85,5 +86,37 @@ func (c *Client) Call(funcname string, params ...interface{}) interface{} {
 		return nil
 	}
 
-	return msg
+	retlist := make(map[string]interface{})
+	err = json.Unmarshal(msg, &retlist)
+	if err != nil {
+		fmt.Printf("failed to parse return data.\n")
+		return nil
+	}
+
+	if _, ok := retlist["err_code"]; ok {
+		fmt.Printf("get error message : %v.\n", retlist["err_msg"])
+		return nil
+	}
+
+	if _, ok := retlist["ret"]; ok {
+		ret := retlist["ret"]
+		switch ret.(type) {
+		case float64, float32:
+			return reflect.ValueOf(ret).Float()
+		case int:
+			return reflect.ValueOf(ret).Int()
+		case string:
+			return reflect.ValueOf(ret).String()
+		case []interface{}:
+			return reflect.ValueOf(ret).Interface()
+		case map[string]interface{}:
+			return reflect.ValueOf(ret).Interface()
+		case nil:
+			return nil
+		default:
+			return nil
+		}
+	}
+
+	return nil
 }
