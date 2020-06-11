@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"reflect"
 )
 
 // Client represents a connections to the RPC server.
@@ -16,8 +15,11 @@ type Client struct {
 	// path of the named pipe
 	pipePath string
 	// RPC service name
+	Service string
+}
+
+type Request struct {
 	Service string `json:"service"`
-	// RPC request
 	Request string `json:"request"`
 }
 
@@ -31,21 +33,21 @@ func Init(pipePath string, service string) *Client {
 }
 
 // Call calls the RPC function funcname with variadic parameters.
-// The return value of the RPC function is return as interface{} type.
+// The return value of the RPC function is return as interface{} type
 // The true returned type can be int32, int64, string, struct (object), list of struct (objects) or JSON
-func (c *Client) Call(funcname string, params ...interface{}) interface{} {
+func (c *Client) Call(funcname string, params ...interface{}) (interface{}, error) {
 	// TODO: use reflection to compose requests and parse results.
 	var unixAddr *net.UnixAddr
 	unixAddr, err := net.ResolveUnixAddr("unix", c.pipePath)
 	if err != nil {
 		fmt.Printf("failed to resolve unix addr : %v.\n", err)
-		return nil
+		return nil, err
 	}
 
 	conn, err := net.DialUnix("unix", nil, unixAddr)
 	if err != nil {
 		fmt.Printf("failed to dial unix : %v.\n", err)
-		return nil
+		return nil, err
 	}
 	defer conn.Close()
 
@@ -54,28 +56,40 @@ func (c *Client) Call(funcname string, params ...interface{}) interface{} {
 	request = append(request, params...)
 	jsonstr, err := json.Marshal(request)
 	if err != nil {
-		fmt.Printf("failed to convert object to json : %v\n", err)
+		fmt.Printf("failed to encode rpc call to json : %v\n", err)
+		return nil, err
 	}
-	c.Request = string(jsonstr)
 
-	jsonstr, err = json.Marshal(c)
+	req := new(Request)
+	req.Service = c.Service
+	req.Request = string(jsonstr)
+
+	jsonstr, err = json.Marshal(req)
 	if err != nil {
-		fmt.Printf("failed to convert object to json.\n")
-		return nil
+		fmt.Printf("failed to convert object to json : %v.\n", err)
+		return nil, err
 	}
 
 	header := make([]byte, 4)
 	binary.LittleEndian.PutUint32(header, uint32(len(jsonstr)))
-	conn.Write([]byte(header))
+	_, err = conn.Write([]byte(header))
+	if err != nil {
+		fmt.Printf("Failed to write head to unix socket : %v.\n", err)
+		return nil, err
+	}
 
-	conn.Write([]byte(jsonstr))
+	_, err = conn.Write([]byte(jsonstr))
+	if err != nil {
+		fmt.Printf("Failed to write body to unix socket : %v.\n", err)
+		return nil, err
+	}
 
 	reader := bufio.NewReader(conn)
 	buflen := make([]byte, 4)
 	_, err = io.ReadFull(reader, buflen)
 	if err != nil {
 		fmt.Printf("failed to read from rpc server : %v.\n", err)
-		return nil
+		return nil, err
 	}
 	retlen := binary.LittleEndian.Uint32(buflen)
 
@@ -83,40 +97,27 @@ func (c *Client) Call(funcname string, params ...interface{}) interface{} {
 	_, err = io.ReadFull(reader, msg)
 	if err != nil {
 		fmt.Printf("failed to read from rpc server : %v.\n", err)
-		return nil
+		return nil, err
 	}
 
 	retlist := make(map[string]interface{})
 	err = json.Unmarshal(msg, &retlist)
 	if err != nil {
-		fmt.Printf("failed to parse return data.\n")
-		return nil
+		fmt.Printf("failed to decode rpc response : %v.\n", err)
+		return nil, err
 	}
 
 	if _, ok := retlist["err_code"]; ok {
-		fmt.Printf("get error message : %v.\n", retlist["err_msg"])
-		return nil
+		fmt.Printf("searpc server returned error : %v.\n", retlist["err_msg"])
+		err := fmt.Errorf("%s", retlist["err_msg"])
+		return nil, err
 	}
 
 	if _, ok := retlist["ret"]; ok {
 		ret := retlist["ret"]
-		switch ret.(type) {
-		case float64, float32:
-			return reflect.ValueOf(ret).Float()
-		case int:
-			return reflect.ValueOf(ret).Int()
-		case string:
-			return reflect.ValueOf(ret).String()
-		case []interface{}:
-			return reflect.ValueOf(ret).Interface()
-		case map[string]interface{}:
-			return reflect.ValueOf(ret).Interface()
-		case nil:
-			return nil
-		default:
-			return nil
-		}
+		return ret, nil
 	}
 
-	return nil
+	err = fmt.Errorf("No value returned")
+	return nil, err
 }

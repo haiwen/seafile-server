@@ -22,26 +22,52 @@ func TestMain(m *testing.M) {
 }
 
 func TestCallRpc(t *testing.T) {
-	repoID := client.Call("seafile_create_repo", repoName, "", userName, nil, encVersion)
-	if repoID == nil {
+	repoID, err := client.Call("seafile_create_repo", repoName, "", userName, nil, encVersion)
+	if err != nil {
 		t.Errorf("failed to create repo.\n")
+	}
+	if repoID == nil {
+		t.Errorf("repo id is nil.\n")
 		t.FailNow()
 	}
-	repo := client.Call("seafile_get_repo", repoID)
-	if repo == nil {
+
+	repo, err := client.Call("seafile_get_repo", repoID)
+	if err != nil {
 		t.Errorf("failed to get repo.\n")
 	}
-	repoMap := repo.(map[string]interface{})
+	if repo == nil {
+		t.Errorf("repo is nil.\n")
+		t.FailNow()
+	}
+	repoMap, ok := repo.(map[string]interface{})
+	if !ok {
+		t.Errorf("failed to assert the type.\n")
+		t.FailNow()
+	}
 	if repoMap["id"] != repoID {
 		t.Errorf("wrong repo id.\n")
 	}
-	repoList := client.Call("seafile_get_repo_list", -1, -1, "")
-	if repoList == nil {
+
+	repoList, err := client.Call("seafile_get_repo_list", -1, -1, "")
+	if err != nil {
 		t.Errorf("failed to get repo list.\n")
 	}
+	if repoList == nil {
+		t.Errorf("repo list is nil.\n")
+		t.FailNow()
+	}
 	var exists bool
-	for _, v := range repoList.([]interface{}) {
-		repo := v.(map[string]interface{})
+	repos, ok := repoList.([]interface{})
+	if !ok {
+		t.Errorf("failed to assert the type.\n")
+		t.FailNow()
+	}
+	for _, v := range repos {
+		repo, ok := v.(map[string]interface{})
+		if !ok {
+			t.Errorf("failed to assert the type.\n")
+			t.FailNow()
+		}
 		if repo["id"] == repoID {
 			exists = true
 			break
@@ -50,5 +76,6 @@ func TestCallRpc(t *testing.T) {
 	if exists != true {
 		t.Errorf("can't find repo %s in repo list.\n", repoID)
 	}
+
 	client.Call("seafile_destroy_repo", repoID)
 }
