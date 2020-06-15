@@ -40,13 +40,13 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	var unixAddr *net.UnixAddr
 	unixAddr, err := net.ResolveUnixAddr("unix", c.pipePath)
 	if err != nil {
-		err := fmt.Errorf("failed to resolve unix addr when calling rpc.\n")
+		err := fmt.Errorf("failed to resolve unix addr when calling rpc : %v.\n", err)
 		return nil, err
 	}
 
 	conn, err := net.DialUnix("unix", nil, unixAddr)
 	if err != nil {
-		err := fmt.Errorf("failed to dial unix when calling rpc.\n")
+		err := fmt.Errorf("failed to dial unix when calling rpc : %v.\n", err)
 		return nil, err
 	}
 	defer conn.Close()
@@ -74,13 +74,13 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	binary.LittleEndian.PutUint32(header, uint32(len(jsonstr)))
 	_, err = conn.Write([]byte(header))
 	if err != nil {
-		err := fmt.Errorf("Failed to write head to unix socket : %v.\n", err)
+		err := fmt.Errorf("Failed to write rpc request header : %v.\n", err)
 		return nil, err
 	}
 
 	_, err = conn.Write([]byte(jsonstr))
 	if err != nil {
-		err := fmt.Errorf("Failed to write body to unix socket : %v.\n", err)
+		err := fmt.Errorf("Failed to write rpc request body : %v.\n", err)
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	buflen := make([]byte, 4)
 	_, err = io.ReadFull(reader, buflen)
 	if err != nil {
-		err := fmt.Errorf("failed to read head from rpc server : %v.\n", err)
+		err := fmt.Errorf("failed to read response header from rpc server : %v.\n", err)
 		return nil, err
 	}
 	retlen := binary.LittleEndian.Uint32(buflen)
@@ -96,7 +96,7 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	msg := make([]byte, retlen)
 	_, err = io.ReadFull(reader, msg)
 	if err != nil {
-		err := fmt.Errorf("failed to read body from rpc server : %v.\n", err)
+		err := fmt.Errorf("failed to read response body from rpc server : %v.\n", err)
 		return nil, err
 	}
 
