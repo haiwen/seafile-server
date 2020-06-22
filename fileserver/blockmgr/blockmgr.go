@@ -10,7 +10,7 @@ var store *objstore.ObjectStore
 
 // Init initializes block manager and creates underlying object store.
 func Init(seafileConfPath string, seafileDataDir string) {
-	store = objstore.New(seafileConfPath, seafileDataDir, "block")
+	store = objstore.New(seafileConfPath, seafileDataDir, "blocks")
 }
 
 // Read reads block from storage backend.

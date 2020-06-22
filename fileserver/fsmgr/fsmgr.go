@@ -257,3 +257,8 @@ func SaveSeafdir(repoID string, dirID string, seafdir *SeafDir) error {
 
 	return nil
 }
+
+// Check if fs object is exists.
+func Exists(repoID string, objID string) (bool, error) {
+	return store.Exists(repoID, objID)
+}

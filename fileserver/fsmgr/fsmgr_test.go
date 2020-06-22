@@ -67,6 +67,10 @@ func TestMain(m *testing.M) {
 }
 
 func TestGetSeafile(t *testing.T) {
+	exists, err := Exists(repoID, fileID)
+	if !exists {
+		t.Errorf("seafile is not exists : %v.\n", err)
+	}
 	seafile, err := GetSeafile(repoID, fileID)
 	if err != nil || seafile == nil {
 		t.Errorf("Failed to get seafile : %v.\n", err)
@@ -81,6 +85,10 @@ func TestGetSeafile(t *testing.T) {
 }
 
 func TestGetSeafdir(t *testing.T) {
+	exists, err := Exists(repoID, dirID)
+	if !exists {
+		t.Errorf("seafile is not exists : %v.\n", err)
+	}
 	seafdir, err := GetSeafdir(repoID, dirID)
 	if err != nil || seafdir == nil {
 		t.Errorf("Failed to get seafdir : %v.\n", err)

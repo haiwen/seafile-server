@@ -87,7 +87,7 @@ func testBlockExists(t *testing.T) {
 		t.Errorf("Block is not exist\n")
 	}
 
-	filePath := path.Join(seafileDataDir, "storage", "block", repoID, blockID[:2], blockID[2:])
+	filePath := path.Join(seafileDataDir, "storage", "blocks", repoID, blockID[:2], blockID[2:])
 	fileInfo, _ := os.Stat(filePath)
 	if fileInfo.Size() != 130 {
 		t.Errorf("Block is exist, but the size of file is incorrect.\n")

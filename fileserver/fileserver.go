@@ -13,12 +13,18 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/haiwen/seafile-server/fileserver/blockmgr"
+	"github.com/haiwen/seafile-server/fileserver/commitmgr"
+	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/repomgr"
+	"github.com/haiwen/seafile-server/fileserver/searpc"
 	"gopkg.in/ini.v1"
 )
 
 var ccnetDir string
 var dataDir, absDataDir string
 var logFile, absLogFile string
+var rpcPipePath string
 
 var dbType string
 var seafileDB, ccnetDB *sql.DB
@@ -49,6 +55,7 @@ func init() {
 	flag.StringVar(&ccnetDir, "c", "", "ccnet config directory")
 	flag.StringVar(&dataDir, "d", "", "seafile data directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
+	flag.StringVar(&rpcPipePath, "p", "", "rpc pipe path")
 }
 
 func loadCcnetDB() {
@@ -148,6 +155,11 @@ func main() {
 		log.Fatalf("Failed to convert seafile data dir to absolute path: %v.", err)
 	}
 	loadSeafileDB()
+	repomgr.Init(seafileDB)
+	fsmgr.Init(ccnetDir, dataDir)
+	blockmgr.Init(ccnetDir, dataDir)
+	commitmgr.Init(ccnetDir, dataDir)
+	rpcClientInit()
 	loadFileServerOptions()
 
 	if logFile == "" {
@@ -172,7 +184,7 @@ func main() {
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
-	registerHTTPHandlers()
+	registerHTTPHandlers(client)
 
 	log.Print("Seafile file server started.")
 
@@ -182,8 +194,21 @@ func main() {
 	}
 }
 
-func registerHTTPHandlers() {
+var client *searpc.Client
+
+func rpcClientInit() {
+	var pipePath string
+	if rpcPipePath != "" {
+		pipePath = filepath.Join(rpcPipePath, "seafile.sock")
+	} else {
+		pipePath = filepath.Join(absDataDir, "seafile.sock")
+	}
+	client = searpc.Init(pipePath, "seafserv-threaded-rpcserver")
+}
+
+func registerHTTPHandlers(client *searpc.Client) {
 	http.HandleFunc("/protocol-version", handleProtocolVersion)
+	http.HandleFunc("/", handleHttpRequest)
 }
 
 func handleProtocolVersion(rsp http.ResponseWriter, r *http.Request) {
