@@ -10,13 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"crypto/aes"
+	"crypto/cipher"
 	"encoding/hex"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	_ "github.com/haiwen/seafile-server/fileserver/searpc"
-	"github.com/spacemonkeygo/openssl"
 )
 
 var access = regexp.MustCompile(`^/files/.*`)
@@ -80,60 +81,44 @@ func testFireFox(r *http.Request) bool {
 	return false
 }
 
-func newCipher(key, iv []byte) (*openssl.Cipher, error) {
-	cipher, err := openssl.GetCipherByName("aes-256-cbc")
-	if err != nil {
-		err := fmt.Errorf("failed to create crypter.\n")
-		return nil, err
-	}
-	return cipher, nil
+func pkcs7Padding(p []byte, blockSize int) []byte {
+	padding := blockSize - len(p)%blockSize
+	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
+	return append(p, padtext...)
 }
 
-func encrypt(cipher *openssl.Cipher, input, key, iv []byte) ([]byte, error) {
-	ctx, err := openssl.NewEncryptionCipherCtx(cipher, nil, key, iv)
-	if err != nil {
-		err := fmt.Errorf("failed to create encrypt crypter ctx.\n")
-		return nil, err
-	}
-
-	cipherbytes, err := ctx.EncryptUpdate(input)
-	if err != nil {
-		err := fmt.Errorf("failed to encrypt input data.\n")
-		return nil, err
-	}
-
-	finalbytes, err := ctx.EncryptFinal()
-	if err != nil {
-		err := fmt.Errorf("failed to encrypt input data.\n")
-		return nil, err
-	}
-
-	cipherbytes = append(cipherbytes, finalbytes...)
-	return cipherbytes, nil
-
+func pkcs7UnPadding(p []byte) []byte {
+	length := len(p)
+	paddLen := int(p[length-1])
+	return p[:(length - paddLen)]
 }
 
-func decrypt(cipher *openssl.Cipher, input, key, iv []byte) ([]byte, error) {
-	ctx, err := openssl.NewDecryptionCipherCtx(cipher, nil, key, iv)
+func decrypt(input, key, iv []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
 	if err != nil {
-		err := fmt.Errorf("failed to create decrypt crypter ctx.\n")
 		return nil, err
 	}
 
-	cipherbytes, err := ctx.DecryptUpdate(input)
+	out := make([]byte, len(input))
+	blockMode := cipher.NewCBCDecrypter(block, iv)
+	blockMode.CryptBlocks(out, input)
+	out = pkcs7UnPadding(out)
+
+	return out, nil
+}
+
+func encrypt(input, key, iv []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
 	if err != nil {
-		err := fmt.Errorf("failed to decrypt input data.\n")
 		return nil, err
 	}
 
-	finalbytes, err := ctx.DecryptFinal()
-	if err != nil {
-		err := fmt.Errorf("failed to decrypt input data.\n")
-		return nil, err
-	}
+	input = pkcs7Padding(input, block.BlockSize())
+	out := make([]byte, len(input))
+	blockMode := cipher.NewCBCEncrypter(block, iv)
+	blockMode.CryptBlocks(out, input)
 
-	cipherbytes = append(cipherbytes, finalbytes...)
-	return cipherbytes, nil
+	return out, nil
 }
 
 func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID string,
@@ -206,14 +191,10 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 	}
 
 	if cryptKey != nil {
-		cipher, err := newCipher(encKey, encIv)
-		if err != nil {
-			return -1
-		}
 		for _, blkID := range file.BlkIDs {
 			var buf bytes.Buffer
 			blockmgr.Read(repo.StoreID, blkID, &buf)
-			decoded, err := decrypt(cipher, buf.Bytes(), encKey, encIv)
+			decoded, err := decrypt(buf.Bytes(), encKey, encIv)
 			if err != nil {
 				return -1
 			}

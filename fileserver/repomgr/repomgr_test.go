@@ -49,9 +49,11 @@ func createRepo() string {
 }
 
 func delRepo() {
-	ret, err := client.Call("seafile_destroy_repo", repoID)
-	fmt.Println(ret)
-	fmt.Println(err)
+	_, err := client.Call("seafile_destroy_repo", repoID)
+	if err != nil {
+		fmt.Printf("failed to del repo.\n")
+		os.Exit(1)
+	}
 }
 
 func TestMain(m *testing.M) {

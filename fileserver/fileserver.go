@@ -155,11 +155,6 @@ func main() {
 		log.Fatalf("Failed to convert seafile data dir to absolute path: %v.", err)
 	}
 	loadSeafileDB()
-	repomgr.Init(seafileDB)
-	fsmgr.Init(ccnetDir, dataDir)
-	blockmgr.Init(ccnetDir, dataDir)
-	commitmgr.Init(ccnetDir, dataDir)
-	rpcClientInit()
 	loadFileServerOptions()
 
 	if logFile == "" {
@@ -183,6 +178,16 @@ func main() {
 	// When logFile is "-", use default output (StdOut)
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
+	repomgr.Init(seafileDB)
+
+	fsmgr.Init(ccnetDir, dataDir)
+
+	blockmgr.Init(ccnetDir, dataDir)
+
+	commitmgr.Init(ccnetDir, dataDir)
+
+	rpcClientInit()
 
 	registerHTTPHandlers(client)
 

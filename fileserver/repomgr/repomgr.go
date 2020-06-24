@@ -70,7 +70,6 @@ func Get(id string) *Repo {
 	defer rows.Close()
 
 	repo := new(Repo)
-	repo.VirtualInfo = new(VRepoInfo)
 
 	var originRepoID sql.NullString
 	var path sql.NullString
@@ -83,16 +82,19 @@ func Get(id string) *Repo {
 		}
 	}
 	if originRepoID.Valid {
+		repo.VirtualInfo = new(VRepoInfo)
 		repo.VirtualInfo.OriginRepoID = originRepoID.String
 		repo.StoreID = originRepoID.String
+
+		if path.Valid {
+			repo.VirtualInfo.Path = path.String
+		}
+
+		if baseCommitID.Valid {
+			repo.VirtualInfo.BaseCommitID = baseCommitID.String
+		}
 	} else {
 		repo.StoreID = repo.ID
-	}
-	if path.Valid {
-		repo.VirtualInfo.Path = path.String
-	}
-	if baseCommitID.Valid {
-		repo.VirtualInfo.BaseCommitID = baseCommitID.String
 	}
 
 	commit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
