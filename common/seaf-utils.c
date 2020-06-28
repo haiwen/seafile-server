@@ -105,11 +105,15 @@ mysql_db_start (SeafileSession *session)
     charset = seaf_key_file_get_string (session->config,
                                      "database", "connection_charset", NULL);
 
+    if (error)
+        g_clear_error (&error);
     max_connections = g_key_file_get_integer (session->config,
                                               "database", "max_connections",
-                                              NULL);
-    if (max_connections <= 0)
+                                              &error);
+    if (error || max_connections < 0) {
+        g_clear_error (&error);
         max_connections = DEFAULT_MAX_CONNECTIONS;
+    }
 
     session->db = seaf_db_new_mysql (host, port, user, passwd, db, unix_socket, use_ssl, charset, max_connections);
     if (!session->db) {
@@ -123,8 +127,6 @@ mysql_db_start (SeafileSession *session)
     g_free (db);
     g_free (unix_socket);
     g_free (charset);
-    if (error)
-        g_clear_error (&error);
 
     return 0;
 }
