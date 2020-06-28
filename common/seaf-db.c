@@ -108,6 +108,7 @@ mysql_conn_pool_get_connection (SeafDB *db)
 
     if (pool->max_connections == 0) {
         conn = mysql_db_get_connection (db);
+        conn->pool = pool;
         return conn;
     }
 
