@@ -1226,154 +1226,141 @@ create_tables_sqlite (SeafRepoManager *mgr)
     return 0;
 }
 
-/* static int */
-/* create_tables_pgsql (SeafRepoManager *mgr) */
-/* { */
-/*     SeafDB *db = mgr->seaf->db; */
-/*     char *sql; */
+static int
+create_tables_pgsql (SeafRepoManager *mgr)
+{
+    SeafDB *db = mgr->seaf->db;
+    char *sql;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS Repo (repo_id CHAR(36) PRIMARY KEY)"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS Repo (repo_id CHAR(36) PRIMARY KEY)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoOwner (" */
-/*         "repo_id CHAR(36) PRIMARY KEY, " */
-/*         "owner_id VARCHAR(255))"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS RepoOwner ("
+        "repo_id CHAR(36) PRIMARY KEY, "
+        "owner_id VARCHAR(255))";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     if (!pgsql_index_exists (db, "repoowner_owner_idx")) { */
-/*         sql = "CREATE INDEX repoowner_owner_idx ON RepoOwner (owner_id)"; */
-/*         if (seaf_db_query (db, sql) < 0) */
-/*             return -1; */
-/*     } */
+    sql = "CREATE INDEX IF NOT EXISTS repoowner_owner_idx ON RepoOwner (owner_id)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoGroup (repo_id CHAR(36), " */
-/*         "group_id INTEGER, user_name VARCHAR(255), permission VARCHAR(15), " */
-/*         "UNIQUE (group_id, repo_id))"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS RepoGroup (repo_id CHAR(36), "
+        "group_id INTEGER, user_name VARCHAR(255), permission VARCHAR(15), "
+        "UNIQUE (group_id, repo_id))";
+    if (seaf_db_query (db, sql) < 0)
+       return -1;
 
-/*     if (!pgsql_index_exists (db, "repogroup_repoid_idx")) { */
-/*         sql = "CREATE INDEX repogroup_repoid_idx ON RepoGroup (repo_id)"; */
-/*         if (seaf_db_query (db, sql) < 0) */
-/*             return -1; */
-/*     } */
+    sql = "CREATE INDEX IF NOT EXISTS repogroup_repoid_idx ON RepoGroup (repo_id)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     if (!pgsql_index_exists (db, "repogroup_username_idx")) { */
-/*         sql = "CREATE INDEX repogroup_username_idx ON RepoGroup (user_name)"; */
-/*         if (seaf_db_query (db, sql) < 0) */
-/*             return -1; */
-/*     } */
+    sql = "CREATE INDEX IF NOT EXISTS repogroup_username_idx ON RepoGroup (user_name)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+ 
+    sql = "CREATE TABLE IF NOT EXISTS InnerPubRepo ("
+        "repo_id CHAR(36) PRIMARY KEY,"
+        "permission VARCHAR(15))";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS InnerPubRepo (" */
-/*         "repo_id CHAR(36) PRIMARY KEY," */
-/*         "permission VARCHAR(15))"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS RepoUserToken ("
+        "repo_id CHAR(36), "
+        "email VARCHAR(255), "
+        "token CHAR(40), "
+        "UNIQUE (repo_id, token))";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoUserToken (" */
-/*         "repo_id CHAR(36), " */
-/*         "email VARCHAR(255), " */
-/*         "token CHAR(40), " */
-/*         "UNIQUE (repo_id, token))"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE INDEX IF NOT EXISTS repousertoken_email_idx ON RepoUserToken (email)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     if (!pgsql_index_exists (db, "repousertoken_email_idx")) { */
-/*         sql = "CREATE INDEX repousertoken_email_idx ON RepoUserToken (email)"; */
-/*         if (seaf_db_query (db, sql) < 0) */
-/*             return -1; */
-/*     } */
+    sql = "CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo ("
+        "token CHAR(40) PRIMARY KEY, "
+        "peer_id CHAR(40), "
+        "peer_ip VARCHAR(40), "
+        "peer_name VARCHAR(255), "
+        "sync_time BIGINT, "
+        "client_ver VARCHAR(20))";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo (" */
-/*         "token CHAR(40) PRIMARY KEY, " */
-/*         "peer_id CHAR(40), " */
-/*         "peer_ip VARCHAR(40), " */
-/*         "peer_name VARCHAR(255), " */
-/*         "sync_time BIGINT, " */
-/*         "client_ver VARCHAR(20))"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS RepoHead ("
+        "repo_id CHAR(36) PRIMARY KEY, branch_name VARCHAR(10))";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoHead (" */
-/*         "repo_id CHAR(36) PRIMARY KEY, branch_name VARCHAR(10))"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS RepoSize ("
+        "repo_id CHAR(36) PRIMARY KEY,"
+        "size BIGINT,"
+        "head_id CHAR(40))";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoSize (" */
-/*         "repo_id CHAR(36) PRIMARY KEY," */
-/*         "size BIGINT," */
-/*         "head_id CHAR(40))"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS RepoHistoryLimit ("
+        "repo_id CHAR(36) PRIMARY KEY, days INTEGER)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoHistoryLimit (" */
-/*         "repo_id CHAR(36) PRIMARY KEY, days INTEGER)"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS RepoValidSince ("
+        "repo_id CHAR(36) PRIMARY KEY, timestamp BIGINT)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoValidSince (" */
-/*         "repo_id CHAR(36) PRIMARY KEY, timestamp BIGINT)"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS WebAP (repo_id CHAR(36) PRIMARY KEY, "
+        "access_property VARCHAR(10))";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS WebAP (repo_id CHAR(36) PRIMARY KEY, " */
-/*         "access_property VARCHAR(10))"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS VirtualRepo (repo_id CHAR(36) PRIMARY KEY,"
+        "origin_repo CHAR(36), path TEXT, base_commit CHAR(40))";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS VirtualRepo (repo_id CHAR(36) PRIMARY KEY," */
-/*         "origin_repo CHAR(36), path TEXT, base_commit CHAR(40))"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE INDEX IF NOT EXISTS virtualrepo_origin_repo_idx ON VirtualRepo (origin_repo)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+ 
+    sql = "CREATE TABLE IF NOT EXISTS GarbageRepos (repo_id CHAR(36) PRIMARY KEY)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     if (!pgsql_index_exists (db, "virtualrepo_origin_repo_idx")) { */
-/*         sql = "CREATE INDEX virtualrepo_origin_repo_idx ON VirtualRepo (origin_repo)"; */
-/*         if (seaf_db_query (db, sql) < 0) */
-/*             return -1; */
-/*     } */
+    sql = "CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY,"
+        "repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255), size bigint,"
+        "org_id INTEGER, del_time BIGINT)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS GarbageRepos (repo_id CHAR(36) PRIMARY KEY)"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE INDEX IF NOT EXISTS repotrash_owner_id on RepoTrash(owner_id)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+    
+    sql = "CREATE INDEX IF NOT EXISTS repotrash_org_id on RepoTrash(org_id)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY," */
-/*         "repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255), size bigint," */
-/*         "org_id INTEGER, del_time BIGINT)"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS RepoFileCount ("
+        "repo_id CHAR(36) PRIMARY KEY,"
+        "file_count BIGINT)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     if (!pgsql_index_exists (db, "repotrash_owner_id")) { */
-/*         sql = "CREATE INDEX repotrash_owner_id on RepoTrash(owner_id)"; */
-/*         if (seaf_db_query (db, sql) < 0) */
-/*             return -1; */
-/*     } */
-/*     if (!pgsql_index_exists (db, "repotrash_org_id")) { */
-/*         sql = "CREATE INDEX repotrash_org_id on RepoTrash(org_id)"; */
-/*         if (seaf_db_query (db, sql) < 0) */
-/*             return -1; */
-/*     } */
+    sql = "CREATE TABLE IF NOT EXISTS WebUploadTempFiles (repo_id CHAR(40) NOT NULL, "
+        "file_path TEXT NOT NULL, tmp_file_path TEXT NOT NULL)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoFileCount (" */
-/*         "repo_id CHAR(36) PRIMARY KEY," */
-/*         "file_count BIGINT)"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
+    sql = "CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, "
+        "name VARCHAR(255) NOT NULL, update_time BIGINT, version INTEGER, "
+        "is_encrypted INTEGER, last_modifier VARCHAR(255), status INTEGER DEFAULT 0)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
 
-/*     sql = "CREATE TABLE IF NOT EXISTS WebUploadTempFiles (repo_id CHAR(40) NOT NULL, " */
-/*         "file_path TEXT NOT NULL, tmp_file_path TEXT NOT NULL)"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
-
-/*     sql = "CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, " */
-/*         "name VARCHAR(255) NOT NULL, update_time BIGINT, version INTEGER, " */
-/*         "is_encrypted INTEGER, last_modifier VARCHAR(255), status INTEGER DEFAULT 0)"; */
-/*     if (seaf_db_query (db, sql) < 0) */
-/*         return -1; */
-
-/*     return 0; */
-/* } */
+    return 0;
+}
 
 static int
 create_db_tables_if_not_exist (SeafRepoManager *mgr)
@@ -1388,8 +1375,8 @@ create_db_tables_if_not_exist (SeafRepoManager *mgr)
         return create_tables_mysql (mgr);
     else if (db_type == SEAF_DB_TYPE_SQLITE)
         return create_tables_sqlite (mgr);
-    /* else if (db_type == SEAF_DB_TYPE_PGSQL) */
-    /*     return create_tables_pgsql (mgr); */
+    else if (db_type == SEAF_DB_TYPE_PGSQL)
+        return create_tables_pgsql (mgr);
 
     g_return_val_if_reached (-1);
 }

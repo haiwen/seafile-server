@@ -58,29 +58,25 @@ seaf_share_manager_start (SeafShareManager *mgr)
         if (seaf_db_query (db, sql) < 0)
             return -1;
     }
-    /* else if (db_type == SEAF_DB_TYPE_PGSQL) { */
-    /*     sql = "CREATE TABLE IF NOT EXISTS SharedRepo " */
-    /*         "(repo_id CHAR(36) , from_email VARCHAR(255), to_email VARCHAR(255), " */
-    /*         "permission VARCHAR(15))"; */
-    /*     if (seaf_db_query (db, sql) < 0) */
-    /*         return -1; */
+    else if (db_type == SEAF_DB_TYPE_PGSQL) {
+        sql = "CREATE TABLE IF NOT EXISTS SharedRepo "
+            "(repo_id CHAR(36) , from_email VARCHAR(255), to_email VARCHAR(255), "
+            "permission VARCHAR(15))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
 
-    /*     if (!pgsql_index_exists (db, "sharedrepo_repoid_idx")) { */
-    /*         sql = "CREATE INDEX sharedrepo_repoid_idx ON SharedRepo (repo_id)"; */
-    /*         if (seaf_db_query (db, sql) < 0) */
-    /*             return -1; */
-    /*     } */
-    /*     if (!pgsql_index_exists (db, "sharedrepo_from_email_idx")) { */
-    /*         sql = "CREATE INDEX sharedrepo_from_email_idx ON SharedRepo (from_email)"; */
-    /*         if (seaf_db_query (db, sql) < 0) */
-    /*             return -1; */
-    /*     } */
-    /*     if (!pgsql_index_exists (db, "sharedrepo_to_email_idx")) { */
-    /*         sql = "CREATE INDEX sharedrepo_to_email_idx ON SharedRepo (to_email)"; */
-    /*         if (seaf_db_query (db, sql) < 0) */
-    /*             return -1; */
-    /*     } */
-    /* } */
+        sql = "CREATE INDEX IF NOT EXISTS sharedrepo_repoid_idx ON SharedRepo (repo_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        
+        sql = "CREATE INDEX IF NOT EXISTS sharedrepo_from_email_idx ON SharedRepo (from_email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        
+        sql = "CREATE INDEX IF NOT EXISTS sharedrepo_to_email_idx ON SharedRepo (to_email)";
+            if (seaf_db_query (db, sql) < 0)
+                return -1;
+    }
     
     return 0;
 }

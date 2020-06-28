@@ -14,6 +14,7 @@ AM_CFLAGS = -DPKGDATADIR=\"$(pkgdatadir)\" \
 	@MSVC_CFLAGS@ \
 	@LIBARCHIVE_CFLAGS@ \
 	@MYSQL_CFLAGS@ \
+	@PGSQL_CFLAGS@ \
 	-Wall
 
 bin_PROGRAMS = seaf-server
@@ -77,4 +78,4 @@ seaf_server_LDADD = @CCNET_LIBS@ \
 	$(top_builddir)/common/cdc/libcdc.la \
 	@SEARPC_LIBS@ @JANSSON_LIBS@ ${LIB_WS32} @ZLIB_LIBS@ \
 	@LIBARCHIVE_LIBS@ @LIB_ICONV@ \
-	@MYSQL_LIBS@ -lsqlite3
+	@MYSQL_LIBS@ -lsqlite3 @PGSQL_LIBS@

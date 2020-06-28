@@ -24,7 +24,6 @@ seaf_db_new_mysql (const char *host,
                    const char *charset,
                    int max_connections);
 
-#if 0
 SeafDB *
 seaf_db_new_pgsql (const char *host,
                    unsigned int port,
@@ -33,7 +32,6 @@ seaf_db_new_pgsql (const char *host,
                    const char *db_name,
                    const char *unix_socket,
                    int max_connections);
-#endif
 
 SeafDB *
 seaf_db_new_sqlite (const char *db_path, int max_connections);

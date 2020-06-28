@@ -142,12 +142,6 @@ pgsql_db_start (SeafileSession *session)
     unsigned int port;
     GError *error = NULL;
 
-    host = seaf_key_file_get_string (session->config, "database", "host", &error);
-    if (!host) {
-        seaf_warning ("DB host not set in config.\n");
-        return -1;
-    }
-
     user = seaf_key_file_get_string (session->config, "database", "user", &error);
     if (!user) {
         seaf_warning ("DB user not set in config.\n");
@@ -187,6 +181,8 @@ pgsql_db_start (SeafileSession *session)
     g_free (passwd);
     g_free (db);
     g_free (unix_socket);
+    if (error)
+        g_clear_error (&error);
 
     return 0;
 }
