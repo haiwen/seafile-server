@@ -174,13 +174,7 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) {
 	repoID := accessInfo.repoID
 	op := accessInfo.op
 	user := accessInfo.user
-
-	objID, ok := accessInfo.objID.(string)
-	if !ok {
-		err := "Bad access token"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-	}
+	objID := accessInfo.objID
 
 	if op != "view" && op != "download" && op != "download-link" {
 		err := "Bad access token"
@@ -474,13 +468,7 @@ func accessBlksCB(rsp http.ResponseWriter, r *http.Request) {
 	repoID := accessInfo.repoID
 	op := accessInfo.op
 	user := accessInfo.user
-
-	id, ok := accessInfo.objID.(string)
-	if !ok {
-		err := "Bad access token"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-	}
+	id := accessInfo.objID
 
 	if _, ok := r.Header["If-Modified-Since"]; ok {
 		rsp.WriteHeader(http.StatusNotModified)
@@ -574,7 +562,7 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 
 type webaccessInfo struct {
 	repoID string
-	objID  interface{}
+	objID  string
 	op     string
 	user   string
 }
@@ -605,7 +593,7 @@ func parseWebaccessInfo(rsp http.ResponseWriter, token string) *webaccessInfo {
 	}
 	accessInfo.repoID = repoID
 
-	id, ok := webaccessMap["obj-id"]
+	id, ok := webaccessMap["obj-id"].(string)
 	if !ok {
 		err := "Bad access token"
 		rsp.WriteHeader(http.StatusBadRequest)
