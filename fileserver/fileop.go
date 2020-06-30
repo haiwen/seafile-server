@@ -407,8 +407,8 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 				blockmgr.Read(repo.StoreID, blkID, &buf)
 				recvBuf := buf.Bytes()
 				rsp.Write(recvBuf[pos:])
-				pos = 0
 				start += blkSize[i] - pos
+				pos = 0
 			}
 		}
 	}
