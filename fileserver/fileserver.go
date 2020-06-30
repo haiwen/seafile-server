@@ -189,7 +189,7 @@ func main() {
 
 	rpcClientInit()
 
-	registerHTTPHandlers(client)
+	registerHTTPHandlers()
 
 	log.Print("Seafile file server started.")
 
@@ -199,7 +199,7 @@ func main() {
 	}
 }
 
-var client *searpc.Client
+var rpcclient *searpc.Client
 
 func rpcClientInit() {
 	var pipePath string
@@ -208,10 +208,10 @@ func rpcClientInit() {
 	} else {
 		pipePath = filepath.Join(absDataDir, "seafile.sock")
 	}
-	client = searpc.Init(pipePath, "seafserv-threaded-rpcserver")
+	rpcclient = searpc.Init(pipePath, "seafserv-threaded-rpcserver")
 }
 
-func registerHTTPHandlers(client *searpc.Client) {
+func registerHTTPHandlers() {
 	http.HandleFunc("/protocol-version", handleProtocolVersion)
 	http.HandleFunc("/", handleHttpRequest)
 }

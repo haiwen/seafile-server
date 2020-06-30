@@ -38,3 +38,9 @@ func Exists(repoID string, blockID string) bool {
 	ret, _ := store.Exists(repoID, blockID)
 	return ret
 }
+
+// Stat calculates block size.
+func Stat(repoID string, blockID string) (int64, error) {
+	ret, err := store.Stat(repoID, blockID)
+	return ret, err
+}
