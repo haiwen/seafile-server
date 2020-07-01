@@ -193,7 +193,7 @@ func main() {
 
 	log.Print("Seafile file server started.")
 
-	err = http.ListenAndServe("127.0.0.1:8082", nil)
+	err = http.ListenAndServe("127.0.0.1:8083", nil)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
@@ -213,9 +213,27 @@ func rpcClientInit() {
 
 func registerHTTPHandlers() {
 	http.HandleFunc("/protocol-version", handleProtocolVersion)
-	http.HandleFunc("/", handleHttpRequest)
+	http.Handle("/files/", appHandler(accessCB))
+	http.Handle("/blks/", appHandler(accessBlksCB))
 }
 
 func handleProtocolVersion(rsp http.ResponseWriter, r *http.Request) {
 	io.WriteString(rsp, "{\"version\": 2}")
+}
+
+type appError struct {
+	Error   error
+	Message string
+	Code    int
+}
+
+type appHandler func(http.ResponseWriter, *http.Request) *appError
+
+func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if e := fn(w, r); e != nil {
+		if e.Error != nil {
+			log.Printf("internal server error: %v\n", e.Error)
+		}
+		http.Error(w, e.Message, e.Code)
+	}
 }

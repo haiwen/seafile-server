@@ -5,13 +5,10 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
-	"crypto/aes"
-	"crypto/cipher"
 	"encoding/hex"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
@@ -19,9 +16,6 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	_ "github.com/haiwen/seafile-server/fileserver/searpc"
 )
-
-var access = regexp.MustCompile(`^/files/.*`)
-var accessBlks = regexp.MustCompile(`^/blks/.*`)
 
 //contentType = "application/octet-stream"
 func parseContentType(fileName string) string {
@@ -81,94 +75,17 @@ func testFireFox(r *http.Request) bool {
 	return false
 }
 
-func pkcs7Padding(p []byte, blockSize int) []byte {
-	padding := blockSize - len(p)%blockSize
-	padtext := bytes.Repeat([]byte{byte(padding)}, padding)
-	return append(p, padtext...)
-}
-
-func pkcs7UnPadding(p []byte) []byte {
-	length := len(p)
-	paddLen := int(p[length-1])
-	return p[:(length - paddLen)]
-}
-
-func decrypt(input, key, iv []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	out := make([]byte, len(input))
-	blockMode := cipher.NewCBCDecrypter(block, iv)
-	blockMode.CryptBlocks(out, input)
-	out = pkcs7UnPadding(out)
-
-	return out, nil
-}
-
-func encrypt(input, key, iv []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
-
-	input = pkcs7Padding(input, block.BlockSize())
-	out := make([]byte, len(input))
-	blockMode := cipher.NewCBCEncrypter(block, iv)
-	blockMode.CryptBlocks(out, input)
-
-	return out, nil
-}
-
-func parseRange(byteRanges string, fileSize uint64) (int64, int64, bool) {
-	start := strings.Index(byteRanges, "=")
-	end := strings.Index(byteRanges, "-")
-
-	if end < 0 {
-		return 0, 0, false
-	}
-
-	if start+1 == end {
-		firstByte, err := strconv.ParseUint(byteRanges[end+1:], 10, 64)
-		if err != nil || firstByte == 0 {
-			return 0, 0, false
-		}
-		return int64(fileSize - firstByte), int64(fileSize - 1), true
-	} else if end+1 == len(byteRanges) {
-		firstByte, err := strconv.ParseUint(byteRanges[start+1:end], 10, 64)
-		if err != nil {
-			return 0, 0, false
-		}
-
-		return int64(firstByte), int64(fileSize - 1), true
-	}
-
-	firstByte, err := strconv.ParseUint(byteRanges[start+1:end], 10, 64)
-	if err != nil {
-		return 0, 0, false
-	}
-	lastByte, err := strconv.ParseUint(byteRanges[end+1:], 10, 64)
-	if err != nil {
-		return 0, 0, false
-	}
-
-	return int64(firstByte), int64(lastByte), true
-}
-
-func accessCB(rsp http.ResponseWriter, r *http.Request) {
+func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) < 3 {
 		err := "Invalid URL"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return
+		return &appError{nil, err, http.StatusBadRequest}
 	}
 	token := parts[1]
 	fileName := parts[2]
-	accessInfo := parseWebaccessInfo(rsp, token)
-	if accessInfo == nil {
-		return
+	accessInfo, err := parseWebaccessInfo(rsp, token)
+	if err != nil {
+		return err
 	}
 
 	repoID := accessInfo.repoID
@@ -178,85 +95,104 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) {
 
 	if op != "view" && op != "download" && op != "download-link" {
 		err := "Bad access token"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return
+		return &appError{nil, err, http.StatusBadRequest}
 	}
 
 	if _, ok := r.Header["If-Modified-Since"]; ok {
-		rsp.WriteHeader(http.StatusNotModified)
-		return
+		return &appError{nil, "", http.StatusNotModified}
 	}
 
 	now := time.Now()
 	rsp.Header().Set("Last-Modified", now.Format("Mon, 2 Jan 2006 15:04:05 GMT"))
 	rsp.Header().Set("Cache-Control", "max-age=3600")
 
-	Range := r.Header["Range"]
-	byteRanges := strings.Join(Range, "")
+	ranges := r.Header["Range"]
+	byteRanges := strings.Join(ranges, "")
 
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := "Bad repo id"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return
+		return &appError{nil, err, http.StatusBadRequest}
 	}
 
-	var cryptKey map[string]interface{}
+	var cryptKey *seafileCrypt
 	if repo.IsEncrypted {
-		cryptKey = parseCryptKey(rsp, repoID, user)
-		if cryptKey == nil {
-			return
+		key, err := parseCryptKey(rsp, repoID, user)
+		if err != nil {
+			return err
 		}
+		cryptKey = key
 	}
 
 	exists, _ := fsmgr.Exists(repo.StoreID, objID)
 	if !exists {
 		err := "Invalid file id"
-		fmt.Fprintf(rsp, "%s\n", err)
-		rsp.WriteHeader(http.StatusBadRequest)
-		return
+		return &appError{nil, err, http.StatusBadRequest}
 	}
 
 	if !repo.IsEncrypted && len(byteRanges) != 0 {
 		if err := doFileRange(rsp, r, repo, objID, fileName, op, byteRanges, user); err != nil {
-			log.Printf("internal server error: %v.\n", err)
-			err := "Internal server error"
-			rsp.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(rsp, "%s\n", err)
+			errMessage := "Internal server error"
+			return &appError{err, errMessage, http.StatusBadRequest}
 		}
 	} else if err := doFile(rsp, r, repo, objID, fileName, op, cryptKey, user); err != nil {
-		log.Printf("internal server error: %v.\n", err)
-		err := "Internal server error"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return
+		errMessage := "Internal server error"
+		return &appError{nil, errMessage, http.StatusBadRequest}
 	}
+
+	return nil
 }
 
-func parseCryptKey(rsp http.ResponseWriter, repoID string, user string) map[string]interface{} {
+type seafileCrypt struct {
+	key []byte
+	iv  []byte
+}
+
+func parseCryptKey(rsp http.ResponseWriter, repoID string, user string) (*seafileCrypt, *appError) {
 	key, err := rpcclient.Call("seafile_get_decrypt_key", repoID, user)
 	if err != nil {
-		err := "Repo is encrypted. Please provide password to view it."
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return nil
+		errMessage := "Repo is encrypted. Please provide password to view it."
+		err := fmt.Errorf("failed to get decrypt key : %v.\n", err)
+		return nil, &appError{err, errMessage, http.StatusBadRequest}
 	}
 
 	cryptKey, ok := key.(map[string]interface{})
 	if !ok {
-		err := "Repo is encrypted. Please provide password to view it."
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return nil
+		errMessage := "Internal server error."
+		err := fmt.Errorf("failed to assert crypt key.\n")
+		return nil, &appError{err, errMessage, http.StatusBadRequest}
 	}
 
-	return cryptKey
+	seafileKey := new(seafileCrypt)
+
+	if cryptKey != nil {
+		key, ok := cryptKey["key"].(string)
+		if !ok {
+			err := fmt.Errorf("failed to parse crypt key.\n")
+			return nil, &appError{err, "", http.StatusBadRequest}
+		}
+		iv, ok := cryptKey["iv"].(string)
+		if !ok {
+			err := fmt.Errorf("failed to parse crypt iv.\n")
+			return nil, &appError{err, "", http.StatusBadRequest}
+		}
+		seafileKey.key, err = hex.DecodeString(key)
+		if err != nil {
+			err := fmt.Errorf("failed to decode key: %v.\n", err)
+			return nil, &appError{err, "", http.StatusBadRequest}
+		}
+		seafileKey.iv, err = hex.DecodeString(iv)
+		if err != nil {
+			err := fmt.Errorf("failed to decode iv: %v.\n", err)
+			return nil, &appError{err, "", http.StatusBadRequest}
+		}
+	}
+
+	return seafileKey, nil
 }
 
 func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID string,
-	fileName string, operation string, cryptKey map[string]interface{}, user string) error {
+	fileName string, operation string, cryptKey *seafileCrypt, user string) error {
 	file, err := fsmgr.GetSeafile(repo.StoreID, fileID)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafile : %v.\n", err)
@@ -265,42 +201,24 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 
 	var encKey, encIv []byte
 	if cryptKey != nil {
-		key, ok := cryptKey["key"].(string)
-		if !ok {
-			err := fmt.Errorf("failed to parse crypt key.\n")
-			return err
-		}
-		iv, ok := cryptKey["iv"].(string)
-		if !ok {
-			err := fmt.Errorf("failed to parse crypt iv.\n")
-			return err
-		}
-		encKey, err = hex.DecodeString(key)
-		if err != nil {
-			err := fmt.Errorf("failed to decode key: %v.\n", err)
-			return err
-		}
-		encIv, err = hex.DecodeString(iv)
-		if err != nil {
-			err := fmt.Errorf("failed to decode iv: %v.\n", err)
-			return err
-		}
+		encKey = cryptKey.key
+		encIv = cryptKey.iv
 	}
 
 	rsp.Header().Set("Access-Control-Allow-Origin", "*")
 
-	httpSetHeader(rsp, r, operation, fileName)
+	setCommonHeaders(rsp, r, operation, fileName)
 
 	//filesize string
 	fileSize := fmt.Sprintf("%d", file.FileSize)
 	rsp.Header().Set("Content-Length", fileSize)
 
 	if r.Method == "HEAD" {
-		rsp.WriteHeader(http.StatusBadRequest)
+		rsp.WriteHeader(http.StatusOK)
 		return nil
 	}
 	if file.FileSize == 0 {
-		rsp.WriteHeader(http.StatusBadRequest)
+		rsp.WriteHeader(http.StatusOK)
 		return nil
 	}
 
@@ -310,16 +228,24 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 			blockmgr.Read(repo.StoreID, blkID, &buf)
 			decoded, err := decrypt(buf.Bytes(), encKey, encIv)
 			if err != nil {
-				err := fmt.Errorf("failed to decrypt block: %v.\n", err)
+				err := fmt.Errorf("failed to decrypt block %s: %v.\n", blkID, err)
 				return err
 			}
-			rsp.Write(decoded)
+			_, err = rsp.Write(decoded)
+			if err != nil {
+				log.Printf("failed to write block %s to response: %v.\n", blkID, err)
+				return nil
+			}
 		}
 		return nil
 	}
 
 	for _, blkID := range file.BlkIDs {
-		blockmgr.Read(repo.StoreID, blkID, rsp)
+		err := blockmgr.Read(repo.StoreID, blkID, rsp)
+		if err != nil {
+			log.Printf("fatild to write block %s to response: %v.\n", blkID, err)
+			return nil
+		}
 	}
 
 	return nil
@@ -335,7 +261,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 	}
 
 	if file.FileSize == 0 {
-		rsp.WriteHeader(http.StatusBadRequest)
+		rsp.WriteHeader(http.StatusOK)
 		return nil
 	}
 
@@ -349,7 +275,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 
 	rsp.Header().Set("Accept-Ranges", "bytes")
 
-	httpSetHeader(rsp, r, operation, fileName)
+	setCommonHeaders(rsp, r, operation, fileName)
 
 	//filesize string
 	conLen := fmt.Sprintf("%d", end-start+1)
@@ -362,7 +288,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 	for _, v := range file.BlkIDs {
 		size, err := blockmgr.Stat(repo.StoreID, v)
 		if err != nil {
-			err := fmt.Errorf("failed to stat block : %v.\n", err)
+			err := fmt.Errorf("failed to stat block %s : %v.\n", v, err)
 			return err
 		}
 		blkSize = append(blkSize, size)
@@ -386,37 +312,119 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		}
 
 		var buf bytes.Buffer
-		if pos == 0 {
-			if end-start+1 <= blkSize[i] {
-				blockmgr.Read(repo.StoreID, blkID, &buf)
-				recvBuf := buf.Bytes()
-				rsp.Write(recvBuf[:end-start+1])
-				break
-			} else {
-				blockmgr.Read(repo.StoreID, blkID, rsp)
-				pos = 0
-				start += blkSize[i]
+		if end-start+1 <= blkSize[i]-pos {
+			err := blockmgr.Read(repo.StoreID, blkID, &buf)
+			if err != nil {
+				log.Printf("failed to read block %s: %v.\n", blkID, err)
+				return nil
 			}
+			recvBuf := buf.Bytes()
+			_, err = rsp.Write(recvBuf[pos : pos+end-start+1])
+			if err != nil {
+				log.Printf("failed to write block %s to response: %v.\n", blkID, err)
+			}
+			return nil
 		} else {
-			if end-start+1 <= blkSize[i]-pos {
-				blockmgr.Read(repo.StoreID, blkID, &buf)
-				recvBuf := buf.Bytes()
-				rsp.Write(recvBuf[pos : pos+end-start+1])
-				break
-			} else {
-				blockmgr.Read(repo.StoreID, blkID, &buf)
-				recvBuf := buf.Bytes()
-				rsp.Write(recvBuf[pos:])
-				start += blkSize[i] - pos
-				pos = 0
+			err := blockmgr.Read(repo.StoreID, blkID, &buf)
+			if err != nil {
+				log.Printf("failed to read block %s: %v.\n", blkID, err)
+				return nil
 			}
+			recvBuf := buf.Bytes()
+			_, err = rsp.Write(recvBuf[pos:])
+			if err != nil {
+				log.Printf("failed to write block %s to response: %v.\n", blkID, err)
+				return nil
+			}
+			start += blkSize[i] - pos
+			startBlock += 1
+			break
+		}
+	}
+
+	for i, blkID := range file.BlkIDs {
+		if i < startBlock {
+			continue
+		}
+
+		var buf bytes.Buffer
+		if end-start+1 <= blkSize[i] {
+			err := blockmgr.Read(repo.StoreID, blkID, &buf)
+			if err != nil {
+				log.Printf("failed to read block %s: %v.\n", blkID, err)
+				return nil
+			}
+			recvBuf := buf.Bytes()
+			_, err = rsp.Write(recvBuf[:end-start+1])
+			if err != nil {
+				log.Printf("failed to write block %s to response: %v.\n", blkID, err)
+				return nil
+			}
+			break
+		} else {
+			err := blockmgr.Read(repo.StoreID, blkID, rsp)
+			if err != nil {
+				log.Printf("failed to write block %s to response: %v.\n", blkID, err)
+				return nil
+			}
+			start += blkSize[i]
 		}
 	}
 
 	return nil
 }
 
-func httpSetHeader(rsp http.ResponseWriter, r *http.Request, operation, fileName string) {
+func parseRange(byteRanges string, fileSize uint64) (int64, int64, bool) {
+	start := strings.Index(byteRanges, "=")
+	end := strings.Index(byteRanges, "-")
+
+	if end < 0 {
+		return 0, 0, false
+	}
+
+	var startByte, endByte int64
+
+	if start+1 == end {
+		retByte, err := strconv.ParseUint(byteRanges[end+1:], 10, 64)
+		if err != nil || retByte == 0 {
+			return 0, 0, false
+		}
+		startByte = int64(fileSize - retByte)
+		endByte = int64(fileSize - 1)
+	} else if end+1 == len(byteRanges) {
+		firstByte, err := strconv.ParseUint(byteRanges[start+1:end], 10, 64)
+		if err != nil {
+			return 0, 0, false
+		}
+
+		startByte = int64(firstByte)
+		endByte = int64(fileSize - 1)
+	} else {
+		firstByte, err := strconv.ParseUint(byteRanges[start+1:end], 10, 64)
+		if err != nil {
+			return 0, 0, false
+		}
+		lastByte, err := strconv.ParseUint(byteRanges[end+1:], 10, 64)
+		if err != nil {
+			return 0, 0, false
+		}
+
+		if lastByte > fileSize-1 {
+			lastByte = fileSize - 1
+		}
+
+		startByte = int64(firstByte)
+		endByte = int64(lastByte)
+	}
+
+	if startByte > endByte {
+		return 0, 0, false
+	}
+
+	return startByte, endByte, true
+}
+
+func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileName string) {
 	fileType := parseContentType(fileName)
 	if fileType != "" {
 		var contentType string
@@ -431,7 +439,8 @@ func httpSetHeader(rsp http.ResponseWriter, r *http.Request, operation, fileName
 	}
 
 	var contFileName string
-	if operation == "download" || operation == "download-link" {
+	if operation == "download" || operation == "download-link" ||
+		operation == "downloadblks" {
 		if testFireFox(r) {
 			contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\"", fileName)
 		} else {
@@ -451,19 +460,17 @@ func httpSetHeader(rsp http.ResponseWriter, r *http.Request, operation, fileName
 	}
 }
 
-func accessBlksCB(rsp http.ResponseWriter, r *http.Request) {
+func accessBlksCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) < 3 {
 		err := "Invalid URL"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return
+		return &appError{nil, err, http.StatusBadRequest}
 	}
 	token := parts[1]
 	blkID := parts[2]
-	accessInfo := parseWebaccessInfo(rsp, token)
-	if accessInfo == nil {
-		return
+	accessInfo, err := parseWebaccessInfo(rsp, token)
+	if err != nil {
+		return err
 	}
 	repoID := accessInfo.repoID
 	op := accessInfo.op
@@ -471,8 +478,7 @@ func accessBlksCB(rsp http.ResponseWriter, r *http.Request) {
 	id := accessInfo.objID
 
 	if _, ok := r.Header["If-Modified-Since"]; ok {
-		rsp.WriteHeader(http.StatusNotModified)
-		return
+		return &appError{nil, "", http.StatusNotModified}
 	}
 
 	now := time.Now()
@@ -482,32 +488,26 @@ func accessBlksCB(rsp http.ResponseWriter, r *http.Request) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := "Bad repo id"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return
+		return &appError{nil, err, http.StatusBadRequest}
 	}
 
 	exists, _ := fsmgr.Exists(repo.StoreID, id)
 	if !exists {
 		err := "Invalid file id"
-		fmt.Fprintf(rsp, "%s\n", err)
-		rsp.WriteHeader(http.StatusBadRequest)
-		return
+		return &appError{nil, err, http.StatusBadRequest}
 	}
 
 	if op != "downloadblks" {
 		err := "Bad access token"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return
+		return &appError{nil, err, http.StatusBadRequest}
 	}
 
 	if err := doBlock(rsp, r, repo, id, user, blkID); err != nil {
-		log.Printf("internal server error : %v.\n", err)
-		err := "Internal server error"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
+		errMessage := "Internal server error"
+		return &appError{err, errMessage, http.StatusBadRequest}
 	}
+
+	return nil
 }
 
 func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID string,
@@ -538,25 +538,26 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 	}
 
 	rsp.Header().Set("Access-Control-Allow-Origin", "*")
-	var contFileName string
-	if testFireFox(r) {
-		contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\"", blkID)
-	} else {
-		contFileName = fmt.Sprintf("attachment;filename*=\"%s\"", blkID)
-	}
-	rsp.Header().Set("Content-Disposition", contFileName)
+	setCommonHeaders(rsp, r, "downloadblks", blkID)
 
-	var buf bytes.Buffer
-	err = blockmgr.Read(repo.StoreID, blkID, &buf)
+	size, err := blockmgr.Stat(repo.StoreID, blkID)
 	if err != nil {
-		err := fmt.Errorf("failed to read block : %v.\n", err)
+		err := fmt.Errorf("failed to stat block %s: %v.\n", blkID, err)
 		return err
 	}
+	if size == 0 {
+		rsp.WriteHeader(http.StatusOK)
+		return nil
+	}
 
-	fileSize := fmt.Sprintf("%d", buf.Len())
+	fileSize := fmt.Sprintf("%d", size)
 	rsp.Header().Set("Content-Length", fileSize)
 
-	rsp.Write(buf.Bytes())
+	err = blockmgr.Read(repo.StoreID, blkID, rsp)
+	if err != nil {
+		log.Printf("fatild to write block %s to response: %v.\n", blkID, err)
+	}
+
 	return nil
 }
 
@@ -567,67 +568,46 @@ type webaccessInfo struct {
 	user   string
 }
 
-func parseWebaccessInfo(rsp http.ResponseWriter, token string) *webaccessInfo {
+func parseWebaccessInfo(rsp http.ResponseWriter, token string) (*webaccessInfo, *appError) {
 	webaccess, err := rpcclient.Call("seafile_web_query_access_token", token)
 	if err != nil {
 		err := "Bad access token"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return nil
+		return nil, &appError{nil, err, http.StatusBadRequest}
 	}
 	webaccessMap, ok := webaccess.(map[string]interface{})
 	if !ok {
 		err := "internal server error"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return nil
+		return nil, &appError{nil, err, http.StatusBadRequest}
 	}
 
 	accessInfo := new(webaccessInfo)
 	repoID, ok := webaccessMap["repo-id"].(string)
 	if !ok {
-		err := "Bad access token"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return nil
+		err := "internal server error"
+		return nil, &appError{nil, err, http.StatusBadRequest}
 	}
 	accessInfo.repoID = repoID
 
 	id, ok := webaccessMap["obj-id"].(string)
 	if !ok {
-		err := "Bad access token"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return nil
+		err := "internal server error"
+		return nil, &appError{nil, err, http.StatusBadRequest}
 	}
 	accessInfo.objID = id
 
 	op, ok := webaccessMap["op"].(string)
 	if !ok {
-		err := "Bad access token"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return nil
+		err := "internal server error"
+		return nil, &appError{nil, err, http.StatusBadRequest}
 	}
 	accessInfo.op = op
 
 	user, ok := webaccessMap["username"].(string)
 	if !ok {
-		err := "Bad access token"
-		rsp.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(rsp, "%s\n", err)
-		return nil
+		err := "internal server error"
+		return nil, &appError{nil, err, http.StatusBadRequest}
 	}
 	accessInfo.user = user
 
-	return accessInfo
-}
-
-func handleHttpRequest(rsp http.ResponseWriter, r *http.Request) {
-	switch {
-	case access.MatchString(r.URL.Path):
-		accessCB(rsp, r)
-	case accessBlks.MatchString(r.URL.Path):
-		accessBlksCB(rsp, r)
-	}
+	return accessInfo, nil
 }
