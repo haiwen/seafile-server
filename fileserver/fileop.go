@@ -78,8 +78,8 @@ func testFireFox(r *http.Request) bool {
 func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) < 3 {
-		err := "Invalid URL"
-		return &appError{nil, err, http.StatusBadRequest}
+		msg := "Invalid URL"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 	token := parts[1]
 	fileName := parts[2]
@@ -94,8 +94,8 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	objID := accessInfo.objID
 
 	if op != "view" && op != "download" && op != "download-link" {
-		err := "Bad access token"
-		return &appError{nil, err, http.StatusBadRequest}
+		msg := "Bad access token"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	if _, ok := r.Header["If-Modified-Since"]; ok {
@@ -111,8 +111,8 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	repo := repomgr.Get(repoID)
 	if repo == nil {
-		err := "Bad repo id"
-		return &appError{nil, err, http.StatusBadRequest}
+		msg := "Bad repo id"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	var cryptKey *seafileCrypt
@@ -126,18 +126,16 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	exists, _ := fsmgr.Exists(repo.StoreID, objID)
 	if !exists {
-		err := "Invalid file id"
-		return &appError{nil, err, http.StatusBadRequest}
+		msg := "Invalid file id"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	if !repo.IsEncrypted && len(byteRanges) != 0 {
 		if err := doFileRange(rsp, r, repo, objID, fileName, op, byteRanges, user); err != nil {
-			errMessage := "Internal server error"
-			return &appError{err, errMessage, http.StatusBadRequest}
+			return err
 		}
 	} else if err := doFile(rsp, r, repo, objID, fileName, op, cryptKey, user); err != nil {
-		errMessage := "Internal server error"
-		return &appError{nil, errMessage, http.StatusBadRequest}
+		return err
 	}
 
 	return nil
@@ -158,9 +156,8 @@ func parseCryptKey(rsp http.ResponseWriter, repoID string, user string) (*seafil
 
 	cryptKey, ok := key.(map[string]interface{})
 	if !ok {
-		errMessage := "Internal server error."
 		err := fmt.Errorf("failed to assert crypt key.\n")
-		return nil, &appError{err, errMessage, http.StatusBadRequest}
+		return nil, &appError{err, "", http.StatusInternalServerError}
 	}
 
 	seafileKey := new(seafileCrypt)
@@ -169,22 +166,22 @@ func parseCryptKey(rsp http.ResponseWriter, repoID string, user string) (*seafil
 		key, ok := cryptKey["key"].(string)
 		if !ok {
 			err := fmt.Errorf("failed to parse crypt key.\n")
-			return nil, &appError{err, "", http.StatusBadRequest}
+			return nil, &appError{err, "", http.StatusInternalServerError}
 		}
 		iv, ok := cryptKey["iv"].(string)
 		if !ok {
 			err := fmt.Errorf("failed to parse crypt iv.\n")
-			return nil, &appError{err, "", http.StatusBadRequest}
+			return nil, &appError{err, "", http.StatusInternalServerError}
 		}
 		seafileKey.key, err = hex.DecodeString(key)
 		if err != nil {
 			err := fmt.Errorf("failed to decode key: %v.\n", err)
-			return nil, &appError{err, "", http.StatusBadRequest}
+			return nil, &appError{err, "", http.StatusInternalServerError}
 		}
 		seafileKey.iv, err = hex.DecodeString(iv)
 		if err != nil {
 			err := fmt.Errorf("failed to decode iv: %v.\n", err)
-			return nil, &appError{err, "", http.StatusBadRequest}
+			return nil, &appError{err, "", http.StatusInternalServerError}
 		}
 	}
 
@@ -192,11 +189,11 @@ func parseCryptKey(rsp http.ResponseWriter, repoID string, user string) (*seafil
 }
 
 func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID string,
-	fileName string, operation string, cryptKey *seafileCrypt, user string) error {
+	fileName string, operation string, cryptKey *seafileCrypt, user string) *appError {
 	file, err := fsmgr.GetSeafile(repo.StoreID, fileID)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafile : %v.\n", err)
-		return err
+		return &appError{err, "", http.StatusBadRequest}
 	}
 
 	var encKey, encIv []byte
@@ -229,7 +226,7 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 			decoded, err := decrypt(buf.Bytes(), encKey, encIv)
 			if err != nil {
 				err := fmt.Errorf("failed to decrypt block %s: %v.\n", blkID, err)
-				return err
+				return &appError{err, "", http.StatusBadRequest}
 			}
 			_, err = rsp.Write(decoded)
 			if err != nil {
@@ -252,12 +249,12 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 }
 
 func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID string,
-	fileName string, operation string, byteRanges string, user string) error {
+	fileName string, operation string, byteRanges string, user string) *appError {
 
 	file, err := fsmgr.GetSeafile(repo.StoreID, fileID)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafile : %v\n", err)
-		return err
+		return &appError{err, "", http.StatusBadRequest}
 	}
 
 	if file.FileSize == 0 {
@@ -269,8 +266,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 	if !ok {
 		conRange := fmt.Sprintf("bytes */%d", file.FileSize)
 		rsp.Header().Set("Content-Range", conRange)
-		rsp.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
-		return nil
+		return &appError{nil, "", http.StatusRequestedRangeNotSatisfiable}
 	}
 
 	rsp.Header().Set("Accept-Ranges", "bytes")
@@ -284,18 +280,18 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 	conRange := fmt.Sprintf("bytes %d-%d/%d", start, end, file.FileSize)
 	rsp.Header().Set("Content-Range", conRange)
 
-	var blkSize []int64
+	var blkSize []uint64
 	for _, v := range file.BlkIDs {
 		size, err := blockmgr.Stat(repo.StoreID, v)
 		if err != nil {
 			err := fmt.Errorf("failed to stat block %s : %v.\n", v, err)
-			return err
+			return &appError{err, "", http.StatusBadRequest}
 		}
-		blkSize = append(blkSize, size)
+		blkSize = append(blkSize, uint64(size))
 	}
 
-	var off int64
-	var pos int64
+	var off uint64
+	var pos uint64
 	var startBlock int
 	for i, v := range blkSize {
 		pos = start - off
@@ -374,7 +370,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 	return nil
 }
 
-func parseRange(byteRanges string, fileSize uint64) (int64, int64, bool) {
+func parseRange(byteRanges string, fileSize uint64) (uint64, uint64, bool) {
 	start := strings.Index(byteRanges, "=")
 	end := strings.Index(byteRanges, "-")
 
@@ -382,23 +378,23 @@ func parseRange(byteRanges string, fileSize uint64) (int64, int64, bool) {
 		return 0, 0, false
 	}
 
-	var startByte, endByte int64
+	var startByte, endByte uint64
 
 	if start+1 == end {
 		retByte, err := strconv.ParseUint(byteRanges[end+1:], 10, 64)
 		if err != nil || retByte == 0 {
 			return 0, 0, false
 		}
-		startByte = int64(fileSize - retByte)
-		endByte = int64(fileSize - 1)
+		startByte = fileSize - retByte
+		endByte = fileSize - 1
 	} else if end+1 == len(byteRanges) {
 		firstByte, err := strconv.ParseUint(byteRanges[start+1:end], 10, 64)
 		if err != nil {
 			return 0, 0, false
 		}
 
-		startByte = int64(firstByte)
-		endByte = int64(fileSize - 1)
+		startByte = firstByte
+		endByte = fileSize - 1
 	} else {
 		firstByte, err := strconv.ParseUint(byteRanges[start+1:end], 10, 64)
 		if err != nil {
@@ -413,8 +409,8 @@ func parseRange(byteRanges string, fileSize uint64) (int64, int64, bool) {
 			lastByte = fileSize - 1
 		}
 
-		startByte = int64(firstByte)
-		endByte = int64(lastByte)
+		startByte = firstByte
+		endByte = lastByte
 	}
 
 	if startByte > endByte {
@@ -463,8 +459,8 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 func accessBlksCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) < 3 {
-		err := "Invalid URL"
-		return &appError{nil, err, http.StatusBadRequest}
+		msg := "Invalid URL"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 	token := parts[1]
 	blkID := parts[2]
@@ -487,35 +483,34 @@ func accessBlksCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	repo := repomgr.Get(repoID)
 	if repo == nil {
-		err := "Bad repo id"
-		return &appError{nil, err, http.StatusBadRequest}
+		msg := "Bad repo id"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	exists, _ := fsmgr.Exists(repo.StoreID, id)
 	if !exists {
-		err := "Invalid file id"
-		return &appError{nil, err, http.StatusBadRequest}
+		msg := "Invalid file id"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	if op != "downloadblks" {
-		err := "Bad access token"
-		return &appError{nil, err, http.StatusBadRequest}
+		msg := "Bad access token"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	if err := doBlock(rsp, r, repo, id, user, blkID); err != nil {
-		errMessage := "Internal server error"
-		return &appError{err, errMessage, http.StatusBadRequest}
+		return err
 	}
 
 	return nil
 }
 
 func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID string,
-	user string, blkID string) error {
+	user string, blkID string) *appError {
 	file, err := fsmgr.GetSeafile(repo.StoreID, fileID)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafile : %v.\n", err)
-		return err
+		return &appError{err, "", http.StatusBadRequest}
 	}
 
 	var found bool
@@ -543,7 +538,7 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 	size, err := blockmgr.Stat(repo.StoreID, blkID)
 	if err != nil {
 		err := fmt.Errorf("failed to stat block %s: %v.\n", blkID, err)
-		return err
+		return &appError{err, "", http.StatusBadRequest}
 	}
 	if size == 0 {
 		rsp.WriteHeader(http.StatusOK)
@@ -571,41 +566,36 @@ type webaccessInfo struct {
 func parseWebaccessInfo(rsp http.ResponseWriter, token string) (*webaccessInfo, *appError) {
 	webaccess, err := rpcclient.Call("seafile_web_query_access_token", token)
 	if err != nil {
-		err := "Bad access token"
-		return nil, &appError{nil, err, http.StatusBadRequest}
+		msg := "Bad access token"
+		return nil, &appError{err, msg, http.StatusBadRequest}
 	}
 	webaccessMap, ok := webaccess.(map[string]interface{})
 	if !ok {
-		err := "internal server error"
-		return nil, &appError{nil, err, http.StatusBadRequest}
+		return nil, &appError{nil, "", http.StatusInternalServerError}
 	}
 
 	accessInfo := new(webaccessInfo)
 	repoID, ok := webaccessMap["repo-id"].(string)
 	if !ok {
-		err := "internal server error"
-		return nil, &appError{nil, err, http.StatusBadRequest}
+		return nil, &appError{nil, "", http.StatusInternalServerError}
 	}
 	accessInfo.repoID = repoID
 
 	id, ok := webaccessMap["obj-id"].(string)
 	if !ok {
-		err := "internal server error"
-		return nil, &appError{nil, err, http.StatusBadRequest}
+		return nil, &appError{nil, "", http.StatusInternalServerError}
 	}
 	accessInfo.objID = id
 
 	op, ok := webaccessMap["op"].(string)
 	if !ok {
-		err := "internal server error"
-		return nil, &appError{nil, err, http.StatusBadRequest}
+		return nil, &appError{nil, "", http.StatusInternalServerError}
 	}
 	accessInfo.op = op
 
 	user, ok := webaccessMap["username"].(string)
 	if !ok {
-		err := "internal server error"
-		return nil, &appError{nil, err, http.StatusBadRequest}
+		return nil, &appError{nil, "", http.StatusInternalServerError}
 	}
 	accessInfo.user = user
 
