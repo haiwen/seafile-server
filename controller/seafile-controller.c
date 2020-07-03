@@ -11,7 +11,6 @@
 #include <getopt.h>
 
 #include <glib.h>
-#include <ccnet.h>
 
 #include "utils.h"
 #include "log.h"
@@ -201,6 +200,7 @@ start_seaf_server ()
         "-d", ctl->seafile_dir,
         "-l", logfile,
         "-P", ctl->pidfile[PID_SERVER],
+        "-p", ctl->rpc_pipe_path,
         NULL};
 
     int pid = spawn_process (argv);
@@ -220,10 +220,7 @@ get_python_executable() {
     }
 
     static const char *try_list[] = {
-        "python2.7",
-        "python27",
-        "python2.6",
-        "python26",
+        "python3"
     };
 
     int i;
@@ -289,16 +286,10 @@ setup_python_path()
         g_build_filename (installpath, "seahub/seahub-extra/thirdparts", NULL));
 
     path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib/python2.6/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib/python3.6/site-packages", NULL));
 
     path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib64/python2.6/site-packages", NULL));
-
-    path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib/python2.7/site-packages", NULL));
-
-    path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib64/python2.7/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib64/python3.6/site-packages", NULL));
 
     path_list = g_list_reverse (path_list);
 
@@ -323,6 +314,7 @@ setup_env ()
     g_setenv ("CCNET_CONF_DIR", ctl->config_dir, TRUE);
     g_setenv ("SEAFILE_CONF_DIR", ctl->seafile_dir, TRUE);
     g_setenv ("SEAFILE_CENTRAL_CONF_DIR", ctl->central_config_dir, TRUE);
+    g_setenv ("SEAFILE_RPC_PIPE_PATH", ctl->rpc_pipe_path, TRUE);
 
     char *seahub_dir = g_build_filename (installpath, "seahub", NULL);
     char *seafdav_conf = g_build_filename (ctl->central_config_dir, "seafdav.conf", NULL);
@@ -382,33 +374,17 @@ start_seafdav() {
 
     char *argv[] = {
         (char *)get_python_executable(),
-        "-m", "wsgidav.server.run_server",
-        "--log-file", seafdav_log_file,
+        "-m", "wsgidav.server.server_cli",
+        "--server", "gunicorn",
+        "--root", "/",
+        "--log-file", seafdav_log_file, 
         "--pid", ctl->pidfile[PID_SEAFDAV],
         "--port", port,
         "--host", conf.host,
         NULL
     };
 
-    char *argv_fastcgi[] = {
-        (char *)get_python_executable(),
-        "-m", "wsgidav.server.run_server",
-        "runfcgi",
-        "--log-file", seafdav_log_file,
-        "--pid", ctl->pidfile[PID_SEAFDAV],
-        "--port", port,
-        "--host", conf.host,
-        NULL
-    };
-
-    char **args;
-    if (ctl->seafdav_config.fastcgi) {
-        args = argv_fastcgi;
-    } else {
-        args = argv;
-    }
-
-    int pid = spawn_process (args);
+    int pid = spawn_process (argv);
 
     if (pid <= 0) {
         seaf_warning ("Failed to spawn seafdav\n");
@@ -549,6 +525,7 @@ seaf_controller_init (SeafileController *ctl,
     ctl->central_config_dir = central_config_dir;
     ctl->config_dir = config_dir;
     ctl->seafile_dir = seafile_dir;
+    ctl->rpc_pipe_path = g_build_filename (installpath, "runtime", NULL);
     ctl->logdir = logdir;
 
     if (read_seafdav_config() < 0) {
@@ -755,21 +732,11 @@ read_seafdav_config()
         goto out;
     }
 
-    /* fastcgi */
-    ctl->seafdav_config.fastcgi = g_key_file_get_boolean(key_file, "WEBDAV", "fastcgi", &error);
-    if (error != NULL) {
-        if (error->code != G_KEY_FILE_ERROR_KEY_NOT_FOUND) {
-            seaf_message ("Error when reading WEBDAV.fastcgi, use default value 'false'\n");
-        }
-        ctl->seafdav_config.fastcgi = FALSE;
-        g_clear_error (&error);
-    }
-
     /* host */
     char *host = seaf_key_file_get_string (key_file, "WEBDAV", "host", &error);
     if (error != NULL) {
         g_clear_error(&error);
-        ctl->seafdav_config.host = g_strdup(ctl->seafdav_config.fastcgi ? "localhost" : "0.0.0.0");
+        ctl->seafdav_config.host = g_strdup("0.0.0.0");
     } else {
         ctl->seafdav_config.host = host;
     }

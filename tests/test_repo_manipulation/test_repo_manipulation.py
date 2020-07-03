@@ -2,6 +2,14 @@ import pytest
 from tests.config import USER, USER2
 from seaserv import seafile_api as api
 
+def get_repo_list_order_by(t_start, t_limit, order_by):
+    t_repo_list = api.get_repo_list(t_start, t_limit, order_by)
+    assert t_repo_list and len(t_repo_list)
+    if order_by == "size":
+        assert t_repo_list[0].size >= t_repo_list[1].size
+    if order_by == "file_count":
+        assert t_repo_list[0].file_count >= t_repo_list[1].file_count
+
 def test_repo_manipulation():
 
     #test get_system_default_repo_id
@@ -66,14 +74,21 @@ def test_repo_manipulation():
     assert t_enc_repo_id == '826d1b7b-f110-46f2-8d5e-7b5ac3e11f4d'
 
     #test get_repo_list
-    t_start = -1;
-    t_limit = -1;
-    t_repo_list = api.get_repo_list(t_start, t_limit)
-    assert t_repo_list and len(t_repo_list)
+    #test order by None
+    order_by = None
+    get_repo_list_order_by(-1 ,-1, order_by)
+
+    #test order by size
+    order_by = "size"
+    get_repo_list_order_by(-1 ,-1, order_by)
+
+    #test order by file_count
+    order_by = "file_count"
+    get_repo_list_order_by(-1 ,-1, order_by)
 
     t_start = 1;
     t_limit = 1;
-    t_repo_list = api.get_repo_list(t_start, t_limit)
+    t_repo_list = api.get_repo_list(t_start, t_limit, None)
     assert t_repo_list and len(t_repo_list) == 1
 
     #test get_owned_repo_list
@@ -90,6 +105,14 @@ def test_repo_manipulation():
     t_limit = 1;
     t_commit_list = api.get_commit_list(t_repo_id, t_offset, t_limit)
     assert t_commit_list and len(t_commit_list) == 1
+
+    #test search_repos_by_name
+    t_repo_list = api.search_repos_by_name (t_repo.name)
+    assert len (t_repo_list) == 1 and t_repo_list[0].id == t_repo_id
+    t_repo_list = api.search_repos_by_name (t_repo.name.upper())
+    assert len (t_repo_list) == 1 and t_repo_list[0].id == t_repo_id
+    t_repo_list = api.search_repos_by_name (t_repo.name.lower())
+    assert len (t_repo_list) == 1 and t_repo_list[0].id == t_repo_id
 
     #test remove_repo
     api.remove_repo(t_repo_id)

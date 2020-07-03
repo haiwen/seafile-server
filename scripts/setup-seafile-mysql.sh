@@ -23,21 +23,23 @@ function check_python_executable() {
         return 0
     fi
 
-    if !(python --version 2>&1 | grep "3\.[0-9]\.[0-9]") 2>/dev/null 1>&2; then
+    if which python3 2>/dev/null 1>&2; then
+        PYTHON=python3
+    elif !(python --version 2>&1 | grep "3\.[0-9]\.[0-9]") 2>/dev/null 1>&2; then
         echo
         echo "The current version of python is not 3.x.x, please use Python 3.x.x ."
         echo
         err_and_quit
-    fi
-
-    PYTHON="python"$(python --version | cut -b 8-10)
-    if !which $PYTHON 2>/dev/null 1>&2; then
-        echo
-        echo "Can't find a python executable of $PYTHON in PATH"
-        echo "Install $PYTHON before continue."
-        echo "Or if you installed it in a non-standard PATH, set the PYTHON enviroment varirable to it"
-        echo
-        err_and_quit
+    else
+        PYTHON="python"$(python --version | cut -b 8-10)
+        if !which $PYTHON 2>/dev/null 1>&2; then
+            echo
+            echo "Can't find a python executable of $PYTHON in PATH"
+            echo "Install $PYTHON before continue."
+            echo "Or if you installed it in a non-standard PATH, set the PYTHON enviroment varirable to it"
+            echo
+            err_and_quit
+        fi
     fi
 }
 
@@ -50,5 +52,7 @@ function check_python () {
 check_python;
 
 export PYTHON=$PYTHON
+
+export PYTHONPATH=${INSTALLPATH}/seafile/lib/python3.6/site-packages:${INSTALLPATH}/seafile/lib64/python3.6/site-packages:${INSTALLPATH}/seahub/thirdpart:$PYTHONPATH
 
 exec $PYTHON "$python_script" "$@"

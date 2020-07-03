@@ -8,10 +8,14 @@ enum {
 };
 
 typedef struct SeafDB SeafDB;
+typedef struct SeafDB CcnetDB;
 typedef struct SeafDBRow SeafDBRow;
+typedef struct SeafDBRow CcnetDBRow;
 typedef struct SeafDBTrans SeafDBTrans;
+typedef struct SeafDBTrans CcnetDBTrans;
 
 typedef gboolean (*SeafDBRowFunc) (SeafDBRow *, void *);
+typedef gboolean (*CcnetDBRowFunc) (CcnetDBRow *, void *);
 
 SeafDB *
 seaf_db_new_mysql (const char *host,
@@ -94,6 +98,9 @@ int
 seaf_db_trans_foreach_selected_row (SeafDBTrans *trans, const char *sql,
                                     SeafDBRowFunc callback, void *data,
                                     int n, ...);
+
+int
+seaf_db_row_get_column_count (SeafDBRow *row);
 
 /* Prepared Statements */
 

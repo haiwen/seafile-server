@@ -32,7 +32,6 @@ enum {
 
 typedef struct SeafDavConfig {
     gboolean enabled;
-    gboolean fastcgi;
     int port;
     char *host;
 
@@ -42,11 +41,8 @@ struct _SeafileController {
     char *central_config_dir;
     char *config_dir;
     char *seafile_dir;
+    char *rpc_pipe_path;
     char *logdir;
-
-    CcnetClient         *client;
-    CcnetClient         *sync_client;
-    CcnetMqclientProc   *mqclient_proc;
 
     guint               check_process_timer;
     guint               client_io_id;

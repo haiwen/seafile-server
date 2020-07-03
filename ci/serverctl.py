@@ -46,20 +46,14 @@ class ServerCtl(object):
         if self.db == 'mysql':
             create_mysql_dbs()
 
+        os.mkdir (self.central_conf_dir, 0o755)
+        os.mkdir (self.seafile_conf_dir, 0o755)
+        os.mkdir (self.ccnet_conf_dir, 0o755)
+
         self.init_ccnet()
         self.init_seafile()
 
     def init_ccnet(self):
-        cmd = [
-            'ccnet-init',
-            '-F',
-            self.central_conf_dir,
-            '-c',
-            self.ccnet_conf_dir,
-            '--host',
-            'test.seafile.com',
-        ]
-        shell(cmd)
         if self.db == 'mysql':
             self.add_ccnet_db_conf()
         else:
@@ -91,17 +85,15 @@ CONNECTION_CHARSET = utf8
             fp.write(ccnet_db_conf)
 
     def init_seafile(self):
-        cmd = [
-            'seaf-server-init',
-            '--central-config-dir',
-            self.central_conf_dir,
-            '--seafile-dir',
-            self.seafile_conf_dir,
-            '--fileserver-port',
-            '8082',
-        ]
+        seafile_conf = join(self.central_conf_dir, 'seafile.conf')
+        seafile_fileserver_conf = '''\
+[fileserver]
+port=8082
+'''
+        with open(seafile_conf, 'a+') as fp:
+            fp.write('\n')
+            fp.write(seafile_fileserver_conf)
 
-        shell(cmd)
         if self.db == 'mysql':
             self.add_seafile_db_conf()
         else:
@@ -156,9 +148,6 @@ connection_charset = utf8
     def start(self):
         logger.info('Starting to create ccnet and seafile db tables')
         self.create_database_tables()
-        logger.info('Starting ccnet server')
-        self.start_ccnet()
-        self.wait_ccnet_ready()
         logger.info('Starting seafile server')
         self.start_seafile()
 
@@ -167,7 +156,7 @@ connection_charset = utf8
            ccnet_sql_path = join(self.sql_dir, 'mysql', 'ccnet.sql')
            seafile_sql_path = join(self.sql_dir, 'mysql', 'seafile.sql')
            sql = f'USE ccnet; source {ccnet_sql_path}; USE seafile; source {seafile_sql_path};'.encode()
-           shell('mysql -u root', inputdata=sql, wait=False)
+           shell('sudo mysql -u root -proot', inputdata=sql, wait=False)
         else:
            config_sql_path = join(self.sql_dir, 'sqlite', 'config.sql')
            groupmgr_sql_path = join(self.sql_dir, 'sqlite', 'groupmgr.sql')
@@ -231,10 +220,10 @@ connection_charset = utf8
     def stop(self):
         if self.ccnet_proc:
             logger.info('Stopping ccnet server')
-            self.ccnet_proc.terminate()
+            self.ccnet_proc.kill()
         if self.seafile_proc:
             logger.info('Stopping seafile server')
-            self.seafile_proc.terminate()
+            self.seafile_proc.kill()
 
     def get_seaserv_envs(self):
         envs = dict(os.environ)
@@ -257,4 +246,4 @@ GRANT ALL PRIVILEGES ON `ccnet`.* to `seafile`@localhost;
 GRANT ALL PRIVILEGES ON `seafile`.* to `seafile`@localhost;
     '''
 
-    shell('mysql -u root', inputdata=sql)
+    shell('sudo mysql -u root -proot', inputdata=sql)

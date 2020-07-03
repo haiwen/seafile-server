@@ -117,6 +117,9 @@ const char *POST_RECV_FS_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\
 const char *POST_PACK_FS_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/pack-fs";
 const char *GET_BLOCK_MAP_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/block-map/[\\da-z]{40}";
 
+//accessible repos
+const char *GET_ACCESSIBLE_REPO_LIST_REGEX = "/accessible-repos";
+
 static void
 load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
 {
@@ -2055,6 +2058,233 @@ out:
     g_strfreev (parts);
 }
 
+static json_t *
+fill_obj_from_seafilerepo (SeafileRepo *srepo, GHashTable *table)
+{
+    int version = 0;
+    char *repo_id = NULL;
+    char *commit_id = NULL;
+    char *repo_name = NULL;
+    char *permission = NULL;
+    char *owner = NULL;
+    gint64 last_modify = 0;
+    json_t *obj = NULL;
+
+    g_object_get (srepo, "version", &version,
+                         "id", &repo_id,
+                         "head_cmmt_id", &commit_id,
+                         "name", &repo_name,
+                         "last_modify", &last_modify,
+                         "permission", &permission,
+                         "user", &owner,
+                         NULL);
+
+    if (!repo_id)
+        goto out;
+    //the repo_id will be free when the table is destroyed.
+    if (g_hash_table_lookup (table, repo_id)) {
+        g_free (repo_id);
+        goto out;
+    }
+    g_hash_table_insert (table, repo_id, repo_id);
+    obj = json_object ();
+    json_object_set_new (obj, "version", json_integer (version));
+    json_object_set_new (obj, "id", json_string (repo_id));
+    json_object_set_new (obj, "head_commit_id", json_string (commit_id));
+    json_object_set_new (obj, "name", json_string (repo_name));
+    json_object_set_new (obj, "mtime", json_integer (last_modify));
+    json_object_set_new (obj, "permission", json_string (permission));
+    json_object_set_new (obj, "owner", json_string (owner));
+
+out:
+    g_free (commit_id);
+    g_free (repo_name);
+    g_free (permission);
+    g_free (owner);
+    return obj;
+}
+
+static GHashTable *
+filter_group_repos (GList *repos)
+{
+    if (!repos)
+        return NULL;
+
+    SeafileRepo *srepo = NULL;
+    SeafileRepo *srepo_tmp = NULL;
+    GList *iter;
+    GHashTable *table = NULL;
+    char *permission = NULL;
+    char *permission_prev = NULL;
+    char *repo_id = NULL;
+
+    table = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                   g_free,
+                                   NULL);
+
+    for (iter = repos; iter; iter = iter->next) {
+        srepo = iter->data;
+        g_object_get (srepo, "id", &repo_id,
+                             "permission", &permission,
+                             NULL);
+        srepo_tmp = g_hash_table_lookup (table, repo_id);
+        if (srepo_tmp) {
+            g_object_get (srepo, "permission", &permission_prev,
+                          NULL);
+            if (g_strcmp0 (permission, "rw") == 0 && g_strcmp0 (permission_prev, "r") == 0) {
+                g_object_unref (srepo_tmp);
+                g_hash_table_remove (table, repo_id);
+                g_hash_table_insert (table, g_strdup (repo_id), srepo);
+            } else {
+                g_object_unref (srepo);
+            }
+            g_free (permission_prev);
+        } else {
+            g_hash_table_insert (table, g_strdup (repo_id), srepo);
+        }
+    }
+
+    g_free (repo_id);
+    g_free (permission);
+    return table;
+}
+
+static void
+group_repos_to_json (json_t *repo_array, GHashTable *group_repos,
+                     GHashTable *obtained_repos)
+{
+    GHashTableIter iter;
+    gpointer key, value;
+    SeafileRepo *srepo = NULL;
+    json_t *obj;
+
+    g_hash_table_iter_init (&iter, group_repos);
+    while (g_hash_table_iter_next (&iter, &key, &value)) {
+        srepo = value;
+        obj = fill_obj_from_seafilerepo (srepo, obtained_repos);
+        if (!obj) {
+            g_object_unref (srepo);
+            continue;
+        }
+        json_object_set_new (obj, "type", json_string ("grepo"));
+
+        json_array_append_new (repo_array, obj);
+        g_object_unref (srepo);
+    }
+}
+
+static void
+get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
+{
+    GList *iter;
+    HttpServer *htp_server = (HttpServer *)arg;
+    SeafRepo *repo = NULL;
+    char *user = NULL;
+    GList *repos = NULL;
+    int org_id = -1;
+    const char *repo_id = evhtp_kv_find (req->uri->query, "repo_id");
+
+    if (!repo_id || !is_uuid_valid (repo_id)) {
+        evhtp_send_reply (req, EVHTP_RES_BADREQ);
+        seaf_warning ("Invalid repo id.\n");
+        return;
+    }
+
+    int token_status = validate_token (htp_server, req, repo_id, &user, FALSE);
+    if (token_status != EVHTP_RES_OK) {
+        evhtp_send_reply (req, token_status);
+        return;
+    }
+
+    json_t *obj;
+    json_t *repo_array = json_array ();
+
+    GHashTable *obtained_repos = NULL;
+    char *repo_id_tmp = NULL;
+    obtained_repos = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                            g_free,
+                                            NULL);
+    //get personal repo list
+    repos = seaf_repo_manager_get_repos_by_owner (seaf->repo_mgr, user, 0, -1, -1);
+    for (iter = repos; iter; iter = iter->next) {
+        repo = iter->data;
+
+        if (!repo->is_corrupted) {
+            if (!g_hash_table_lookup (obtained_repos, repo->id)) {
+                repo_id_tmp = g_strdup (repo->id);
+                g_hash_table_insert (obtained_repos, repo_id_tmp, repo_id_tmp);
+            }
+            obj = json_object ();
+            json_object_set_new (obj, "version", json_integer (repo->version));
+            json_object_set_new (obj, "id", json_string (repo->id));
+            json_object_set_new (obj, "head_commit_id", json_string (repo->head->commit_id));
+            json_object_set_new (obj, "name", json_string (repo->name));
+            json_object_set_new (obj, "mtime", json_integer (repo->last_modify));
+            json_object_set_new (obj, "permission", json_string ("rw"));
+            json_object_set_new (obj, "type", json_string ("repo"));
+            json_object_set_new (obj, "owner", json_string (user));
+
+            json_array_append_new (repo_array, obj);
+        }
+        seaf_repo_unref (repo);
+    }
+    g_list_free (repos);
+
+    GError *error = NULL;
+    SeafileRepo *srepo = NULL;
+    //get shared repo list
+    repos = seaf_share_manager_list_share_repos (seaf->share_mgr, user, "to_email", -1, -1);
+    for (iter = repos; iter; iter = iter->next) {
+        srepo = iter->data;
+        obj = fill_obj_from_seafilerepo (srepo, obtained_repos);
+        if (!obj) {
+            g_object_unref (srepo);
+            continue;
+        }
+        json_object_set_new (obj, "type", json_string ("srepo"));
+
+        json_array_append_new (repo_array, obj);
+        g_object_unref (srepo);
+    }
+    g_list_free (repos);
+
+    //get group repo list
+    GHashTable *group_repos = NULL;
+    repos = seaf_get_group_repos_by_user (seaf->repo_mgr, user, org_id, &error);
+    if (repos) {
+        group_repos = filter_group_repos (repos);
+        group_repos_to_json (repo_array, group_repos, obtained_repos);
+        g_hash_table_destroy (group_repos);
+        g_list_free (repos);
+    }
+
+    //get inner public repo list
+    repos = seaf_repo_manager_list_inner_pub_repos (seaf->repo_mgr);
+    for (iter = repos; iter; iter = iter->next) {
+        srepo = iter->data;
+        obj = fill_obj_from_seafilerepo (srepo, obtained_repos);
+        if (!obj) {
+            g_object_unref (srepo);
+            continue;
+        }
+        json_object_set_new (obj, "type", json_string ("grepo"));
+        json_object_set (obj, "owner", json_string ("Organization"));
+
+        json_array_append_new (repo_array, obj);
+        g_object_unref (srepo);
+    }
+    g_list_free (repos);
+
+    g_hash_table_destroy (obtained_repos);
+
+    char *json_str = json_dumps (repo_array, JSON_COMPACT);
+    evbuffer_add (req->buffer_out, json_str, strlen(json_str));
+    evhtp_send_reply (req, EVHTP_RES_OK);
+
+    g_free (json_str);
+    json_decref (repo_array);
+}
+
 static void
 http_request_init (HttpServerStruct *server)
 {
@@ -2110,6 +2340,10 @@ http_request_init (HttpServerStruct *server)
 
     evhtp_set_regex_cb (priv->evhtp,
                         GET_BLOCK_MAP_REGEX, get_block_map_cb,
+                        priv);
+
+    evhtp_set_regex_cb (priv->evhtp,
+                        GET_ACCESSIBLE_REPO_LIST_REGEX, get_accessible_repo_list_cb,
                         priv);
 
     /* Web access file */

@@ -112,3 +112,14 @@ CREATE TABLE IF NOT EXISTS `social_auth_usersocialauth` (
 ALTER TABLE `base_filecomment` ADD `detail` LONGTEXT DEFAULT NULL;
 ALTER TABLE `base_filecomment` ADD `resolved` TINYINT(1) NOT NULL DEFAULT 0;
 ALTER TABLE `base_filecomment` ADD INDEX `resolved` (`resolved`);
+
+
+
+CREATE TABLE IF NOT EXISTS `base_reposecretkey` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `repo_id` varchar(36) NOT NULL,
+  `secret_key` varchar(44) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `repo_id` (`repo_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+

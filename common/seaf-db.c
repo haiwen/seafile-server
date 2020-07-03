@@ -325,8 +325,10 @@ seaf_db_statement_exists (SeafDB *db, const char *sql, gboolean *db_err, int n, 
     DBConnection *conn = NULL;
 
     conn = db_ops.get_connection(db);
-    if (!conn)
+    if (!conn) {
+        *db_err = TRUE;
         return FALSE;
+    }
 
     va_list args;
     va_start (args, n);
@@ -569,6 +571,12 @@ seaf_db_trans_foreach_selected_row (SeafDBTrans *trans, const char *sql,
     va_end (args);
 
     return ret;
+}
+
+int
+seaf_db_row_get_column_count (SeafDBRow *row)
+{
+    return db_ops.row_get_column_count(row);
 }
 
 #ifdef HAVE_MYSQL

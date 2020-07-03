@@ -34,3 +34,7 @@ CREATE INDEX IF NOT EXISTS "related_files_relatedfiles_r_uuid_id_031751df" ON "r
 ALTER TABLE "base_filecomment" ADD COLUMN "detail" text DEFAULT NULL;
 ALTER TABLE "base_filecomment" ADD COLUMN "resolved" bool NOT NULL DEFAULT 0;
 CREATE INDEX IF NOT EXISTS "base_filecomment_resolved_e0717eca" ON "base_filecomment" ("resolved");
+
+
+CREATE TABLE IF NOT EXISTS "base_reposecretkey" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "repo_id" varchar(36) NOT NULL UNIQUE, "secret_key" varchar(44) NOT NULL);
+

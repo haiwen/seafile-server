@@ -6,6 +6,7 @@ SCRIPT=$(readlink -f "$0")
 INSTALLPATH=$(dirname "${SCRIPT}")
 TOPDIR=$(dirname "${INSTALLPATH}")
 default_ccnet_conf_dir=${TOPDIR}/ccnet
+default_seafile_data_dir=${TOPDIR}/seafile-data
 default_conf_dir=${TOPDIR}/conf
 seaf_gc=${INSTALLPATH}/seafile/bin/seafserv-gc
 seaf_gc_opts=""
@@ -30,16 +31,10 @@ function validate_ccnet_conf_dir () {
     fi
 }
 
-function read_seafile_data_dir () {
-    seafile_ini=${default_ccnet_conf_dir}/seafile.ini
-    if [[ ! -f ${seafile_ini} ]]; then
-        echo "${seafile_ini} not found. Now quit"
-        exit 1
-    fi
-    seafile_data_dir=$(cat "${seafile_ini}")
-    if [[ ! -d ${seafile_data_dir} ]]; then
-        echo "Your seafile server data directory \"${seafile_data_dir}\" is invalid or doesn't exits."
-        echo "Please check it first, or create this directory yourself."
+function validate_seafile_data_dir () {
+    if [[ ! -d ${default_seafile_data_dir} ]]; then
+        echo "Error: there is no seafile server data directory."
+        echo "Have you run setup-seafile.sh before this?"
         echo ""
         exit 1;
     fi
@@ -69,19 +64,19 @@ function validate_already_running () {
     check_component_running "ccnet-server" "ccnet-server -c ${default_ccnet_conf_dir}"
     check_component_running "seaf-server" "seaf-server -c ${default_ccnet_conf_dir}"
     check_component_running "fileserver" "fileserver -c ${default_ccnet_conf_dir}"
-    check_component_running "seafdav" "wsgidav.server.run_server"
+    check_component_running "seafdav" "wsgidav.server.server_cli"
 }
 
 function run_seaf_gc () {
     validate_already_running;
     validate_ccnet_conf_dir;
-    read_seafile_data_dir;
+    validate_seafile_data_dir;
 
     echo "Starting seafserv-gc, please wait ..."
 
     LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH ${seaf_gc} \
         -c "${default_ccnet_conf_dir}" \
-        -d "${seafile_data_dir}" \
+        -d "${default_seafile_data_dir}" \
         -F "${default_conf_dir}" \
         ${seaf_gc_opts}
 

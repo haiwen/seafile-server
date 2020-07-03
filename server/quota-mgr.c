@@ -5,9 +5,6 @@
 #include "log.h"
 #include "utils.h"
 
-#include <ccnet.h>
-#include <ccnet/ccnet-object.h>
-
 #include "seafile-session.h"
 #include "seaf-db.h"
 #include "quota-mgr.h"
@@ -355,7 +352,6 @@ get_num_shared_to (const char *user, const char *repo_id)
     GHashTable *user_hash;
     int dummy;
     GList *personal = NULL, *groups = NULL, *members = NULL, *p;
-    SearpcClient *client = NULL;
     gint n_shared_to = -1;
 
     /* seaf_debug ("Computing share usage for repo %s.\n", repo_id); */
@@ -376,16 +372,10 @@ get_num_shared_to (const char *user, const char *repo_id)
     }
 
     /* Then groups... */
-    client = create_ccnet_rpc_client ();
-    if (!client) {
-        seaf_warning ("Failed to alloc ccnet rpc client.\n");
-        goto out;
-    }
-
     groups = seaf_repo_manager_get_groups_by_repo (seaf->repo_mgr,
                                                    repo_id, NULL);
     for (p = groups; p; p = p->next) {
-        members = ccnet_get_group_members (client, (int)(long)p->data);
+        members = ccnet_group_manager_get_group_members (seaf->group_mgr, (int)(long)p->data, NULL);
         if (!members) {
             seaf_warning ("Cannot get member list for groupd %d.\n", (int)(long)p->data);
             goto out;
@@ -404,7 +394,6 @@ out:
     g_hash_table_destroy (user_hash);
     string_list_free (personal);
     g_list_free (groups);
-    release_ccnet_rpc_client (client);
 
     return n_shared_to;
 }
@@ -427,6 +416,8 @@ seaf_quota_manager_check_quota_with_delta (SeafQuotaManager *mgr,
 
     user = seaf_repo_manager_get_repo_owner (seaf->repo_mgr, r_repo_id);
     if (user != NULL) {
+        if (g_strrstr (user, "dtable@seafile") != NULL)
+            goto out;
         quota = seaf_quota_manager_get_user_quota (mgr, user);
     } else {
         seaf_warning ("Repo %s has no owner.\n", r_repo_id);
@@ -562,4 +553,52 @@ seaf_quota_manager_get_org_user_usage (SeafQuotaManager *mgr,
 
     return seaf_db_statement_get_int64 (mgr->session->db, sql,
                                         2, "int", org_id, "string", user);
+}
+
+static gboolean
+collect_user_and_usage (SeafDBRow *row, void *data)
+{
+    GList **p = data;
+    const char *user;
+    gint64 usage;
+
+    user = seaf_db_row_get_column_text (row, 0);
+    usage = seaf_db_row_get_column_int64 (row, 1);
+
+    if (!user)
+        return TRUE;
+
+    SeafileUserQuotaUsage *user_usage= g_object_new (SEAFILE_TYPE_USER_QUOTA_USAGE,
+                                                     "user", user,
+                                                     "usage", usage,
+                                                     NULL);
+    if (!user_usage)
+        return FALSE;
+
+    *p = g_list_prepend (*p, user_usage);
+
+    return TRUE;
+}
+
+GList *
+seaf_repo_quota_manager_list_user_quota_usage (SeafQuotaManager *mgr)
+{
+    GList *ret = NULL;
+    char *sql = NULL;
+
+    sql = "SELECT owner_id,SUM(size) FROM "
+          "RepoOwner o LEFT JOIN VirtualRepo v ON o.repo_id=v.repo_id, "
+          "RepoSize WHERE "
+          "o.repo_id=RepoSize.repo_id "
+          "AND v.repo_id IS NULL "
+          "GROUP BY owner_id";
+
+    if (seaf_db_statement_foreach_row (mgr->session->db, sql,
+                                       collect_user_and_usage,
+                                       &ret, 0) < 0) {
+        g_list_free_full (ret, g_object_unref);
+        return NULL;
+    }
+
+    return g_list_reverse (ret);
 }

@@ -176,6 +176,9 @@ seaf_block_manager_copy_block (SeafBlockManager *mgr,
 {
     if (strcmp (block_id, EMPTY_SHA1) == 0)
         return 0;
+    if (seaf_block_manager_block_exists (mgr, dst_store_id, dst_version, block_id)) {
+        return 0;
+    }
 
     return mgr->backend->copy (mgr->backend,
                                src_store_id,

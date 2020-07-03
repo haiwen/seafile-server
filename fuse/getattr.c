@@ -6,8 +6,6 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ccnet.h>
-#include <ccnet/ccnet-object.h>
 #include <seaf-db.h>
 
 #include "log.h"
@@ -35,18 +33,10 @@ static int getattr_root(SeafileSession *seaf, struct stat *stbuf)
 
 static int getattr_user(SeafileSession *seaf, const char *user, struct stat *stbuf)
 {
-    SearpcClient *client;
     CcnetEmailUser *emailuser;
 
-    client = create_ccnet_rpc_client ();
-    if (!client) {
-        seaf_warning ("Failed to alloc ccnet rpc client.\n");
-        return -ENOMEM;
-    }
-
-    emailuser = get_user_from_ccnet (client, user);
+    emailuser = ccnet_user_manager_get_emailuser (seaf->user_mgr, user);
     if (!emailuser) {
-        release_ccnet_rpc_client (client);
         return -ENOENT;
     }
     g_object_unref (emailuser);
@@ -54,7 +44,6 @@ static int getattr_user(SeafileSession *seaf, const char *user, struct stat *stb
     stbuf->st_mode = S_IFDIR | 0755;
     stbuf->st_nlink = 2;
     stbuf->st_size = 4096;
-    release_ccnet_rpc_client (client);
 
     return 0;
 }

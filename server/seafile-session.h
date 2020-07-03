@@ -3,9 +3,7 @@
 #ifndef SEAFILE_SESSION_H
 #define SEAFILE_SESSION_H
 
-#include <ccnet.h>
-#include <ccnet/cevent.h>
-#include <ccnet/job-mgr.h>
+#include <job-mgr.h>
 
 #include "block-mgr.h"
 #include "fs-mgr.h"
@@ -15,6 +13,9 @@
 #include "db.h"
 #include "seaf-db.h"
 #include "mq-mgr.h"
+#include "user-mgr.h"
+#include "group-mgr.h"
+#include "org-mgr.h"
 
 #include "share-mgr.h"
 #include "web-accesstoken-mgr.h"
@@ -42,7 +43,9 @@ struct _SeafileSession {
     char                *tmp_file_dir;
     /* Config that's only loaded on start */
     GKeyFile            *config;
+    GKeyFile            *ccnet_config;
     SeafDB              *db;
+    CcnetDB             *ccnet_db;
 
     SeafBlockManager    *block_mgr;
     SeafFSManager       *fs_mgr;
@@ -54,6 +57,9 @@ struct _SeafileSession {
     SeafQuotaManager    *quota_mgr;
     SeafCopyManager     *copy_mgr;
     SeafCfgManager      *cfg_mgr;
+    CcnetUserManager    *user_mgr;
+    CcnetGroupManager   *group_mgr;
+    CcnetOrgManager     *org_mgr;
     
     SeafWebAccessTokenManager	*web_at_mgr;
 
@@ -69,6 +75,7 @@ struct _SeafileSession {
     IndexBlksMgr        *index_blocks_mgr;
 
     gboolean create_tables;
+    gboolean ccnet_create_tables;
 };
 
 extern SeafileSession *seaf;

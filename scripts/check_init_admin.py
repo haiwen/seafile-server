@@ -22,7 +22,7 @@ except ImportError:
     pass
 
 
-SERVER_MANUAL_HTTP = 'https://github.com/haiwen/seafile/wiki'
+SERVER_MANUAL_HTTP = 'https://download.seafile.com/published/seafile-manual/home.md'
 
 class Utils(object):
     '''Groups all helper functions here'''

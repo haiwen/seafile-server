@@ -10,9 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <ccnet.h>
-#include <searpc-named-pipe-transport.h>
-
 char *
 seafile_session_get_tmp_file_path (SeafileSession *session,
                                    const char *basename,
@@ -28,9 +25,10 @@ seafile_session_get_tmp_file_path (SeafileSession *session,
     return path;
 }
 
-#define SQLITE_DB_NAME "seafile.db"
-
 #define DEFAULT_MAX_CONNECTIONS 100
+
+#define SQLITE_DB_NAME "seafile.db"
+#define CCNET_DB "ccnet.db"
 
 static int
 sqlite_db_start (SeafileSession *session)
@@ -228,32 +226,125 @@ load_database_config (SeafileSession *session)
     return ret;
 }
 
-SearpcClient *
-create_ccnet_rpc_client ()
+static int
+ccnet_init_sqlite_database (SeafileSession *session)
 {
-    SearpcNamedPipeClient *transport = NULL;
-    char *pipe_path = NULL;
+    char *db_path;
 
-    pipe_path = g_build_path ("/", seaf->ccnet_dir, CCNET_RPC_PIPE_NAME, NULL);
-    transport = searpc_create_named_pipe_client(pipe_path);
-    g_free(pipe_path);
-    if (!transport)
-        return NULL;
-
-    if (searpc_named_pipe_client_connect(transport) < 0) {
-        seaf_warning ("Named pipe client failed to connect.\n");
-        g_free (transport);
-        return NULL;
+    db_path = g_build_path ("/", session->ccnet_dir, CCNET_DB, NULL);
+    session->ccnet_db = seaf_db_new_sqlite (db_path, DEFAULT_MAX_CONNECTIONS);
+    if (!session->ccnet_db) {
+        seaf_warning ("Failed to open ccnet database.\n");
+        return -1;
     }
-
-    return searpc_client_with_named_pipe_transport (transport, "ccnet-threaded-rpcserver");
+    return 0;
 }
 
-void
-release_ccnet_rpc_client (SearpcClient *client)
-{
-    if (!client)
-        return;
+#ifdef HAVE_MYSQL
 
-    searpc_free_client_with_pipe_transport (client);
+static int
+ccnet_init_mysql_database (SeafileSession *session)
+{
+    char *host, *user, *passwd, *db, *unix_socket, *charset;
+    int port;
+    gboolean use_ssl = FALSE;
+    int max_connections = 0;
+
+    host = ccnet_key_file_get_string (session->ccnet_config, "Database", "HOST");
+    user = ccnet_key_file_get_string (session->ccnet_config, "Database", "USER");
+    passwd = ccnet_key_file_get_string (session->ccnet_config, "Database", "PASSWD");
+    db = ccnet_key_file_get_string (session->ccnet_config, "Database", "DB");
+
+    if (!host) {
+        seaf_warning ("DB host not set in config.\n");
+        return -1;
+    }
+    if (!user) {
+        seaf_warning ("DB user not set in config.\n");
+        return -1;
+    }
+    if (!passwd) {
+        seaf_warning ("DB passwd not set in config.\n");
+        return -1;
+    }
+    if (!db) {
+        seaf_warning ("DB name not set in config.\n");
+        return -1;
+    }
+
+    GError *error = NULL;
+    port = g_key_file_get_integer (session->ccnet_config, "Database", "PORT", &error);
+    if (error) {
+        g_clear_error (&error);
+        port = MYSQL_DEFAULT_PORT;
+    }
+
+    unix_socket = ccnet_key_file_get_string (session->ccnet_config,
+                                             "Database", "UNIX_SOCKET");
+    use_ssl = g_key_file_get_boolean (session->ccnet_config, "Database", "USE_SSL", NULL);
+
+    charset = ccnet_key_file_get_string (session->ccnet_config,
+                                         "Database", "CONNECTION_CHARSET");
+
+    max_connections = g_key_file_get_integer (session->ccnet_config,
+                                              "Database", "MAX_CONNECTIONS",
+                                              &error);
+    if (error || max_connections < 0) {
+        max_connections = DEFAULT_MAX_CONNECTIONS;
+        g_clear_error (&error);
+    }
+
+    session->ccnet_db = seaf_db_new_mysql (host, port, user, passwd, db, unix_socket, use_ssl, charset, max_connections);
+    if (!session->ccnet_db) {
+        seaf_warning ("Failed to open ccnet database.\n");
+        return -1;
+    }
+
+    g_free (host);
+    g_free (user);
+    g_free (passwd);
+    g_free (db);
+    g_free (unix_socket);
+    g_free (charset);
+
+    return 0;
+}
+
+#endif
+
+int
+load_ccnet_database_config (SeafileSession *session)
+{
+    int ret;
+    char *engine;
+    gboolean create_tables = FALSE;
+
+    engine = ccnet_key_file_get_string (session->ccnet_config, "Database", "ENGINE");
+    if (!engine || strcasecmp (engine, "sqlite") == 0) {
+        seaf_message ("Use database sqlite\n");
+        ret = ccnet_init_sqlite_database (session);
+    }
+#ifdef HAVE_MYSQL
+    else if (strcasecmp (engine, "mysql") == 0) {
+        seaf_message("Use database Mysql\n");
+        ret = ccnet_init_mysql_database (session);
+    }
+#endif
+#if 0
+    else if (strncasecmp (engine, DB_PGSQL, sizeof(DB_PGSQL)) == 0) {
+        ccnet_debug ("Use database PostgreSQL\n");
+        ret = init_pgsql_database (session);
+    }
+#endif
+    else {
+        seaf_warning ("Unknown database type: %s.\n", engine);
+        ret = -1;
+    }
+    if (ret == 0) {
+        if (g_key_file_has_key (session->ccnet_config, "Database", "CREATE_TABLES", NULL))
+            create_tables = g_key_file_get_boolean (session->ccnet_config, "Database", "CREATE_TABLES", NULL);
+        session->ccnet_create_tables = create_tables;
+    }
+
+    return ret;
 }

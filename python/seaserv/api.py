@@ -101,11 +101,11 @@ class SeafileAPI(object):
     def remove_repo(self, repo_id):
         return seafserv_threaded_rpc.remove_repo(repo_id)
 
-    def get_repo_list(self, start, limit):
+    def get_repo_list(self, start, limit, order_by=None):
         """
         Return: a list of Repo objects (lib/repo.vala)
         """
-        return seafserv_threaded_rpc.get_repo_list(start, limit)
+        return seafserv_threaded_rpc.get_repo_list(start, limit, order_by)
 
     def count_repos(self):
         return seafserv_threaded_rpc.count_repos()
@@ -135,6 +135,9 @@ class SeafileAPI(object):
         return seafserv_threaded_rpc.list_owned_repos(username,
                                                       1 if ret_corrupted else 0,
                                                       start, limit)
+
+    def search_repos_by_name(self, name):
+        return seafserv_threaded_rpc.search_repos_by_name(name)
 
     def get_orphan_repo_list(self):
         return seafserv_threaded_rpc.get_orphan_repo_list()
@@ -723,6 +726,9 @@ class SeafileAPI(object):
     def check_quota(self, repo_id, delta=0):
         return seafserv_threaded_rpc.check_quota(repo_id, delta)
 
+    def list_user_quota_usage(self):
+        return seafserv_threaded_rpc.list_user_quota_usage()
+
     # virtual repo
     def create_virtual_repo(self, origin_repo_id, path, repo_name, repo_desc, owner, passwd=''):
         return seafserv_threaded_rpc.create_virtual_repo(origin_repo_id,
@@ -976,6 +982,9 @@ class CcnetAPI(object):
         @user_list: json '[user1, user2, user3,...]'
         """
         return ccnet_threaded_rpc.get_emailusers_in_list(source, user_list)
+
+    def update_emailuser_id (self, old_email, new_email):
+        return ccnet_threaded_rpc.update_emailuser_id (old_email, new_email)
 
     # group management
     def create_group(self, group_name, user_name, gtype=None, parent_group_id=0):

@@ -78,6 +78,9 @@ if test "$bwin32" != true; then
       [compile_fuse=$enableval],[compile_fuse="yes"])
 fi
 
+AC_ARG_ENABLE(ldap, AC_HELP_STRING([--enable-ldap], [enable LDAP]),
+   [compile_ldap=$enableval],[compile_ldap="no"])
+
 AC_ARG_ENABLE(python,
               AC_HELP_STRING([--enable-python],[build seafile python binding]),
               [compile_python=$enableval],
@@ -191,7 +194,6 @@ AC_SUBST(LIB_ICONV)
 
 LIBEVENT_REQUIRED=2.0
 GLIB_REQUIRED=2.16.0
-CCNET_REQUIRED=0.9.3
 SEARPC_REQUIRED=1.0
 JANSSON_REQUIRED=2.2.1
 ZDB_REQUIRED=2.10
@@ -211,10 +213,6 @@ AC_SUBST(GLIB2_LIBS)
 PKG_CHECK_MODULES(GOBJECT, [gobject-2.0 >= $GLIB_REQUIRED])
 AC_SUBST(GOBJECT_CFLAGS)
 AC_SUBST(GOBJECT_LIBS)
-
-PKG_CHECK_MODULES(CCNET, [libccnet >= $CCNET_REQUIRED])
-AC_SUBST(CCNET_CFLAGS)
-AC_SUBST(CCNET_LIBS)
 
 PKG_CHECK_MODULES(SEARPC, [libsearpc >= $SEARPC_REQUIRED])
 AC_SUBST(SEARPC_CFLAGS)
@@ -264,6 +262,24 @@ else
     AC_SUBST(PGSQL_CFLAGS)
     AC_SUBST(PGSQL_LIBS)
     AC_DEFINE([HAVE_POSTGRESQL], 1, [Define to 1 if PostgreSQL support is enabled])
+fi
+
+if test "${compile_ldap}" = "yes"; then
+   if test "$bwin32" != true; then
+      AC_CHECK_LIB(ldap, ldap_init, [have_ldap="yes"],
+         AC_MSG_ERROR([*** Unable to find ldap client library]), )
+
+      if test "${have_ldap}" = "yes"; then
+         echo "found ldap client library"
+         AC_DEFINE([HAVE_LDAP], [1], [Define if ldap library exists.])
+         AC_SUBST(LDAP_LIBS, "-lldap -llber")
+      fi
+   else
+      AC_DEFINE([HAVE_LDAP], [1], [Define if ldap library exists.])
+      AC_SUBST(LDAP_LIBS, "-lWldap32")
+   fi
+ 
+ 
 fi
 
 if test x${compile_python} = xyes; then

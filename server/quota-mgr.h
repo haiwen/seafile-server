@@ -50,4 +50,7 @@ seaf_quota_manager_check_quota_with_delta (SeafQuotaManager *mgr,
 gint64
 seaf_quota_manager_get_user_usage (SeafQuotaManager *mgr, const char *user);
 
+GList *
+seaf_repo_quota_manager_list_user_quota_usage (SeafQuotaManager *mgr);
+
 #endif

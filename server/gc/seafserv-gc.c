@@ -3,8 +3,6 @@
 
 #include <getopt.h>
 
-#include <ccnet.h>
-
 #include "seafile-session.h"
 #include "gc-core.h"
 #include "verify.h"

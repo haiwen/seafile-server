@@ -7,8 +7,7 @@
 #include <openssl/sha.h>
 #include <openssl/rand.h>
 
-#include <ccnet.h>
-#include <ccnet/ccnet-object.h>
+#include <timer.h>
 #include "utils.h"
 #include "log.h"
 
@@ -2216,6 +2215,10 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
     }
 
     repo->size = size;
+    if (seaf_db_row_get_column_count (row) == 10) {
+        gint64 file_count = seaf_db_row_get_column_int64 (row, 9);
+        repo->file_count = file_count;
+    }
     head = seaf_branch_new ("master", repo_id, commit_id);
     repo->head = head;
     if (repo_name) {
@@ -2338,6 +2341,61 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
 }
 
 GList *
+seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
+{
+    GList *repo_list = NULL;
+    char *sql = NULL;
+
+    char *db_patt = g_strdup_printf ("%%%s%%", name);
+
+    switch (seaf_db_type(seaf->db)) {
+    case SEAF_DB_TYPE_MYSQL:
+        sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+            "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+            "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+            "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+            "WHERE i.name COLLATE UTF8_GENERAL_CI LIKE ? AND "
+            "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+            "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+            "ORDER BY i.update_time DESC, i.repo_id";
+        break;
+    case SEAF_DB_TYPE_PGSQL:
+        sql = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
+            "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+            "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+            "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+            "WHERE i.name ILIKE ? AND "
+            "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+            "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+            "ORDER BY i.update_time DESC, i.repo_id";
+        break;
+    case SEAF_DB_TYPE_SQLITE:
+        sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+            "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+            "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+            "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+            "WHERE i.name LIKE ? COLLATE NOCASE AND "
+            "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+            "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+            "ORDER BY i.update_time DESC, i.repo_id";
+        break;
+    default:
+        g_free (db_patt);
+        return NULL;
+    }
+
+    if (seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                       collect_repos_fill_size_commit, &repo_list,
+                                       1, "string", db_patt) < 0) {
+        g_free (db_patt);
+        return NULL;
+    }
+
+    g_free (db_patt);
+    return repo_list;
+}
+
+GList *
 seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
 {
     GList *ret = NULL;
@@ -2352,74 +2410,98 @@ seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
     return ret;
 }
 
-typedef struct FileCount {
-    char *repo_id;
-    gint64 file_count;
-} FileCount;
-
-static void
-free_file_count (gpointer data)
-{
-    if (!data)
-        return;
-
-    FileCount *file_count = data;
-    g_free (file_count->repo_id);
-    g_free (file_count);
-}
-
-static gboolean
-get_file_count_cb (SeafDBRow *row, void *data)
-{
-    GList **file_counts = data;
-    const char *repo_id = seaf_db_row_get_column_text (row, 0);
-    gint64 fcount = seaf_db_row_get_column_int64 (row, 1);
-
-    FileCount *file_count = g_new0 (FileCount, 1);
-    file_count->repo_id = g_strdup (repo_id);
-    file_count->file_count = fcount;
-    *file_counts = g_list_prepend (*file_counts, file_count);
-
-    return TRUE;
-}
-
 GList *
-seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit)
+seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, const char *order_by)
 {
-    GList *file_counts = NULL, *ptr;
     GList *ret = NULL;
-    SeafRepo *repo;
-    FileCount *file_count;
+    char *sql_base = NULL;
+    char sql[512];
     int rc;
 
-    if (start == -1 && limit == -1)
-        rc = seaf_db_statement_foreach_row (mgr->seaf->db,
-                                            "SELECT r.repo_id, c.file_count FROM Repo r LEFT JOIN RepoFileCount c "
-                                            "ON r.repo_id = c.repo_id",
-                                            get_file_count_cb, &file_counts,
+    if (start == -1 && limit == -1) {
+        switch (seaf_db_type(mgr->seaf->db)) {
+        case SEAF_DB_TYPE_MYSQL:
+            sql_base = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, f.file_count FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
+            if (g_strcmp0 (order_by, "size") == 0)
+                snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id", sql_base);
+            else if (g_strcmp0 (order_by, "file_count") == 0)
+                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count DESC, i.repo_id", sql_base);
+            else
+                snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id", sql_base);
+            break;
+        case SEAF_DB_TYPE_SQLITE:
+            sql_base= "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, f.file_count FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
+            if (g_strcmp0 (order_by, "size") == 0)
+                snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id", sql_base);
+            else if (g_strcmp0 (order_by, "file_count") == 0)
+                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count DESC, i.repo_id", sql_base);
+            else
+                snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id", sql_base);
+            break;
+        default:
+            return NULL;
+        }
+
+        rc = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                            collect_repos_fill_size_commit, &ret,
                                             0);
-    else
-        rc = seaf_db_statement_foreach_row (mgr->seaf->db,
-                                            "SELECT r.repo_id, c.file_count FROM Repo r LEFT JOIN RepoFileCount c "
-                                            "ON r.repo_id = c.repo_id ORDER BY r.repo_id LIMIT ? OFFSET ?",
-                                            get_file_count_cb, &file_counts,
+    } else {
+        switch (seaf_db_type(mgr->seaf->db)) {
+        case SEAF_DB_TYPE_MYSQL:
+            sql_base = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, f.file_count FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
+            if (g_strcmp0 (order_by, "size") == 0)
+                snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
+            else if (g_strcmp0 (order_by, "file_count") == 0)
+                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
+            else
+                snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
+            break;
+        case SEAF_DB_TYPE_SQLITE:
+            sql_base = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, f.file_count FROM "
+                "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
+                "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
+                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
+                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
+            if (g_strcmp0 (order_by, "size") == 0)
+                snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
+            else if (g_strcmp0 (order_by, "file_count") == 0)
+                snprintf (sql, sizeof(sql), "%sORDER BY f.file_count DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
+            else
+                snprintf (sql, sizeof(sql), "%sORDER BY i.update_time DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
+            break;
+        default:
+            return NULL;
+        }
+
+        rc = seaf_db_statement_foreach_row (mgr->seaf->db, sql,
+                                            collect_repos_fill_size_commit, &ret,
                                             2, "int", limit, "int", start);
+    }
 
     if (rc < 0)
         return NULL;
 
-    for (ptr = file_counts; ptr; ptr = ptr->next) {
-        file_count = ptr->data;
-        repo = seaf_repo_manager_get_repo_ex (mgr, file_count->repo_id);
-        if (repo != NULL) {
-            repo->file_count = file_count->file_count;
-            ret = g_list_prepend (ret, repo);
-        }
-    }
-
-    g_list_free_full (file_counts, free_file_count);
-
-    return ret;
+    return g_list_reverse (ret);
 }
 
 gint64
@@ -2474,7 +2556,7 @@ collect_trash_repo (SeafDBRow *row, void *data)
 
 
     if (!repo_id || !repo_name || !head_id || !owner_id)
-        return FALSE;
+        return TRUE;
 
     SeafileTrashRepo *trash_repo = g_object_new (SEAFILE_TYPE_TRASH_REPO,
                                                  "repo_id", repo_id,
@@ -2492,7 +2574,7 @@ collect_trash_repo (SeafDBRow *row, void *data)
     if (!commit) {
         seaf_warning ("Commit %s not found in repo %s\n", head_id, repo_id);
         g_object_unref (trash_repo);
-        return FALSE;
+        return TRUE;
     }
     g_object_set (trash_repo, "encrypted", commit->encrypted, NULL);
     seaf_commit_unref (commit);
@@ -4297,21 +4379,15 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
     GList *groups = NULL, *p, *q;
     GList *repos = NULL;
     SeafileRepo *repo = NULL;
-    SearpcClient *rpc_client = NULL;
     GString *sql = NULL;
     int group_id = 0;
 
-    rpc_client = create_ccnet_rpc_client ();
-    if (!rpc_client)
-        return NULL;
-
     /* Get the groups this user belongs to. */
-    groups = ccnet_get_groups_by_user (rpc_client, user, 1);
+    groups = ccnet_group_manager_get_groups_by_user (seaf->group_mgr, user,
+                                                     1, NULL);
     if (!groups) {
-        release_ccnet_rpc_client (rpc_client);
         goto out;
     }
-    release_ccnet_rpc_client (rpc_client);
 
     sql = g_string_new ("");
     g_string_printf (sql, "SELECT g.repo_id, v.repo_id, "
@@ -4477,7 +4553,6 @@ seaf_repo_manager_convert_repo_path (SeafRepoManager *mgr,
     int rc;
     int group_id;
     GString *sql;
-    SearpcClient *rpc_client = NULL;
     CcnetGroup *group;
     GList *groups = NULL, *p1;
     GList *repo_paths = NULL;
@@ -4514,15 +4589,11 @@ seaf_repo_manager_convert_repo_path (SeafRepoManager *mgr,
 
     /* Get the groups this user belongs to. */
 
-    rpc_client = create_ccnet_rpc_client ();
-    if (!rpc_client)
-        goto out;
-    groups = ccnet_get_groups_by_user (rpc_client, user, 1);
+    groups = ccnet_group_manager_get_groups_by_user (seaf->group_mgr, user,
+                                                     1, NULL);
     if (!groups) {
-        release_ccnet_rpc_client (rpc_client);
         goto out;
     }
-    release_ccnet_rpc_client (rpc_client);
 
     g_string_printf (sql, "SELECT v.repo_id, path, r.group_id FROM VirtualRepo v, %s r WHERE "
                      "v.origin_repo=? AND v.repo_id=r.repo_id AND r.group_id IN(",

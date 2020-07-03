@@ -79,4 +79,4 @@ for line in fileinput.input():
 
     line = line.replace('"', '`')
     line = line.replace('AUTOINCREMENT', 'AUTO_INCREMENT')
-    print(line, end=' ')
+    print(line)

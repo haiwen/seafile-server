@@ -3,6 +3,7 @@
 
 /* Seafile specific http status codes. */
 
+#define SEAF_HTTP_RES_FORBIDDEN 403
 #define SEAF_HTTP_RES_BADFILENAME 440
 #define SEAF_HTTP_RES_EXISTS 441
 #define SEAF_HTTP_RES_NOT_EXISTS 441

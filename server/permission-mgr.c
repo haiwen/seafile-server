@@ -2,8 +2,6 @@
 
 #include "common.h"
 
-#include <ccnet.h>
-
 #include "db.h"
 #include "seafile-session.h"
 #include "permission-mgr.h"
