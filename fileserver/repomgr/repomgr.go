@@ -50,3 +50,18 @@ func Init(seafDB *sql.DB) {
 func Get(id string) *Repo {
 	return nil
 }
+
+// GetVirtualRepoInfo return virtual repo info by repo id.
+func GetVirtualRepoInfo(repoID string) (*VRepoInfo, error) {
+	sqlStr := "SELECT origin_repo, path, base_commit FROM VirtualRepo WHERE repo_id = ?"
+	vRepoInfo := new(VRepoInfo)
+
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&vRepoInfo.OriginRepoID, &vRepoInfo.Path,
+		&vRepoInfo.BaseCommitID); err != nil {
+		if err != sql.ErrNoRows {
+			return nil, err
+		}
+	}
+	return vRepoInfo, nil
+}
