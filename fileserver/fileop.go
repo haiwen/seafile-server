@@ -226,7 +226,7 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 			decoded, err := decrypt(buf.Bytes(), encKey, encIv)
 			if err != nil {
 				err := fmt.Errorf("failed to decrypt block %s: %v.\n", blkID, err)
-				return &appError{err, "", http.StatusBadRequest}
+				return &appError{err, "", http.StatusInternalServerError}
 			}
 			_, err = rsp.Write(decoded)
 			if err != nil {
@@ -285,7 +285,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		size, err := blockmgr.Stat(repo.StoreID, v)
 		if err != nil {
 			err := fmt.Errorf("failed to stat block %s : %v.\n", v, err)
-			return &appError{err, "", http.StatusBadRequest}
+			return &appError{err, "", http.StatusInternalServerError}
 		}
 		blkSize = append(blkSize, uint64(size))
 	}
