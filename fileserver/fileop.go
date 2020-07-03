@@ -302,11 +302,14 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		}
 	}
 
-	for i, blkID := range file.BlkIDs {
+	// Read block from the start block and specified position
+	var i int
+	for ; i < len(file.BlkIDs); i++ {
 		if i < startBlock {
 			continue
 		}
 
+		blkID := file.BlkIDs[i]
 		var buf bytes.Buffer
 		if end-start+1 <= blkSize[i]-pos {
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
@@ -333,16 +336,14 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 				return nil
 			}
 			start += blkSize[i] - pos
-			startBlock += 1
+			i++
 			break
 		}
 	}
 
-	for i, blkID := range file.BlkIDs {
-		if i < startBlock {
-			continue
-		}
-
+	// Always read block from the remaining block and pos=0
+	for ; i < len(file.BlkIDs); i++ {
+		blkID := file.BlkIDs[i]
 		var buf bytes.Buffer
 		if end-start+1 <= blkSize[i] {
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
