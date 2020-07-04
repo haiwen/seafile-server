@@ -18,6 +18,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/searpc"
+	_ "github.com/mattn/go-sqlite3"
 	"gopkg.in/ini.v1"
 )
 
@@ -59,7 +60,71 @@ func init() {
 }
 
 func loadCcnetDB() {
-	// TODO: load database configurations from ccnet.conf and create ccnetDB or userDB/groupDB
+	ccnetConfPath := filepath.Join(ccnetDir, "ccnet.conf")
+	config, err := ini.Load(ccnetConfPath)
+	if err != nil {
+		log.Fatalf("Failed to load ccnet.conf: %v", err)
+	}
+
+	section, err := config.GetSection("Database")
+	if err != nil {
+		log.Fatal("No database section in ccnet.conf.")
+	}
+
+	key, err := section.GetKey("ENGINE")
+	if err != nil {
+		log.Fatal("No database ENGINE in ccnet.conf.")
+	}
+
+	dbEngine := key.String()
+	if strings.EqualFold(dbEngine, "mysql") {
+		if key, err = section.GetKey("HOST"); err != nil {
+			log.Fatal("No database host in ccnet.conf.")
+		}
+		host := key.String()
+		if key, err = section.GetKey("USER"); err != nil {
+			log.Fatal("No database user in ccnet.conf.")
+		}
+		user := key.String()
+		if key, err = section.GetKey("PASSWD"); err != nil {
+			log.Fatal("No database password in ccnet.conf.")
+		}
+		password := key.String()
+		if key, err = section.GetKey("DB"); err != nil {
+			log.Fatal("No database db_name in ccnet.conf.")
+		}
+		dbName := key.String()
+		port := 3306
+		if key, err = section.GetKey("PORT"); err == nil {
+			port, _ = key.Int()
+		}
+		unixSocket := ""
+		if key, err = section.GetKey("UNIX_SOCKET"); err == nil {
+			unixSocket = key.String()
+		}
+		useTLS := false
+		if key, err = section.GetKey("USE_SSL"); err == nil {
+			useTLS, _ = key.Bool()
+		}
+		var dsn string
+		if unixSocket == "" {
+			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+		} else {
+			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
+		}
+		ccnetDB, err = sql.Open("mysql", dsn)
+		if err != nil {
+			log.Fatalf("Failed to open database: %v", err)
+		}
+	} else if strings.EqualFold(dbEngine, "sqlite") {
+		ccnetDBPath := filepath.Join(ccnetDir, "groupmgr.db")
+		ccnetDB, err = sql.Open("sqlite3", ccnetDBPath)
+		if err != nil {
+			log.Fatalf("Failed to open database %s: %v", ccnetDBPath, err)
+		}
+	} else {
+		log.Fatalf("Unsupported database %s.", dbEngine)
+	}
 }
 
 func loadSeafileDB() {
@@ -120,7 +185,11 @@ func loadSeafileDB() {
 			log.Fatalf("Failed to open database: %v", err)
 		}
 	} else if strings.EqualFold(dbEngine, "sqlite") {
-		// TODO: create sqlite database
+		seafileDBPath := filepath.Join(absDataDir, "seafile.db")
+		seafileDB, err = sql.Open("sqlite3", seafileDBPath)
+		if err != nil {
+			log.Fatalf("Failed to open database %s: %v", seafileDBPath, err)
+		}
 	} else {
 		log.Fatalf("Unsupported database %s.", dbEngine)
 	}
