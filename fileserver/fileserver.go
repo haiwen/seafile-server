@@ -13,12 +13,18 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/haiwen/seafile-server/fileserver/blockmgr"
+	"github.com/haiwen/seafile-server/fileserver/commitmgr"
+	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/repomgr"
+	"github.com/haiwen/seafile-server/fileserver/searpc"
 	"gopkg.in/ini.v1"
 )
 
 var ccnetDir string
 var dataDir, absDataDir string
 var logFile, absLogFile string
+var rpcPipePath string
 
 var dbType string
 var seafileDB, ccnetDB *sql.DB
@@ -49,6 +55,7 @@ func init() {
 	flag.StringVar(&ccnetDir, "c", "", "ccnet config directory")
 	flag.StringVar(&dataDir, "d", "", "seafile data directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
+	flag.StringVar(&rpcPipePath, "p", "", "rpc pipe path")
 }
 
 func loadCcnetDB() {
@@ -172,20 +179,61 @@ func main() {
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
+	repomgr.Init(seafileDB)
+
+	fsmgr.Init(ccnetDir, dataDir)
+
+	blockmgr.Init(ccnetDir, dataDir)
+
+	commitmgr.Init(ccnetDir, dataDir)
+
+	rpcClientInit()
+
 	registerHTTPHandlers()
 
 	log.Print("Seafile file server started.")
 
-	err = http.ListenAndServe("127.0.0.1:8082", nil)
+	err = http.ListenAndServe("127.0.0.1:8083", nil)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
 }
 
+var rpcclient *searpc.Client
+
+func rpcClientInit() {
+	var pipePath string
+	if rpcPipePath != "" {
+		pipePath = filepath.Join(rpcPipePath, "seafile.sock")
+	} else {
+		pipePath = filepath.Join(absDataDir, "seafile.sock")
+	}
+	rpcclient = searpc.Init(pipePath, "seafserv-threaded-rpcserver")
+}
+
 func registerHTTPHandlers() {
 	http.HandleFunc("/protocol-version", handleProtocolVersion)
+	http.Handle("/files/", appHandler(accessCB))
+	http.Handle("/blks/", appHandler(accessBlksCB))
 }
 
 func handleProtocolVersion(rsp http.ResponseWriter, r *http.Request) {
 	io.WriteString(rsp, "{\"version\": 2}")
+}
+
+type appError struct {
+	Error   error
+	Message string
+	Code    int
+}
+
+type appHandler func(http.ResponseWriter, *http.Request) *appError
+
+func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if e := fn(w, r); e != nil {
+		if e.Error != nil {
+			log.Printf("path %s internal server error: %v\n", r.URL.Path, e.Error)
+		}
+		http.Error(w, e.Message, e.Code)
+	}
 }

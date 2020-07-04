@@ -22,6 +22,8 @@ type storageBackend interface {
 	write(repoID string, objID string, r io.Reader, sync bool) (err error)
 	// exists checks whether an object exists.
 	exists(repoID string, objID string) (res bool, err error)
+	// stat calculates an object's size
+	stat(repoID string, objID string) (res int64, err error)
 }
 
 // New returns a new object store for a given type of objects.
@@ -46,4 +48,9 @@ func (s *ObjectStore) Write(repoID string, objID string, r io.Reader, sync bool)
 //Check whether object exists.
 func (s *ObjectStore) Exists(repoID string, objID string) (res bool, err error) {
 	return s.backend.exists(repoID, objID)
+}
+
+// Stat calculates object size.
+func (s *ObjectStore) Stat(repoID string, objID string) (res int64, err error) {
+	return s.backend.stat(repoID, objID)
 }
