@@ -88,3 +88,12 @@ func (b *fsBackend) exists(repoID string, objID string) (bool, error) {
 	}
 	return true, nil
 }
+
+func (b *fsBackend) stat(repoID string, objID string) (int64, error) {
+	path := path.Join(b.objDir, repoID, objID[:2], objID[2:])
+	fileInfo, err := os.Stat(path)
+	if err != nil {
+		return -1, err
+	}
+	return fileInfo.Size(), nil
+}

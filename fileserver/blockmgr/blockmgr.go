@@ -10,7 +10,7 @@ var store *objstore.ObjectStore
 
 // Init initializes block manager and creates underlying object store.
 func Init(seafileConfPath string, seafileDataDir string) {
-	store = objstore.New(seafileConfPath, seafileDataDir, "block")
+	store = objstore.New(seafileConfPath, seafileDataDir, "blocks")
 }
 
 // Read reads block from storage backend.
@@ -37,4 +37,10 @@ func Write(repoID string, blockID string, r io.Reader) error {
 func Exists(repoID string, blockID string) bool {
 	ret, _ := store.Exists(repoID, blockID)
 	return ret
+}
+
+// Stat calculates block size.
+func Stat(repoID string, blockID string) (int64, error) {
+	ret, err := store.Stat(repoID, blockID)
+	return ret, err
 }

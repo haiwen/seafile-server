@@ -38,7 +38,7 @@ var store *objstore.ObjectStore
 
 // Init initializes commit manager and creates underlying object store.
 func Init(seafileConfPath string, seafileDataDir string) {
-	store = objstore.New(seafileConfPath, seafileDataDir, "commit")
+	store = objstore.New(seafileConfPath, seafileDataDir, "commits")
 }
 
 // FromData reads from p and converts JSON-encoded data to commit.
