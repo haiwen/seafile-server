@@ -284,6 +284,7 @@ func registerHTTPHandlers() {
 	http.HandleFunc("/protocol-version", handleProtocolVersion)
 	http.Handle("/files/", appHandler(accessCB))
 	http.Handle("/blks/", appHandler(accessBlksCB))
+	http.Handle("/zip/", appHandler(accessZipCB))
 }
 
 func handleProtocolVersion(rsp http.ResponseWriter, r *http.Request) {

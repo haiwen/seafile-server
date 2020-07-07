@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"io"
+	"strings"
 )
 
 type Seafile struct {
@@ -33,6 +34,10 @@ type SeafDir struct {
 }
 
 var store *objstore.ObjectStore
+
+const (
+	EMPTY_SHA1 = "0000000000000000000000000000000000000000"
+)
 
 // Init initializes fs manager and creates underlying object store.
 func Init(seafileConfPath string, seafileDataDir string) {
@@ -164,6 +169,11 @@ func WriteRaw(repoID string, objID string, r io.Reader) error {
 func GetSeafile(repoID string, fileID string) (*Seafile, error) {
 	var buf bytes.Buffer
 	seafile := new(Seafile)
+	if fileID == EMPTY_SHA1 {
+		seafile.FileID = EMPTY_SHA1
+		return seafile, nil
+	}
+
 	err := ReadRaw(repoID, fileID, &buf)
 	if err != nil {
 		errors := fmt.Errorf("failed to read seafile object from storage : %v.\n", err)
@@ -213,6 +223,11 @@ func SaveSeafile(repoID string, fileID string, seafile *Seafile) error {
 func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
 	var buf bytes.Buffer
 	seafdir := new(SeafDir)
+	if dirID == EMPTY_SHA1 {
+		seafdir.DirID = EMPTY_SHA1
+		return seafdir, nil
+	}
+
 	err := ReadRaw(repoID, dirID, &buf)
 	if err != nil {
 		errors := fmt.Errorf("failed to read seafdir object from storage : %v.\n", err)
@@ -261,4 +276,53 @@ func SaveSeafdir(repoID string, dirID string, seafdir *SeafDir) error {
 // Check if fs object is exists.
 func Exists(repoID string, objID string) (bool, error) {
 	return store.Exists(repoID, objID)
+}
+
+func comp(c rune) bool {
+	if c == '/' {
+		return true
+	} else {
+		return false
+	}
+}
+
+// Check if the mode is dir.
+func IsDir(m uint32) bool {
+	ifmt := 00170000
+	ifdir := 0040000
+	return (int(m) & ifmt) == ifdir
+
+}
+
+// Get seafdir object by path.
+func GetSeafdirByPath(repoID string, rootID string, path string) (*SeafDir, error) {
+	dir, err := GetSeafdir(repoID, rootID)
+	if err != nil {
+		errors := fmt.Errorf("directory is missing.\n")
+		return nil, errors
+	}
+	parts := strings.FieldsFunc(path, comp)
+	var dirID string
+	for _, name := range parts {
+		entries := dir.Entries
+		for _, v := range entries {
+			if v.Name == name && IsDir(v.Mode) {
+				dirID = v.ID
+				break
+			}
+		}
+
+		if dirID == `` {
+			errors := fmt.Errorf("path %s does not exists.\n", path)
+			return nil, errors
+		}
+
+		dir, err = GetSeafdir(repoID, dirID)
+		if err != nil {
+			errors := fmt.Errorf("directory is missing.\n")
+			return nil, errors
+		}
+	}
+
+	return dir, nil
 }

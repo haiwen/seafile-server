@@ -1,20 +1,21 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	"encoding/hex"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
-	_ "github.com/haiwen/seafile-server/fileserver/searpc"
 )
 
 //contentType = "application/octet-stream"
@@ -557,6 +558,261 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 	return nil
 }
 
+func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	parts := strings.Split(r.URL.Path[1:], "/")
+	if len(parts) != 2 {
+		msg := "Invalid URL"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+	token := parts[1]
+
+	accessInfo, err := parseWebaccessInfo(rsp, token)
+	if err != nil {
+		return err
+	}
+
+	repoID := accessInfo.repoID
+	op := accessInfo.op
+	user := accessInfo.user
+	data := accessInfo.objID
+
+	if op != "download-dir" && op != "download-dir-link" &&
+		op != "download-multi" && op != "download-multi-link" {
+		msg := "Bad access token"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	if _, ok := r.Header["If-Modified-Since"]; ok {
+		return &appError{nil, "", http.StatusNotModified}
+	}
+
+	now := time.Now()
+	rsp.Header().Set("Last-Modified", now.Format("Mon, 2 Jan 2006 15:04:05 GMT"))
+	rsp.Header().Set("Cache-Control", "max-age=3600")
+
+	if err := downloadZipFile(rsp, r, data, repoID, user, op); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, user, op string) *appError {
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		err := fmt.Errorf("failed to get repo %s.\n", repoID)
+		return &appError{err, "", http.StatusBadRequest}
+	}
+
+	var dirName string
+	var zipName string
+	var objID string
+	var direntList []fsmgr.SeafDirent
+
+	obj := make(map[string]interface{})
+	err := json.Unmarshal([]byte(data), &obj)
+	if err != nil {
+		err := fmt.Errorf("failed to decode obj data : %v.\n", err)
+		return &appError{err, "", http.StatusBadRequest}
+	}
+
+	if op == "download-dir" || op == "download-dir-link" {
+		name, ok := obj["dir_name"].(string)
+		if !ok || name == "" {
+			err := fmt.Errorf("invalid download dir data: miss dir_name field.\n")
+			return &appError{err, "", http.StatusBadRequest}
+		}
+
+		objID, ok = obj["obj_id"].(string)
+		if !ok || objID == "" {
+			err := fmt.Errorf("invalid download dir data: miss obj_id field.\n")
+			return &appError{err, "", http.StatusBadRequest}
+		}
+
+		dirName = name
+		zipName = dirName
+	} else {
+		dirName = ""
+		dirList, err := parseDirlist(repo, obj)
+		if err != nil {
+			return &appError{err, "", http.StatusBadRequest}
+		}
+		direntList = dirList
+
+		now := time.Now()
+		zipName = fmt.Sprintf("documents-export-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
+	}
+
+	setCommonHeaders(rsp, r, "download", zipName)
+
+	ar := zip.NewWriter(rsp)
+	defer ar.Close()
+
+	if dirName != "" {
+		dir, err := fsmgr.GetSeafdir(repo.StoreID, objID)
+		if err != nil {
+			err := fmt.Errorf("failed to get dir : %v.\n", err)
+			return &appError{err, "", http.StatusBadRequest}
+		}
+
+		if dir.Entries == nil {
+			fileDir := filepath.Join(dirName)
+			_, err := ar.Create(fileDir + "/")
+			if err != nil {
+				err := fmt.Errorf("failed to create zip dir : %v.\n", err)
+				return &appError{err, "", http.StatusBadRequest}
+			}
+		}
+
+		for _, v := range dir.Entries {
+			if fsmgr.IsDir(v.Mode) {
+				if err := packDir(ar, &v, repo, dirName); err != nil {
+					log.Printf("failed to pack dir %s: %v.\n", dirName, err)
+					return nil
+				}
+			} else {
+				if err := packFiles(ar, &v, repo, dirName); err != nil {
+					log.Printf("failed to pack file %s: %v.\n", dirName, err)
+					return nil
+				}
+			}
+		}
+	} else {
+		for _, v := range direntList {
+			if fsmgr.IsDir(v.Mode) {
+				if err := packDir(ar, &v, repo, dirName); err != nil {
+					log.Printf("failed to pack dir %s: %v.\n", dirName, err)
+					return nil
+				}
+			} else {
+				if err := packFiles(ar, &v, repo, dirName); err != nil {
+					log.Printf("failed to pack file %s: %v.\n", dirName, err)
+					return nil
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func parseDirlist(repo *repomgr.Repo, obj map[string]interface{}) ([]fsmgr.SeafDirent, error) {
+	tmpParentDir, ok := obj["parent_dir"].(string)
+	if !ok || tmpParentDir == "" {
+		err := fmt.Errorf("invalid download multi data, miss parent_dir field.\n")
+		return nil, err
+	}
+
+	parentDir := filepath.Join("/", tmpParentDir)
+
+	dir, err := fsmgr.GetSeafdirByPath(repo.StoreID, repo.RootID, parentDir)
+	if err != nil {
+		err := fmt.Errorf("failed to get dir %s repo %s.\n", parentDir, repo.StoreID)
+		return nil, err
+	}
+
+	fileList, ok := obj["file_list"].([]interface{})
+	if !ok || fileList == nil {
+		err := fmt.Errorf("invalid download multi data, miss file_list field.\n")
+		return nil, err
+	}
+
+	direntHash := make(map[string]interface{})
+	for _, v := range dir.Entries {
+		direntHash[v.Name] = v
+	}
+
+	direntList := make([]fsmgr.SeafDirent, 0)
+
+	for _, fileName := range fileList {
+		name, ok := fileName.(string)
+		if !ok {
+			err := fmt.Errorf("failed to get dirent in dir %s in repo %.8s.\n",
+				parentDir, repo.Name)
+			return nil, err
+		}
+
+		v, ok := direntHash[name]
+		if !ok {
+			err := fmt.Errorf("failed to get dirent for %s in dir %s in repo %.8s.\n",
+				name, parentDir, repo.Name)
+			return nil, err
+		}
+
+		dirent, ok := v.(fsmgr.SeafDirent)
+		if !ok {
+			err := fmt.Errorf("failed to get dirent for %s in dir %s in repo %.8s.\n",
+				name, parentDir, repo.Name)
+			return nil, err
+		}
+		direntList = append(direntList, dirent)
+	}
+
+	return direntList, nil
+}
+
+func packDir(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, dirPath string) error {
+	fileDir := filepath.Join(dirPath, dirent.Name)
+	fileHeader := new(zip.FileHeader)
+	fileHeader.Name = fileDir + "/"
+	fileHeader.Modified = time.Unix(dirent.Mtime, 0)
+	_, err := ar.CreateHeader(fileHeader)
+	if err != nil {
+		err := fmt.Errorf("failed to create zip dir : %v.\n", err)
+		return err
+	}
+
+	dir, err := fsmgr.GetSeafdir(repo.StoreID, dirent.ID)
+	if err != nil {
+		err := fmt.Errorf("failed to get dir : %s in repo : %s.\n", dirent.ID, repo.StoreID)
+		return err
+	}
+
+	entries := dir.Entries
+
+	for _, v := range entries {
+		if fsmgr.IsDir(v.Mode) {
+			if err := packDir(ar, &v, repo, fileDir); err != nil {
+				return err
+			}
+		} else {
+			if err := packFiles(ar, &v, repo, fileDir); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, dirPath string) error {
+	file, err := fsmgr.GetSeafile(repo.StoreID, dirent.ID)
+	if err != nil {
+		err := fmt.Errorf("failed to get seafile : %v.\n", err)
+		return err
+	}
+
+	filePath := filepath.Join(dirPath, dirent.Name)
+
+	fileHeader := new(zip.FileHeader)
+	fileHeader.Name = filePath
+	fileHeader.Modified = time.Unix(dirent.Mtime, 0)
+	zipFile, err := ar.CreateHeader(fileHeader)
+	if err != nil {
+		err := fmt.Errorf("failed to create zip file : %v.\n", err)
+		return err
+	}
+
+	for _, blkID := range file.BlkIDs {
+		err := blockmgr.Read(repo.StoreID, blkID, zipFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 type webaccessInfo struct {
 	repoID string
 	objID  string
@@ -566,7 +822,7 @@ type webaccessInfo struct {
 
 func parseWebaccessInfo(rsp http.ResponseWriter, token string) (*webaccessInfo, *appError) {
 	webaccess, err := rpcclient.Call("seafile_web_query_access_token", token)
-	if err != nil {
+	if err != nil || webaccess == nil {
 		msg := "Bad access token"
 		return nil, &appError{err, msg, http.StatusBadRequest}
 	}
