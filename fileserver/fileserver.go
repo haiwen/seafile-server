@@ -314,6 +314,8 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/blks/", appHandler(accessBlksCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check/",
 		appHandler(permissionCheckCB))
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/commit/HEAD",
+		appHandler(headCommitOperCB))
 	return r
 }
 
