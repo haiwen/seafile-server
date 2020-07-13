@@ -4,10 +4,17 @@ package repomgr
 import (
 	"database/sql"
 	"log"
+
 	// Change to non-blank imports when use
 	_ "github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	_ "github.com/haiwen/seafile-server/fileserver/fsmgr"
+)
+
+const (
+	RepoStatusNormal = iota
+	RepoStatusReadOnly
+	NRepoStatus
 )
 
 // Repo contains information about a repo.
@@ -139,4 +146,68 @@ func GetVirtualRepoInfo(repoID string) (*VRepoInfo, error) {
 		}
 	}
 	return vRepoInfo, nil
+}
+
+// GetEmailByToken return user's email by token.
+func GetEmailByToken(repoID string, token string) (string, error) {
+	var email string
+	sqlStr := "SELECT email FROM RepoUserToken WHERE repo_id = ? AND token = ?"
+
+	row := seafileDB.QueryRow(sqlStr, repoID, token)
+	if err := row.Scan(&email); err != nil {
+		if err != sql.ErrNoRows {
+			return email, err
+		}
+	}
+	return email, nil
+}
+
+// GetRepoStatus return repo status by repo id.
+func GetRepoStatus(repoID string) (int, error) {
+	var status int
+	sqlStr := "SELECT status FROM RepoInfo WHERE repo_id=?"
+
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&status); err != nil {
+		if err != sql.ErrNoRows {
+			return status, err
+		}
+	}
+	return status, nil
+}
+
+// TokenPeerInfoExists check if the token exists.
+func TokenPeerInfoExists(token string) (bool, error) {
+	var exists string
+	sqlStr := "SELECT token FROM RepoTokenPeerInfo WHERE token=?"
+
+	row := seafileDB.QueryRow(sqlStr, token)
+	if err := row.Scan(&exists); err != nil {
+		if err != sql.ErrNoRows {
+			return false, err
+		}
+		return false, nil
+	}
+	return true, nil
+}
+
+// AddTokenPeerInfo add token peer info to RepoTokenPeerInfo table.
+func AddTokenPeerInfo(token, peerID, peerIP, peerName, clientVer string, syncTime int64) error {
+	sqlStr := "INSERT INTO RepoTokenPeerInfo (token, peer_id, peer_ip, peer_name, sync_time, client_ver)" +
+		"VALUES (?, ?, ?, ?, ?, ?)"
+
+	if _, err := seafileDB.Exec(sqlStr, token, peerID, peerIP, peerName, syncTime, clientVer); err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateTokenPeerInfo update token peer info to RepoTokenPeerInfo table.
+func UpdateTokenPeerInfo(token, peerID, clientVer string, syncTime int64) error {
+	sqlStr := "UPDATE RepoTokenPeerInfo SET " +
+		"peer_ip=?, sync_time=?, client_ver=? WHERE token=?"
+	if _, err := seafileDB.Exec(sqlStr, peerID, syncTime, clientVer, token); err != nil {
+		return err
+	}
+	return nil
 }
