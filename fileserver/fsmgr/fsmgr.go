@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"io"
+	"path/filepath"
 	"strings"
+	"syscall"
 )
 
 type Seafile struct {
@@ -288,10 +290,7 @@ func comp(c rune) bool {
 
 // Check if the mode is dir.
 func IsDir(m uint32) bool {
-	ifmt := 00170000
-	ifdir := 0040000
-	return (int(m) & ifmt) == ifdir
-
+	return (m & syscall.S_IFMT) == syscall.S_IFDIR
 }
 
 // Get seafdir object by path.
@@ -301,6 +300,8 @@ func GetSeafdirByPath(repoID string, rootID string, path string) (*SeafDir, erro
 		errors := fmt.Errorf("directory is missing.\n")
 		return nil, errors
 	}
+
+	path = filepath.Join("/", path)
 	parts := strings.FieldsFunc(path, comp)
 	var dirID string
 	for _, name := range parts {

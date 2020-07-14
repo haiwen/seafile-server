@@ -604,89 +604,56 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		return &appError{err, "", http.StatusBadRequest}
 	}
 
-	var dirName string
-	var zipName string
-	var objID string
-	var direntList []fsmgr.SeafDirent
-
 	obj := make(map[string]interface{})
 	err := json.Unmarshal([]byte(data), &obj)
 	if err != nil {
-		err := fmt.Errorf("failed to decode obj data : %v.\n", err)
+		err := fmt.Errorf("failed to parse obj data for zip: %v.\n", err)
 		return &appError{err, "", http.StatusBadRequest}
 	}
 
+	ar := zip.NewWriter(rsp)
+	defer ar.Close()
+
 	if op == "download-dir" || op == "download-dir-link" {
-		name, ok := obj["dir_name"].(string)
-		if !ok || name == "" {
+		dirName, ok := obj["dir_name"].(string)
+		if !ok || dirName == "" {
 			err := fmt.Errorf("invalid download dir data: miss dir_name field.\n")
 			return &appError{err, "", http.StatusBadRequest}
 		}
 
-		objID, ok = obj["obj_id"].(string)
+		objID, ok := obj["obj_id"].(string)
 		if !ok || objID == "" {
 			err := fmt.Errorf("invalid download dir data: miss obj_id field.\n")
 			return &appError{err, "", http.StatusBadRequest}
 		}
 
-		dirName = name
-		zipName = dirName
+		setCommonHeaders(rsp, r, "download", dirName)
+
+		err := packDir(ar, repo, objID, dirName)
+		if err != nil {
+			log.Printf("failed to pack dir %s: %v.\n", dirName, err)
+			return nil
+		}
 	} else {
-		dirName = ""
-		dirList, err := parseDirlist(repo, obj)
+		dirList, err := parseDirFilelist(repo, obj)
 		if err != nil {
 			return &appError{err, "", http.StatusBadRequest}
 		}
-		direntList = dirList
 
 		now := time.Now()
-		zipName = fmt.Sprintf("documents-export-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
-	}
+		zipName := fmt.Sprintf("documents-export-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
 
-	setCommonHeaders(rsp, r, "download", zipName)
+		setCommonHeaders(rsp, r, "download", zipName)
 
-	ar := zip.NewWriter(rsp)
-	defer ar.Close()
-
-	if dirName != "" {
-		dir, err := fsmgr.GetSeafdir(repo.StoreID, objID)
-		if err != nil {
-			err := fmt.Errorf("failed to get dir : %v.\n", err)
-			return &appError{err, "", http.StatusBadRequest}
-		}
-
-		if dir.Entries == nil {
-			fileDir := filepath.Join(dirName)
-			_, err := ar.Create(fileDir + "/")
-			if err != nil {
-				err := fmt.Errorf("failed to create zip dir : %v.\n", err)
-				return &appError{err, "", http.StatusBadRequest}
-			}
-		}
-
-		for _, v := range dir.Entries {
+		for _, v := range dirList {
 			if fsmgr.IsDir(v.Mode) {
-				if err := packDir(ar, &v, repo, dirName); err != nil {
-					log.Printf("failed to pack dir %s: %v.\n", dirName, err)
+				if err := packDir(ar, repo, v.ID, v.Name); err != nil {
+					log.Printf("failed to pack dir %s: %v.\n", v.Name, err)
 					return nil
 				}
 			} else {
-				if err := packFiles(ar, &v, repo, dirName); err != nil {
-					log.Printf("failed to pack file %s: %v.\n", dirName, err)
-					return nil
-				}
-			}
-		}
-	} else {
-		for _, v := range direntList {
-			if fsmgr.IsDir(v.Mode) {
-				if err := packDir(ar, &v, repo, dirName); err != nil {
-					log.Printf("failed to pack dir %s: %v.\n", dirName, err)
-					return nil
-				}
-			} else {
-				if err := packFiles(ar, &v, repo, dirName); err != nil {
-					log.Printf("failed to pack file %s: %v.\n", dirName, err)
+				if err := packFiles(ar, &v, repo, ""); err != nil {
+					log.Printf("failed to pack file %s: %v.\n", v.Name, err)
 					return nil
 				}
 			}
@@ -696,14 +663,12 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 	return nil
 }
 
-func parseDirlist(repo *repomgr.Repo, obj map[string]interface{}) ([]fsmgr.SeafDirent, error) {
-	tmpParentDir, ok := obj["parent_dir"].(string)
-	if !ok || tmpParentDir == "" {
+func parseDirFilelist(repo *repomgr.Repo, obj map[string]interface{}) ([]fsmgr.SeafDirent, error) {
+	parentDir, ok := obj["parent_dir"].(string)
+	if !ok || parentDir == "" {
 		err := fmt.Errorf("invalid download multi data, miss parent_dir field.\n")
 		return nil, err
 	}
-
-	parentDir := filepath.Join("/", tmpParentDir)
 
 	dir, err := fsmgr.GetSeafdirByPath(repo.StoreID, repo.RootID, parentDir)
 	if err != nil {
@@ -717,7 +682,7 @@ func parseDirlist(repo *repomgr.Repo, obj map[string]interface{}) ([]fsmgr.SeafD
 		return nil, err
 	}
 
-	direntHash := make(map[string]interface{})
+	direntHash := make(map[string]fsmgr.SeafDirent)
 	for _, v := range dir.Entries {
 		direntHash[v.Name] = v
 	}
@@ -727,56 +692,61 @@ func parseDirlist(repo *repomgr.Repo, obj map[string]interface{}) ([]fsmgr.SeafD
 	for _, fileName := range fileList {
 		name, ok := fileName.(string)
 		if !ok {
-			err := fmt.Errorf("failed to get dirent in dir %s in repo %.8s.\n",
-				parentDir, repo.Name)
+			err := fmt.Errorf("invalid download multi data.\n")
 			return nil, err
 		}
 
 		v, ok := direntHash[name]
 		if !ok {
-			err := fmt.Errorf("failed to get dirent for %s in dir %s in repo %.8s.\n",
-				name, parentDir, repo.Name)
+			err := fmt.Errorf("invalid download multi data.\n")
 			return nil, err
 		}
 
-		dirent, ok := v.(fsmgr.SeafDirent)
-		if !ok {
-			err := fmt.Errorf("failed to get dirent for %s in dir %s in repo %.8s.\n",
-				name, parentDir, repo.Name)
-			return nil, err
-		}
-		direntList = append(direntList, dirent)
+		direntList = append(direntList, v)
 	}
 
 	return direntList, nil
 }
 
-func packDir(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, dirPath string) error {
-	fileDir := filepath.Join(dirPath, dirent.Name)
-	fileHeader := new(zip.FileHeader)
-	fileHeader.Name = fileDir + "/"
-	fileHeader.Modified = time.Unix(dirent.Mtime, 0)
-	_, err := ar.CreateHeader(fileHeader)
+func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string) error {
+	dirent, err := fsmgr.GetSeafdir(repo.StoreID, dirID)
 	if err != nil {
-		err := fmt.Errorf("failed to create zip dir : %v.\n", err)
+		err := fmt.Errorf("failed to get dir for zip: %v.\n", err)
 		return err
 	}
 
-	dir, err := fsmgr.GetSeafdir(repo.StoreID, dirent.ID)
-	if err != nil {
-		err := fmt.Errorf("failed to get dir : %s in repo : %s.\n", dirent.ID, repo.StoreID)
-		return err
+	if dirent.Entries == nil {
+		fileDir := filepath.Join(dirPath)
+		fileDir = strings.TrimLeft(fileDir, "/")
+		_, err := ar.Create(fileDir + "/")
+		if err != nil {
+			err := fmt.Errorf("failed to create zip dir: %v.\n", err)
+			return err
+		}
+
+		return nil
 	}
 
-	entries := dir.Entries
+	entries := dirent.Entries
 
 	for _, v := range entries {
+		fileDir := filepath.Join(dirPath, v.Name)
+		fileDir = strings.TrimLeft(fileDir, "/")
 		if fsmgr.IsDir(v.Mode) {
-			if err := packDir(ar, &v, repo, fileDir); err != nil {
+			fileHeader := new(zip.FileHeader)
+			fileHeader.Name = fileDir + "/"
+			fileHeader.Modified = time.Unix(v.Mtime, 0)
+			_, err := ar.CreateHeader(fileHeader)
+			if err != nil {
+				err := fmt.Errorf("failed to create zip dir: %v.\n", err)
+				return err
+			}
+
+			if err := packDir(ar, repo, v.ID, fileDir); err != nil {
 				return err
 			}
 		} else {
-			if err := packFiles(ar, &v, repo, fileDir); err != nil {
+			if err := packFiles(ar, &v, repo, dirPath); err != nil {
 				return err
 			}
 		}
@@ -785,14 +755,15 @@ func packDir(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, dirPa
 	return nil
 }
 
-func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, dirPath string) error {
+func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, parentPath string) error {
 	file, err := fsmgr.GetSeafile(repo.StoreID, dirent.ID)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafile : %v.\n", err)
 		return err
 	}
 
-	filePath := filepath.Join(dirPath, dirent.Name)
+	filePath := filepath.Join(parentPath, dirent.Name)
+	filePath = strings.TrimLeft(filePath, "/")
 
 	fileHeader := new(zip.FileHeader)
 	fileHeader.Name = filePath
