@@ -301,7 +301,7 @@ type appHandler func(http.ResponseWriter, *http.Request) *appError
 
 func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := fn(w, r); e != nil {
-		if e.Error != nil {
+		if e.Error != nil && e.Code == http.StatusInternalServerError {
 			log.Printf("path %s internal server error: %v\n", r.URL.Path, e.Error)
 		}
 		http.Error(w, e.Message, e.Code)

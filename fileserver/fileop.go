@@ -151,8 +151,7 @@ func parseCryptKey(rsp http.ResponseWriter, repoID string, user string) (*seafil
 	key, err := rpcclient.Call("seafile_get_decrypt_key", repoID, user)
 	if err != nil {
 		errMessage := "Repo is encrypted. Please provide password to view it."
-		err := fmt.Errorf("failed to get decrypt key : %v.\n", err)
-		return nil, &appError{err, errMessage, http.StatusBadRequest}
+		return nil, &appError{nil, errMessage, http.StatusBadRequest}
 	}
 
 	cryptKey, ok := key.(map[string]interface{})
@@ -193,8 +192,8 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 	fileName string, operation string, cryptKey *seafileCrypt, user string) *appError {
 	file, err := fsmgr.GetSeafile(repo.StoreID, fileID)
 	if err != nil {
-		err := fmt.Errorf("failed to get seafile : %v.\n", err)
-		return &appError{err, "", http.StatusBadRequest}
+		msg := "Failed to get seafile"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	var encKey, encIv []byte
@@ -254,8 +253,8 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 
 	file, err := fsmgr.GetSeafile(repo.StoreID, fileID)
 	if err != nil {
-		err := fmt.Errorf("failed to get seafile : %v\n", err)
-		return &appError{err, "", http.StatusBadRequest}
+		msg := "Failed to get seafile"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	if file.FileSize == 0 {
@@ -511,8 +510,8 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 	user string, blkID string) *appError {
 	file, err := fsmgr.GetSeafile(repo.StoreID, fileID)
 	if err != nil {
-		err := fmt.Errorf("failed to get seafile : %v.\n", err)
-		return &appError{err, "", http.StatusBadRequest}
+		msg := "Failed to get seafile"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	var found bool
@@ -539,8 +538,8 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 
 	size, err := blockmgr.Stat(repo.StoreID, blkID)
 	if err != nil {
-		err := fmt.Errorf("failed to stat block %s: %v.\n", blkID, err)
-		return &appError{err, "", http.StatusBadRequest}
+		msg := "Failed to stat block"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 	if size == 0 {
 		rsp.WriteHeader(http.StatusOK)
@@ -578,8 +577,8 @@ func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	if op != "download-dir" && op != "download-dir-link" &&
 		op != "download-multi" && op != "download-multi-link" {
-		msg := "Bad access token"
-		return &appError{nil, msg, http.StatusBadRequest}
+		err := fmt.Errorf("wrong operation of token: %s.\n", op)
+		return &appError{err, "", http.StatusInternalServerError}
 	}
 
 	if _, ok := r.Header["If-Modified-Since"]; ok {
@@ -600,15 +599,15 @@ func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, user, op string) *appError {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
-		err := fmt.Errorf("failed to get repo %s.\n", repoID)
-		return &appError{err, "", http.StatusBadRequest}
+		msg := "Failed to get repo"
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	obj := make(map[string]interface{})
 	err := json.Unmarshal([]byte(data), &obj)
 	if err != nil {
 		err := fmt.Errorf("failed to parse obj data for zip: %v.\n", err)
-		return &appError{err, "", http.StatusBadRequest}
+		return &appError{err, "", http.StatusInternalServerError}
 	}
 
 	ar := zip.NewWriter(rsp)
@@ -618,13 +617,13 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		dirName, ok := obj["dir_name"].(string)
 		if !ok || dirName == "" {
 			err := fmt.Errorf("invalid download dir data: miss dir_name field.\n")
-			return &appError{err, "", http.StatusBadRequest}
+			return &appError{err, "", http.StatusInternalServerError}
 		}
 
 		objID, ok := obj["obj_id"].(string)
 		if !ok || objID == "" {
 			err := fmt.Errorf("invalid download dir data: miss obj_id field.\n")
-			return &appError{err, "", http.StatusBadRequest}
+			return &appError{err, "", http.StatusInternalServerError}
 		}
 
 		setCommonHeaders(rsp, r, "download", dirName)
@@ -637,7 +636,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 	} else {
 		dirList, err := parseDirFilelist(repo, obj)
 		if err != nil {
-			return &appError{err, "", http.StatusBadRequest}
+			return &appError{err, "", http.StatusInternalServerError}
 		}
 
 		now := time.Now()
@@ -733,15 +732,6 @@ func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string) error {
 		fileDir := filepath.Join(dirPath, v.Name)
 		fileDir = strings.TrimLeft(fileDir, "/")
 		if fsmgr.IsDir(v.Mode) {
-			fileHeader := new(zip.FileHeader)
-			fileHeader.Name = fileDir + "/"
-			fileHeader.Modified = time.Unix(v.Mtime, 0)
-			_, err := ar.CreateHeader(fileHeader)
-			if err != nil {
-				err := fmt.Errorf("failed to create zip dir: %v.\n", err)
-				return err
-			}
-
 			if err := packDir(ar, repo, v.ID, fileDir); err != nil {
 				return err
 			}
@@ -768,6 +758,7 @@ func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, par
 	fileHeader := new(zip.FileHeader)
 	fileHeader.Name = filePath
 	fileHeader.Modified = time.Unix(dirent.Mtime, 0)
+	fileHeader.Method = zip.Deflate
 	zipFile, err := ar.CreateHeader(fileHeader)
 	if err != nil {
 		err := fmt.Errorf("failed to create zip file : %v.\n", err)
@@ -793,10 +784,15 @@ type webaccessInfo struct {
 
 func parseWebaccessInfo(rsp http.ResponseWriter, token string) (*webaccessInfo, *appError) {
 	webaccess, err := rpcclient.Call("seafile_web_query_access_token", token)
-	if err != nil || webaccess == nil {
+	if err != nil {
+		err := fmt.Errorf("failed to get web access token: %v.\n", err)
+		return nil, &appError{err, "", http.StatusInternalServerError}
+	}
+	if webaccess == nil {
 		msg := "Bad access token"
 		return nil, &appError{err, msg, http.StatusBadRequest}
 	}
+
 	webaccessMap, ok := webaccess.(map[string]interface{})
 	if !ok {
 		return nil, &appError{nil, "", http.StatusInternalServerError}
