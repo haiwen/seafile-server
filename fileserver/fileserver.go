@@ -13,11 +13,13 @@ import (
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/searpc"
+	"github.com/haiwen/seafile-server/fileserver/share"
 	_ "github.com/mattn/go-sqlite3"
 	"gopkg.in/ini.v1"
 )
@@ -28,6 +30,8 @@ var logFile, absLogFile string
 var rpcPipePath string
 
 var dbType string
+var groupTableName string
+var cloudMode bool
 var seafileDB, ccnetDB *sql.DB
 
 // when SQLite is used, user and group db are separated.
@@ -197,7 +201,29 @@ func loadSeafileDB() {
 }
 
 func loadFileServerOptions() {
-	// TODO: load fileserver options from seafile.conf
+	seafileConfPath := filepath.Join(absDataDir, "seafile.conf")
+	config, err := ini.Load(seafileConfPath)
+	if err != nil {
+		log.Fatalf("Failed to load seafile.conf: %v", err)
+	}
+	cloudMode = false
+	if section, err := config.GetSection("general"); err == nil {
+		if key, err := section.GetKey("cloud_mode"); err == nil {
+			cloudMode, _ = key.Bool()
+		}
+	}
+
+	ccnetConfPath := filepath.Join(ccnetDir, "ccnet.conf")
+	config, err = ini.Load(ccnetConfPath)
+	if err != nil {
+		log.Fatalf("Failed to load ccnet.conf: %v", err)
+	}
+	groupTableName = "Group"
+	if section, err := config.GetSection("GROUP"); err == nil {
+		if key, err := section.GetKey("TABLE_NAME"); err == nil {
+			groupTableName = key.String()
+		}
+	}
 }
 
 func main() {
@@ -256,13 +282,16 @@ func main() {
 
 	commitmgr.Init(ccnetDir, dataDir)
 
+	share.Init(ccnetDB, seafileDB, groupTableName, cloudMode)
 	rpcClientInit()
 
-	registerHTTPHandlers()
+	syncAPIInit()
+
+	router := newHTTPRouter()
 
 	log.Print("Seafile file server started.")
 
-	err = http.ListenAndServe("127.0.0.1:8083", nil)
+	err = http.ListenAndServe("127.0.0.1:8083", router)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
@@ -280,11 +309,16 @@ func rpcClientInit() {
 	rpcclient = searpc.Init(pipePath, "seafserv-threaded-rpcserver")
 }
 
-func registerHTTPHandlers() {
-	http.HandleFunc("/protocol-version", handleProtocolVersion)
-	http.Handle("/files/", appHandler(accessCB))
-	http.Handle("/blks/", appHandler(accessBlksCB))
-	http.Handle("/zip/", appHandler(accessZipCB))
+func newHTTPRouter() *mux.Router {
+	r := mux.NewRouter()
+	r.HandleFunc("/protocol-version", handleProtocolVersion)
+	r.Handle("/files/", appHandler(accessCB))
+	r.Handle("/blks/", appHandler(accessBlksCB))
+	r.Handle("/zip/", appHandler(accessZipCB))
+	// file syncing api
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check/",
+		appHandler(permissionCheckCB))
+	return r
 }
 
 func handleProtocolVersion(rsp http.ResponseWriter, r *http.Request) {
