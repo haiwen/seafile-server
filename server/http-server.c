@@ -1150,7 +1150,7 @@ collect_head_commit_ids (SeafDBRow *row, void *data)
 }
 
 static void
-head_commits_multi_cb (evhtp_request_t *req, void *arg)
+ head_commits_multi_cb (evhtp_request_t *req, void *arg)
 {
     size_t list_len;
     json_t *repo_id_array = NULL;
