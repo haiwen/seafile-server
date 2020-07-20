@@ -31,7 +31,7 @@ func createFile() error {
 	seafdir := new(SeafDir)
 	seafdir.Version = 1
 	for i := 0; i < 2; i++ {
-		dirent := SeafDirent{ID: dirID}
+		dirent := SeafDirent{ID: dirID, Name: "/", Mode: 0x4000}
 		seafdir.Entries = append(seafdir.Entries, dirent)
 	}
 	err = SaveSeafdir(repoID, dirID, seafdir)
@@ -90,6 +90,21 @@ func TestGetSeafdir(t *testing.T) {
 		t.Errorf("seafile is not exists : %v.\n", err)
 	}
 	seafdir, err := GetSeafdir(repoID, dirID)
+	if err != nil || seafdir == nil {
+		t.Errorf("Failed to get seafdir : %v.\n", err)
+		t.FailNow()
+	}
+
+	for _, v := range seafdir.Entries {
+		if v.ID != dirID {
+			t.Errorf("Wrong file content.\n")
+		}
+	}
+
+}
+
+func TestGetSeafdirByPath(t *testing.T) {
+	seafdir, err := GetSeafdirByPath(repoID, dirID, "/")
 	if err != nil || seafdir == nil {
 		t.Errorf("Failed to get seafdir : %v.\n", err)
 		t.FailNow()
