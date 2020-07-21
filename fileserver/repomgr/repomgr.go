@@ -306,3 +306,51 @@ func UpdateTokenPeerInfo(token, peerID, clientVer string, syncTime int64) error 
 	}
 	return nil
 }
+
+func GetUploadTmpFile(repoID, filePath string) (string, error) {
+	if filePath[0] != '/' {
+		filePath = "/" + filePath
+	}
+
+	var tmpFile string
+	sqlStr := "SELECT tmp_file_path FROM WebUploadTempFiles WHERE repo_id = ? AND file_path = ?"
+
+	row := seafileDB.QueryRow(sqlStr, repoID, filePath)
+	if err := row.Scan(&tmpFile); err != nil {
+		if err != sql.ErrNoRows {
+			return ``, err
+		}
+	}
+
+	return tmpFile, nil
+}
+
+func AddUploadTmpFile(repoID, filePath, tmpFile string) error {
+	if filePath[0] != '/' {
+		filePath = "/" + filePath
+	}
+
+	sqlStr := "INSERT INTO WebUploadTempFiles (repo_id, file_path, tmp_file_path) VALUES (?, ?, ?)"
+
+	_, err := seafileDB.Exec(sqlStr, repoID, filePath, tmpFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func DelUploadTmpFile(repoID, filePath string) error {
+	if filePath[0] != '/' {
+		filePath = "/" + filePath
+	}
+
+	sqlStr := "DELETE FROM WebUploadTempFiles WHERE repo_id = ? AND file_path = ?"
+
+	_, err := seafileDB.Exec(sqlStr, repoID, filePath)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
