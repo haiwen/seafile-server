@@ -675,6 +675,15 @@ class SeafileAPI(object):
         """
         return '{"is_syncable":true}'
 
+    def is_dir_downloadable(self, repo_id, dir_path, user, repo_perm):
+    """
+    Check if the permission of the dir is downloadable.
+    {"is_downloadable": false, "undownloadable_path":"path"}
+    - is_downloadable: true if the dir is downloadable, false if not.
+    - undownloadable_path: the undownloadable path of the repo if the path is not downloadable.
+    """
+    return '{"is_downloadable":true}'
+
     # token
     def generate_repo_token(self, repo_id, username):
         """Generate a token for sync a repo
