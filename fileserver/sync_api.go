@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"html"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/share"
 )
@@ -151,6 +153,40 @@ func headCommitOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return nil
 	}
 	return &appError{nil, "", http.StatusBadRequest}
+}
+
+func commitOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	if r.Method == http.MethodGet {
+		return getCommitInfo(rsp, r)
+	}
+	return &appError{nil, "", http.StatusBadRequest}
+}
+
+func getCommitInfo(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	commitID := vars["id"]
+	if _, err := validateToken(r, repoID, false); err != nil {
+		return err
+	}
+	if exists, _ := commitmgr.Exists(repoID, commitID); !exists {
+		log.Printf("%s:%s is missing", repoID, commitID)
+		return &appError{nil, "", http.StatusNotFound}
+	}
+
+	var data bytes.Buffer
+	err := commitmgr.ReadRaw(repoID, commitID, &data)
+	if err != nil {
+		err := fmt.Errorf("Failed to read commit %s:%s: %v", repoID, commitID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	dataLen := strconv.Itoa(data.Len())
+	rsp.Header().Set("Content-Length", dataLen)
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(data.Bytes())
+
+	return nil
 }
 
 func getHeadCommit(rsp http.ResponseWriter, r *http.Request) *appError {
