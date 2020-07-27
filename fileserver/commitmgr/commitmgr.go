@@ -4,8 +4,9 @@ package commitmgr
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"io"
+
+	"github.com/haiwen/seafile-server/fileserver/objstore"
 )
 
 type Commit struct {
@@ -114,4 +115,9 @@ func Save(commit *Commit) error {
 	}
 
 	return err
+}
+
+// Exists checks commit if exists.
+func Exists(repoID string, commitID string) (bool, error) {
+	return store.Exists(repoID, commitID)
 }

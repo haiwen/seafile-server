@@ -320,6 +320,8 @@ func newHTTPRouter() *mux.Router {
 		appHandler(permissionCheckCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/commit/HEAD",
 		appHandler(headCommitOperCB))
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/commit/{id:[\\da-z]{40}}",
+		appHandler(commitOperCB))
 	return r
 }
 
