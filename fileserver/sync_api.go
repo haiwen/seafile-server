@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/share"
@@ -24,14 +25,16 @@ const (
 	seafileServerChannelStats = "seaf_server.stats"
 	tokenExpireTime           = 7200
 	permExpireTime            = 7200
+	virtualRepoExpireTime     = 7200
 	cleaningIntervalSec       = 300
 	seafHTTPResRepoDeleted    = 444
 	seafHTTPResRepoCorrupted  = 445
 )
 
 var (
-	tokenCache sync.Map
-	permCache  sync.Map
+	tokenCache           sync.Map
+	permCache            sync.Map
+	virtualRepoInfoCache sync.Map
 )
 
 type tokenInfo struct {
@@ -45,6 +48,11 @@ type permInfo struct {
 	expireTime int64
 }
 
+type virtualRepoInfo struct {
+	storeID    string
+	expireTime int64
+}
+
 type repoEventData struct {
 	eType      string
 	user       string
@@ -52,6 +60,13 @@ type repoEventData struct {
 	repoID     string
 	path       string
 	clientName string
+}
+
+type statusEventData struct {
+	eType  string
+	user   string
+	repoID string
+	bytes  uint64
 }
 
 func syncAPIInit() {
@@ -160,6 +175,97 @@ func commitOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return getCommitInfo(rsp, r)
 	}
 	return &appError{nil, "", http.StatusBadRequest}
+}
+
+func blockOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	if r.Method == http.MethodGet {
+		return getBlockInfo(rsp, r)
+	}
+	return &appError{nil, "", http.StatusBadRequest}
+}
+
+func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	blockID := vars["id"]
+
+	userName, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	storeID := getRepoStoreID(repoID)
+	if storeID == "" {
+		err := fmt.Errorf("Failed to get repo store id by repo id %s", repoID)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	blockSize, err := blockmgr.Stat(repoID, blockID)
+	if err != nil {
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	if blockSize <= 0 {
+		err := fmt.Errorf("block %.8s:%s size invalid", storeID, blockID)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	blockLen := fmt.Sprintf("%d", blockSize)
+	rsp.Header().Set("Content-Length", blockLen)
+	rsp.WriteHeader(http.StatusOK)
+	if err := blockmgr.Read(repoID, blockID, rsp); err != nil {
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	sendStatisticMsg(repoID, userName, "sync-file-download", uint64(blockSize))
+	return nil
+}
+
+func getRepoStoreID(repoID string) string {
+	var storeID string
+
+	if value, ok := virtualRepoInfoCache.Load(repoID); ok {
+		if info, ok := value.(*virtualRepoInfo); ok {
+			if info.storeID != "" {
+				storeID = info.storeID
+			} else {
+				storeID = repoID
+			}
+			info.expireTime = time.Now().Unix() + virtualRepoExpireTime
+		}
+	}
+	if storeID != "" {
+		return storeID
+	}
+
+	var vInfo virtualRepoInfo
+	sqlStr := "SELECT repo_id, origin_repo FROM VirtualRepo where repo_id = ?"
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&vInfo); err != nil {
+		if err == sql.ErrNoRows {
+			vInfo.expireTime = time.Now().Unix() + virtualRepoExpireTime
+			virtualRepoInfoCache.Store(repoID, &vInfo)
+			return repoID
+		}
+		return ""
+	}
+
+	virtualRepoInfoCache.Store(repoID, &vInfo)
+	return vInfo.storeID
+}
+
+func sendStatisticMsg(repoID, user, operation string, bytes uint64) {
+	rData := &statusEventData{operation, user, repoID, bytes}
+
+	publishStatusEvent(rData)
+}
+
+func publishStatusEvent(rData *statusEventData) {
+	buf := fmt.Sprintf("%s\t%s\t%s\t%d",
+		rData.eType, rData.user,
+		rData.repoID, rData.bytes)
+	if _, err := rpcclient.Call("publish_event", seafileServerChannelStats, buf); err != nil {
+		log.Printf("Failed to publish event: %v", err)
+	}
 }
 
 func getCommitInfo(rsp http.ResponseWriter, r *http.Request) *appError {
@@ -403,6 +509,16 @@ func removeExpireCache() {
 		return true
 	}
 
+	deleteVirtualRepoInfo := func(key interface{}, value interface{}) bool {
+		if info, ok := value.(*virtualRepoInfo); ok {
+			if info.expireTime <= time.Now().Unix() {
+				virtualRepoInfoCache.Delete(key)
+			}
+		}
+		return true
+	}
+
 	tokenCache.Range(deleteTokens)
 	permCache.Range(deletePerms)
+	virtualRepoInfoCache.Range(deleteVirtualRepoInfo)
 }
