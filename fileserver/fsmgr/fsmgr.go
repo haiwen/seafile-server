@@ -16,6 +16,7 @@ import (
 
 type Seafile struct {
 	Version  int      `json:"version"`
+	FileType int      `json:"type,omitempty"`
 	FileID   string   `json:"file_id,omitempty"`
 	FileSize uint64   `json:"size"`
 	BlkIDs   []string `json:"block_ids"`
@@ -32,9 +33,23 @@ type SeafDirent struct {
 
 type SeafDir struct {
 	Version int          `json:"version"`
+	DirType int          `json:"type,omitempty"`
 	DirID   string       `json:"dir_id,omitempty"`
 	Entries []SeafDirent `json:"dirents"`
 }
+
+type FileCountInfo struct {
+	FileCount int64
+	Size      int64
+	DirCount  int64
+}
+
+const (
+	SEAF_METADATA_TYPE_INVALID = iota
+	SEAF_METADATA_TYPE_FILE
+	SEAF_METADATA_TYPE_LINK
+	SEAF_METADATA_TYPE_DIR
+)
 
 var store *objstore.ObjectStore
 
@@ -206,6 +221,7 @@ func SaveSeafile(repoID string, fileID string, seafile *Seafile) error {
 		return nil
 	}
 
+	seafile.FileType = SEAF_METADATA_TYPE_FILE
 	var buf bytes.Buffer
 	err := seafile.ToData(&buf)
 	if err != nil {
@@ -260,6 +276,7 @@ func SaveSeafdir(repoID string, dirID string, seafdir *SeafDir) error {
 		return nil
 	}
 
+	seafdir.DirType = SEAF_METADATA_TYPE_DIR
 	var buf bytes.Buffer
 	err := seafdir.ToData(&buf)
 	if err != nil {
@@ -299,6 +316,8 @@ func IsRegular(m uint32) bool {
 	return (m & syscall.S_IFMT) == syscall.S_IFREG
 }
 
+var PathNoExist = fmt.Errorf("path does not exist")
+
 // Get seafdir object by path.
 func GetSeafdirByPath(repoID string, rootID string, path string) (*SeafDir, error) {
 	dir, err := GetSeafdir(repoID, rootID)
@@ -320,8 +339,7 @@ func GetSeafdirByPath(repoID string, rootID string, path string) (*SeafDir, erro
 		}
 
 		if dirID == `` {
-			errors := fmt.Errorf("path %s does not exists.\n", path)
-			return nil, errors
+			return nil, PathNoExist
 		}
 
 		dir, err = GetSeafdir(repoID, dirID)
@@ -332,4 +350,91 @@ func GetSeafdirByPath(repoID string, rootID string, path string) (*SeafDir, erro
 	}
 
 	return dir, nil
+}
+
+func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
+	var name string
+	var baseDir *SeafDir
+	formatPath := filepath.Join(path)
+	if len(formatPath) == 0 {
+		return rootID, nil
+	}
+	slash := strings.Index(formatPath, "/")
+	if slash == 0 {
+		return rootID, nil
+	} else if slash < 0 {
+		dir, err := GetSeafdir(repoID, rootID)
+		if err != nil {
+			err := fmt.Errorf("failed to find root dir %s: %v.\n", rootID, err)
+			return "", err
+		}
+		name = formatPath
+		baseDir = dir
+	} else {
+		name = filepath.Base(formatPath)
+		dirName := filepath.Dir(formatPath)
+		dir, err := GetSeafdirByPath(repoID, rootID, dirName)
+		if err != nil {
+			err := fmt.Errorf("failed to find root dir %s: %v.\n", rootID, err)
+			return "", err
+		}
+		baseDir = dir
+	}
+
+	entries := baseDir.Entries
+	for _, de := range entries {
+		if de.Name == name {
+			if IsDir(de.Mode) {
+				return de.ID, nil
+			}
+			return "", nil
+		}
+	}
+
+	return "", nil
+}
+
+func GetFileCountInfoByPath(repoID, rootID, path string) (*FileCountInfo, error) {
+	dirID, err := GetSeafdirIDByPath(repoID, rootID, path)
+	if err != nil {
+		err := fmt.Errorf("path %s doesn't exist or is not ad dir in repo %.10s.\n", path, repoID)
+		return nil, err
+	}
+
+	info, err := getFileCountInfo(repoID, dirID)
+	if err != nil {
+		err := fmt.Errorf("failed to get file count in repo %.10s.\n", repoID)
+		return nil, err
+	}
+
+	return info, nil
+}
+
+func getFileCountInfo(repoID, dirID string) (*FileCountInfo, error) {
+	dir, err := GetSeafdir(repoID, dirID)
+	if err != nil {
+		err := fmt.Errorf("failed to get dir: %v.\n", err)
+		return nil, err
+	}
+
+	info := new(FileCountInfo)
+
+	entries := dir.Entries
+	for _, de := range entries {
+		if IsDir(de.Mode) {
+			tmpInfo, err := getFileCountInfo(repoID, de.ID)
+			if err != nil {
+				err := fmt.Errorf("failed to get file count: %v.\n", err)
+				return nil, err
+			}
+			info.DirCount = tmpInfo.DirCount + 1
+			info.FileCount += tmpInfo.FileCount
+			info.Size += tmpInfo.Size
+		} else {
+			info.FileCount++
+			info.Size += de.Size
+		}
+	}
+
+	return info, nil
 }

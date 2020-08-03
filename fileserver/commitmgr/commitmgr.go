@@ -13,12 +13,12 @@ type Commit struct {
 	CommitID       string `json:"commit_id"`
 	RepoID         string `json:"repo_id"`
 	RootID         string `json:"root_id"`
-	CreaterName    string `json:"creater_name,omitempty"`
-	CreaterID      string `json:"creater"`
+	CreatorName    string `json:"creator_name,omitempty"`
+	CreatorID      string `json:"creator"`
 	Desc           string `json:"description"`
 	Ctime          int64  `json:"ctime"`
-	ParentID       string `json:"parent_id"`
-	SecondParentID string `json:"second_parent_id"`
+	ParentID       string `json:"parent_id,omitempty"`
+	SecondParentID string `json:"second_parent_id,omitempty"`
 	RepoName       string `json:"repo_name"`
 	RepoDesc       string `json:"repo_desc"`
 	RepoCategory   string `json:"repo_category"`

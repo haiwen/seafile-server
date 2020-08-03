@@ -44,8 +44,8 @@ func TestCommit(t *testing.T) {
 	newCommit := new(Commit)
 	newCommit.CommitID = commitID
 	newCommit.RepoID = repoID
-	newCommit.CreaterName = "seafile"
-	newCommit.CreaterID = commitID
+	newCommit.CreatorName = "seafile"
+	newCommit.CreatorID = commitID
 	newCommit.Desc = "This is a commit"
 	newCommit.Ctime = time.Now().Unix()
 	newCommit.ParentID = commitID
@@ -61,7 +61,7 @@ func TestCommit(t *testing.T) {
 	}
 	assertEqual(t, commit.CommitID, commitID)
 	assertEqual(t, commit.RepoID, repoID)
-	assertEqual(t, commit.CreaterName, "seafile")
-	assertEqual(t, commit.CreaterID, commitID)
+	assertEqual(t, commit.CreatorName, "seafile")
+	assertEqual(t, commit.CreatorID, commitID)
 	assertEqual(t, commit.ParentID, commitID)
 }

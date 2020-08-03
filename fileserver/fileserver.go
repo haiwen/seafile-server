@@ -287,11 +287,13 @@ func main() {
 
 	syncAPIInit()
 
+	go createWorkerPool(10)
+
 	router := newHTTPRouter()
 
 	log.Print("Seafile file server started.")
 
-	err = http.ListenAndServe("127.0.0.1:8083", router)
+	err = http.ListenAndServe(":8083", router)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
@@ -312,11 +314,11 @@ func rpcClientInit() {
 func newHTTPRouter() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/protocol-version", handleProtocolVersion)
-	r.Handle("/files/", appHandler(accessCB))
-	r.Handle("/blks/", appHandler(accessBlksCB))
-	r.Handle("/zip/", appHandler(accessZipCB))
-	http.Handle("/upload-api/", appHandler(uploadApiCB))
-	http.Handle("/upload-aj/", appHandler(uploadAjaxCB))
+	r.Handle("/files/{.*}/{.*}", appHandler(accessCB))
+	r.Handle("/blks/{.*}.{.*}", appHandler(accessBlksCB))
+	r.Handle("/zip/{.*}/{.*}", appHandler(accessZipCB))
+	r.Handle("/upload-api/{.*}", appHandler(uploadApiCB))
+	r.Handle("/upload-aj/{.*}", appHandler(uploadAjaxCB))
 	// file syncing api
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check/",
 		appHandler(permissionCheckCB))
