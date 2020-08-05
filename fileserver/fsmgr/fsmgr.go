@@ -360,9 +360,7 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 		return rootID, nil
 	}
 	slash := strings.Index(formatPath, "/")
-	if slash == 0 {
-		return rootID, nil
-	} else if slash < 0 {
+	if slash < 0 {
 		dir, err := GetSeafdir(repoID, rootID)
 		if err != nil {
 			err := fmt.Errorf("failed to find root dir %s: %v.\n", rootID, err)
@@ -375,6 +373,9 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 		dirName := filepath.Dir(formatPath)
 		dir, err := GetSeafdirByPath(repoID, rootID, dirName)
 		if err != nil {
+            if err == PathNoExist {
+                return "", PathNoExist
+            }
 			err := fmt.Errorf("failed to find root dir %s: %v.\n", rootID, err)
 			return "", err
 		}

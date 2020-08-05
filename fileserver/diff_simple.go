@@ -66,23 +66,23 @@ func threewayDiffFiles(n int, baseDir string, dents []*fsmgr.SeafDirent, data *d
 		if !direntSame(m, p1) && !direntSame(m, p2) {
 			de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED, m, baseDir)
 			*results = append(*results, de)
-		} else if m == nil && p1 != nil && p2 != nil {
-			de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_DELETED, p1, baseDir)
-			*results = append(*results, de)
-		} else if m != nil && p1 == nil && p2 != nil {
-			if !direntSame(m, p2) {
-				de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED, m, baseDir)
-				*results = append(*results, de)
-			}
-		} else if m != nil && p1 != nil && p2 == nil {
-			if !direntSame(m, p1) {
-				de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED, m, baseDir)
-				*results = append(*results, de)
-			}
-		} else if m != nil && p1 == nil && p2 == nil {
-			de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_ADDED, m, baseDir)
+		}
+	} else if m == nil && p1 != nil && p2 != nil {
+		de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_DELETED, p1, baseDir)
+		*results = append(*results, de)
+	} else if m != nil && p1 == nil && p2 != nil {
+		if !direntSame(m, p2) {
+			de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED, m, baseDir)
 			*results = append(*results, de)
 		}
+	} else if m != nil && p1 != nil && p2 == nil {
+		if !direntSame(m, p1) {
+			de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED, m, baseDir)
+			*results = append(*results, de)
+		}
+	} else if m != nil && p1 == nil && p2 == nil {
+		de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_ADDED, m, baseDir)
+		*results = append(*results, de)
 	}
 
 	return nil

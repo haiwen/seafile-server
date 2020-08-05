@@ -62,12 +62,12 @@ func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir 
 
 	var done bool
 	for {
-		var dents [3]*fsmgr.SeafDirent
+		dents := make([]*fsmgr.SeafDirent, n)
 		var firstName string
 		done = true
 		for i := 0; i < n; i++ {
 			entries := ptrs[i]
-			if len(entries) == 0 {
+			if len(entries) != 0 {
 				done = false
 				dent := entries[0]
 				if firstName == "" {
@@ -85,7 +85,7 @@ func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir 
 		var nFiles, nDirs int
 		for i := 0; i < n; i++ {
 			entries := ptrs[i]
-			if len(entries) == 0 {
+			if len(entries) != 0 {
 				dent := entries[0]
 				if firstName == dent.Name {
 					if fsmgr.IsDir(dent.Mode) {
@@ -147,9 +147,9 @@ func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir 
 	return nil
 }
 
-func mergeEntries(storeID string, n int, dents [3]*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]fsmgr.SeafDirent, error) {
-	var files [3]*fsmgr.SeafDirent
+func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]fsmgr.SeafDirent, error) {
 	var mergedDents []fsmgr.SeafDirent
+	files := make([]*fsmgr.SeafDirent, n)
 
 	for i := 0; i < n; i++ {
 		if dents[i] != nil && !fsmgr.IsDir(dents[i].Mode) {
@@ -178,7 +178,7 @@ func mergeEntries(storeID string, n int, dents [3]*fsmgr.SeafDirent, baseDir str
 				err := fmt.Errorf("failed to generate conflict file name.\n")
 				return nil, err
 			}
-			remote.Name = conflictName
+			dents[2].Name = conflictName
 			mergedDents = append(mergedDents, *remote)
 			opt.conflict = true
 		}
@@ -190,7 +190,7 @@ func mergeEntries(storeID string, n int, dents [3]*fsmgr.SeafDirent, baseDir str
 					err := fmt.Errorf("failed to generate conflict file name.\n")
 					return nil, err
 				}
-				remote.Name = conflictName
+				dents[2].Name = conflictName
 				mergedDents = append(mergedDents, *remote)
 				opt.conflict = true
 			} else {
@@ -223,7 +223,7 @@ func mergeEntries(storeID string, n int, dents [3]*fsmgr.SeafDirent, baseDir str
 				err := fmt.Errorf("failed to generate conflict file name.\n")
 				return nil, err
 			}
-			remote.Name = conflictName
+			dents[2].Name = conflictName
 			mergedDents = append(mergedDents, *remote)
 			opt.conflict = true
 		}
@@ -248,11 +248,11 @@ func mergeEntries(storeID string, n int, dents [3]*fsmgr.SeafDirent, baseDir str
 	return mergedDents, nil
 }
 
-func mergeDirectories(storeID string, n int, dents [3]*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]fsmgr.SeafDirent, error) {
+func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]fsmgr.SeafDirent, error) {
 	var dirMask int
-	var subDirs [3]*fsmgr.SeafDir
 	var mergedDents []fsmgr.SeafDirent
 	var dirName string
+	subDirs := make([]*fsmgr.SeafDir, n)
 	for i := 0; i < n; i++ {
 		if dents[i] != nil && fsmgr.IsDir(dents[i].Mode) {
 			dirMask |= 1 << i
@@ -310,6 +310,10 @@ func mergeDirectories(storeID string, n int, dents [3]*fsmgr.SeafDirent, baseDir
 	}
 
 	for i := 0; i < n; i++ {
+		subDirs[i] = nil
+	}
+
+	for i := 0; i < n; i++ {
 		if dents[i] != nil && fsmgr.IsDir(dents[i].Mode) {
 			dir, err := fsmgr.GetSeafdir(storeID, dents[i].ID)
 			if err != nil {
@@ -323,7 +327,7 @@ func mergeDirectories(storeID string, n int, dents [3]*fsmgr.SeafDirent, baseDir
 
 	newBaseDir := filepath.Join(baseDir, dirName)
 	newBaseDir = newBaseDir + "/"
-	err := mergeTreesRecursive(storeID, n, subDirs[:], newBaseDir, opt)
+	err := mergeTreesRecursive(storeID, n, subDirs, newBaseDir, opt)
 	if err != nil {
 		err := fmt.Errorf("failed to merge trees: %v.\n", err)
 		return nil, err
@@ -331,13 +335,13 @@ func mergeDirectories(storeID string, n int, dents [3]*fsmgr.SeafDirent, baseDir
 
 	if n == 3 && opt.doMerge {
 		if dirMask == 3 || dirMask == 6 || dirMask == 7 {
-			dent := dents[1]
+			dent := *dents[1]
 			dent.ID = opt.mergedRoot
-			mergedDents = append(mergedDents, *dent)
+			mergedDents = append(mergedDents, dent)
 		} else if dirMask == 5 {
-			dent := dents[2]
+			dent := *dents[2]
 			dent.ID = opt.mergedRoot
-			mergedDents = append(mergedDents, *dent)
+			mergedDents = append(mergedDents, dent)
 		}
 	}
 
