@@ -1234,6 +1234,8 @@ enabled = false
 port = 8080
 fastcgi = false
 share_name = /
+workers = 5
+timeout = 1200
 '''
 
         with open(self.seafdav_conf, 'w') as fp:

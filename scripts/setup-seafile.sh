@@ -322,6 +322,8 @@ port = 8080
 fastcgi = false
 host = 0.0.0.0
 share_name = /
+workers = 5
+timeout = 1200
 EOF
 ); then
     echo "failed to generate seafdav.conf";
