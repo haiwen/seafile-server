@@ -996,12 +996,8 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	if fsm.tokenType == "upload-link" {
 		oper = "link-file-upload"
 	}
-	err := sendStatisticMsg(repoID, user, oper, contentLen)
-	if err != nil {
-		msg := "Internal error.\n"
-		err := fmt.Errorf("failed to send statistic message: %v.\n", err)
-		return &appError{err, msg, http.StatusInternalServerError}
-	}
+
+	sendStatisticMsg(repoID, user, oper, uint64(contentLen))
 
 	return nil
 }
@@ -1017,16 +1013,6 @@ func clearTmpFile(fsm *recvData, parentDir string) {
 	}
 
 	return
-}
-
-func sendStatisticMsg(repoID, user, eType string, bytes int64) error {
-	buf := fmt.Sprintf("%s\t%s\t%s\t%d",
-		eType, user, repoID, bytes)
-	if _, err := rpcclient.Call("publish_event", "seaf_server.stats", buf); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func parseUploadHeaders(rsp http.ResponseWriter, r *http.Request) (*recvData, *appError) {
