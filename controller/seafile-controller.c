@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <string.h>
 #include <getopt.h>
+#include <stdbool.h>
 
 #include <glib.h>
 
@@ -68,7 +69,7 @@ controller_exit (int code)
 
 /* returns the pid of the newly created process */
 static int
-spawn_process (char *argv[])
+spawn_process (char *argv[], bool is_python_process)
 {
     char **ptr = argv;
     GString *buf = g_string_new(argv[0]);
@@ -78,12 +79,30 @@ spawn_process (char *argv[])
     seaf_message ("spawn_process: %s\n", buf->str);
     g_string_free (buf, TRUE);
 
+    int pipefd[2] = {0, 0};
+    if (is_python_process) {
+        if (pipe(pipefd) < 0) {
+            seaf_warning("Failed to create pipe.\n");
+        }
+    }
+
     pid_t pid = fork();
 
     if (pid == 0) {
+        if (is_python_process) {
+            if (pipefd[0] > 0 && pipefd[1] > 0) {
+                close(pipefd[0]);
+                dup2(pipefd[1], 2);
+            }
+        }
         /* child process */
         execvp (argv[0], argv);
         seaf_warning ("failed to execvp %s\n", argv[0]);
+        
+        if (pipefd[1] > 0) {
+            close(pipefd[1]);
+        }
+
         exit(-1);
     } else {
         /* controller */
@@ -92,6 +111,15 @@ spawn_process (char *argv[])
         else
             seaf_message ("spawned %s, pid %d\n", argv[0], pid);
 
+        if (is_python_process) {
+            char child_stderr[1024] = {0};
+            if (pipefd[0] > 0 && pipefd[1] > 0){
+                close(pipefd[1]);
+                while (read(pipefd[0], child_stderr, sizeof(child_stderr)) > 0)
+                    seaf_warning("%s", child_stderr);
+                close(pipefd[0]);
+            }
+        }
         return (int)pid;
     }
 }
@@ -172,7 +200,7 @@ start_ccnet_server ()
         "-P", ctl->pidfile[PID_CCNET],
         NULL};
 
-    int pid = spawn_process (argv);
+    int pid = spawn_process (argv, false);
     if (pid <= 0) {
         seaf_warning ("Failed to spawn ccnet-server\n");
         return -1;
@@ -203,7 +231,7 @@ start_seaf_server ()
         "-p", ctl->rpc_pipe_path,
         NULL};
 
-    int pid = spawn_process (argv);
+    int pid = spawn_process (argv, false);
     if (pid <= 0) {
         seaf_warning ("Failed to spawn seaf-server\n");
         return -1;
@@ -350,7 +378,7 @@ start_seafevents() {
         NULL
     };
 
-    int pid = spawn_process (argv);
+    int pid = spawn_process (argv, true);
 
     if (pid <= 0) {
         seaf_warning ("Failed to spawn seafevents.\n");
@@ -384,7 +412,7 @@ start_seafdav() {
         NULL
     };
 
-    int pid = spawn_process (argv);
+    int pid = spawn_process (argv, true);
 
     if (pid <= 0) {
         seaf_warning ("Failed to spawn seafdav\n");
