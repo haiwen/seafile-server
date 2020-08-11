@@ -6,11 +6,12 @@ import (
 	"compress/zlib"
 	"encoding/json"
 	"fmt"
-	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"io"
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"github.com/haiwen/seafile-server/fileserver/objstore"
 )
 
 type Seafile struct {
@@ -291,6 +292,11 @@ func comp(c rune) bool {
 // Check if the mode is dir.
 func IsDir(m uint32) bool {
 	return (m & syscall.S_IFMT) == syscall.S_IFDIR
+}
+
+// IsRegular Check if the mode is regular.
+func IsRegular(m uint32) bool {
+	return (m & syscall.S_IFMT) == syscall.S_IFREG
 }
 
 // Get seafdir object by path.
