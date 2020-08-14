@@ -3,8 +3,12 @@ package commitmgr
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"io"
+	"time"
 
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 )
@@ -40,6 +44,35 @@ var store *objstore.ObjectStore
 // Init initializes commit manager and creates underlying object store.
 func Init(seafileConfPath string, seafileDataDir string) {
 	store = objstore.New(seafileConfPath, seafileDataDir, "commits")
+}
+
+func NewCommit(parentID, newRoot, user, desc string) *Commit {
+	commit := new(Commit)
+	commit.RootID = newRoot
+	commit.Desc = desc
+	commit.CreatorName = user
+	commit.CreatorID = "0000000000000000000000000000000000000000"
+	commit.Ctime = time.Now().Unix()
+	commit.CommitID = computeCommitID(commit)
+	commit.ParentID = parentID
+
+	return commit
+}
+
+func computeCommitID(commit *Commit) string {
+	hash := sha1.New()
+	hash.Write([]byte(commit.RootID))
+	hash.Write([]byte(commit.CreatorID))
+	hash.Write([]byte(commit.CreatorName))
+	hash.Write([]byte(commit.Desc))
+	tmpBuf := make([]byte, 8)
+	binary.BigEndian.PutUint64(tmpBuf, uint64(commit.Ctime))
+	hash.Write(tmpBuf)
+
+	checkSum := hash.Sum(nil)
+	id := hex.EncodeToString(checkSum[:])
+
+	return id
 }
 
 // FromData reads from p and converts JSON-encoded data to commit.

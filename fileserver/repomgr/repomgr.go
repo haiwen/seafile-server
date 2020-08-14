@@ -153,6 +153,30 @@ func Get(id string) *Repo {
 	return repo
 }
 
+func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
+	commit.RepoID = repo.ID
+	commit.RepoName = repo.Name
+	if repo.IsEncrypted {
+		commit.Encrypted = "true"
+		commit.EncVersion = repo.EncVersion
+		if repo.EncVersion == 1 {
+			commit.Magic = repo.Magic
+		} else if repo.EncVersion == 2 {
+			commit.Magic = repo.Magic
+			commit.RandomKey = repo.RandomKey
+		} else if repo.EncVersion == 3 {
+			commit.Magic = repo.Magic
+			commit.RandomKey = repo.RandomKey
+			commit.Salt = repo.Salt
+		}
+	} else {
+		commit.Encrypted = "false"
+	}
+	commit.Version = repo.Version
+
+	return
+}
+
 // GetEx return repo object even if it's corrupted.
 func GetEx(id string) *Repo {
 	query := `SELECT r.repo_id, b.commit_id, v.origin_repo, v.path, v.base_commit FROM ` +
@@ -249,6 +273,7 @@ func GetVirtualRepoInfo(repoID string) (*VRepoInfo, error) {
 		if err != sql.ErrNoRows {
 			return nil, err
 		}
+		return nil, nil
 	}
 	return vRepoInfo, nil
 }
@@ -594,4 +619,18 @@ func GetOldRepoInfo(repoID string) (*RepoInfo, error) {
 	}
 
 	return repoInfo, nil
+}
+
+func GetRepoOwner(repoID string) (string, error) {
+	var owner string
+	sqlStr := "SELECT owner_id FROM RepoOwner WHERE repo_id=?"
+
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&owner); err != nil {
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+	}
+
+	return owner, nil
 }

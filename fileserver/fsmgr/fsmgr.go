@@ -62,6 +62,31 @@ func Init(seafileConfPath string, seafileDataDir string) {
 	store = objstore.New(seafileConfPath, seafileDataDir, "fs")
 }
 
+func NewDirent(id string, name string, mode uint32, mtime int64, modifier string, size int64) *SeafDirent {
+	dent := new(SeafDirent)
+	dent.ID = id
+	if id == "" {
+		dent.ID = EMPTY_SHA1
+	}
+	dent.Name = name
+	dent.Mode = mode
+	dent.Mtime = mtime
+	if IsRegular(mode) {
+		dent.Modifier = modifier
+		dent.Size = size
+	}
+
+	return dent
+}
+
+func NewSeafDir(version int, entries []SeafDirent) *SeafDir {
+	dir := new(SeafDir)
+	dir.Version = version
+	dir.Entries = entries
+
+	return dir
+}
+
 func uncompress(p []byte) ([]byte, error) {
 	b := bytes.NewReader(p)
 	var out bytes.Buffer
@@ -360,7 +385,9 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 		return rootID, nil
 	}
 	slash := strings.Index(formatPath, "/")
-	if slash < 0 {
+	if slash == 0 {
+		return rootID, nil
+	} else if slash < 0 {
 		dir, err := GetSeafdir(repoID, rootID)
 		if err != nil {
 			err := fmt.Errorf("failed to find root dir %s: %v.\n", rootID, err)
@@ -373,9 +400,9 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 		dirName := filepath.Dir(formatPath)
 		dir, err := GetSeafdirByPath(repoID, rootID, dirName)
 		if err != nil {
-            if err == PathNoExist {
-                return "", PathNoExist
-            }
+			if err == PathNoExist {
+				return "", PathNoExist
+			}
 			err := fmt.Errorf("failed to find root dir %s: %v.\n", rootID, err)
 			return "", err
 		}

@@ -4,19 +4,21 @@ import (
 	"archive/zip"
 	"bytes"
 	"crypto/sha1"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -34,7 +36,7 @@ import (
 type Dirents []fsmgr.SeafDirent
 
 func (d Dirents) Less(i, j int) bool {
-	return d[i].Name < d[j].Name
+	return d[i].Name > d[j].Name
 }
 
 func (d Dirents) Swap(i, j int) {
@@ -110,7 +112,7 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 	token := parts[1]
 	fileName := parts[2]
-	accessInfo, err := parseWebaccessInfo(rsp, token)
+	accessInfo, err := parseWebaccessInfo(token)
 	if err != nil {
 		return err
 	}
@@ -491,7 +493,7 @@ func accessBlksCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 	token := parts[1]
 	blkID := parts[2]
-	accessInfo, err := parseWebaccessInfo(rsp, token)
+	accessInfo, err := parseWebaccessInfo(token)
 	if err != nil {
 		return err
 	}
@@ -591,7 +593,7 @@ func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 	token := parts[1]
 
-	accessInfo, err := parseWebaccessInfo(rsp, token)
+	accessInfo, err := parseWebaccessInfo(token)
 	if err != nil {
 		return err
 	}
@@ -815,7 +817,7 @@ type recvData struct {
 }
 
 func uploadApiCB(rsp http.ResponseWriter, r *http.Request) *appError {
-	fsm, err := parseUploadHeaders(rsp, r)
+	fsm, err := parseUploadHeaders(r)
 	if err != nil {
 		return err
 	}
@@ -829,7 +831,7 @@ func uploadApiCB(rsp http.ResponseWriter, r *http.Request) *appError {
 }
 
 func uploadAjaxCB(rsp http.ResponseWriter, r *http.Request) *appError {
-	fsm, err := parseUploadHeaders(rsp, r)
+	fsm, err := parseUploadHeaders(r)
 	if err != nil {
 		return err
 	}
@@ -868,14 +870,16 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	user := fsm.user
 
 	replaceStr := r.FormValue("replace")
-	var replaceExisted int64
+	var replaceExisted bool
 	if replaceStr != "" {
 		replace, err := strconv.ParseInt(replaceStr, 10, 64)
 		if err != nil || (replace != 0 && replace != 1) {
 			msg := "Invalid argument.\n"
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
-		replaceExisted = replace
+		if replace == 1 {
+			replaceExisted = true
+		}
 	}
 
 	parentDir := r.FormValue("parent_dir")
@@ -933,11 +937,16 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		}
 	} else {
 		formFiles := r.MultipartForm.File
-		err := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, newParentDir)
-		if err != nil {
+		fileHeaders, ok := formFiles["file"]
+		if !ok {
 			msg := "Internal error.\n"
-			err := fmt.Errorf("failed to write block data to tmp file: %v.\n", err)
+			err := fmt.Errorf("failed to get file from multipart form.\n")
 			return &appError{err, msg, http.StatusInternalServerError}
+		}
+		for _, handler := range fileHeaders {
+			fileName := filepath.Base(handler.Filename)
+			fsm.fileNames = append(fsm.fileNames, fileName)
+			fsm.fileHeaders = append(fsm.fileHeaders, handler)
 		}
 	}
 
@@ -946,7 +955,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	if err := checkParentDir(rsp, repoID, parentDir); err != nil {
+	if err := checkParentDir(repoID, parentDir); err != nil {
 		return err
 	}
 
@@ -955,7 +964,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return &appError{nil, msg, http.StatusForbidden}
 	}
 
-	if err := checkTmpFileList(rsp, fsm); err != nil {
+	if err := checkTmpFileList(fsm); err != nil {
 		return err
 	}
 
@@ -977,11 +986,18 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		}
 	}
 
-	if err := checkQuota(rsp, repoID, contentLen); err != nil {
-		return err
+	ret, err := checkQuota(repoID, contentLen)
+	if err != nil {
+		msg := "Internal error.\n"
+		err := fmt.Errorf("failed to check quota: %v.\n, err")
+		return &appError{err, msg, http.StatusInternalServerError}
+	}
+	if ret == 1 {
+		msg := "Out of quota.\n"
+		return &appError{nil, msg, 443}
 	}
 
-	if err := createRelativePath(rsp, repoID, parentDir, relativePath, user); err != nil {
+	if err := createRelativePath(repoID, parentDir, relativePath, user); err != nil {
 		return err
 	}
 
@@ -1002,6 +1018,395 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	return nil
 }
 
+func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[string][]*multipart.FileHeader,
+	repoID, parentDir string) error {
+	httpTempDir := filepath.Join(absDataDir, "httptemp")
+
+	fileHeaders, ok := formFiles["file"]
+	if !ok {
+		err := fmt.Errorf("failed to get file from multipart form.\n")
+		return err
+	}
+
+	disposition := r.Header.Get("Content-Disposition")
+	if disposition == "" {
+		err := fmt.Errorf("missing content disposition.\n")
+		return err
+	}
+
+	_, params, err := mime.ParseMediaType(disposition)
+	if err != nil {
+		err := fmt.Errorf("failed to parse Content-Disposition: %v.\n", err)
+		return err
+	}
+	filename, err := url.QueryUnescape(params["filename"])
+	if err != nil {
+		err := fmt.Errorf("failed to get filename: %v.\n", err)
+		return err
+	}
+
+	handler := fileHeaders[0]
+	file, err := handler.Open()
+	if err != nil {
+		err := fmt.Errorf("failed to open file for read: %v.\n", err)
+		return err
+	}
+	defer file.Close()
+
+	var f *os.File
+	//filename := handler.Filename
+	filePath := filepath.Join("/", parentDir, filename)
+	tmpFile, err := repomgr.GetUploadTmpFile(repoID, filePath)
+	if err != nil || tmpFile == "" {
+		tmpDir := filepath.Join(httpTempDir, "cluster-shared")
+		f, err = ioutil.TempFile(tmpDir, filename)
+		if err != nil {
+			return err
+		}
+		repomgr.AddUploadTmpFile(repoID, filePath, f.Name())
+		tmpFile = f.Name()
+	} else {
+		f, err = os.OpenFile(tmpFile, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			return err
+		}
+	}
+
+	if fsm.rend == fsm.fsize-1 {
+		fileName := filepath.Base(filename)
+		fsm.fileNames = append(fsm.fileNames, fileName)
+		fsm.files = append(fsm.files, tmpFile)
+	}
+
+	f.Seek(fsm.rstart, 0)
+	io.Copy(f, file)
+	f.Close()
+
+	return nil
+}
+
+func createRelativePath(repoID, parentDir, relativePath, user string) *appError {
+	if relativePath == "" {
+		return nil
+	}
+
+	err := mkdirWithParents(repoID, parentDir, relativePath, user)
+	if err != nil {
+		msg := "Internal error.\n"
+		err := fmt.Errorf("Failed to create parent directory: %v.\n", err)
+		return &appError{err, msg, http.StatusInternalServerError}
+	}
+
+	return nil
+}
+
+func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		err := fmt.Errorf("failed to get repo %s.\n", repoID)
+		return err
+	}
+
+	headCommit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
+	if err != nil {
+		err := fmt.Errorf("failed to get head commit for repo %s", repo.ID)
+		return err
+	}
+
+	relativeDirCan := getCanonPath(newDirPath)
+
+	subFolders := strings.Split(relativeDirCan, "/")
+
+	for _, name := range subFolders {
+		if name == "" {
+			continue
+		}
+		if shouldIgnoreFile(name) {
+			err := fmt.Errorf("[post dir] invalid dir name %s.\n", name)
+			return err
+		}
+	}
+
+	var rootID string
+	var absPath string
+	var parentDirCan string
+	if parentDir == "/" || parentDir == "\\" {
+		parentDirCan = "/"
+	} else {
+		parentDirCan = getCanonPath(parentDir)
+	}
+
+	dirID, err := checkAndCreateDir(repo, headCommit.RootID, parentDirCan, subFolders, &absPath)
+	uncreDir := filepath.Base(absPath)
+	newRootID := headCommit.RootID
+	mtime := time.Now().Unix()
+	mode := (syscall.S_IFDIR | 0644)
+	dent := fsmgr.NewDirent(dirID, uncreDir, uint32(mode), mtime, "", 0)
+	rootID, _ = doPostFile(repo, newRootID, filepath.Dir(absPath), dent)
+	if rootID == "" {
+		err := fmt.Errorf("failed to put dir: %v.\n")
+		return err
+	}
+
+	buf := fmt.Sprintf("Added directory \"%s\"", relativeDirCan)
+	_, err = genNewCommit(repo, headCommit, rootID, user, buf)
+	if err != nil {
+		err := fmt.Errorf("failed to generate new commit: %v.\n", err)
+		return err
+	}
+
+	go mergeVirtualRepo(repo.ID, "")
+
+	return nil
+}
+
+func doPostFile(repo *repomgr.Repo, rootID, parentDir string, dent *fsmgr.SeafDirent) (string, error) {
+	return doPostFileReplace(repo, rootID, parentDir, 0, dent)
+}
+func doPostFileReplace(repo *repomgr.Repo, rootID, parentDir string, replace int, dent *fsmgr.SeafDirent) (string, error) {
+	if strings.Index(parentDir, "/") == 0 {
+		parentDir = parentDir[1:]
+	}
+
+	return postFileRecursive(repo, rootID, parentDir, replace, dent)
+}
+
+func postFileRecursive(repo *repomgr.Repo, dirID, parentDir string, replace int, newDent *fsmgr.SeafDirent) (string, error) {
+	olddir, err := fsmgr.GetSeafdir(repo.StoreID, dirID)
+	if err != nil {
+		err := fmt.Errorf("failed to get dir.\n")
+		return "", err
+	}
+	sort.Sort(Dirents(olddir.Entries))
+
+	var ret string
+	if parentDir == "" {
+		var newEntries []fsmgr.SeafDirent
+		if replace != 0 && fileNameExists(olddir.Entries, newDent.Name) {
+			for _, dent := range olddir.Entries {
+				if dent.Name == newDent.Name {
+					newEntries = append(newEntries, *newDent)
+				} else {
+					newEntries = append(newEntries, dent)
+				}
+			}
+
+			newdir := fsmgr.NewSeafDir(1, newEntries)
+			jsonstr, err := json.Marshal(newdir)
+			if err != nil {
+				err := fmt.Errorf("failed to convert seafdir to json.\n")
+				return "", err
+			}
+			checksum := sha1.Sum(jsonstr)
+			id := hex.EncodeToString(checksum[:])
+			err = fsmgr.SaveSeafdir(repo.StoreID, id, newdir)
+			if err != nil {
+				err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
+				return "", err
+			}
+			return id, nil
+		}
+
+		uniqueName := genUniqueName(newDent.Name, olddir.Entries)
+		if uniqueName == "" {
+			err := fmt.Errorf("failed to generate unique name for %s.\n", newDent.Name)
+			return "", err
+		}
+		dentDup := fsmgr.NewDirent(newDent.ID, uniqueName, newDent.Mode, newDent.Mtime, newDent.Modifier, newDent.Size)
+		newEntries = make([]fsmgr.SeafDirent, len(olddir.Entries))
+		copy(newEntries, olddir.Entries)
+		newEntries = append(newEntries, *dentDup)
+		sort.Sort(Dirents(newEntries))
+		newdir := fsmgr.NewSeafDir(1, newEntries)
+		jsonstr, err := json.Marshal(newdir)
+		if err != nil {
+			err := fmt.Errorf("failed to convert seafdir to json.\n")
+			return "", err
+		}
+		checksum := sha1.Sum(jsonstr)
+		id := hex.EncodeToString(checksum[:])
+		err = fsmgr.SaveSeafdir(repo.StoreID, id, newdir)
+		if err != nil {
+			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
+			return "", err
+		}
+
+		return id, nil
+	}
+
+	var remain string
+	if slash := strings.Index(parentDir, "/"); slash >= 0 {
+		remain = parentDir[slash+1:]
+	}
+
+	entries := olddir.Entries
+	for i, dent := range entries {
+		if dent.Name == parentDir {
+			continue
+		}
+
+		id, err := postFileRecursive(repo, dent.ID, remain, replace, newDent)
+		if err != nil {
+			err := fmt.Errorf("failed to put dirent %s: %v.\n", dent.Name, err)
+			return "", err
+		}
+		ret = id
+		if id != "" {
+			entries[i].ID = id
+			entries[i].Mtime = time.Now().Unix()
+		}
+		break
+	}
+
+	if ret != "" {
+		newDir := fsmgr.NewSeafDir(1, olddir.Entries)
+		jsonstr, err := json.Marshal(newDir)
+		if err != nil {
+			err := fmt.Errorf("failed to convert seafdir to json.\n")
+			return "", err
+		}
+		checkSum := sha1.Sum(jsonstr)
+		id := hex.EncodeToString(checkSum[:])
+		err = fsmgr.SaveSeafdir(repo.StoreID, id, newDir)
+		if err != nil {
+			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
+			return "", err
+		}
+		ret = id
+	}
+
+	return ret, nil
+}
+func fileNameExists(entries []fsmgr.SeafDirent, fileName string) bool {
+	for _, de := range entries {
+		if de.Name == fileName {
+			return true
+		}
+	}
+
+	return false
+}
+
+func checkAndCreateDir(repo *repomgr.Repo, rootID, parentDir string, subFolders []string, absPath *string) (string, error) {
+	storeID := repo.StoreID
+	dir, err := fsmgr.GetSeafdirByPath(storeID, rootID, parentDir)
+	if err != nil {
+		err := fmt.Errorf("parent_dir %s doesn't exist in repo %s.\n", parentDir, storeID)
+		return "", err
+	}
+
+	entries := dir.Entries
+	var exists bool
+	var uncreDirList []string
+	for i, dirName := range subFolders {
+		for _, de := range entries {
+			if de.Name == dirName {
+				exists = true
+				subDir, err := fsmgr.GetSeafdir(storeID, de.ID)
+				if err != nil {
+					err := fmt.Errorf("failed to get seaf dir: %v.\n", err)
+					return "", err
+				}
+				entries = subDir.Entries
+				break
+			}
+		}
+
+		if !exists {
+			relativePath := filepath.Join(subFolders[:i+1]...)
+			*absPath = filepath.Join(parentDir, relativePath)
+			uncreDirList = subFolders[i:]
+			break
+		}
+		exists = false
+	}
+	if uncreDirList != nil {
+		uncreDirList = uncreDirList[1:]
+	}
+	if len(uncreDirList) == 0 {
+		return "", nil
+	}
+
+	dirID, err := genDirRecursive(repo, uncreDirList)
+	if err != nil {
+		err := fmt.Errorf("failed to generate dir recursive: %v.\n", err)
+		return "", err
+	}
+
+	return dirID, nil
+}
+
+func genDirRecursive(repo *repomgr.Repo, toPath []string) (string, error) {
+	if len(toPath) == 1 {
+		uniqueName := toPath[0]
+		mode := (syscall.S_IFDIR | 0644)
+		mtime := time.Now().Unix()
+		dent := fsmgr.NewDirent("", uniqueName, uint32(mode), mtime, "", 0)
+		newdir := fsmgr.NewSeafDir(1, []fsmgr.SeafDirent{*dent})
+		jsonstr, err := json.Marshal(newdir)
+		if err != nil {
+			err := fmt.Errorf("failed to convert seafdir to json.\n")
+			return "", err
+		}
+		checksum := sha1.Sum(jsonstr)
+		id := hex.EncodeToString(checksum[:])
+		err = fsmgr.SaveSeafdir(repo.StoreID, id, newdir)
+		if err != nil {
+			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
+			return "", err
+		}
+
+		return id, nil
+	}
+
+	ret, err := genDirRecursive(repo, toPath[1:])
+	if err != nil {
+		err := fmt.Errorf("failed to generate dir recursive: %v.\n", err)
+		return "", err
+	}
+	if ret != "" {
+		uniqueName := toPath[0]
+		mode := (syscall.S_IFDIR | 0644)
+		mtime := time.Now().Unix()
+		dent := fsmgr.NewDirent(ret, uniqueName, uint32(mode), mtime, "", 0)
+		newDir := fsmgr.NewSeafDir(1, []fsmgr.SeafDirent{*dent})
+		jsonstr, err := json.Marshal(newDir)
+		if err != nil {
+			err := fmt.Errorf("failed to convert seafdir to json.\n")
+			return "", err
+		}
+		checkSum := sha1.Sum(jsonstr)
+		id := hex.EncodeToString(checkSum[:])
+		err = fsmgr.SaveSeafdir(repo.StoreID, id, newDir)
+		if err != nil {
+			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
+			return "", err
+		}
+		ret = id
+	}
+
+	return ret, nil
+}
+
+func checkFileExists(storeID, rootID, parentDir, fileName string) (bool, error) {
+	dir, err := fsmgr.GetSeafdirByPath(storeID, rootID, parentDir)
+	if err != nil {
+		err := fmt.Errorf("parent_dir %s doesn't exist in repo %s.\n", parentDir, storeID)
+		return false, err
+	}
+
+	var ret bool
+	entries := dir.Entries
+	for _, de := range entries {
+		if de.Name == fileName {
+			ret = true
+			break
+		}
+	}
+
+	return ret, nil
+}
+
 func clearTmpFile(fsm *recvData, parentDir string) {
 	if fsm.rstart >= 0 && fsm.rend == fsm.fsize-1 {
 		filePath := filepath.Join("/", parentDir, fsm.fileNames[0])
@@ -1015,7 +1420,7 @@ func clearTmpFile(fsm *recvData, parentDir string) {
 	return
 }
 
-func parseUploadHeaders(rsp http.ResponseWriter, r *http.Request) (*recvData, *appError) {
+func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) < 2 {
 		msg := "Invalid URL"
@@ -1024,7 +1429,7 @@ func parseUploadHeaders(rsp http.ResponseWriter, r *http.Request) (*recvData, *a
 	urlOp := parts[0]
 	token := parts[1]
 
-	accessInfo, appErr := parseWebaccessInfo(rsp, token)
+	accessInfo, appErr := parseWebaccessInfo(token)
 	if appErr != nil {
 		msg := "Access denied"
 		return nil, &appError{nil, msg, http.StatusBadRequest}
@@ -1083,7 +1488,7 @@ func parseUploadHeaders(rsp http.ResponseWriter, r *http.Request) (*recvData, *a
 	return fsm, nil
 }
 
-func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user string, fsm *recvData, replace int64, isAjax bool) *appError {
+func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user string, fsm *recvData, replace bool, isAjax bool) *appError {
 
 	fileNames := fsm.fileNames
 	files := fsm.files
@@ -1120,19 +1525,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 	var sizes []int64
 	if fsm.rstart >= 0 {
 		for _, filePath := range files {
-			file, err := os.Open(filePath)
-			if err != nil {
-				err := fmt.Errorf("failed to open file %s: %v.\n", filePath, err)
-				return &appError{err, "", http.StatusInternalServerError}
-			}
-			defer file.Close()
-			fileInfo, err := file.Stat()
-			if err != nil {
-				err := fmt.Errorf("failed to stat file %s: %v.\n", filePath, err)
-				return &appError{err, "", http.StatusInternalServerError}
-			}
-
-			id, size, err := indexBlocks(repo.StoreID, repo.Version, file, fileInfo.Size(), cryptKey)
+			id, size, err := indexBlocks(repo.StoreID, repo.Version, filePath, nil, cryptKey)
 			if err != nil {
 				err := fmt.Errorf("failed to index blocks: %v.\n", err)
 				return &appError{err, "", http.StatusInternalServerError}
@@ -1142,13 +1535,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		}
 	} else {
 		for _, handler := range fsm.fileHeaders {
-			file, err := handler.Open()
-			if err != nil {
-				err := fmt.Errorf("failed to open file %s: %v.\n", handler.Filename, err)
-				return &appError{err, "", http.StatusInternalServerError}
-			}
-			defer file.Close()
-			id, size, err := indexBlocks(repo.StoreID, repo.Version, file, handler.Size, cryptKey)
+			id, size, err := indexBlocks(repo.StoreID, repo.Version, "", handler, cryptKey)
 			if err != nil {
 				err := fmt.Errorf("failed to index blocks: %v.\n", err)
 				return &appError{err, "", http.StatusInternalServerError}
@@ -1194,7 +1581,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 	return nil
 }
 
-func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPath string, replace int64, ids []string, sizes []int64) (string, error) {
+func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPath string, replace bool, ids []string, sizes []int64) (string, error) {
 	headCommit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
 		err := fmt.Errorf("failed to get head commit for repo %s", repo.ID)
@@ -1261,28 +1648,51 @@ func getCanonPath(p string) string {
 }
 
 func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string) (string, error) {
-	var mergeDesc string
 	var retryCnt int
 	repoID := repo.ID
-	commit := newCommit(repo, base.CommitID, newRoot, user, desc)
+	commit := commitmgr.NewCommit(base.CommitID, newRoot, user, desc)
+	repomgr.RepoToCommit(repo, commit)
 	err := commitmgr.Save(commit)
 	if err != nil {
 		err := fmt.Errorf("failed to add commit: %v.\n", err)
 		return "", err
 	}
+	var commitID string
 
-retry:
+	for retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, &commitID); retry || err != nil; {
+		if err != nil {
+			return "", err
+		}
+
+		if retryCnt < 3 {
+			random := rand.Intn(10) + 1
+			time.Sleep(time.Duration(random*100) * time.Millisecond)
+			repo = repomgr.Get(repoID)
+			if repo == nil {
+				err := fmt.Errorf("repo %s doesn't exist.\n", repoID)
+				return "", err
+			}
+			retryCnt++
+		} else {
+			err := fmt.Errorf("stop updating repo %s after 3 retries.\n", repoID)
+			return "", err
+		}
+	}
+
+	return commitID, nil
+}
+
+func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, commitID *string) (bool, error) {
+	repoID := repo.ID
+	var mergeDesc string
 	var mergedCommit *commitmgr.Commit
 	currentHead, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
 		err := fmt.Errorf("failed to get head commit for repo %s", repoID)
-		return "", err
+		return false, err
 	}
 	if base.CommitID != currentHead.CommitID {
-		var roots []string
-		roots = append(roots, base.RootID)
-		roots = append(roots, currentHead.RootID)
-		roots = append(roots, newRoot)
+		roots := []string{base.RootID, currentHead.RootID, newRoot}
 		opt := new(mergeOptions)
 		opt.nWays = 3
 		opt.remoteRepoID = repoID
@@ -1292,7 +1702,7 @@ retry:
 		err := mergeTrees(repo.StoreID, 3, roots, opt)
 		if err != nil {
 			err := fmt.Errorf("failed to merge.\n")
-			return "", err
+			return false, err
 		}
 
 		if !opt.conflict {
@@ -1304,7 +1714,8 @@ retry:
 			}
 		}
 
-		mergedCommit = newCommit(repo, currentHead.CommitID, opt.mergedRoot, user, mergeDesc)
+		mergedCommit = commitmgr.NewCommit(currentHead.CommitID, opt.mergedRoot, user, mergeDesc)
+		repomgr.RepoToCommit(repo, mergedCommit)
 		mergedCommit.SecondParentID = commit.CommitID
 		mergedCommit.NewMerge = 1
 		if opt.conflict {
@@ -1314,7 +1725,7 @@ retry:
 		err = commitmgr.Save(commit)
 		if err != nil {
 			err := fmt.Errorf("failed to add commit: %v.\n", err)
-			return "", err
+			return false, err
 		}
 	} else {
 		mergedCommit = commit
@@ -1322,23 +1733,11 @@ retry:
 
 	err = updateBranch(repoID, mergedCommit.CommitID, currentHead.CommitID)
 	if err != nil {
-		if retryCnt < 3 {
-			random := rand.Intn(10) + 1
-			time.Sleep(time.Duration(random*100) * time.Millisecond)
-			repo = repomgr.Get(repoID)
-			if repo == nil {
-				err := fmt.Errorf("repo %s doesn't exist.\n", repoID)
-				return "", err
-			}
-			retryCnt++
-			goto retry
-		} else {
-			err := fmt.Errorf("stop updating repo %s after 3 retries.\n", repoID)
-			return "", err
-		}
+		return true, nil
 	}
 
-	return mergedCommit.CommitID, nil
+	*commitID = mergedCommit.CommitID
+	return false, nil
 }
 
 func genMergeDesc(repo *repomgr.Repo, mergedRoot, p1Root, p2Root string) string {
@@ -1356,7 +1755,7 @@ func genMergeDesc(repo *repomgr.Repo, mergedRoot, p1Root, p2Root string) string 
 func updateBranch(repoID, newCommitID, oldCommitID string) error {
 	var commitID string
 	name := "master"
-	sqlStr := "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ?"
+	sqlStr := "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ? FOR UPDATE"
 
 	trans, err := seafileDB.Begin()
 	if err != nil {
@@ -1388,66 +1787,15 @@ func updateBranch(repoID, newCommitID, oldCommitID string) error {
 	return nil
 }
 
-func newCommit(repo *repomgr.Repo, parentID string, newRoot, user, desc string) *commitmgr.Commit {
-	commit := new(commitmgr.Commit)
-	commit.RepoID = repo.ID
-	commit.RootID = newRoot
-	commit.Desc = desc
-	commit.CreatorName = user
-	commit.CreatorID = "0000000000000000000000000000000000000000"
-	commit.Ctime = time.Now().Unix()
-	commit.CommitID = computeCommitID(commit)
-	commit.ParentID = parentID
-	commit.RepoName = repo.Name
-	if repo.IsEncrypted {
-		commit.Encrypted = "true"
-		commit.EncVersion = repo.EncVersion
-		if repo.EncVersion == 1 {
-			commit.Magic = repo.Magic
-		} else if repo.EncVersion == 2 {
-			commit.Magic = repo.Magic
-			commit.RandomKey = repo.RandomKey
-		} else if repo.EncVersion == 3 {
-			commit.Magic = repo.Magic
-			commit.RandomKey = repo.RandomKey
-			commit.Salt = repo.Salt
-		}
-	} else {
-		commit.Encrypted = "false"
-	}
-	commit.Version = repo.Version
-
-	return commit
-}
-
-func computeCommitID(commit *commitmgr.Commit) string {
-	hash := sha1.New()
-	hash.Write([]byte(commit.RootID))
-	hash.Write([]byte(commit.CreatorID))
-	hash.Write([]byte(commit.CreatorName))
-	hash.Write([]byte(commit.Desc))
-	tmpBuf := make([]byte, 8)
-	binary.BigEndian.PutUint64(tmpBuf, uint64(commit.Ctime))
-	hash.Write(tmpBuf)
-
-	checkSum := hash.Sum(nil)
-	id := hex.EncodeToString(checkSum[:])
-
-	return id
-}
-
-func doPostMultiFiles(repo *repomgr.Repo, rootID, parentDir string, fileNames, ids []string, sizes []int64, user string, replace int64, names *[]string) (string, error) {
+func doPostMultiFiles(repo *repomgr.Repo, rootID, parentDir string, fileNames, ids []string, sizes []int64, user string, replace bool, names *[]string) (string, error) {
 	var dents []*fsmgr.SeafDirent
 	for i, name := range fileNames {
 		if i > len(ids)-1 || i > len(sizes)-1 {
 			break
 		}
-		dent := new(fsmgr.SeafDirent)
-		dent.Name = name
-		dent.ID = ids[i]
-		dent.Size = sizes[i]
-		dent.Mtime = time.Now().Unix()
-		dent.Mode = (syscall.S_IFREG | 0644)
+		mode := (syscall.S_IFREG | 0644)
+		mtime := time.Now().Unix()
+		dent := fsmgr.NewDirent(ids[i], name, uint32(mode), mtime, "", sizes[i])
 		dents = append(dents, dent)
 	}
 	if parentDir[0] == '/' {
@@ -1463,7 +1811,7 @@ func doPostMultiFiles(repo *repomgr.Repo, rootID, parentDir string, fileNames, i
 	return id, nil
 }
 
-func postMultiFilesRecursive(repo *repomgr.Repo, dirID, toPath, user string, dents []*fsmgr.SeafDirent, replace int64, names *[]string) (string, error) {
+func postMultiFilesRecursive(repo *repomgr.Repo, dirID, toPath, user string, dents []*fsmgr.SeafDirent, replace bool, names *[]string) (string, error) {
 	olddir, err := fsmgr.GetSeafdir(repo.StoreID, dirID)
 	if err != nil {
 		err := fmt.Errorf("failed to get dir.\n")
@@ -1479,9 +1827,7 @@ func postMultiFilesRecursive(repo *repomgr.Repo, dirID, toPath, user string, den
 			err := fmt.Errorf("failed to add new entries: %v\n", err)
 			return "", err
 		}
-		newdir := new(fsmgr.SeafDir)
-		newdir.Version = 1
-		newdir.Entries = olddir.Entries
+		newdir := fsmgr.NewSeafDir(1, olddir.Entries)
 		jsonstr, err := json.Marshal(newdir)
 		if err != nil {
 			err := fmt.Errorf("failed to convert seafdir to json.\n")
@@ -1523,9 +1869,7 @@ func postMultiFilesRecursive(repo *repomgr.Repo, dirID, toPath, user string, den
 	}
 
 	if ret != "" {
-		newDir := new(fsmgr.SeafDir)
-		newDir.Version = 1
-		newDir.Entries = entries
+		newDir := fsmgr.NewSeafDir(1, entries)
 		jsonstr, err := json.Marshal(newDir)
 		if err != nil {
 			err := fmt.Errorf("failed to convert seafdir to json.\n")
@@ -1544,14 +1888,15 @@ func postMultiFilesRecursive(repo *repomgr.Repo, dirID, toPath, user string, den
 	return ret, nil
 }
 
-func addNewEntries(repo *repomgr.Repo, user string, entries *[]fsmgr.SeafDirent, dents []*fsmgr.SeafDirent, replaceExisted int64, names *[]string) error {
-	for _, dent := range dents {
+func addNewEntries(repo *repomgr.Repo, user string, oldDents *[]fsmgr.SeafDirent, newDents []*fsmgr.SeafDirent, replaceExisted bool, names *[]string) error {
+	for _, dent := range newDents {
 		var replace bool
 		var uniqueName string
-		if replaceExisted != 0 {
-			for _, entry := range *entries {
+		if replaceExisted {
+			for i, entry := range *oldDents {
 				if entry.Name == dent.Name {
 					replace = true
+					*oldDents = append((*oldDents)[:i], (*oldDents)[i+1:]...)
 					break
 				}
 			}
@@ -1560,17 +1905,11 @@ func addNewEntries(repo *repomgr.Repo, user string, entries *[]fsmgr.SeafDirent,
 		if replace {
 			uniqueName = dent.Name
 		} else {
-			uniqueName = genUniqueName(dent.Name, *entries)
+			uniqueName = genUniqueName(dent.Name, *oldDents)
 		}
 		if uniqueName != "" {
-			newDent := new(fsmgr.SeafDirent)
-			newDent.Name = uniqueName
-			newDent.ID = dent.ID
-			newDent.Size = dent.Size
-			newDent.Mtime = dent.Mtime
-			newDent.Mode = dent.Mode
-			newDent.Modifier = user
-			*entries = append(*entries, *newDent)
+			newDent := fsmgr.NewDirent(dent.ID, uniqueName, dent.Mode, dent.Mtime, user, dent.Size)
+			*oldDents = append(*oldDents, *newDent)
 			*names = append(*names, uniqueName)
 		} else {
 			err := fmt.Errorf("failed to generate unique name for %s.\n", dent.Name)
@@ -1578,7 +1917,7 @@ func addNewEntries(repo *repomgr.Repo, user string, entries *[]fsmgr.SeafDirent,
 		}
 	}
 
-	sort.Sort(Dirents(*entries))
+	sort.Sort(Dirents(*oldDents))
 
 	return nil
 }
@@ -1637,11 +1976,51 @@ func shouldIgnoreFile(fileName string) bool {
 	return false
 }
 
-func indexBlocks(repoID string, version int, file multipart.File, size int64, cryptKey *seafileCrypt) (string, int64, error) {
-	blkIDs, err := splitFile(repoID, version, file, size, cryptKey)
+func indexBlocks(repoID string, version int, filePath string, handler *multipart.FileHeader, cryptKey *seafileCrypt) (string, int64, error) {
+	var size int64
+	file, err := os.Open(filePath)
 	if err != nil {
-		err := fmt.Errorf("failed to split file: %v.\n", err)
+		err := fmt.Errorf("failed to open file: %s: %v.\n", filePath, err)
 		return "", -1, err
+	}
+
+	fileInfo, err := file.Stat()
+	if err != nil {
+		err := fmt.Errorf("failed to stat file %s: %v.\n", filePath, err)
+		return "", -1, err
+	}
+	size = fileInfo.Size()
+
+	chunkJobs := make(chan chunkingData, 10)
+	results := make(chan chunkingResult, 10)
+	go createChunkPool(int(options.maxIndexingThreads), chunkJobs, results)
+
+	var blkSize int64
+	var offset int64
+	var num int
+	left := size
+	for left > 0 {
+		if uint64(left) >= options.fixedBlockSize {
+			blkSize = int64(options.fixedBlockSize)
+		} else {
+			blkSize = left
+		}
+		job := chunkingData{repoID, filePath, handler, offset, cryptKey}
+		select {
+		case chunkJobs <- job:
+		}
+		num++
+		left -= blkSize
+		offset += blkSize
+	}
+	close(chunkJobs)
+
+	blkIDs := make([]string, num)
+	for result := range results {
+		if result.err != nil {
+			return "", -1, result.err
+		}
+		blkIDs[result.idx] = result.blkID
 	}
 
 	fileID, err := writeSeafile(repoID, version, size, blkIDs)
@@ -1676,82 +2055,86 @@ func writeSeafile(repoID string, version int, fileSize int64, blkIDs []string) (
 	return fileID, nil
 }
 
-func splitFile(repoID string, version int, file multipart.File, fileSize int64, cryptKey *seafileCrypt) ([]string, error) {
-
-	var blkSize int64
-	var offset int64
-	var left int64
-	var num int
-	ch := make(chan *chunkingData)
-	defer close(ch)
-
-	left = fileSize
-	for left > 0 {
-		blkSize = 1 << 20
-		/*
-			if uint64(left) >= options.fixedBlockSize {
-				blkSize = int64(options.fixedBlockSize)
-			} else {
-				blkSize = left
-			}
-		*/
-		num++
-		go chunkingWorker(ch, repoID, file, offset, blkSize, cryptKey)
-
-		left -= blkSize
-		offset += blkSize
-	}
-
-	blkIDs := make([]string, num)
-	for ; num > 0; num-- {
-		chunk := <-ch
-		if chunk.err != nil {
-			err := fmt.Errorf("failed to chunk: %v.\n", chunk.err)
-			return nil, err
-		}
-		//blkIDs = append(blkIDs, chunk.blkID)
-		blkIDs[chunk.idx] = chunk.blkID
-	}
-
-	return blkIDs, nil
+type chunkingData struct {
+	repoID   string
+	filePath string
+	handler  *multipart.FileHeader
+	offset   int64
+	cryptKey *seafileCrypt
 }
 
-type chunkingData struct {
+type chunkingResult struct {
 	idx   int64
 	blkID string
 	err   error
 }
 
-func chunkingWorker(ch chan *chunkingData, repoID string, file multipart.File, offset int64, blkSize int64, cryptKey *seafileCrypt) {
-	chunk := new(chunkingData)
+var chunkJobs = make(chan chunkingData, 10)
 
-	_, err := file.Seek(offset, 0)
+func createChunkPool(n int, chunkJobs chan chunkingData, res chan chunkingResult) {
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go chunkingWorker(&wg, chunkJobs, res)
+	}
+	wg.Wait()
+	close(res)
+}
+
+func chunkingWorker(wg *sync.WaitGroup, chunkJobs chan chunkingData, res chan chunkingResult) {
+	for job := range chunkJobs {
+		blkID, err := chunkFile(job)
+		idx := job.offset / int64(options.fixedBlockSize)
+		result := chunkingResult{idx, blkID, err}
+		res <- result
+	}
+	wg.Done()
+}
+
+func chunkFile(job chunkingData) (string, error) {
+	repoID := job.repoID
+	offset := job.offset
+	filePath := job.filePath
+	handler := job.handler
+	blkSize := options.fixedBlockSize
+	cryptKey := job.cryptKey
+	var file multipart.File
+	if handler != nil {
+		f, err := handler.Open()
+		if err != nil {
+			err := fmt.Errorf("failed to open file for read: %v.\n", err)
+			return "", err
+		}
+		file = f
+	} else {
+		f, err := os.Open(filePath)
+		if err != nil {
+			err := fmt.Errorf("failed to open file for read: %v.\n", err)
+			return "", err
+		}
+		defer f.Close()
+		file = f
+	}
+	_, err := file.Seek(offset, os.SEEK_SET)
 	if err != nil {
-		chunk.err = fmt.Errorf("failed to seek file: %v.\n", err)
-		ch <- chunk
-		return
+		err := fmt.Errorf("failed to seek file: %v.\n", err)
+		return "", err
 	}
 	buf := make([]byte, blkSize)
 	n, err := file.Read(buf)
 	if err != nil {
-		chunk.err = fmt.Errorf("failed to seek file: %v.\n", err)
-		ch <- chunk
-		return
+		err := fmt.Errorf("failed to seek file: %v.\n", err)
+		return "", err
 	}
 	buf = buf[:n]
 
-	blkID, err := writeChunk(repoID, buf, blkSize, cryptKey)
+	blkID, err := writeChunk(repoID, buf, int64(n), cryptKey)
 	if err != nil {
-		chunk.err = fmt.Errorf("failed to write chunk: %v.\n", err)
-		ch <- chunk
-		return
+		err := fmt.Errorf("failed to write chunk: %v.\n", err)
+		return "", err
 	}
 
-	idx := offset / (1 << 20) //options.fixedBlockSize
-	chunk.idx = idx
-	chunk.blkID = blkID
-	ch <- chunk
-	return
+	return blkID, nil
 }
 
 func writeChunk(repoID string, input []byte, blkSize int64, cryptKey *seafileCrypt) (string, error) {
@@ -1786,7 +2169,8 @@ func writeChunk(repoID string, input []byte, blkSize int64, cryptKey *seafileCry
 	return blkID, nil
 }
 
-func checkQuota(rsp http.ResponseWriter, repoID string, contentLen int64) *appError {
+/*
+func checkQuota(repoID string, contentLen int64) *appError {
 	ret, err := rpcclient.Call("check_quota", repoID, contentLen)
 	if err != nil {
 		msg := "Internal error.\n"
@@ -1800,269 +2184,9 @@ func checkQuota(rsp http.ResponseWriter, repoID string, contentLen int64) *appEr
 
 	return nil
 }
+*/
 
-func createRelativePath(rsp http.ResponseWriter, repoID, parentDir, relativePath, user string) *appError {
-	if relativePath == "" {
-		return nil
-	}
-
-	err := mkdirWithParents(repoID, parentDir, relativePath, user)
-	if err != nil {
-		msg := "Internal error.\n"
-		err := fmt.Errorf("[upload folder] %v.\n", err)
-		return &appError{err, msg, http.StatusInternalServerError}
-	}
-
-	return nil
-}
-
-func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
-	repo := repomgr.Get(repoID)
-	if repo == nil {
-		err := fmt.Errorf("failed to get repo %s.\n", repoID)
-		return err
-	}
-
-	headCommit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
-	if err != nil {
-		err := fmt.Errorf("failed to get head commit for repo %s", repo.ID)
-		return err
-	}
-
-	relativeDirCan := getCanonPath(newDirPath)
-
-	subFolders := strings.Split(relativeDirCan, "/")
-
-	for _, name := range subFolders {
-		if name == "" {
-			continue
-		}
-		if shouldIgnoreFile(name) {
-			err := fmt.Errorf("[post dir] invalid dir name %s.\n", name)
-			return err
-		}
-	}
-
-	var rootID string
-	var parentDirCan, absPath string
-	var uncreDirList []string
-	if parentDir == "/" || parentDir == "\\" {
-		parentDirCan = "/"
-		absPath = filepath.Join(parentDirCan, relativeDirCan)
-	} else {
-		parentDirCan = getCanonPath(parentDir)
-		absPath = filepath.Join(parentDirCan, relativeDirCan)
-	}
-
-	n := len(subFolders) - 1
-	for i := n; i >= 0; i-- {
-		if subFolders[i] == "" {
-			continue
-		}
-
-		totalPathLen := len(absPath)
-		subFolderLen := len(subFolders[i]) + 1
-		absPath = absPath[:totalPathLen-subFolderLen]
-		exist, _ := checkFileExists(repo.StoreID, headCommit.RootID, absPath, subFolders[i])
-		if exist {
-			absPath = filepath.Join(absPath, subFolders[i])
-			break
-		} else {
-			uncreDirList = append([]string{subFolders[i]}, uncreDirList...)
-		}
-	}
-
-	if uncreDirList != nil {
-		newRootID := headCommit.RootID
-		for _, uncreDir := range uncreDirList {
-			dent := new(fsmgr.SeafDirent)
-			dent.Name = uncreDir
-			dent.ID = "0000000000000000000000000000000000000000"
-			dent.Mtime = time.Now().Unix()
-			dent.Mode = (syscall.S_IFDIR | 0644)
-			rootID, _ = doPostFile(repo, newRootID, absPath, dent)
-			if rootID == "" {
-				err := fmt.Errorf("[put dir] failed to put dir.\n")
-				return err
-			}
-
-			absPath = filepath.Join(absPath, uncreDir)
-			newRootID = rootID
-		}
-
-		buf := fmt.Sprintf("Added directory \"%s\"", relativeDirCan)
-		_, err = genNewCommit(repo, headCommit, rootID, user, buf)
-		if err != nil {
-			err := fmt.Errorf("failed to generate new commit: %v.\n", err)
-			return err
-		}
-
-		go mergeVirtualRepo(repo.ID, "")
-	}
-
-	return nil
-}
-
-func doPostFile(repo *repomgr.Repo, rootID, parentDir string, dent *fsmgr.SeafDirent) (string, error) {
-	return doPostFileReplace(repo, rootID, parentDir, 0, dent)
-}
-func doPostFileReplace(repo *repomgr.Repo, rootID, parentDir string, replace int, dent *fsmgr.SeafDirent) (string, error) {
-	if strings.Index(parentDir, "/") == 0 {
-		parentDir = parentDir[1:]
-	}
-
-	return postFileRecursive(repo, rootID, parentDir, replace, dent)
-}
-
-func postFileRecursive(repo *repomgr.Repo, dirID, toPath string, replace int, newDent *fsmgr.SeafDirent) (string, error) {
-	olddir, err := fsmgr.GetSeafdir(repo.StoreID, dirID)
-	if err != nil {
-		err := fmt.Errorf("failed to get dir.\n")
-		return "", err
-	}
-	sort.Sort(Dirents(olddir.Entries))
-
-	var ret string
-	if toPath == "" {
-		var newEntries []fsmgr.SeafDirent
-		if replace != 0 && fileNameExists(olddir.Entries, newDent.Name) {
-			for _, dent := range olddir.Entries {
-				if dent.Name == newDent.Name {
-					newEntries = append(newEntries, *newDent)
-				} else {
-					newEntries = append(newEntries, dent)
-				}
-			}
-
-			newdir := new(fsmgr.SeafDir)
-			newdir.Version = 1
-			newdir.Entries = newEntries
-			jsonstr, err := json.Marshal(newdir)
-			if err != nil {
-				err := fmt.Errorf("failed to convert seafdir to json.\n")
-				return "", err
-			}
-			checksum := sha1.Sum(jsonstr)
-			id := hex.EncodeToString(checksum[:])
-			err = fsmgr.SaveSeafdir(repo.StoreID, id, newdir)
-			if err != nil {
-				err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
-				return "", err
-			}
-			return id, nil
-		}
-
-		uniqueName := genUniqueName(newDent.Name, olddir.Entries)
-		if uniqueName == "" {
-			err := fmt.Errorf("failed to generate unique name for %s.\n", newDent.Name)
-			return "", err
-		}
-		dentDup := new(fsmgr.SeafDirent)
-		dentDup.ID = newDent.ID
-		dentDup.Mode = newDent.Mode
-		dentDup.Mtime = newDent.Mtime
-		dentDup.Name = uniqueName
-		dentDup.Modifier = newDent.Modifier
-		dentDup.Size = newDent.Size
-
-		newEntries = make([]fsmgr.SeafDirent, len(olddir.Entries))
-		copy(newEntries, olddir.Entries)
-		newEntries = append(newEntries, *dentDup)
-		sort.Sort(Dirents(newEntries))
-		newdir := new(fsmgr.SeafDir)
-		newdir.Version = 1
-		newdir.Entries = newEntries
-		jsonstr, err := json.Marshal(newdir)
-		if err != nil {
-			err := fmt.Errorf("failed to convert seafdir to json.\n")
-			return "", err
-		}
-		checksum := sha1.Sum(jsonstr)
-		id := hex.EncodeToString(checksum[:])
-		err = fsmgr.SaveSeafdir(repo.StoreID, id, newdir)
-		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
-			return "", err
-		}
-
-		return id, nil
-	}
-
-	var remain string
-	if slash := strings.Index(toPath, "/"); slash >= 0 {
-		remain = toPath[slash+1:]
-	}
-
-	entries := olddir.Entries
-	for i, dent := range entries {
-		if dent.Name == toPath {
-			continue
-		}
-
-		id, err := postFileRecursive(repo, dent.ID, remain, replace, newDent)
-		if err != nil {
-			err := fmt.Errorf("failed to put dirent %s: %v.\n", dent.Name, err)
-			return "", err
-		}
-		ret = id
-		if id != "" {
-			entries[i].ID = id
-			entries[i].Mtime = time.Now().Unix()
-		}
-		break
-	}
-
-	if ret != "" {
-		newDir := new(fsmgr.SeafDir)
-		newDir.Version = 1
-		newDir.Entries = olddir.Entries
-		jsonstr, err := json.Marshal(newDir)
-		if err != nil {
-			err := fmt.Errorf("failed to convert seafdir to json.\n")
-			return "", err
-		}
-		checkSum := sha1.Sum(jsonstr)
-		id := hex.EncodeToString(checkSum[:])
-		err = fsmgr.SaveSeafdir(repo.StoreID, id, newDir)
-		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
-			return "", err
-		}
-		ret = id
-	}
-
-	return ret, nil
-}
-func fileNameExists(entries []fsmgr.SeafDirent, fileName string) bool {
-	for _, de := range entries {
-		if de.Name == fileName {
-			return true
-		}
-	}
-
-	return false
-}
-
-func checkFileExists(storeID, rootID, parentDir, fileName string) (bool, error) {
-	dir, err := fsmgr.GetSeafdirByPath(storeID, rootID, parentDir)
-	if err != nil {
-		err := fmt.Errorf("parent_dir %s doesn't exist in repo %s.\n", parentDir, storeID)
-		return false, err
-	}
-
-	var ret bool
-	entries := dir.Entries
-	for _, de := range entries {
-		if de.Name == fileName {
-			ret = true
-			break
-		}
-	}
-
-	return ret, nil
-}
-
-func checkTmpFileList(rsp http.ResponseWriter, fsm *recvData) *appError {
+func checkTmpFileList(fsm *recvData) *appError {
 	var totalSize int64
 	if fsm.rstart >= 0 {
 		for _, tmpFile := range fsm.files {
@@ -2088,106 +2212,7 @@ func checkTmpFileList(rsp http.ResponseWriter, fsm *recvData) *appError {
 	return nil
 }
 
-func parseFormValue(r *http.Request) (map[string]string, error) {
-	formValue := make(map[string]string)
-
-	formFiles := r.MultipartForm.File
-	for name, fileHeaders := range formFiles {
-		if name != "parent_dir" && name != "relative_path" && name != "replace" {
-			continue
-		}
-		if len(fileHeaders) > 1 {
-			err := fmt.Errorf("wrong multipart form data.\n")
-			return nil, err
-		}
-		for _, handler := range fileHeaders {
-			file, err := handler.Open()
-			if err != nil {
-				err := fmt.Errorf("failed to open file for read: %v.\n", err)
-				return nil, err
-			}
-			defer file.Close()
-
-			var buf bytes.Buffer
-			_, err = buf.ReadFrom(file)
-			if err != nil {
-				err := fmt.Errorf("failed to read file: %v.\n", err)
-				return nil, err
-			}
-			formValue[name] = buf.String()
-		}
-	}
-	return formValue, nil
-}
-
-func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[string][]*multipart.FileHeader,
-	repoID, parentDir string) error {
-	httpTempDir := filepath.Join(absDataDir, "httptemp")
-
-	for name, fileHeaders := range formFiles {
-		if name != "file" {
-			continue
-		}
-		if fsm.rstart < 0 {
-			for _, handler := range fileHeaders {
-				fileName := filepath.Base(handler.Filename)
-				fsm.fileNames = append(fsm.fileNames, fileName)
-				fsm.fileHeaders = append(fsm.fileHeaders, handler)
-			}
-
-			return nil
-		}
-
-		disposition := r.Header.Get("Content-Disposition")
-		if disposition == "" {
-			err := fmt.Errorf("missing content disposition.\n")
-			return err
-		}
-
-		for _, handler := range fileHeaders {
-			file, err := handler.Open()
-			if err != nil {
-				err := fmt.Errorf("failed to open file for read: %v.\n", err)
-				return err
-			}
-			defer file.Close()
-
-			var f *os.File
-			filename := handler.Filename
-			filePath := filepath.Join("/", parentDir, filename)
-			tmpFile, err := repomgr.GetUploadTmpFile(repoID, filePath)
-			if err != nil || tmpFile == "" {
-				tmpDir := filepath.Join(httpTempDir, "cluster-shared")
-				f, err = ioutil.TempFile(tmpDir, filename)
-				if err != nil {
-					return err
-				}
-				repomgr.AddUploadTmpFile(repoID, filePath, f.Name())
-				tmpFile = f.Name()
-			} else {
-				f, err = os.OpenFile(tmpFile, os.O_WRONLY|os.O_CREATE, 0666)
-				if err != nil {
-					return err
-				}
-			}
-
-			if fsm.rend == fsm.fsize-1 {
-				fileName := filepath.Base(filename)
-				fsm.fileNames = append(fsm.fileNames, fileName)
-				fsm.files = append(fsm.files, tmpFile)
-			}
-
-			f.Seek(fsm.rstart, 0)
-			io.Copy(f, file)
-			f.Close()
-		}
-
-	}
-
-	return nil
-}
-
-func checkParentDir(rsp http.ResponseWriter, repoID string, parentDir string) *appError {
+func checkParentDir(repoID string, parentDir string) *appError {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		msg := "Failed to get repo.\n"
@@ -2266,7 +2291,7 @@ type webaccessInfo struct {
 	user   string
 }
 
-func parseWebaccessInfo(rsp http.ResponseWriter, token string) (*webaccessInfo, *appError) {
+func parseWebaccessInfo(token string) (*webaccessInfo, *appError) {
 	webaccess, err := rpcclient.Call("seafile_web_query_access_token", token)
 	if err != nil {
 		err := fmt.Errorf("failed to get web access token: %v.\n", err)

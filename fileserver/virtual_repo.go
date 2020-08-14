@@ -460,7 +460,8 @@ retry:
 		user = parent.CreatorName
 	}
 
-	commit := newCommit(repo, parent.CommitID, parent.RootID, user, "Changed library name or description")
+	commit := commitmgr.NewCommit(parent.CommitID, parent.RootID, user, "Changed library name or description")
+	repomgr.RepoToCommit(repo, commit)
 	commit.RepoName = name
 	commit.RepoDesc = desc
 

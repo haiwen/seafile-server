@@ -378,9 +378,11 @@ func diffTrees(n int, roots []string, opt *diffOptions) error {
 }
 
 func diffTreesRecursive(n int, trees []*fsmgr.SeafDir, baseDir string, opt *diffOptions) error {
-	var ptrs [][]fsmgr.SeafDirent
+	var ptrs [3][]fsmgr.SeafDirent
 	for i := 0; i < n; i++ {
-		ptrs = append(ptrs, trees[i].Entries)
+		if trees[i] != nil {
+			ptrs[i] = trees[i].Entries
+		}
 	}
 
 	var done bool
