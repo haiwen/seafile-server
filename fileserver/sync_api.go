@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
@@ -161,6 +162,72 @@ func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		}
 	}
 	return nil
+}
+
+func headCommitsMultiCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	var repoIDList []string
+	if err := json.NewDecoder(r.Body).Decode(&repoIDList); err != nil {
+		return &appError{err, "", http.StatusBadRequest}
+	}
+	if len(repoIDList) == 0 {
+		return &appError{nil, "", http.StatusBadRequest}
+	}
+
+	var repoIDs strings.Builder
+	for i := 0; i < len(repoIDList); i++ {
+		if !isValidUUID(repoIDList[i]) {
+			return &appError{nil, "", http.StatusBadRequest}
+		}
+		if i == 0 {
+			repoIDs.WriteString(fmt.Sprintf("'%s'", repoIDList[i]))
+		} else {
+			repoIDs.WriteString(fmt.Sprintf(",'%s'", repoIDList[i]))
+		}
+	}
+
+	sqlStr := fmt.Sprintf(
+		"SELECT repo_id, commit_id FROM Branch WHERE name='master' AND "+
+			"repo_id IN (%s) LOCK IN SHARE MODE",
+		repoIDs.String())
+
+	rows, err := seafileDB.Query(sqlStr)
+	if err != nil {
+		err := fmt.Errorf("Failed to get commit id: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	defer rows.Close()
+
+	commitIDMap := make(map[string]string)
+	var repoID string
+	var commitID string
+	for rows.Next() {
+		if err := rows.Scan(&repoID, &commitID); err == nil {
+			commitIDMap[repoID] = commitID
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		err := fmt.Errorf("Failed to get commit id: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	data, err := json.Marshal(commitIDMap)
+	if err != nil {
+		err := fmt.Errorf("Failed to marshal json: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	rsp.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(data)
+
+	return nil
+}
+
+func isValidUUID(u string) bool {
+	_, err := uuid.Parse(u)
+	return err == nil
 }
 
 func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
