@@ -324,6 +324,8 @@ func newHTTPRouter() *mux.Router {
 		appHandler(commitOperCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/block/{id:[\\da-z]{40}}",
 		appHandler(blockOperCB))
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/fs-id-list/",
+		appHandler(getFsObjIDCB))
 	return r
 }
 
