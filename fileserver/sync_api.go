@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"html"
 	"log"
@@ -16,6 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
+	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/share"
 )
@@ -23,6 +25,7 @@ import (
 const (
 	seafileServerChannelEvent = "seaf_server.event"
 	seafileServerChannelStats = "seaf_server.stats"
+	emptySHA1                 = "0000000000000000000000000000000000000000"
 	tokenExpireTime           = 7200
 	permExpireTime            = 7200
 	virtualRepoExpireTime     = 7200
@@ -157,6 +160,55 @@ func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
 			}
 		}
 	}
+	return nil
+}
+
+func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	queries := r.URL.Query()
+
+	serverHead := queries.Get("server-head")
+	if !isObjectIDValid(serverHead) {
+		msg := "Invalid server-head parameter."
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	clientHead := queries.Get("client-head")
+	if !isObjectIDValid(clientHead) {
+		msg := "Invalid client-head parameter."
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	dirOnlyArg := queries.Get("dir-only")
+	var dirOnly bool
+	if dirOnlyArg != "" {
+		dirOnly = true
+	}
+
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	if _, err := validateToken(r, repoID, false); err != nil {
+		return err
+	}
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		err := fmt.Errorf("Failed to find repo %.8s", repoID)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	ret, err := calculateSendObjectList(repo, serverHead, clientHead, dirOnly)
+	if err != nil {
+		err := fmt.Errorf("Failed to get fs id list: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	objList, err := json.Marshal(ret)
+	if err != nil {
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	rsp.Header().Set("Content-Length", strconv.Itoa(len(objList)))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(objList)
+
 	return nil
 }
 
@@ -521,4 +573,88 @@ func removeExpireCache() {
 	tokenCache.Range(deleteTokens)
 	permCache.Range(deletePerms)
 	virtualRepoInfoCache.Range(deleteVirtualRepoInfo)
+}
+
+func calculateSendObjectList(repo *repomgr.Repo, serverHead string, clientHead string, dirOnly bool) ([]interface{}, error) {
+	masterHead, err := commitmgr.Load(repo.ID, serverHead)
+	if err != nil {
+		err := fmt.Errorf("Failed to load server head commit %s:%s: %v", repo.ID, serverHead, err)
+		return nil, err
+	}
+	var remoteHead *commitmgr.Commit
+	remoteHeadRoot := emptySHA1
+	if clientHead != "" {
+		remoteHead, err = commitmgr.Load(repo.ID, clientHead)
+		if err != nil {
+			err := fmt.Errorf("Failed to load remote head commit %s:%s: %v", repo.ID, clientHead, err)
+			return nil, err
+		}
+		remoteHeadRoot = remoteHead.RootID
+	}
+
+	var results []interface{}
+	if remoteHeadRoot != masterHead.RootID && masterHead.RootID != emptySHA1 {
+		results = append(results, masterHead.RootID)
+	}
+
+	var opt *diffOptions
+	if !dirOnly {
+		opt = &diffOptions{
+			fileCB:  collectFileIDs,
+			dirCB:   collectDirIDs,
+			repoID:  repo.ID,
+			results: &results}
+	} else {
+		opt = &diffOptions{
+			fileCB:  collectFileIDsNOp,
+			dirCB:   collectDirIDs,
+			repoID:  repo.ID,
+			results: &results}
+	}
+	trees := []string{masterHead.RootID, remoteHeadRoot}
+
+	if err := diffTrees(trees, opt); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func collectFileIDs(baseDir string, files []*fsmgr.SeafDirent, results *[]interface{}) {
+	file1 := files[0]
+	file2 := files[1]
+
+	if file1 != nil &&
+		(file2 == nil || file1.ID != file2.ID) &&
+		file1.ID != emptySHA1 {
+		*results = append(*results, file1.ID)
+	}
+}
+
+func collectFileIDsNOp(baseDir string, files []*fsmgr.SeafDirent, results *[]interface{}) {
+
+}
+
+func collectDirIDs(baseDir string, dirs []*fsmgr.SeafDirent, results *[]interface{}) {
+	dir1 := dirs[0]
+	dir2 := dirs[1]
+
+	if dir1 != nil &&
+		(dir2 == nil || dir1.ID != dir2.ID) &&
+		dir1.ID != emptySHA1 {
+		*results = append(*results, dir1.ID)
+	}
+}
+
+func isObjectIDValid(objID string) bool {
+	if len(objID) != 40 {
+		return false
+	}
+	for i := 0; i < len(objID); i++ {
+		c := objID[i]
+		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') {
+			continue
+		}
+		return false
+	}
+	return true
 }
