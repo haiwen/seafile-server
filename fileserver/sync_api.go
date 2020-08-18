@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -164,6 +165,50 @@ func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
+func packFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+
+	_, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	storeID, err := getRepoStoreID(repoID)
+	if err != nil {
+		err := fmt.Errorf("Failed to get repo store id by repo id %s: %v", repoID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	var fsIDList []string
+	if err := json.NewDecoder(r.Body).Decode(&fsIDList); err != nil {
+		return &appError{nil, err.Error(), http.StatusBadRequest}
+	}
+
+	var data bytes.Buffer
+	for i := 0; i < len(fsIDList); i++ {
+		if !isObjectIDValid(fsIDList[i]) {
+			msg := fmt.Sprintf("Invalid fs id %s", fsIDList[i])
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+		data.WriteString(fsIDList[i])
+		var tmp bytes.Buffer
+		if err := fsmgr.ReadRaw(storeID, fsIDList[i], &tmp); err != nil {
+			err := fmt.Errorf("Failed to read fs %s:%s: %v", storeID, fsIDList[i], err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+		tmpLen := make([]byte, 4)
+		binary.BigEndian.PutUint32(tmpLen, uint32(tmp.Len()))
+		data.Write(tmpLen)
+		data.Write(tmp.Bytes())
+	}
+
+	rsp.Header().Set("Content-Length", strconv.Itoa(data.Len()))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(data.Bytes())
+	return nil
+}
+
 func headCommitsMultiCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	var repoIDList []string
 	if err := json.NewDecoder(r.Body).Decode(&repoIDList); err != nil {
@@ -313,9 +358,9 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 		return appErr
 	}
 
-	storeID := getRepoStoreID(repoID)
-	if storeID == "" {
-		err := fmt.Errorf("Failed to get repo store id by repo id %s", repoID)
+	storeID, err := getRepoStoreID(repoID)
+	if err != nil {
+		err := fmt.Errorf("Failed to get repo store id by repo id %s: %v", repoID, err)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
@@ -339,7 +384,7 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
-func getRepoStoreID(repoID string) string {
+func getRepoStoreID(repoID string) (string, error) {
 	var storeID string
 
 	if value, ok := virtualRepoInfoCache.Load(repoID); ok {
@@ -353,7 +398,7 @@ func getRepoStoreID(repoID string) string {
 		}
 	}
 	if storeID != "" {
-		return storeID
+		return storeID, nil
 	}
 
 	var vInfo virtualRepoInfo
@@ -363,13 +408,13 @@ func getRepoStoreID(repoID string) string {
 		if err == sql.ErrNoRows {
 			vInfo.expireTime = time.Now().Unix() + virtualRepoExpireTime
 			virtualRepoInfoCache.Store(repoID, &vInfo)
-			return repoID
+			return repoID, nil
 		}
-		return ""
+		return "", err
 	}
 
 	virtualRepoInfoCache.Store(repoID, &vInfo)
-	return vInfo.storeID
+	return vInfo.storeID, nil
 }
 
 func sendStatisticMsg(repoID, user, operation string, bytes uint64) {
