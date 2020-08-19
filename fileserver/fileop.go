@@ -1998,29 +1998,44 @@ func indexBlocks(repoID string, version int, filePath string, handler *multipart
 	var blkSize int64
 	var offset int64
 	var num int
+
+	jobNum := uint64(size)/options.fixedBlockSize + 1
+	blkIDs := make([]string, jobNum)
+
 	left := size
-	for left > 0 {
+	for {
 		if uint64(left) >= options.fixedBlockSize {
 			blkSize = int64(options.fixedBlockSize)
 		} else {
 			blkSize = left
 		}
-		job := chunkingData{repoID, filePath, handler, offset, cryptKey}
-		select {
-		case chunkJobs <- job:
+		if left > 0 {
+			job := chunkingData{repoID, filePath, handler, offset, cryptKey}
+			select {
+			case chunkJobs <- job:
+				num++
+				left -= blkSize
+				offset += blkSize
+			case result := <-results:
+				if result.err != nil {
+					close(chunkJobs)
+					close(results)
+					return "", -1, result.err
+				}
+				blkIDs[result.idx] = result.blkID
+			default:
+			}
+		} else {
+			close(chunkJobs)
+			for result := range results {
+				if result.err != nil {
+					close(results)
+					return "", -1, result.err
+				}
+				blkIDs[result.idx] = result.blkID
+			}
+			break
 		}
-		num++
-		left -= blkSize
-		offset += blkSize
-	}
-	close(chunkJobs)
-
-	blkIDs := make([]string, num)
-	for result := range results {
-		if result.err != nil {
-			return "", -1, result.err
-		}
-		blkIDs[result.idx] = result.blkID
 	}
 
 	fileID, err := writeSeafile(repoID, version, size, blkIDs)
@@ -2069,8 +2084,6 @@ type chunkingResult struct {
 	err   error
 }
 
-var chunkJobs = make(chan chunkingData, 10)
-
 func createChunkPool(n int, chunkJobs chan chunkingData, res chan chunkingResult) {
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
@@ -2083,6 +2096,7 @@ func createChunkPool(n int, chunkJobs chan chunkingData, res chan chunkingResult
 
 func chunkingWorker(wg *sync.WaitGroup, chunkJobs chan chunkingData, res chan chunkingResult) {
 	for job := range chunkJobs {
+		job := job
 		blkID, err := chunkFile(job)
 		idx := job.offset / int64(options.fixedBlockSize)
 		result := chunkingResult{idx, blkID, err}
