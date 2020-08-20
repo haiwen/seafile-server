@@ -1,9 +1,6 @@
 package main
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"log"
 	"path/filepath"
@@ -257,32 +254,27 @@ func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.S
 	var ret string
 
 	if toPath == "" {
-		var newEntries []fsmgr.SeafDirent
+		var newEntries []*fsmgr.SeafDirent
 		for _, dent := range entries {
 			if dent.Name == newDent.Name {
-				newEntries = append(newEntries, *newDent)
+				newEntries = append(newEntries, newDent)
 			} else {
 				newEntries = append(newEntries, dent)
 			}
 		}
 
-		newDir := new(fsmgr.SeafDir)
-		newDir.Version = 1
-		newDir.Entries = newEntries
-		jsonstr, err := json.Marshal(newDir)
+		newdir, err := fsmgr.NewSeafdir(1, newEntries)
 		if err != nil {
-			err := fmt.Errorf("failed to convert seadir to json.\n")
+			err := fmt.Errorf("failed to new seafdir: %v.\n", err)
 			return "", err
 		}
-		checkSum := sha1.Sum(jsonstr)
-		id := hex.EncodeToString(checkSum[:])
-		err = fsmgr.SaveSeafdir(repo.StoreID, id, newDir)
+		err = fsmgr.SaveSeafdir(repo.StoreID, newdir)
 		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
+			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, newdir.DirID)
 			return "", err
 		}
 
-		return id, nil
+		return newdir.DirID, nil
 	}
 
 	var remain string
@@ -308,22 +300,17 @@ func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.S
 	}
 
 	if ret != "" {
-		newDir := new(fsmgr.SeafDir)
-		newDir.Version = 1
-		newDir.Entries = entries
-		jsonstr, err := json.Marshal(newDir)
+		newdir, err := fsmgr.NewSeafdir(1, entries)
 		if err != nil {
-			err := fmt.Errorf("failed to convert seafdir to json.\n")
+			err := fmt.Errorf("failed to new seafdir: %v.\n", err)
 			return "", err
 		}
-		checkSum := sha1.Sum(jsonstr)
-		id := hex.EncodeToString(checkSum[:])
-		err = fsmgr.SaveSeafdir(repo.StoreID, id, newDir)
+		err = fsmgr.SaveSeafdir(repo.StoreID, newdir)
 		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, id)
+			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, newdir.DirID)
 			return "", err
 		}
-		ret = id
+		ret = newdir.DirID
 	}
 
 	return ret, nil
@@ -460,7 +447,7 @@ retry:
 		user = parent.CreatorName
 	}
 
-	commit := commitmgr.NewCommit(parent.CommitID, parent.RootID, user, "Changed library name or description")
+	commit := commitmgr.NewCommit(repoID, parent.CommitID, parent.RootID, user, "Changed library name or description")
 	repomgr.RepoToCommit(repo, commit)
 	commit.RepoName = name
 	commit.RepoDesc = desc

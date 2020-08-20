@@ -46,8 +46,9 @@ func Init(seafileConfPath string, seafileDataDir string) {
 	store = objstore.New(seafileConfPath, seafileDataDir, "commits")
 }
 
-func NewCommit(parentID, newRoot, user, desc string) *Commit {
+func NewCommit(repoID, parentID, newRoot, user, desc string) *Commit {
 	commit := new(Commit)
+	commit.RepoID = repoID
 	commit.RootID = newRoot
 	commit.Desc = desc
 	commit.CreatorName = user

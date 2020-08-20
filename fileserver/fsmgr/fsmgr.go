@@ -4,6 +4,8 @@ package fsmgr
 import (
 	"bytes"
 	"compress/zlib"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,10 +34,10 @@ type SeafDirent struct {
 }
 
 type SeafDir struct {
-	Version int          `json:"version"`
-	DirType int          `json:"type,omitempty"`
-	DirID   string       `json:"dir_id,omitempty"`
-	Entries []SeafDirent `json:"dirents"`
+	Version int           `json:"version"`
+	DirType int           `json:"type,omitempty"`
+	DirID   string        `json:"dir_id,omitempty"`
+	Entries []*SeafDirent `json:"dirents"`
 }
 
 type FileCountInfo struct {
@@ -79,12 +81,36 @@ func NewDirent(id string, name string, mode uint32, mtime int64, modifier string
 	return dent
 }
 
-func NewSeafDir(version int, entries []SeafDirent) *SeafDir {
+func NewSeafdir(version int, entries []*SeafDirent) (*SeafDir, error) {
 	dir := new(SeafDir)
 	dir.Version = version
 	dir.Entries = entries
+	jsonstr, err := json.Marshal(dir)
+	if err != nil {
+		err := fmt.Errorf("failed to convert seafdir to json.\n")
+		return nil, err
+	}
+	checksum := sha1.Sum(jsonstr)
+	dir.DirID = hex.EncodeToString(checksum[:])
 
-	return dir
+	return dir, nil
+}
+
+func NewSeafile(version int, fileSize int64, blkIDs []string) (*Seafile, error) {
+	seafile := new(Seafile)
+	seafile.Version = version
+	seafile.FileSize = uint64(fileSize)
+	seafile.BlkIDs = blkIDs
+
+	jsonstr, err := json.Marshal(seafile)
+	if err != nil {
+		err := fmt.Errorf("failed to convert seafile to json.\n")
+		return nil, err
+	}
+	checkSum := sha1.Sum(jsonstr)
+	seafile.FileID = hex.EncodeToString(checkSum[:])
+
+	return seafile, nil
 }
 
 func uncompress(p []byte) ([]byte, error) {
@@ -240,7 +266,9 @@ func GetSeafile(repoID string, fileID string) (*Seafile, error) {
 }
 
 // SaveSeafile saves seafile to storage backend.
-func SaveSeafile(repoID string, fileID string, seafile *Seafile) error {
+func SaveSeafile(repoID string, seafile *Seafile) error {
+	fileID := seafile.FileID
+
 	exist, _ := store.Exists(repoID, fileID)
 	if exist {
 		return nil
@@ -295,7 +323,8 @@ func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
 }
 
 // SaveSeafdir saves seafdir to storage backend.
-func SaveSeafdir(repoID string, dirID string, seafdir *SeafDir) error {
+func SaveSeafdir(repoID string, seafdir *SeafDir) error {
+	dirID := seafdir.DirID
 	exist, _ := store.Exists(repoID, dirID)
 	if exist {
 		return nil
@@ -384,10 +413,10 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 	if len(formatPath) == 0 {
 		return rootID, nil
 	}
-	slash := strings.Index(formatPath, "/")
-	if slash == 0 {
+	lastIndex := strings.Index(formatPath, "/")
+	if lastIndex == 0 {
 		return rootID, nil
-	} else if slash < 0 {
+	} else if lastIndex < 0 {
 		dir, err := GetSeafdir(repoID, rootID)
 		if err != nil {
 			err := fmt.Errorf("failed to find root dir %s: %v.\n", rootID, err)
@@ -403,7 +432,7 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 			if err == PathNoExist {
 				return "", PathNoExist
 			}
-			err := fmt.Errorf("failed to find root dir %s: %v.\n", rootID, err)
+			err := fmt.Errorf("failed to find dir %s in repo %s: %v.\n", dirName, repoID, err)
 			return "", err
 		}
 		baseDir = dir
@@ -425,13 +454,13 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 func GetFileCountInfoByPath(repoID, rootID, path string) (*FileCountInfo, error) {
 	dirID, err := GetSeafdirIDByPath(repoID, rootID, path)
 	if err != nil {
-		err := fmt.Errorf("path %s doesn't exist or is not ad dir in repo %.10s.\n", path, repoID)
+		err := fmt.Errorf("failed to get file count info for repo %s path %s: %v.\n", repoID, path, err)
 		return nil, err
 	}
 
 	info, err := getFileCountInfo(repoID, dirID)
 	if err != nil {
-		err := fmt.Errorf("failed to get file count in repo %.10s.\n", repoID)
+		err := fmt.Errorf("failed to get file count in repo %s: %v.\n", repoID, err)
 		return nil, err
 	}
 

@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"gopkg.in/ini.v1"
 	"log"
+	"path/filepath"
 	"sync"
 
 	"database/sql"
@@ -20,6 +22,24 @@ type Job struct {
 type jobCB func(repoID string) error
 
 var jobs = make(chan Job, 10)
+
+func sizeSchedulerInit() {
+	var n int = 1
+	seafileConfPath := filepath.Join(absDataDir, "seafile.conf")
+	config, err := ini.Load(seafileConfPath)
+	if err != nil {
+		log.Fatalf("Failed to load seafile.conf: %v", err)
+	}
+	if section, err := config.GetSection("scheduler"); err == nil {
+		if key, err := section.GetKey("size_sched_thread_num"); err == nil {
+			num, err := key.Int()
+			if err == nil {
+				n = num
+			}
+		}
+	}
+	go createWorkerPool(n)
+}
 
 // need to start a go routine
 func createWorkerPool(n int) {

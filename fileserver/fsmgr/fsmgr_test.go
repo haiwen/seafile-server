@@ -10,34 +10,44 @@ const (
 	seafileConfPath = "/tmp/conf"
 	seafileDataDir  = "/tmp/conf/seafile-data"
 	repoID          = "b1f2ad61-9164-418a-a47f-ab805dbd5694"
-	fileID          = "0401fc662e3bc87a41f299a907c056aaf8322a26"
-	dirID           = "0401fc662e3bc87a41f299a907c056aaf8322a27"
+	blkID           = "0401fc662e3bc87a41f299a907c056aaf8322a26"
+	subDirID        = "0401fc662e3bc87a41f299a907c056aaf8322a27"
 )
 
+var dirID string
+var fileID string
+
 func createFile() error {
-	seafile := new(Seafile)
-	seafile.Version = 1
-	seafile.FileSize = 100
+	var blkIDs []string
 	for i := 0; i < 2; i++ {
-		blkshal := fileID
-		seafile.BlkIDs = append(seafile.BlkIDs, blkshal)
+		blkshal := blkID
+		blkIDs = append(blkIDs, blkshal)
 	}
 
-	err := SaveSeafile(repoID, fileID, seafile)
+	seafile, err := NewSeafile(1, 100, blkIDs)
+
+	err = SaveSeafile(repoID, seafile)
+	if err != nil {
+		return err
+	}
+	fileID = seafile.FileID
+
+	var entries []*SeafDirent
+	for i := 0; i < 2; i++ {
+		dirent := SeafDirent{ID: subDirID, Name: "/", Mode: 0x4000}
+		entries = append(entries, &dirent)
+	}
+	seafdir, err := NewSeafdir(1, entries)
+	if err != nil {
+		err := fmt.Errorf("failed to new seafdir: %v.\n", err)
+		return err
+	}
+	err = SaveSeafdir(repoID, seafdir)
 	if err != nil {
 		return err
 	}
 
-	seafdir := new(SeafDir)
-	seafdir.Version = 1
-	for i := 0; i < 2; i++ {
-		dirent := SeafDirent{ID: dirID, Name: "/", Mode: 0x4000}
-		seafdir.Entries = append(seafdir.Entries, dirent)
-	}
-	err = SaveSeafdir(repoID, dirID, seafdir)
-	if err != nil {
-		return err
-	}
+	dirID = seafdir.DirID
 
 	return nil
 }
@@ -78,7 +88,7 @@ func TestGetSeafile(t *testing.T) {
 	}
 
 	for _, v := range seafile.BlkIDs {
-		if v != fileID {
+		if v != blkID {
 			t.Errorf("Wrong file content.\n")
 		}
 	}
@@ -96,7 +106,7 @@ func TestGetSeafdir(t *testing.T) {
 	}
 
 	for _, v := range seafdir.Entries {
-		if v.ID != dirID {
+		if v.ID != subDirID {
 			t.Errorf("Wrong file content.\n")
 		}
 	}
@@ -111,7 +121,7 @@ func TestGetSeafdirByPath(t *testing.T) {
 	}
 
 	for _, v := range seafdir.Entries {
-		if v.ID != dirID {
+		if v.ID != subDirID {
 			t.Errorf("Wrong file content.\n")
 		}
 	}

@@ -1,9 +1,6 @@
 package main
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -53,8 +50,8 @@ func mergeTrees(storeID string, n int, roots []string, opt *mergeOptions) error 
 }
 
 func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir string, opt *mergeOptions) error {
-	var ptrs [][]fsmgr.SeafDirent
-	var mergedDents []fsmgr.SeafDirent
+	var ptrs [][]*fsmgr.SeafDirent
+	var mergedDents []*fsmgr.SeafDirent
 
 	for i := 0; i < n; i++ {
 		ptrs = append(ptrs, trees[i].Entries)
@@ -94,7 +91,7 @@ func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir 
 						nFiles++
 					}
 					ptrs[i] = ptrs[i][1:]
-					dents[i] = &dent
+					dents[i] = dent
 				}
 			}
 		}
@@ -118,26 +115,20 @@ func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir 
 
 	if n == 3 && opt.doMerge {
 		sort.Sort(Dirents(mergedDents))
-		mergedTree := new(fsmgr.SeafDir)
-		mergedTree.Version = 1
-		mergedTree.Entries = mergedDents
-		jsonstr, err := json.Marshal(mergedTree)
+		mergedTree, err := fsmgr.NewSeafdir(1, mergedDents)
 		if err != nil {
-			err := fmt.Errorf("failed to convert seafdir to json.\n")
+			err := fmt.Errorf("failed to new seafdir: %v.\n", err)
 			return err
 		}
-		checkSum := sha1.Sum(jsonstr)
-		id := hex.EncodeToString(checkSum[:])
-		mergedTree.DirID = id
 
-		opt.mergedRoot = id
+		opt.mergedRoot = mergedTree.DirID
 
 		if trees[1] != nil && trees[1].DirID == mergedTree.DirID ||
 			trees[2] != nil && trees[2].DirID == mergedTree.DirID {
 			return nil
 		}
 
-		err = fsmgr.SaveSeafdir(storeID, id, mergedTree)
+		err = fsmgr.SaveSeafdir(storeID, mergedTree)
 		if err != nil {
 			err := fmt.Errorf("failed to save merged tree %s/%s.\n", storeID, baseDir)
 			return err
@@ -147,8 +138,8 @@ func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir 
 	return nil
 }
 
-func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]fsmgr.SeafDirent, error) {
-	var mergedDents []fsmgr.SeafDirent
+func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]*fsmgr.SeafDirent, error) {
+	var mergedDents []*fsmgr.SeafDirent
 	files := make([]*fsmgr.SeafDirent, n)
 
 	for i := 0; i < n; i++ {
@@ -167,11 +158,11 @@ func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir stri
 
 	if head != nil && remote != nil {
 		if head.ID == remote.ID {
-			mergedDents = append(mergedDents, *head)
+			mergedDents = append(mergedDents, head)
 		} else if base != nil && base.ID == head.ID {
-			mergedDents = append(mergedDents, *remote)
+			mergedDents = append(mergedDents, remote)
 		} else if base != nil && base.ID == remote.ID {
-			mergedDents = append(mergedDents, *head)
+			mergedDents = append(mergedDents, head)
 		} else {
 			conflictName, _ := mergeConflictFileName(storeID, opt, baseDir, head.Name)
 			if conflictName == "" {
@@ -179,7 +170,7 @@ func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir stri
 				return nil, err
 			}
 			dents[2].Name = conflictName
-			mergedDents = append(mergedDents, *remote)
+			mergedDents = append(mergedDents, remote)
 			opt.conflict = true
 		}
 	} else if base != nil && head == nil && remote != nil {
@@ -191,10 +182,10 @@ func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir stri
 					return nil, err
 				}
 				dents[2].Name = conflictName
-				mergedDents = append(mergedDents, *remote)
+				mergedDents = append(mergedDents, remote)
 				opt.conflict = true
 			} else {
-				mergedDents = append(mergedDents, *remote)
+				mergedDents = append(mergedDents, remote)
 			}
 		}
 	} else if base != nil && head != nil && remote == nil {
@@ -206,17 +197,17 @@ func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir stri
 					return nil, err
 				}
 				dents[2].Name = conflictName
-				mergedDents = append(mergedDents, *head)
+				mergedDents = append(mergedDents, head)
 				opt.conflict = true
 			} else {
-				mergedDents = append(mergedDents, *head)
+				mergedDents = append(mergedDents, head)
 			}
 		}
 	} else if base == nil && head == nil && remote != nil {
 		if dents[1] == nil {
-			mergedDents = append(mergedDents, *remote)
+			mergedDents = append(mergedDents, remote)
 		} else if dents[0] != nil && dents[0].ID == dents[1].ID {
-			mergedDents = append(mergedDents, *remote)
+			mergedDents = append(mergedDents, remote)
 		} else {
 			conflictName, _ := mergeConflictFileName(storeID, opt, baseDir, remote.Name)
 			if conflictName == "" {
@@ -224,14 +215,14 @@ func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir stri
 				return nil, err
 			}
 			dents[2].Name = conflictName
-			mergedDents = append(mergedDents, *remote)
+			mergedDents = append(mergedDents, remote)
 			opt.conflict = true
 		}
 	} else if base == nil && head != nil && remote == nil {
 		if dents[2] == nil {
-			mergedDents = append(mergedDents, *head)
+			mergedDents = append(mergedDents, head)
 		} else if dents[0] != nil && dents[0].ID == dents[2].ID {
-			mergedDents = append(mergedDents, *head)
+			mergedDents = append(mergedDents, head)
 		} else {
 			conflictName, _ := mergeConflictFileName(storeID, opt, baseDir, dents[2].Name)
 			if conflictName == "" {
@@ -239,7 +230,7 @@ func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir stri
 				return nil, err
 			}
 			dents[2].Name = conflictName
-			mergedDents = append(mergedDents, *head)
+			mergedDents = append(mergedDents, head)
 			opt.conflict = true
 		}
 	} else if base != nil && head == nil && remote == nil {
@@ -248,9 +239,9 @@ func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir stri
 	return mergedDents, nil
 }
 
-func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]fsmgr.SeafDirent, error) {
+func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]*fsmgr.SeafDirent, error) {
 	var dirMask int
-	var mergedDents []fsmgr.SeafDirent
+	var mergedDents []*fsmgr.SeafDirent
 	var dirName string
 	subDirs := make([]*fsmgr.SeafDir, n)
 	for i := 0; i < n; i++ {
@@ -267,7 +258,7 @@ func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir 
 		case 1:
 			return mergedDents, nil
 		case 2:
-			mergedDents = append(mergedDents, *dents[1])
+			mergedDents = append(mergedDents, dents[1])
 			return mergedDents, nil
 		case 3:
 			if dents[0].ID == dents[1].ID {
@@ -275,7 +266,7 @@ func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir 
 			}
 			break
 		case 4:
-			mergedDents = append(mergedDents, *dents[2])
+			mergedDents = append(mergedDents, dents[2])
 			return mergedDents, nil
 		case 5:
 			if dents[0].ID == dents[2].ID {
@@ -284,22 +275,22 @@ func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir 
 			break
 		case 6:
 			if dents[1].ID == dents[2].ID {
-				mergedDents = append(mergedDents, *dents[1])
+				mergedDents = append(mergedDents, dents[1])
 			} else if dents[0] != nil && dents[0].ID == dents[1].ID {
-				mergedDents = append(mergedDents, *dents[2])
+				mergedDents = append(mergedDents, dents[2])
 			} else if dents[0] != nil && dents[0].ID == dents[2].ID {
-				mergedDents = append(mergedDents, *dents[1])
+				mergedDents = append(mergedDents, dents[1])
 			}
 			break
 		case 7:
 			if dents[1].ID == dents[2].ID {
-				mergedDents = append(mergedDents, *dents[1])
+				mergedDents = append(mergedDents, dents[1])
 				return mergedDents, nil
 			} else if dents[0] != nil && dents[0].ID == dents[1].ID {
-				mergedDents = append(mergedDents, *dents[2])
+				mergedDents = append(mergedDents, dents[2])
 				return mergedDents, nil
 			} else if dents[0] != nil && dents[0].ID == dents[2].ID {
-				mergedDents = append(mergedDents, *dents[1])
+				mergedDents = append(mergedDents, dents[1])
 				return mergedDents, nil
 			}
 			break
@@ -335,11 +326,11 @@ func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir 
 
 	if n == 3 && opt.doMerge {
 		if dirMask == 3 || dirMask == 6 || dirMask == 7 {
-			dent := *dents[1]
+			dent := dents[1]
 			dent.ID = opt.mergedRoot
 			mergedDents = append(mergedDents, dent)
 		} else if dirMask == 5 {
-			dent := *dents[2]
+			dent := dents[2]
 			dent.ID = opt.mergedRoot
 			mergedDents = append(mergedDents, dent)
 		}
@@ -417,7 +408,7 @@ func getFileModifierMtime(repoID, storeID, head, filePath string) (string, int64
 	entries := dir.Entries
 	for _, d := range entries {
 		if d.Name == fileName {
-			dent = &d
+			dent = d
 			break
 		}
 	}

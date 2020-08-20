@@ -20,16 +20,6 @@ func checkQuota(repoID string, delta int64) (int, error) {
 		return -1, err
 	}
 
-	ret, err := checkQuotaWithDelta(repoID, delta)
-	if err != nil {
-		err := fmt.Errorf("failed to check quota: %v.\n", err)
-		return ret, err
-	}
-
-	return ret, nil
-}
-
-func checkQuotaWithDelta(repoID string, delta int64) (int, error) {
 	vInfo, err := repomgr.GetVirtualRepoInfo(repoID)
 	if err != nil {
 		err := fmt.Errorf("failed to get virtual repo: %v\n", err)
@@ -48,9 +38,6 @@ func checkQuotaWithDelta(repoID string, delta int64) (int, error) {
 	if user == "" {
 		err := fmt.Errorf("repo %s has no owner.\n")
 		return -1, err
-	}
-	if strings.Index(user, "dtable@seafile") >= 0 {
-		return 0, nil
 	}
 	quota, err := getUserQuota(user)
 	if err != nil {

@@ -334,13 +334,14 @@ func main() {
 
 	syncAPIInit()
 
-	go createWorkerPool(10)
+	//sizeSchedulerInit()
 
 	router := newHTTPRouter()
 
 	log.Print("Seafile file server started.")
 
-	err = http.ListenAndServe(":8083", router)
+	addr := fmt.Sprintf("%s:%d", options.host, options.port)
+	err = http.ListenAndServe(addr, router)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
