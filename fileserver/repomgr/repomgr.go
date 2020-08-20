@@ -397,13 +397,17 @@ func AddUploadTmpFile(repoID, filePath, tmpFile string) error {
 }
 
 func DelUploadTmpFile(repoID, filePath string) error {
-	if filePath[0] != '/' {
+	var filePathNoSlash string
+	if filePath[0] == '/' {
+		filePathNoSlash = filePath[1:]
+	} else {
+		filePathNoSlash = filePath
 		filePath = "/" + filePath
 	}
 
-	sqlStr := "DELETE FROM WebUploadTempFiles WHERE repo_id = ? AND file_path = ?"
+	sqlStr := "DELETE FROM WebUploadTempFiles WHERE repo_id = ? AND file_path IN (?, ?)"
 
-	_, err := seafileDB.Exec(sqlStr, repoID, filePath)
+	_, err := seafileDB.Exec(sqlStr, repoID, filePath, filePathNoSlash)
 	if err != nil {
 		return err
 	}
