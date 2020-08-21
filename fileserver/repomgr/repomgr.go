@@ -364,7 +364,11 @@ func UpdateTokenPeerInfo(token, peerID, clientVer string, syncTime int64) error 
 }
 
 func GetUploadTmpFile(repoID, filePath string) (string, error) {
-	if filePath[0] != '/' {
+	var filePathNoSlash string
+	if filePath[0] == '/' {
+		filePathNoSlash = filePath[1:]
+	} else {
+		filePathNoSlash = filePath
 		filePath = "/" + filePath
 	}
 
@@ -374,7 +378,15 @@ func GetUploadTmpFile(repoID, filePath string) (string, error) {
 	row := seafileDB.QueryRow(sqlStr, repoID, filePath)
 	if err := row.Scan(&tmpFile); err != nil {
 		if err != sql.ErrNoRows {
-			return ``, err
+			return "", err
+		}
+	}
+	if tmpFile == "" {
+		row := seafileDB.QueryRow(sqlStr, repoID, filePathNoSlash)
+		if err := row.Scan(&tmpFile); err != nil {
+			if err != sql.ErrNoRows {
+				return "", err
+			}
 		}
 	}
 

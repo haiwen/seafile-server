@@ -1165,123 +1165,6 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 	return nil
 }
 
-func doPostFile(repo *repomgr.Repo, rootID, parentDir string, dent *fsmgr.SeafDirent) (string, error) {
-	return doPostFileReplace(repo, rootID, parentDir, 0, dent)
-}
-func doPostFileReplace(repo *repomgr.Repo, rootID, parentDir string, replace int, dent *fsmgr.SeafDirent) (string, error) {
-	if strings.Index(parentDir, "/") == 0 {
-		parentDir = parentDir[1:]
-	}
-
-	return postFileRecursive(repo, rootID, parentDir, replace, dent)
-}
-
-func postFileRecursive(repo *repomgr.Repo, dirID, parentDir string, replace int, newDent *fsmgr.SeafDirent) (string, error) {
-	olddir, err := fsmgr.GetSeafdir(repo.StoreID, dirID)
-	if err != nil {
-		err := fmt.Errorf("failed to get dir.\n")
-		return "", err
-	}
-
-	var ret string
-	if parentDir == "" {
-		var newEntries []*fsmgr.SeafDirent
-		if replace != 0 && fileNameExists(olddir.Entries, newDent.Name) {
-			for _, dent := range olddir.Entries {
-				if dent.Name == newDent.Name {
-					newEntries = append(newEntries, newDent)
-				} else {
-					newEntries = append(newEntries, dent)
-				}
-			}
-
-			newdir, err := fsmgr.NewSeafdir(1, newEntries)
-			if err != nil {
-				err := fmt.Errorf("failed to new seafdir: %v.\n", err)
-				return "", err
-			}
-			err = fsmgr.SaveSeafdir(repo.StoreID, newdir)
-			if err != nil {
-				err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, newdir.DirID)
-				return "", err
-			}
-			return newdir.DirID, nil
-		}
-
-		uniqueName := genUniqueName(newDent.Name, olddir.Entries)
-		if uniqueName == "" {
-			err := fmt.Errorf("failed to generate unique name for %s.\n", newDent.Name)
-			return "", err
-		}
-		dentDup := fsmgr.NewDirent(newDent.ID, uniqueName, newDent.Mode, newDent.Mtime, newDent.Modifier, newDent.Size)
-		newEntries = make([]*fsmgr.SeafDirent, len(olddir.Entries))
-		copy(newEntries, olddir.Entries)
-		newEntries = append(newEntries, dentDup)
-		sort.Sort(Dirents(newEntries))
-		newdir, err := fsmgr.NewSeafdir(1, newEntries)
-		if err != nil {
-			err := fmt.Errorf("failed to new seafdir: %v.\n", err)
-			return "", err
-		}
-		err = fsmgr.SaveSeafdir(repo.StoreID, newdir)
-		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, newdir.DirID)
-			return "", err
-		}
-
-		return newdir.DirID, nil
-	}
-
-	var remain string
-	if slash := strings.Index(parentDir, "/"); slash >= 0 {
-		remain = parentDir[slash+1:]
-	}
-
-	entries := olddir.Entries
-	for i, dent := range entries {
-		if dent.Name == parentDir {
-			continue
-		}
-
-		id, err := postFileRecursive(repo, dent.ID, remain, replace, newDent)
-		if err != nil {
-			err := fmt.Errorf("failed to put dirent %s: %v.\n", dent.Name, err)
-			return "", err
-		}
-		ret = id
-		if id != "" {
-			entries[i].ID = id
-			entries[i].Mtime = time.Now().Unix()
-		}
-		break
-	}
-
-	if ret != "" {
-		newdir, err := fsmgr.NewSeafdir(1, olddir.Entries)
-		if err != nil {
-			err := fmt.Errorf("failed to new seafdir: %v.\n", err)
-			return "", err
-		}
-		err = fsmgr.SaveSeafdir(repo.StoreID, newdir)
-		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, newdir.DirID)
-			return "", err
-		}
-		ret = newdir.DirID
-	}
-
-	return ret, nil
-}
-func fileNameExists(entries []*fsmgr.SeafDirent, fileName string) bool {
-	for _, de := range entries {
-		if de.Name == fileName {
-			return true
-		}
-	}
-
-	return false
-}
-
 func checkAndCreateDir(repo *repomgr.Repo, rootID, parentDir string, subFolders []string) (string, string, error) {
 	storeID := repo.StoreID
 	dir, err := fsmgr.GetSeafdirByPath(storeID, rootID, parentDir)
@@ -1985,7 +1868,6 @@ func indexBlocks(repoID string, version int, filePath string, handler *multipart
 			case result := <-results:
 				if result.err != nil {
 					close(chunkJobs)
-					close(results)
 					go func() {
 						for result := range results {
 							_ = result
@@ -1999,7 +1881,11 @@ func indexBlocks(repoID string, version int, filePath string, handler *multipart
 			close(chunkJobs)
 			for result := range results {
 				if result.err != nil {
-					close(results)
+					go func() {
+						for result := range results {
+							_ = result
+						}
+					}()
 					return "", -1, result.err
 				}
 				blkIDs[result.idx] = result.blkID
