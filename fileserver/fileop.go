@@ -865,6 +865,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	if err := r.ParseMultipartForm(1 << 20); err != nil {
 		return &appError{nil, "", http.StatusBadRequest}
 	}
+	defer r.MultipartForm.RemoveAll()
 
 	repoID := fsm.repoID
 	user := fsm.user
@@ -1829,18 +1830,22 @@ func shouldIgnoreFile(fileName string) bool {
 
 func indexBlocks(repoID string, version int, filePath string, handler *multipart.FileHeader, cryptKey *seafileCrypt) (string, int64, error) {
 	var size int64
-	file, err := os.Open(filePath)
-	if err != nil {
-		err := fmt.Errorf("failed to open file: %s: %v.\n", filePath, err)
-		return "", -1, err
+	if handler != nil {
+		size = handler.Size
+	} else {
+		f, err := os.Open(filePath)
+		if err != nil {
+			err := fmt.Errorf("failed to open file: %s: %v.\n", filePath, err)
+			return "", -1, err
+		}
+		defer f.Close()
+		fileInfo, err := f.Stat()
+		if err != nil {
+			err := fmt.Errorf("failed to stat file %s: %v.\n", filePath, err)
+			return "", -1, err
+		}
+		size = fileInfo.Size()
 	}
-
-	fileInfo, err := file.Stat()
-	if err != nil {
-		err := fmt.Errorf("failed to stat file %s: %v.\n", filePath, err)
-		return "", -1, err
-	}
-	size = fileInfo.Size()
 
 	chunkJobs := make(chan chunkingData, 10)
 	results := make(chan chunkingResult, 10)
@@ -1968,6 +1973,7 @@ func chunkFile(job chunkingData) (string, error) {
 			err := fmt.Errorf("failed to open file for read: %v.\n", err)
 			return "", err
 		}
+		defer f.Close()
 		file = f
 	} else {
 		f, err := os.Open(filePath)
