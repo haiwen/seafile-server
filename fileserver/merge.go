@@ -12,26 +12,20 @@ import (
 )
 
 type mergeOptions struct {
-	nWays        int
 	remoteRepoID string
 	remoteHead   string
-	doMerge      bool
 	mergedRoot   string
 	conflict     bool
 }
 
-func mergeTrees(storeID string, n int, roots []string, opt *mergeOptions) error {
-	if n != 2 || n != 3 {
-		err := fmt.Errorf("wrong merge number.\n")
-		return err
-	}
-	if n != len(roots) {
+func mergeTrees(storeID string, roots []string, opt *mergeOptions) error {
+	if len(roots) != 3 {
 		err := fmt.Errorf("invalid argument.\n")
 		return err
 	}
 
 	var trees []*fsmgr.SeafDir
-	for i := 0; i < n; i++ {
+	for i := 0; i < 3; i++ {
 		dir, err := fsmgr.GetSeafdir(storeID, roots[i])
 		if err != nil {
 			err := fmt.Errorf("failed to get dir: %v.\n", err)
@@ -40,7 +34,7 @@ func mergeTrees(storeID string, n int, roots []string, opt *mergeOptions) error 
 		trees = append(trees, dir)
 	}
 
-	err := mergeTreesRecursive(storeID, n, trees, "", opt)
+	err := mergeTreesRecursive(storeID, trees, "", opt)
 	if err != nil {
 		err := fmt.Errorf("failed to merge trees: %v.\n", err)
 		return err
@@ -49,24 +43,27 @@ func mergeTrees(storeID string, n int, roots []string, opt *mergeOptions) error 
 	return nil
 }
 
-func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir string, opt *mergeOptions) error {
-	var ptrs [][]*fsmgr.SeafDirent
+func mergeTreesRecursive(storeID string, trees []*fsmgr.SeafDir, baseDir string, opt *mergeOptions) error {
+	var ptrs [3][]*fsmgr.SeafDirent
 	var mergedDents []*fsmgr.SeafDirent
 
+	n := 3
 	for i := 0; i < n; i++ {
-		ptrs = append(ptrs, trees[i].Entries)
+		if trees[i] != nil {
+			ptrs[i] = trees[i].Entries
+		}
 	}
 
 	var done bool
+	var offset = make([]int, n)
 	for {
 		dents := make([]*fsmgr.SeafDirent, n)
 		var firstName string
 		done = true
 		for i := 0; i < n; i++ {
-			entries := ptrs[i]
-			if len(entries) != 0 {
+			if len(ptrs[i]) > offset[i] {
 				done = false
-				dent := entries[0]
+				dent := ptrs[i][offset[i]]
 				if firstName == "" {
 					firstName = dent.Name
 				} else if dent.Name > firstName {
@@ -81,23 +78,22 @@ func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir 
 
 		var nFiles, nDirs int
 		for i := 0; i < n; i++ {
-			entries := ptrs[i]
-			if len(entries) != 0 {
-				dent := entries[0]
+			if len(ptrs[i]) > offset[i] {
+				dent := ptrs[i][offset[i]]
 				if firstName == dent.Name {
 					if fsmgr.IsDir(dent.Mode) {
 						nDirs++
 					} else {
 						nFiles++
 					}
-					ptrs[i] = ptrs[i][1:]
 					dents[i] = dent
+					offset[i]++
 				}
 			}
 		}
 
 		if nFiles > 0 {
-			retDents, err := mergeEntries(storeID, n, dents, baseDir, opt)
+			retDents, err := mergeEntries(storeID, dents, baseDir, opt)
 			if err != nil {
 				return err
 			}
@@ -105,7 +101,7 @@ func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir 
 		}
 
 		if nDirs > 0 {
-			retDents, err := mergeDirectories(storeID, n, dents, baseDir, opt)
+			retDents, err := mergeDirectories(storeID, dents, baseDir, opt)
 			if err != nil {
 				return err
 			}
@@ -113,43 +109,38 @@ func mergeTreesRecursive(storeID string, n int, trees []*fsmgr.SeafDir, baseDir 
 		}
 	}
 
-	if n == 3 && opt.doMerge {
-		sort.Sort(Dirents(mergedDents))
-		mergedTree, err := fsmgr.NewSeafdir(1, mergedDents)
-		if err != nil {
-			err := fmt.Errorf("failed to new seafdir: %v.\n", err)
-			return err
-		}
+	sort.Sort(Dirents(mergedDents))
+	mergedTree, err := fsmgr.NewSeafdir(1, mergedDents)
+	if err != nil {
+		err := fmt.Errorf("failed to new seafdir: %v.\n", err)
+		return err
+	}
 
-		opt.mergedRoot = mergedTree.DirID
+	opt.mergedRoot = mergedTree.DirID
 
-		if trees[1] != nil && trees[1].DirID == mergedTree.DirID ||
-			trees[2] != nil && trees[2].DirID == mergedTree.DirID {
-			return nil
-		}
+	if trees[1] != nil && trees[1].DirID == mergedTree.DirID ||
+		trees[2] != nil && trees[2].DirID == mergedTree.DirID {
+		return nil
+	}
 
-		err = fsmgr.SaveSeafdir(storeID, mergedTree)
-		if err != nil {
-			err := fmt.Errorf("failed to save merged tree %s/%s.\n", storeID, baseDir)
-			return err
-		}
+	err = fsmgr.SaveSeafdir(storeID, mergedTree)
+	if err != nil {
+		err := fmt.Errorf("failed to save merged tree %s/%s.\n", storeID, baseDir)
+		return err
 	}
 
 	return nil
 }
 
-func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]*fsmgr.SeafDirent, error) {
+func mergeEntries(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]*fsmgr.SeafDirent, error) {
 	var mergedDents []*fsmgr.SeafDirent
+	n := 3
 	files := make([]*fsmgr.SeafDirent, n)
 
 	for i := 0; i < n; i++ {
 		if dents[i] != nil && !fsmgr.IsDir(dents[i].Mode) {
 			files[i] = dents[i]
 		}
-	}
-
-	if n == 2 || !opt.doMerge {
-		return nil, nil
 	}
 
 	base := files[0]
@@ -239,10 +230,11 @@ func mergeEntries(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir stri
 	return mergedDents, nil
 }
 
-func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]*fsmgr.SeafDirent, error) {
+func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt *mergeOptions) ([]*fsmgr.SeafDirent, error) {
 	var dirMask int
 	var mergedDents []*fsmgr.SeafDirent
 	var dirName string
+	n := 3
 	subDirs := make([]*fsmgr.SeafDir, n)
 	for i := 0; i < n; i++ {
 		if dents[i] != nil && fsmgr.IsDir(dents[i].Mode) {
@@ -250,54 +242,44 @@ func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir 
 		}
 	}
 
-	if n == 3 && opt.doMerge {
-		switch dirMask {
-		case 0:
-			err := fmt.Errorf("no dirent for merge.\n")
-			return nil, err
-		case 1:
+	switch dirMask {
+	case 0:
+		err := fmt.Errorf("no dirent for merge.\n")
+		return nil, err
+	case 1:
+		return mergedDents, nil
+	case 2:
+		mergedDents = append(mergedDents, dents[1])
+		return mergedDents, nil
+	case 3:
+		if dents[0].ID == dents[1].ID {
 			return mergedDents, nil
-		case 2:
+		}
+		break
+	case 4:
+		mergedDents = append(mergedDents, dents[2])
+		return mergedDents, nil
+	case 5:
+		if dents[0].ID == dents[2].ID {
+			return mergedDents, nil
+		}
+		break
+	case 6:
+	case 7:
+		if dents[1].ID == dents[2].ID {
 			mergedDents = append(mergedDents, dents[1])
 			return mergedDents, nil
-		case 3:
-			if dents[0].ID == dents[1].ID {
-				return mergedDents, nil
-			}
-			break
-		case 4:
+		} else if dents[0] != nil && dents[0].ID == dents[1].ID {
 			mergedDents = append(mergedDents, dents[2])
 			return mergedDents, nil
-		case 5:
-			if dents[0].ID == dents[2].ID {
-				return mergedDents, nil
-			}
-			break
-		case 6:
-			if dents[1].ID == dents[2].ID {
-				mergedDents = append(mergedDents, dents[1])
-			} else if dents[0] != nil && dents[0].ID == dents[1].ID {
-				mergedDents = append(mergedDents, dents[2])
-			} else if dents[0] != nil && dents[0].ID == dents[2].ID {
-				mergedDents = append(mergedDents, dents[1])
-			}
-			break
-		case 7:
-			if dents[1].ID == dents[2].ID {
-				mergedDents = append(mergedDents, dents[1])
-				return mergedDents, nil
-			} else if dents[0] != nil && dents[0].ID == dents[1].ID {
-				mergedDents = append(mergedDents, dents[2])
-				return mergedDents, nil
-			} else if dents[0] != nil && dents[0].ID == dents[2].ID {
-				mergedDents = append(mergedDents, dents[1])
-				return mergedDents, nil
-			}
-			break
-		default:
-			err := fmt.Errorf("wrong dir mask for merge.\n")
-			return nil, err
+		} else if dents[0] != nil && dents[0].ID == dents[2].ID {
+			mergedDents = append(mergedDents, dents[1])
+			return mergedDents, nil
 		}
+		break
+	default:
+		err := fmt.Errorf("wrong dir mask for merge.\n")
+		return nil, err
 	}
 
 	for i := 0; i < n; i++ {
@@ -318,22 +300,20 @@ func mergeDirectories(storeID string, n int, dents []*fsmgr.SeafDirent, baseDir 
 
 	newBaseDir := filepath.Join(baseDir, dirName)
 	newBaseDir = newBaseDir + "/"
-	err := mergeTreesRecursive(storeID, n, subDirs, newBaseDir, opt)
+	err := mergeTreesRecursive(storeID, subDirs, newBaseDir, opt)
 	if err != nil {
 		err := fmt.Errorf("failed to merge trees: %v.\n", err)
 		return nil, err
 	}
 
-	if n == 3 && opt.doMerge {
-		if dirMask == 3 || dirMask == 6 || dirMask == 7 {
-			dent := dents[1]
-			dent.ID = opt.mergedRoot
-			mergedDents = append(mergedDents, dent)
-		} else if dirMask == 5 {
-			dent := dents[2]
-			dent.ID = opt.mergedRoot
-			mergedDents = append(mergedDents, dent)
-		}
+	if dirMask == 3 || dirMask == 6 || dirMask == 7 {
+		dent := dents[1]
+		dent.ID = opt.mergedRoot
+		mergedDents = append(mergedDents, dent)
+	} else if dirMask == 5 {
+		dent := dents[2]
+		dent.ID = opt.mergedRoot
+		mergedDents = append(mergedDents, dent)
 	}
 
 	return mergedDents, nil

@@ -987,7 +987,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	ret, err := checkQuota(repoID, contentLen)
 	if err != nil {
 		msg := "Internal error.\n"
-		err := fmt.Errorf("failed to check quota: %v.\n, err")
+		err := fmt.Errorf("failed to check quota: %v.\n", err)
 		return &appError{err, msg, http.StatusInternalServerError}
 	}
 	if ret == 1 {
@@ -1579,7 +1579,7 @@ func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPa
 
 	var buf string
 	if len(fileNames) > 1 {
-		buf = fmt.Sprintf("Added \"%s\" and %u more files.", fileNames[0], len(fileNames)-1)
+		buf = fmt.Sprintf("Added \"%s\" and %d more files.", fileNames[0], len(fileNames)-1)
 	} else {
 		buf = fmt.Sprintf("Added \"%s\".", fileNames[0])
 	}
@@ -1677,12 +1677,10 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 	if base.CommitID != currentHead.CommitID {
 		roots := []string{base.RootID, currentHead.RootID, newRoot}
 		opt := new(mergeOptions)
-		opt.nWays = 3
 		opt.remoteRepoID = repoID
 		opt.remoteHead = commit.CommitID
-		opt.doMerge = true
 
-		err := mergeTrees(repo.StoreID, 3, roots, opt)
+		err := mergeTrees(repo.StoreID, roots, opt)
 		if err != nil {
 			err := fmt.Errorf("failed to merge.\n")
 			return false, err

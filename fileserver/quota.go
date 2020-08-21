@@ -36,7 +36,7 @@ func checkQuota(repoID string, delta int64) (int, error) {
 		return -1, err
 	}
 	if user == "" {
-		err := fmt.Errorf("repo %s has no owner.\n")
+		err := fmt.Errorf("repo %s has no owner.\n", repoID)
 		return -1, err
 	}
 	quota, err := getUserQuota(user)
