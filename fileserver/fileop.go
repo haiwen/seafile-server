@@ -1700,13 +1700,15 @@ func postMultiFilesRecursive(repo *repomgr.Repo, dirID, toPath, user string, den
 	}
 
 	var remain string
+	firstName := toPath
 	if slash := strings.Index(toPath, "/"); slash >= 0 {
 		remain = toPath[slash+1:]
+		firstName = toPath[:slash]
 	}
 
 	entries := olddir.Entries
 	for i, dent := range entries {
-		if dent.Name != toPath {
+		if dent.Name != firstName {
 			continue
 		}
 
