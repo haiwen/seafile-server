@@ -10,6 +10,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <stdbool.h>
+#include <fcntl.h>
 
 #include <glib.h>
 #include <ccnet.h>
@@ -85,6 +86,7 @@ spawn_process (char *argv[], bool is_python_process)
         if (pipe(pipefd) < 0) {
             seaf_warning("Failed to create pipe.\n");
         }
+        fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
     }
 
     pid_t pid = fork();
@@ -116,6 +118,7 @@ spawn_process (char *argv[], bool is_python_process)
             char child_stderr[1024] = {0};
             if (pipefd[0] > 0 && pipefd[1] > 0){
                 close(pipefd[1]);
+                sleep(1);
                 while (read(pipefd[0], child_stderr, sizeof(child_stderr)) > 0)
                     seaf_warning("%s", child_stderr);
                 close(pipefd[0]);
