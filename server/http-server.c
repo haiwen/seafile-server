@@ -2134,7 +2134,7 @@ filter_group_repos (GList *repos)
                              NULL);
         srepo_tmp = g_hash_table_lookup (table, repo_id);
         if (srepo_tmp) {
-            g_object_get (srepo, "permission", &permission_prev,
+            g_object_get (srepo_tmp, "permission", &permission_prev,
                           NULL);
             if (g_strcmp0 (permission, "rw") == 0 && g_strcmp0 (permission_prev, "r") == 0) {
                 g_object_unref (srepo_tmp);
