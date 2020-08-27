@@ -552,6 +552,7 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
     unsigned char enc_key[32], enc_iv[16];
     SeafileCrypt *crypt = NULL;
     SendfileData *data;
+    char *policy = "sandbox";
 
     file = seaf_fs_manager_get_seafile(seaf->fs_mgr,
                                        repo->store_id, repo->version, file_id);
@@ -577,6 +578,9 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
                              evhtp_header_new("Access-Control-Allow-Origin",
                                               "*", 1, 1));
 
+    evhtp_headers_add_header(req->headers_out,
+                             evhtp_header_new("Content-Security-Policy",
+                                              policy, 1, 1));
 
     type = parse_content_type(filename);
     if (type != NULL) {
@@ -924,6 +928,7 @@ do_file_range (evhtp_request_t *req, SeafRepo *repo, const char *file_id,
     SendFileRangeData *data = NULL;
     guint64 start;
     guint64 end;
+    char *policy = "sandbox";
 
     file = seaf_fs_manager_get_seafile(seaf->fs_mgr,
                                        repo->store_id, repo->version, file_id);
@@ -950,6 +955,10 @@ do_file_range (evhtp_request_t *req, SeafRepo *repo, const char *file_id,
 
     evhtp_headers_add_header (req->headers_out,
                               evhtp_header_new ("Accept-Ranges", "bytes", 0, 0));
+
+    evhtp_headers_add_header(req->headers_out,
+                             evhtp_header_new("Content-Security-Policy",
+                                              policy, 1, 1));
 
     char *content_type = NULL;
     char *type = parse_content_type (filename);
