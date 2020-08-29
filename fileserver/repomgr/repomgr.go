@@ -3,12 +3,13 @@ package repomgr
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"time"
 
 	// Change to non-blank imports when use
 	_ "github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
-	_ "github.com/haiwen/seafile-server/fileserver/fsmgr"
 )
 
 const (
@@ -21,6 +22,7 @@ const (
 type Repo struct {
 	ID                   string
 	Name                 string
+	Desc                 string
 	LastModifier         string
 	LastModificationTime int64
 	HeadCommitID         string
@@ -44,9 +46,17 @@ type Repo struct {
 
 // VRepoInfo contains virtual repo information.
 type VRepoInfo struct {
+	RepoID       string
 	OriginRepoID string
 	Path         string
 	BaseCommitID string
+}
+
+// RepoInfo contains repo information.
+type RepoInfo struct {
+	HeadID    string
+	Size      int64
+	FileCount int64
 }
 
 var seafileDB *sql.DB
@@ -120,7 +130,8 @@ func Get(id string) *Repo {
 	}
 
 	repo.Name = commit.RepoName
-	repo.LastModifier = commit.CreaterName
+	repo.Desc = commit.RepoDesc
+	repo.LastModifier = commit.CreatorName
 	repo.LastModificationTime = commit.Ctime
 	repo.RootID = commit.RootID
 	repo.Version = commit.Version
@@ -140,6 +151,30 @@ func Get(id string) *Repo {
 	}
 
 	return repo
+}
+
+func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
+	commit.RepoID = repo.ID
+	commit.RepoName = repo.Name
+	if repo.IsEncrypted {
+		commit.Encrypted = "true"
+		commit.EncVersion = repo.EncVersion
+		if repo.EncVersion == 1 {
+			commit.Magic = repo.Magic
+		} else if repo.EncVersion == 2 {
+			commit.Magic = repo.Magic
+			commit.RandomKey = repo.RandomKey
+		} else if repo.EncVersion == 3 {
+			commit.Magic = repo.Magic
+			commit.RandomKey = repo.RandomKey
+			commit.Salt = repo.Salt
+		}
+	} else {
+		commit.Encrypted = "false"
+	}
+	commit.Version = repo.Version
+
+	return
 }
 
 // GetEx return repo object even if it's corrupted.
@@ -206,7 +241,7 @@ func GetEx(id string) *Repo {
 	}
 
 	repo.Name = commit.RepoName
-	repo.LastModifier = commit.CreaterName
+	repo.LastModifier = commit.CreatorName
 	repo.LastModificationTime = commit.Ctime
 	repo.RootID = commit.RootID
 	repo.Version = commit.Version
@@ -230,17 +265,38 @@ func GetEx(id string) *Repo {
 
 // GetVirtualRepoInfo return virtual repo info by repo id.
 func GetVirtualRepoInfo(repoID string) (*VRepoInfo, error) {
-	sqlStr := "SELECT origin_repo, path, base_commit FROM VirtualRepo WHERE repo_id = ?"
+	sqlStr := "SELECT repo_id, origin_repo, path, base_commit FROM VirtualRepo WHERE repo_id = ?"
 	vRepoInfo := new(VRepoInfo)
 
 	row := seafileDB.QueryRow(sqlStr, repoID)
-	if err := row.Scan(&vRepoInfo.OriginRepoID, &vRepoInfo.Path,
-		&vRepoInfo.BaseCommitID); err != nil {
+	if err := row.Scan(&vRepoInfo.RepoID, &vRepoInfo.OriginRepoID, &vRepoInfo.Path, &vRepoInfo.BaseCommitID); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, err
 		}
+		return nil, nil
 	}
 	return vRepoInfo, nil
+}
+
+func GetVirtualRepoInfoByOrigin(originRepo string) ([]*VRepoInfo, error) {
+	sqlStr := "SELECT repo_id, origin_repo, path, base_commit " +
+		"FROM VirtualRepo WHERE origin_repo=?"
+	var vRepos []*VRepoInfo
+	row, err := seafileDB.Query(sqlStr, originRepo)
+	if err != nil {
+		return nil, err
+	}
+	for row.Next() {
+		vRepoInfo := new(VRepoInfo)
+		if err := row.Scan(&vRepoInfo.OriginRepoID, &vRepoInfo.Path, &vRepoInfo.BaseCommitID); err != nil {
+			if err != sql.ErrNoRows {
+				return nil, err
+			}
+		}
+		vRepos = append(vRepos, vRepoInfo)
+	}
+
+	return vRepos, nil
 }
 
 // GetEmailByToken return user's email by token.
@@ -305,4 +361,292 @@ func UpdateTokenPeerInfo(token, peerID, clientVer string, syncTime int64) error 
 		return err
 	}
 	return nil
+}
+
+func GetUploadTmpFile(repoID, filePath string) (string, error) {
+	var filePathNoSlash string
+	if filePath[0] == '/' {
+		filePathNoSlash = filePath[1:]
+	} else {
+		filePathNoSlash = filePath
+		filePath = "/" + filePath
+	}
+
+	var tmpFile string
+	sqlStr := "SELECT tmp_file_path FROM WebUploadTempFiles WHERE repo_id = ? AND file_path = ?"
+
+	row := seafileDB.QueryRow(sqlStr, repoID, filePath)
+	if err := row.Scan(&tmpFile); err != nil {
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+	}
+	if tmpFile == "" {
+		row := seafileDB.QueryRow(sqlStr, repoID, filePathNoSlash)
+		if err := row.Scan(&tmpFile); err != nil {
+			if err != sql.ErrNoRows {
+				return "", err
+			}
+		}
+	}
+
+	return tmpFile, nil
+}
+
+func AddUploadTmpFile(repoID, filePath, tmpFile string) error {
+	if filePath[0] != '/' {
+		filePath = "/" + filePath
+	}
+
+	sqlStr := "INSERT INTO WebUploadTempFiles (repo_id, file_path, tmp_file_path) VALUES (?, ?, ?)"
+
+	_, err := seafileDB.Exec(sqlStr, repoID, filePath, tmpFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func DelUploadTmpFile(repoID, filePath string) error {
+	var filePathNoSlash string
+	if filePath[0] == '/' {
+		filePathNoSlash = filePath[1:]
+	} else {
+		filePathNoSlash = filePath
+		filePath = "/" + filePath
+	}
+
+	sqlStr := "DELETE FROM WebUploadTempFiles WHERE repo_id = ? AND file_path IN (?, ?)"
+
+	_, err := seafileDB.Exec(sqlStr, repoID, filePath, filePathNoSlash)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func SetRepoCommitToDb(repoID, repoName string, updateTime int64, version int, isEncrypted string, lastModifier string) error {
+	var exists int
+	var encrypted int
+
+	sqlStr := "SELECT 1 FROM RepoInfo WHERE repo_id=?"
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&exists); err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+	}
+	if updateTime == 0 {
+		updateTime = time.Now().Unix()
+	}
+
+	if isEncrypted == "true" {
+		encrypted = 1
+	}
+
+	if exists == 1 {
+		sqlStr := "UPDATE RepoInfo SET name=?, update_time=?, version=?, is_encrypted=?, " +
+			"last_modifier=? WHERE repo_id=?"
+		if _, err := seafileDB.Exec(sqlStr, repoName, updateTime, version, encrypted, lastModifier, repoID); err != nil {
+			return err
+		}
+	} else {
+		sqlStr := "INSERT INTO RepoInfo (repo_id, name, update_time, version, is_encrypted, last_modifier) " +
+			"VALUES (?, ?, ?, ?, ?, ?)"
+		if _, err := seafileDB.Exec(sqlStr, repoID, repoName, updateTime, version, encrypted, lastModifier); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func SetVirtualRepoBaseCommitPath(repoID, baseCommitID, newPath string) error {
+	sqlStr := "UPDATE VirtualRepo SET base_commit=?, path=? WHERE repo_id=?"
+	if _, err := seafileDB.Exec(sqlStr, baseCommitID, newPath, repoID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetVirtualRepoIDsByOrigin(repoID string) ([]string, error) {
+	sqlStr := "SELECT repo_id FROM VirtualRepo WHERE origin_repo=?"
+
+	var id string
+	var ids []string
+	row, err := seafileDB.Query(sqlStr, repoID)
+	if err != nil {
+		return nil, err
+	}
+	for row.Next() {
+		if err := row.Scan(&id); err != nil {
+			if err != sql.ErrNoRows {
+				return nil, err
+			}
+		}
+		ids = append(ids, id)
+	}
+
+	return ids, nil
+}
+
+func DelVirtualRepo(repoID string, cloudMode bool) error {
+	err := removeVirtualRepoOndisk(repoID, cloudMode)
+	if err != nil {
+		err := fmt.Errorf("failed to remove virtual repo on disk: %v.\n", err)
+		return err
+	}
+	sqlStr := "DELETE FROM VirtualRepo WHERE repo_id = ?"
+	_, err = seafileDB.Exec(sqlStr, repoID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func removeVirtualRepoOndisk(repoID string, cloudMode bool) error {
+	sqlStr := "DELETE FROM Repo WHERE repo_id = ?"
+	_, err := seafileDB.Exec(sqlStr, repoID)
+	if err != nil {
+		return err
+	}
+	sqlStr = "SELECT name, repo_id, commit_id FROM Branch WHERE repo_id=?"
+	rows, err := seafileDB.Query(sqlStr, repoID)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var name, id, commitID string
+		if err := rows.Scan(&name, &id, &commitID); err != nil {
+			if err != sql.ErrNoRows {
+				return err
+			}
+		}
+		sqlStr := "DELETE FROM RepoHead WHERE branch_name = ? AND repo_id = ?"
+		_, err := seafileDB.Exec(sqlStr, name, id)
+		if err != nil {
+			return err
+		}
+		sqlStr = "DELETE FROM Branch WHERE name=? AND repo_id=?"
+		_, err = seafileDB.Exec(sqlStr, name, id)
+		if err != nil {
+			return err
+		}
+	}
+
+	sqlStr = "DELETE FROM RepoOwner WHERE repo_id = ?"
+	_, err = seafileDB.Exec(sqlStr, repoID)
+	if err != nil {
+		return err
+	}
+
+	sqlStr = "DELETE FROM SharedRepo WHERE repo_id = ?"
+	_, err = seafileDB.Exec(sqlStr, repoID)
+	if err != nil {
+		return err
+	}
+
+	sqlStr = "DELETE FROM RepoGroup WHERE repo_id = ?"
+	_, err = seafileDB.Exec(sqlStr, repoID)
+	if err != nil {
+		return err
+	}
+	if !cloudMode {
+		sqlStr = "DELETE FROM InnerPubRepo WHERE repo_id = ?"
+		_, err := seafileDB.Exec(sqlStr, repoID)
+		if err != nil {
+			return err
+		}
+	}
+
+	sqlStr = "DELETE FROM RepoUserToken WHERE repo_id = ?"
+	_, err = seafileDB.Exec(sqlStr, repoID)
+	if err != nil {
+		return err
+	}
+
+	sqlStr = "DELETE FROM RepoValidSince WHERE repo_id = ?"
+	_, err = seafileDB.Exec(sqlStr, repoID)
+	if err != nil {
+		return err
+	}
+
+	sqlStr = "DELETE FROM RepoSize WHERE repo_id = ?"
+	_, err = seafileDB.Exec(sqlStr, repoID)
+	if err != nil {
+		return err
+	}
+
+	var exists int
+	sqlStr = "SELECT 1 FROM GarbageRepos WHERE repo_id=?"
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&exists); err != nil {
+		if err != sql.ErrNoRows {
+			return err
+		}
+	}
+	if exists == 0 {
+		sqlStr = "INSERT INTO GarbageRepos (repo_id) VALUES (?)"
+		_, err := seafileDB.Exec(sqlStr, repoID)
+		if err != nil {
+			return err
+		}
+	} else {
+		sqlStr = "REPLACE INTO GarbageRepos (repo_id) VALUES (?)"
+		_, err := seafileDB.Exec(sqlStr, repoID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func IsVirtualRepo(repoID string) (bool, error) {
+	var exists int
+	sqlStr := "SELECT 1 FROM VirtualRepo WHERE repo_id = ?"
+
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&exists); err != nil {
+		if err != sql.ErrNoRows {
+			return false, err
+		}
+		return false, nil
+	}
+	return true, nil
+
+}
+
+func GetOldRepoInfo(repoID string) (*RepoInfo, error) {
+	sqlStr := "select s.head_id,s.size,f.file_count FROM RepoSize s LEFT JOIN RepoFileCount f ON " +
+		"s.repo_id=f.repo_id WHERE s.repo_id=?"
+
+	repoInfo := new(RepoInfo)
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&repoInfo.HeadID, &repoInfo.Size, &repoInfo.FileCount); err != nil {
+		if err != sql.ErrNoRows {
+			return nil, err
+		}
+
+		return nil, nil
+	}
+
+	return repoInfo, nil
+}
+
+func GetRepoOwner(repoID string) (string, error) {
+	var owner string
+	sqlStr := "SELECT owner_id FROM RepoOwner WHERE repo_id=?"
+
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&owner); err != nil {
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+	}
+
+	return owner, nil
 }

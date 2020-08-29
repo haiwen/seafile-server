@@ -213,6 +213,43 @@ func loadFileServerOptions() {
 		}
 	}
 
+	initDefaultOptions()
+	if section, err := config.GetSection("fileserver"); err == nil {
+		if key, err := section.GetKey("host"); err == nil {
+			options.host = key.String()
+		}
+		if key, err := section.GetKey("port"); err == nil {
+			port, err := key.Uint()
+			if err == nil {
+				options.port = uint32(port)
+			}
+		}
+		if key, err := section.GetKey("max_indexing_threads"); err == nil {
+			threads, err := key.Uint()
+			if err == nil {
+				options.maxIndexingThreads = uint32(threads)
+			}
+		}
+		if key, err := section.GetKey("fixed_block_size"); err == nil {
+			blkSize, err := key.Uint64()
+			if err == nil {
+				options.fixedBlockSize = blkSize
+			}
+		}
+		if key, err := section.GetKey("web_token_expire_time"); err == nil {
+			expire, err := key.Uint()
+			if err == nil {
+				options.webTokenExpireTime = uint32(expire)
+			}
+		}
+		if key, err := section.GetKey("cluster_shared_temp_file_mode"); err == nil {
+			fileMode, err := key.Uint()
+			if err == nil {
+				options.clusterSharedTempFileMode = uint32(fileMode)
+			}
+		}
+	}
+
 	ccnetConfPath := filepath.Join(ccnetDir, "ccnet.conf")
 	config, err = ini.Load(ccnetConfPath)
 	if err != nil {
@@ -224,6 +261,16 @@ func loadFileServerOptions() {
 			groupTableName = key.String()
 		}
 	}
+}
+
+func initDefaultOptions() {
+	options.host = "0.0.0.0"
+	options.port = 8082
+	options.maxDownloadDirSize = 100 * (1 << 20)
+	options.fixedBlockSize = 1 << 23
+	options.maxIndexingThreads = 1
+	options.webTokenExpireTime = 7200
+	options.clusterSharedTempFileMode = 0600
 }
 
 func main() {
@@ -287,11 +334,14 @@ func main() {
 
 	syncAPIInit()
 
+	//sizeSchedulerInit()
+
 	router := newHTTPRouter()
 
 	log.Print("Seafile file server started.")
 
-	err = http.ListenAndServe("127.0.0.1:8083", router)
+	addr := fmt.Sprintf("%s:%d", options.host, options.port)
+	err = http.ListenAndServe(addr, router)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
@@ -312,9 +362,11 @@ func rpcClientInit() {
 func newHTTPRouter() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/protocol-version", handleProtocolVersion)
-	r.Handle("/files/", appHandler(accessCB))
-	r.Handle("/blks/", appHandler(accessBlksCB))
-	r.Handle("/zip/", appHandler(accessZipCB))
+	r.Handle("/files/{.*}/{.*}", appHandler(accessCB))
+	r.Handle("/blks/{.*}.{.*}", appHandler(accessBlksCB))
+	r.Handle("/zip/{.*}/{.*}", appHandler(accessZipCB))
+	r.Handle("/upload-api/{.*}", appHandler(uploadApiCB))
+	r.Handle("/upload-aj/{.*}", appHandler(uploadAjaxCB))
 	// file syncing api
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check/",
 		appHandler(permissionCheckCB))

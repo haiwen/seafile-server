@@ -3,8 +3,12 @@ package commitmgr
 
 import (
 	"bytes"
+	"crypto/sha1"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"io"
+	"time"
 
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 )
@@ -13,12 +17,12 @@ type Commit struct {
 	CommitID       string `json:"commit_id"`
 	RepoID         string `json:"repo_id"`
 	RootID         string `json:"root_id"`
-	CreaterName    string `json:"creater_name,omitempty"`
-	CreaterID      string `json:"creater"`
+	CreatorName    string `json:"creator_name,omitempty"`
+	CreatorID      string `json:"creator"`
 	Desc           string `json:"description"`
 	Ctime          int64  `json:"ctime"`
-	ParentID       string `json:"parent_id"`
-	SecondParentID string `json:"second_parent_id"`
+	ParentID       string `json:"parent_id,omitempty"`
+	SecondParentID string `json:"second_parent_id,omitempty"`
 	RepoName       string `json:"repo_name"`
 	RepoDesc       string `json:"repo_desc"`
 	RepoCategory   string `json:"repo_category"`
@@ -40,6 +44,36 @@ var store *objstore.ObjectStore
 // Init initializes commit manager and creates underlying object store.
 func Init(seafileConfPath string, seafileDataDir string) {
 	store = objstore.New(seafileConfPath, seafileDataDir, "commits")
+}
+
+func NewCommit(repoID, parentID, newRoot, user, desc string) *Commit {
+	commit := new(Commit)
+	commit.RepoID = repoID
+	commit.RootID = newRoot
+	commit.Desc = desc
+	commit.CreatorName = user
+	commit.CreatorID = "0000000000000000000000000000000000000000"
+	commit.Ctime = time.Now().Unix()
+	commit.CommitID = computeCommitID(commit)
+	commit.ParentID = parentID
+
+	return commit
+}
+
+func computeCommitID(commit *Commit) string {
+	hash := sha1.New()
+	hash.Write([]byte(commit.RootID))
+	hash.Write([]byte(commit.CreatorID))
+	hash.Write([]byte(commit.CreatorName))
+	hash.Write([]byte(commit.Desc))
+	tmpBuf := make([]byte, 8)
+	binary.BigEndian.PutUint64(tmpBuf, uint64(commit.Ctime))
+	hash.Write(tmpBuf)
+
+	checkSum := hash.Sum(nil)
+	id := hex.EncodeToString(checkSum[:])
+
+	return id
 }
 
 // FromData reads from p and converts JSON-encoded data to commit.
