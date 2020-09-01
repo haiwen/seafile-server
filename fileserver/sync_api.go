@@ -24,6 +24,13 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/share"
 )
 
+type checkExistType int32
+
+const (
+	checkFSExist    checkExistType = 0
+	checkBlockExist checkExistType = 1
+)
+
 const (
 	seafileServerChannelEvent = "seaf_server.event"
 	seafileServerChannelStats = "seaf_server.stats"
@@ -162,6 +169,62 @@ func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
 			}
 		}
 	}
+	return nil
+}
+
+func checkFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	return postCheckExistCB(rsp, r, checkFSExist)
+}
+
+func checkBlockCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	return postCheckExistCB(rsp, r, checkBlockExist)
+}
+
+func postCheckExistCB(rsp http.ResponseWriter, r *http.Request, existType checkExistType) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+
+	_, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	storeID, err := getRepoStoreID(repoID)
+	if err != nil {
+		err := fmt.Errorf("Failed to get repo store id by repo id %s: %v", repoID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	var objIDList []string
+	if err := json.NewDecoder(r.Body).Decode(&objIDList); err != nil {
+		return &appError{nil, err.Error(), http.StatusBadRequest}
+	}
+
+	var neededObjs []string
+	var ret bool
+	for i := 0; i < len(objIDList); i++ {
+		if !isObjectIDValid(objIDList[i]) {
+			continue
+		}
+		if existType == checkFSExist {
+			ret, _ = fsmgr.Exists(storeID, objIDList[i])
+		} else if existType == checkBlockExist {
+			ret = blockmgr.Exists(storeID, objIDList[i])
+		}
+		if !ret {
+			neededObjs = append(neededObjs, objIDList[i])
+		}
+	}
+
+	data, err := json.Marshal(neededObjs)
+	if err != nil {
+		err := fmt.Errorf("Failed to marshal json: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	rsp.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(data)
+
 	return nil
 }
 
