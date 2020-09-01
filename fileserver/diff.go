@@ -52,7 +52,6 @@ func diffTrees(roots []string, opt *diffOptions) error {
 func diffTreesRecursive(trees []*fsmgr.SeafDir, baseDir string, opt *diffOptions) error {
 	n := len(trees)
 	ptrs := make([][]*fsmgr.SeafDirent, 3)
-	dents := make([]*fsmgr.SeafDirent, 3)
 
 	for i := 0; i < n; i++ {
 		if trees[i] != nil {
@@ -66,6 +65,7 @@ func diffTreesRecursive(trees []*fsmgr.SeafDir, baseDir string, opt *diffOptions
 	var done bool
 	var offset = make([]int, n)
 	for {
+		dents := make([]*fsmgr.SeafDirent, 3)
 		firstName = ""
 		done = true
 		for i := 0; i < n; i++ {
