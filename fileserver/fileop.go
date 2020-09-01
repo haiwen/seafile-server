@@ -1162,7 +1162,7 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 		return err
 	}
 
-	//go mergeVirtualRepo(repo.ID, "")
+	go mergeVirtualRepo(repo.ID, "")
 
 	return nil
 }
@@ -1475,9 +1475,9 @@ func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPa
 		return "", err
 	}
 
-	//go mergeVirtualRepo(repo.ID, "")
+	go mergeVirtualRepo(repo.ID, "")
 
-	//go updateRepoSize(repo.ID)
+	go updateRepoSize(repo.ID)
 
 	retJSON, err := formatJSONRet(names, ids, sizes)
 	if err != nil {
@@ -1607,19 +1607,15 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 }
 
 func genMergeDesc(repo *repomgr.Repo, mergedRoot, p1Root, p2Root string) string {
-	//TODO
-	return ""
-	/*
-		var results []*diffEntry
-		err := diffMergeRoots(repo.StoreID, mergedRoot, p1Root, p2Root, &results, true)
-		if err != nil {
-			return ""
-		}
+	var results []interface{}
+	err := diffMergeRoots(repo.StoreID, mergedRoot, p1Root, p2Root, &results, true)
+	if err != nil {
+		return ""
+	}
 
-		desc := diffResultsToDesc(results)
+	desc := diffResultsToDesc(results)
 
-		return desc
-	*/
+	return desc
 }
 
 func updateBranch(repoID, newCommitID, oldCommitID string) error {

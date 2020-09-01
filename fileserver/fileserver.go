@@ -334,7 +334,7 @@ func main() {
 
 	syncAPIInit()
 
-	//sizeSchedulerInit()
+	sizeSchedulerInit()
 
 	router := newHTTPRouter()
 
