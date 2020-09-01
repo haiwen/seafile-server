@@ -456,7 +456,7 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 		if strings.Index(fileType, "text") != -1 {
 			contentType = fileType + "; " + "charset=gbk"
 		} else {
-			contentType = contentType
+			contentType = fileType
 		}
 		rsp.Header().Set("Content-Type", contentType)
 	} else {

@@ -712,16 +712,16 @@ func calculateSendObjectList(repo *repomgr.Repo, serverHead string, clientHead s
 	var opt *diffOptions
 	if !dirOnly {
 		opt = &diffOptions{
-			fileCB:  collectFileIDs,
-			dirCB:   collectDirIDs,
-			repoID:  repo.ID,
-			results: &results}
+			fileCB: collectFileIDs,
+			dirCB:  collectDirIDs,
+			repoID: repo.ID}
+		opt.data.results = &results
 	} else {
 		opt = &diffOptions{
-			fileCB:  collectFileIDsNOp,
-			dirCB:   collectDirIDs,
-			repoID:  repo.ID,
-			results: &results}
+			fileCB: collectFileIDsNOp,
+			dirCB:  collectDirIDs,
+			repoID: repo.ID}
+		opt.data.results = &results
 	}
 	trees := []string{masterHead.RootID, remoteHeadRoot}
 
@@ -731,30 +731,36 @@ func calculateSendObjectList(repo *repomgr.Repo, serverHead string, clientHead s
 	return results, nil
 }
 
-func collectFileIDs(baseDir string, files []*fsmgr.SeafDirent, results *[]interface{}) {
+func collectFileIDs(baseDir string, files []*fsmgr.SeafDirent, data *diffData) error {
 	file1 := files[0]
 	file2 := files[1]
+	results := data.results
 
 	if file1 != nil &&
 		(file2 == nil || file1.ID != file2.ID) &&
 		file1.ID != emptySHA1 {
 		*results = append(*results, file1.ID)
 	}
+
+	return nil
 }
 
-func collectFileIDsNOp(baseDir string, files []*fsmgr.SeafDirent, results *[]interface{}) {
-
+func collectFileIDsNOp(baseDir string, files []*fsmgr.SeafDirent, data *diffData) error {
+	return nil
 }
 
-func collectDirIDs(baseDir string, dirs []*fsmgr.SeafDirent, results *[]interface{}) {
+func collectDirIDs(baseDir string, dirs []*fsmgr.SeafDirent, data *diffData, recurse *bool) error {
 	dir1 := dirs[0]
 	dir2 := dirs[1]
+	results := data.results
 
 	if dir1 != nil &&
 		(dir2 == nil || dir1.ID != dir2.ID) &&
 		dir1.ID != emptySHA1 {
 		*results = append(*results, dir1.ID)
 	}
+
+	return nil
 }
 
 func isObjectIDValid(objID string) bool {
