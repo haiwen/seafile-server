@@ -42,7 +42,7 @@ func mergeVirtualRepo(repoID, excludeRepo string) {
 func mergeRepo(repoID string) error {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
-		err := fmt.Errorf("failed to get virt repo %.10s.\n", repoID)
+		err := fmt.Errorf("failed to get virt repo %.10s", repoID)
 		return err
 	}
 	vInfo := repo.VirtualInfo
@@ -51,18 +51,18 @@ func mergeRepo(repoID string) error {
 	}
 	origRepo := repomgr.Get(vInfo.OriginRepoID)
 	if origRepo == nil {
-		err := fmt.Errorf("failed to get orig repo %.10s.\n", repoID)
+		err := fmt.Errorf("failed to get orig repo %.10s", repoID)
 		return err
 	}
 
 	head, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
-		err := fmt.Errorf("failed to get commit %s:%.8s.\n", repo.ID, repo.HeadCommitID)
+		err := fmt.Errorf("failed to get commit %s:%.8s", repo.ID, repo.HeadCommitID)
 		return err
 	}
 	origHead, err := commitmgr.Load(origRepo.ID, origRepo.HeadCommitID)
 	if err != nil {
-		err := fmt.Errorf("failed to get commit %s:%.8s.\n", origRepo.ID, origRepo.HeadCommitID)
+		err := fmt.Errorf("failed to get commit %s:%.8s", origRepo.ID, origRepo.HeadCommitID)
 		return err
 	}
 
@@ -74,21 +74,21 @@ func mergeRepo(repoID string) error {
 			origRoot, _ = fsmgr.GetSeafdirIDByPath(origRepo.StoreID, origHead.RootID, newPath)
 		}
 		if origRoot == "" {
-			err := fmt.Errorf("path %s not found in origin repo %.8s, delete or rename virtual repo %.8s\n", vInfo.Path, vInfo.OriginRepoID, repoID)
+			err := fmt.Errorf("path %s not found in origin repo %.8s, delete or rename virtual repo %.8s", vInfo.Path, vInfo.OriginRepoID, repoID)
 			return err
 		}
 	}
 
 	base, err := commitmgr.Load(origRepo.ID, vInfo.BaseCommitID)
 	if err != nil {
-		err := fmt.Errorf("failed to get commit %s:%.8s.\n", origRepo.ID, vInfo.BaseCommitID)
+		err := fmt.Errorf("failed to get commit %s:%.8s", origRepo.ID, vInfo.BaseCommitID)
 		return err
 	}
 
 	root := head.RootID
 	baseRoot, _ := fsmgr.GetSeafdirIDByPath(origRepo.StoreID, base.RootID, vInfo.Path)
 	if baseRoot == "" {
-		err := fmt.Errorf("cannot find seafdir for repo %.10s path %s.\n", vInfo.OriginRepoID, vInfo.Path)
+		err := fmt.Errorf("cannot find seafdir for repo %.10s path %s", vInfo.OriginRepoID, vInfo.Path)
 		return err
 	}
 
@@ -96,18 +96,18 @@ func mergeRepo(repoID string) error {
 	} else if baseRoot == root {
 		_, err := updateDir(repoID, "/", origRoot, origHead.CreatorName, head.CommitID)
 		if err != nil {
-			err := fmt.Errorf("failed to update root of virtual repo %.10s.\n", repoID)
+			err := fmt.Errorf("failed to update root of virtual repo %.10s", repoID)
 			return err
 		}
 		repomgr.SetVirtualRepoBaseCommitPath(repo.ID, origRepo.HeadCommitID, vInfo.Path)
 	} else if baseRoot == origRoot {
 		newBaseCommit, err := updateDir(vInfo.OriginRepoID, vInfo.Path, root, head.CreatorName, origHead.CommitID)
 		if err != nil {
-			err := fmt.Errorf("failed to update origin repo%.10s path %s.\n", vInfo.OriginRepoID, vInfo.Path)
+			err := fmt.Errorf("failed to update origin repo%.10s path %s", vInfo.OriginRepoID, vInfo.Path)
 			return err
 		}
 		repomgr.SetVirtualRepoBaseCommitPath(repo.ID, newBaseCommit, vInfo.Path)
-		CleanupVirtualRepos(vInfo.OriginRepoID)
+		cleanupVirtualRepos(vInfo.OriginRepoID)
 		mergeVirtualRepo(vInfo.OriginRepoID, repoID)
 	} else {
 		roots := []string{baseRoot, origRoot, root}
@@ -117,23 +117,23 @@ func mergeRepo(repoID string) error {
 
 		err := mergeTrees(origRepo.StoreID, roots, opt)
 		if err != nil {
-			err := fmt.Errorf("failed to merge.\n")
+			err := fmt.Errorf("failed to merge")
 			return err
 		}
 
 		_, err = updateDir(repoID, "/", opt.mergedRoot, origHead.CreatorName, head.CommitID)
 		if err != nil {
-			err := fmt.Errorf("failed to update root of virtual repo %.10s.\n", repoID)
+			err := fmt.Errorf("failed to update root of virtual repo %.10s", repoID)
 			return err
 		}
 
 		newBaseCommit, err := updateDir(vInfo.OriginRepoID, vInfo.Path, opt.mergedRoot, head.CreatorName, origHead.CommitID)
 		if err != nil {
-			err := fmt.Errorf("failed to update origin repo %.10s path %s.\n", vInfo.OriginRepoID, vInfo.Path)
+			err := fmt.Errorf("failed to update origin repo %.10s path %s", vInfo.OriginRepoID, vInfo.Path)
 			return err
 		}
 		repomgr.SetVirtualRepoBaseCommitPath(repo.ID, newBaseCommit, vInfo.Path)
-		CleanupVirtualRepos(vInfo.OriginRepoID)
+		cleanupVirtualRepos(vInfo.OriginRepoID)
 		mergeVirtualRepo(vInfo.OriginRepoID, repoID)
 	}
 
@@ -143,7 +143,7 @@ func mergeRepo(repoID string) error {
 func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
-		err := fmt.Errorf("failed to get repo %.10s.\n", repoID)
+		err := fmt.Errorf("failed to get repo %.10s", repoID)
 		return "", err
 	}
 
@@ -167,7 +167,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		}
 		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc)
 		if err != nil {
-			err := fmt.Errorf("failed to generate new commit: %v.\n", err)
+			err := fmt.Errorf("failed to generate new commit: %v", err)
 			return "", err
 		}
 		return newCommitID, nil
@@ -179,7 +179,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 
 	dir, err := fsmgr.GetSeafdirByPath(repo.StoreID, headCommit.RootID, canonPath)
 	if err != nil {
-		err := fmt.Errorf("dir %s doesn't exist in repo %s.\n", canonPath, repo.StoreID)
+		err := fmt.Errorf("dir %s doesn't exist in repo %s", canonPath, repo.StoreID)
 		return "", err
 	}
 	var exists bool
@@ -189,7 +189,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		}
 	}
 	if !exists {
-		err := fmt.Errorf("file %s doesn't exist in repo %s.\n", dirName, repo.StoreID)
+		err := fmt.Errorf("file %s doesn't exist in repo %s", dirName, repo.StoreID)
 		return "", err
 	}
 	newDent := new(fsmgr.SeafDirent)
@@ -200,7 +200,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 
 	rootID, err := doPutFile(repo, headCommit.RootID, canonPath, newDent)
 	if err != nil || rootID == "" {
-		err := fmt.Errorf("failed to put file.\n", err)
+		err := fmt.Errorf("failed to put file", err)
 		return "", err
 	}
 
@@ -211,7 +211,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 
 	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc)
 	if err != nil {
-		err := fmt.Errorf("failed to generate new commit: %v.\n", err)
+		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", err
 	}
 
@@ -241,7 +241,7 @@ func doPutFile(repo *repomgr.Repo, rootID, parentDir string, dent *fsmgr.SeafDir
 func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.SeafDirent) (string, error) {
 	olddir, err := fsmgr.GetSeafdir(repo.StoreID, dirID)
 	if err != nil {
-		err := fmt.Errorf("failed to get dir.\n")
+		err := fmt.Errorf("failed to get dir")
 		return "", err
 	}
 	entries := olddir.Entries
@@ -261,12 +261,12 @@ func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.S
 
 		newdir, err := fsmgr.NewSeafdir(1, newEntries)
 		if err != nil {
-			err := fmt.Errorf("failed to new seafdir: %v.\n", err)
+			err := fmt.Errorf("failed to new seafdir: %v", err)
 			return "", err
 		}
 		err = fsmgr.SaveSeafdir(repo.StoreID, newdir)
 		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, newdir.DirID)
+			err := fmt.Errorf("failed to save seafdir %s/%s", repo.ID, newdir.DirID)
 			return "", err
 		}
 
@@ -284,7 +284,7 @@ func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.S
 		}
 		id, err := putFileRecursive(repo, dent.ID, remain, newDent)
 		if err != nil {
-			err := fmt.Errorf("failed to put dirent %s: %v.\n", dent.Name, err)
+			err := fmt.Errorf("failed to put dirent %s: %v", dent.Name, err)
 			return "", err
 		}
 		if id != "" {
@@ -298,12 +298,12 @@ func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.S
 	if ret != "" {
 		newdir, err := fsmgr.NewSeafdir(1, entries)
 		if err != nil {
-			err := fmt.Errorf("failed to new seafdir: %v.\n", err)
+			err := fmt.Errorf("failed to new seafdir: %v", err)
 			return "", err
 		}
 		err = fsmgr.SaveSeafdir(repo.StoreID, newdir)
 		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s.\n", repo.ID, newdir.DirID)
+			err := fmt.Errorf("failed to save seafdir %s/%s", repo.ID, newdir.DirID)
 			return "", err
 		}
 		ret = newdir.DirID
@@ -312,28 +312,28 @@ func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.S
 	return ret, nil
 }
 
-func CleanupVirtualRepos(repoID string) error {
+func cleanupVirtualRepos(repoID string) error {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
-		err := fmt.Errorf("failed to get repo %.10s.\n", repoID)
+		err := fmt.Errorf("failed to get repo %.10s", repoID)
 		return err
 	}
 
 	head, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
-		err := fmt.Errorf("failed to load commit %s/%s : %v.\n", repo.ID, repo.HeadCommitID, err)
+		err := fmt.Errorf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
 		return err
 	}
 
 	vRepos, err := repomgr.GetVirtualRepoInfoByOrigin(repoID)
 	if err != nil {
-		err := fmt.Errorf("failed to get virtual repo ids by origin repo %.10s.\n", repoID)
+		err := fmt.Errorf("failed to get virtual repo ids by origin repo %.10s", repoID)
 		return err
 	}
 	for _, vInfo := range vRepos {
 		_, err := fsmgr.GetSeafdirByPath(repo.StoreID, head.RootID, vInfo.Path)
 		if err != nil {
-			if err == fsmgr.PathNoExist {
+			if err == fsmgr.ErrPathNoExist {
 				handleMissingVirtualRepo(repo, head, vInfo)
 			}
 		}
@@ -345,14 +345,14 @@ func CleanupVirtualRepos(repoID string) error {
 func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo *repomgr.VRepoInfo) (string, error) {
 	parent, err := commitmgr.Load(head.RepoID, head.ParentID)
 	if err != nil {
-		err := fmt.Errorf("failed to load commit %s/%s : %v.\n", head.RepoID, head.ParentID, err)
+		err := fmt.Errorf("failed to load commit %s/%s : %v", head.RepoID, head.ParentID, err)
 		return "", err
 	}
 
 	var results []interface{}
 	err = diffCommits(parent, head, &results, true)
 	if err != nil {
-		err := fmt.Errorf("failed to diff commits.\n")
+		err := fmt.Errorf("failed to diff commits")
 		return "", err
 	}
 
@@ -365,20 +365,20 @@ func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo 
 		oldDirID, err := fsmgr.GetSeafdirIDByPath(repo.StoreID, parent.RootID, parPath)
 		if err != nil || oldDirID == "" {
 
-			if err == fsmgr.PathNoExist {
+			if err == fsmgr.ErrPathNoExist {
 				repomgr.DelVirtualRepo(vInfo.RepoID, cloudMode)
 			}
-			err := fmt.Errorf("failed to find %s under commit %s in repo %s.\n", parPath, parent.CommitID, repo.StoreID)
+			err := fmt.Errorf("failed to find %s under commit %s in repo %s", parPath, parent.CommitID, repo.StoreID)
 			return "", err
 		}
 
 		for _, v := range results {
 			de, ok := v.(*diffEntry)
 			if !ok {
-				err := fmt.Errorf("failed to assert diff entry.\n")
+				err := fmt.Errorf("failed to assert diff entry")
 				return "", err
 			}
-			if de.status == DIFF_STATUS_DIR_RENAMED {
+			if de.status == DiffStatusDirRenamed {
 				if de.dirID == oldDirID {
 					if subPath != "" {
 						newPath = filepath.Join("/", de.newName, subPath)
@@ -421,14 +421,14 @@ func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo 
 
 func editRepo(repoID, name, desc, user string) error {
 	if name == "" && desc == "" {
-		err := fmt.Errorf("at least one argument should be non-null.\n")
+		err := fmt.Errorf("at least one argument should be non-null")
 		return err
 	}
 
 	var retryCnt int
-	for err, retry := editRepoNeedRetry(repoID, name, desc, user); err != nil || retry; {
+	for retry, err := editRepoNeedRetry(repoID, name, desc, user); err != nil || retry; {
 		if err != nil {
-			err := fmt.Errorf("failed to edit repo: %v.\n", err)
+			err := fmt.Errorf("failed to edit repo: %v", err)
 			return err
 		}
 		if retryCnt < 3 {
@@ -436,7 +436,7 @@ func editRepo(repoID, name, desc, user string) error {
 			time.Sleep(time.Duration(random*100) * time.Millisecond)
 			retryCnt++
 		} else {
-			err := fmt.Errorf("stop edit repo %s after 3 retries.\n", repoID)
+			err := fmt.Errorf("stop edit repo %s after 3 retries", repoID)
 			return err
 		}
 	}
@@ -444,11 +444,11 @@ func editRepo(repoID, name, desc, user string) error {
 	return nil
 }
 
-func editRepoNeedRetry(repoID, name, desc, user string) (error, bool) {
+func editRepoNeedRetry(repoID, name, desc, user string) (bool, error) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := fmt.Errorf("no such library")
-		return err, false
+		return false, err
 	}
 	if name == "" {
 		name = repo.Name
@@ -459,8 +459,8 @@ func editRepoNeedRetry(repoID, name, desc, user string) (error, bool) {
 
 	parent, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
-		err := fmt.Errorf("failed to get commit %s:%s.\n", repo.ID, repo.HeadCommitID)
-		return err, false
+		err := fmt.Errorf("failed to get commit %s:%s", repo.ID, repo.HeadCommitID)
+		return false, err
 	}
 
 	if user == "" {
@@ -474,24 +474,24 @@ func editRepoNeedRetry(repoID, name, desc, user string) (error, bool) {
 
 	err = commitmgr.Save(commit)
 	if err != nil {
-		err := fmt.Errorf("failed to add commit: %v.\n", err)
-		return err, false
+		err := fmt.Errorf("failed to add commit: %v", err)
+		return false, err
 	}
 
 	err = updateBranch(repoID, commit.CommitID, parent.CommitID)
 	if err != nil {
-		return nil, true
+		return true, nil
 	}
 
 	updateRepoInfo(repoID, commit.CommitID)
 
-	return nil, true
+	return true, nil
 }
 
 func updateRepoInfo(repoID, commitID string) error {
 	head, err := commitmgr.Load(repoID, commitID)
 	if err != nil {
-		err := fmt.Errorf("failed to get commit %s:%s.\n", repoID, commitID)
+		err := fmt.Errorf("failed to get commit %s:%s", repoID, commitID)
 		return err
 	}
 

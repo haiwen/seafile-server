@@ -39,7 +39,7 @@ func createFile() error {
 	}
 	seafdir, err := NewSeafdir(1, entries)
 	if err != nil {
-		err := fmt.Errorf("failed to new seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to new seafdir: %v", err)
 		return err
 	}
 	err = SaveSeafdir(repoID, seafdir)

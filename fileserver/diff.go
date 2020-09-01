@@ -10,8 +10,9 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 )
 
+// Empty value of sha1
 const (
-	EMPTY_SHA1 = "0000000000000000000000000000000000000000"
+	EmptySha1 = "0000000000000000000000000000000000000000"
 )
 
 type fileCB func(string, []*fsmgr.SeafDirent, *diffData) error
@@ -151,7 +152,7 @@ func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *diffOptions
 	recurse := true
 	err := opt.dirCB(baseDir, dirs, &opt.data, &recurse)
 	if err != nil {
-		err := fmt.Errorf("failed to call dir callback: %v.\n", err)
+		err := fmt.Errorf("failed to call dir callback: %v", err)
 		return err
 	}
 
@@ -182,19 +183,20 @@ func direntSame(dentA, dentB *fsmgr.SeafDirent) bool {
 		dentA.Mtime == dentA.Mtime
 }
 
+// Diff type and diff status.
 const (
-	DIFF_TYPE_WORKTREE = 'W' /* diff from index to worktree */
-	DIFF_TYPE_INDEX    = 'I' /* diff from commit to index */
-	DIFF_TYPE_COMMITS  = 'C' /* diff between two commits*/
+	DiffTypeWorktree = 'W' /* diff from index to worktree */
+	DiffTypeIndex    = 'I' /* diff from commit to index */
+	DiffTypeCommits  = 'C' /* diff between two commits*/
 
-	DIFF_STATUS_ADDED       = 'A'
-	DIFF_STATUS_DELETED     = 'D'
-	DIFF_STATUS_MODIFIED    = 'M'
-	DIFF_STATUS_RENAMED     = 'R'
-	DIFF_STATUS_UNMERGED    = 'U'
-	DIFF_STATUS_DIR_ADDED   = 'B'
-	DIFF_STATUS_DIR_DELETED = 'C'
-	DIFF_STATUS_DIR_RENAMED = 'E'
+	DiffStatusAdded      = 'A'
+	DiffStatusDeleted    = 'D'
+	DiffStatusModified   = 'M'
+	DiffStatusRenamed    = 'R'
+	DiffStatusUnmerged   = 'U'
+	DiffStatusDirAdded   = 'B'
+	DiffStatusDirDeleted = 'C'
+	DiffStatusDirRenamed = 'E'
 )
 
 type diffEntry struct {
@@ -240,7 +242,7 @@ func diffMergeRoots(storeID, mergedRoot, p1Root, p2Root string, results *[]inter
 
 	err := diffTrees(roots, opt)
 	if err != nil {
-		err := fmt.Errorf("failed to diff trees: %v.\n", err)
+		err := fmt.Errorf("failed to diff trees: %v", err)
 		return err
 	}
 	diffResolveRenames(results)
@@ -256,24 +258,24 @@ func threewayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, data *diffData
 
 	if m != nil && p1 != nil && p2 != nil {
 		if !direntSame(m, p1) && !direntSame(m, p2) {
-			de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED, m, baseDir)
+			de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusModified, m, baseDir)
 			*results = append(*results, de)
 		}
 	} else if m == nil && p1 != nil && p2 != nil {
-		de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_DELETED, p1, baseDir)
+		de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusDeleted, p1, baseDir)
 		*results = append(*results, de)
 	} else if m != nil && p1 == nil && p2 != nil {
 		if !direntSame(m, p2) {
-			de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED, m, baseDir)
+			de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusModified, m, baseDir)
 			*results = append(*results, de)
 		}
 	} else if m != nil && p1 != nil && p2 == nil {
 		if !direntSame(m, p1) {
-			de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED, m, baseDir)
+			de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusModified, m, baseDir)
 			*results = append(*results, de)
 		}
 	} else if m != nil && p1 == nil && p2 == nil {
-		de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_ADDED, m, baseDir)
+		de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusAdded, m, baseDir)
 		*results = append(*results, de)
 	}
 
@@ -297,7 +299,7 @@ func diffCommitRoots(storeID, p1Root, p2Root string, results *[]interface{}, fol
 
 	err := diffTrees(roots, opt)
 	if err != nil {
-		err := fmt.Errorf("failed to diff trees: %v.\n", err)
+		err := fmt.Errorf("failed to diff trees: %v", err)
 		return err
 	}
 	diffResolveRenames(results)
@@ -308,7 +310,7 @@ func diffCommitRoots(storeID, p1Root, p2Root string, results *[]interface{}, fol
 func diffCommits(commit1, commit2 *commitmgr.Commit, results *[]interface{}, foldDirDiff bool) error {
 	repo := repomgr.Get(commit1.RepoID)
 	if repo == nil {
-		err := fmt.Errorf("failed to get repo %s.\n", commit1.RepoID)
+		err := fmt.Errorf("failed to get repo %s", commit1.RepoID)
 		return err
 	}
 	roots := []string{commit1.RootID, commit2.RootID}
@@ -322,7 +324,7 @@ func diffCommits(commit1, commit2 *commitmgr.Commit, results *[]interface{}, fol
 
 	err := diffTrees(roots, opt)
 	if err != nil {
-		err := fmt.Errorf("failed to diff trees: %v.\n", err)
+		err := fmt.Errorf("failed to diff trees: %v", err)
 		return err
 	}
 	diffResolveRenames(results)
@@ -336,19 +338,19 @@ func twowayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, data *diffData) 
 	results := data.results
 
 	if p1 == nil {
-		de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_ADDED, p2, baseDir)
+		de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusAdded, p2, baseDir)
 		*results = append(*results, de)
 		return nil
 	}
 
 	if p2 == nil {
-		de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_DELETED, p1, baseDir)
+		de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusDeleted, p1, baseDir)
 		*results = append(*results, de)
 		return nil
 	}
 
 	if !direntSame(p1, p2) {
-		de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_MODIFIED, p2, baseDir)
+		de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusModified, p2, baseDir)
 		de.originSize = p1.Size
 		*results = append(*results, de)
 	}
@@ -362,8 +364,8 @@ func twowayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, data *diffData, r
 	results := data.results
 
 	if p1 == nil {
-		if p2.ID == EMPTY_SHA1 || data.foldDirDiff {
-			de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_DIR_ADDED, p2, baseDir)
+		if p2.ID == EmptySha1 || data.foldDirDiff {
+			de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusDirAdded, p2, baseDir)
 			*results = append(*results, de)
 			*recurse = false
 		} else {
@@ -374,7 +376,7 @@ func twowayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, data *diffData, r
 	}
 
 	if p2 == nil {
-		de := diffEntryNewFromDirent(DIFF_TYPE_COMMITS, DIFF_STATUS_DIR_DELETED, p1, baseDir)
+		de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusDirDeleted, p1, baseDir)
 		de.originSize = p1.Size
 		*results = append(*results, de)
 		if data.foldDirDiff {
@@ -392,20 +394,20 @@ func diffResolveRenames(des *[]interface{}) error {
 	for _, v := range *des {
 		de, ok := v.(*diffEntry)
 		if !ok {
-			err := fmt.Errorf("failed to assert diff entry.\n")
+			err := fmt.Errorf("failed to assert diff entry")
 			return err
 		}
-		if de.dirID == EMPTY_SHA1 {
-			if de.status == DIFF_STATUS_DELETED {
+		if de.dirID == EmptySha1 {
+			if de.status == DiffStatusDeleted {
 				deletedEmptyCount++
 			}
-			if de.status == DIFF_STATUS_DIR_DELETED {
+			if de.status == DiffStatusDirDeleted {
 				deletedEmptyDirCount++
 			}
-			if de.status == DIFF_STATUS_ADDED {
+			if de.status == DiffStatusAdded {
 				addedEmptyCount++
 			}
-			if de.status == DIFF_STATUS_DIR_ADDED {
+			if de.status == DiffStatusDirAdded {
 				addedEmptyDirCount++
 			}
 		}
@@ -421,32 +423,32 @@ func diffResolveRenames(des *[]interface{}) error {
 	for _, v := range *des {
 		de, ok := v.(*diffEntry)
 		if !ok {
-			err := fmt.Errorf("failed to assert diff entry.\n")
+			err := fmt.Errorf("failed to assert diff entry")
 			return err
 		}
-		if de.status == DIFF_STATUS_DELETED {
-			if de.dirID == EMPTY_SHA1 && !checkEmptyFile {
+		if de.status == DiffStatusDeleted {
+			if de.dirID == EmptySha1 && !checkEmptyFile {
 				continue
 			}
 			deletedFiles[de.dirID] = de
 		}
 
-		if de.status == DIFF_STATUS_DIR_DELETED {
-			if de.dirID == EMPTY_SHA1 && !checkEmptyDir {
+		if de.status == DiffStatusDirDeleted {
+			if de.dirID == EmptySha1 && !checkEmptyDir {
 				continue
 			}
 			deletedDirs[de.dirID] = de
 		}
 
-		if de.status == DIFF_STATUS_ADDED {
-			if de.dirID == EMPTY_SHA1 && !checkEmptyFile {
+		if de.status == DiffStatusAdded {
+			if de.dirID == EmptySha1 && !checkEmptyFile {
 				continue
 			}
 			added = append(added, de)
 		}
 
-		if de.status == DIFF_STATUS_DIR_ADDED {
-			if de.dirID == EMPTY_SHA1 && !checkEmptyDir {
+		if de.status == DiffStatusDirAdded {
+			if de.dirID == EmptySha1 && !checkEmptyDir {
 				continue
 			}
 
@@ -459,7 +461,7 @@ func diffResolveRenames(des *[]interface{}) error {
 		var renameStatus rune
 
 		deAdd = de
-		if deAdd.status == DIFF_STATUS_ADDED {
+		if deAdd.status == DiffStatusAdded {
 			deTmp, ok := deletedFiles[de.dirID]
 			if !ok {
 				continue
@@ -473,10 +475,10 @@ func diffResolveRenames(des *[]interface{}) error {
 			deDel = deTmp
 		}
 
-		if deAdd.status == DIFF_STATUS_DIR_ADDED {
-			renameStatus = DIFF_STATUS_DIR_RENAMED
+		if deAdd.status == DiffStatusDirAdded {
+			renameStatus = DiffStatusDirRenamed
 		} else {
-			renameStatus = DIFF_STATUS_RENAMED
+			renameStatus = DiffStatusRenamed
 		}
 
 		deRename = diffEntryNew(deDel.diffType, renameStatus, deDel.dirID, deDel.name)
@@ -484,7 +486,7 @@ func diffResolveRenames(des *[]interface{}) error {
 		*des = removeElems(*des, deAdd)
 		*des = removeElems(*des, deDel)
 		*des = append(*des, deRename)
-		if deDel.status == DIFF_STATUS_DIR_DELETED {
+		if deDel.status == DiffStatusDirDeleted {
 			delete(deletedDirs, deAdd.dirID)
 		} else {
 			delete(deletedFiles, deAdd.dirID)
@@ -527,32 +529,32 @@ func diffResultsToDesc(results []interface{}) string {
 			return ""
 		}
 		switch de.status {
-		case DIFF_STATUS_ADDED:
+		case DiffStatusAdded:
 			if nAddMod == 0 {
 				addModFile = filepath.Base(de.name)
 			}
 			nAddMod++
-		case DIFF_STATUS_DELETED:
+		case DiffStatusDeleted:
 			if nRemoved == 0 {
 				removedFile = filepath.Base(de.name)
 			}
 			nRemoved++
-		case DIFF_STATUS_RENAMED:
+		case DiffStatusRenamed:
 			if nRenamed == 0 {
 				renamedFile = filepath.Base(de.name)
 			}
 			nRenamed++
-		case DIFF_STATUS_MODIFIED:
+		case DiffStatusModified:
 			if nAddMod == 0 {
 				addModFile = filepath.Base(de.name)
 			}
 			nAddMod++
-		case DIFF_STATUS_DIR_ADDED:
+		case DiffStatusDirAdded:
 			if nNewDir == 0 {
 				newDir = filepath.Base(de.name)
 			}
 			nNewDir++
-		case DIFF_STATUS_DIR_DELETED:
+		case DiffStatusDirDeleted:
 			if nRemovedDir == 0 {
 				removedDir = filepath.Base(de.name)
 			}

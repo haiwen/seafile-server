@@ -12,6 +12,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 )
 
+// Repo status
 const (
 	RepoStatusNormal = iota
 	RepoStatusReadOnly
@@ -153,6 +154,7 @@ func Get(id string) *Repo {
 	return repo
 }
 
+// RepoToCommit converts Repo to Commit.
 func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
 	commit.RepoID = repo.ID
 	commit.RepoName = repo.Name
@@ -278,6 +280,7 @@ func GetVirtualRepoInfo(repoID string) (*VRepoInfo, error) {
 	return vRepoInfo, nil
 }
 
+// GetVirtualRepoInfoByOrigin return virtual repo info by origin repo id.
 func GetVirtualRepoInfoByOrigin(originRepo string) ([]*VRepoInfo, error) {
 	sqlStr := "SELECT repo_id, origin_repo, path, base_commit " +
 		"FROM VirtualRepo WHERE origin_repo=?"
@@ -363,6 +366,7 @@ func UpdateTokenPeerInfo(token, peerID, clientVer string, syncTime int64) error 
 	return nil
 }
 
+// GetUploadTmpFile gets the timp file path of upload file.
 func GetUploadTmpFile(repoID, filePath string) (string, error) {
 	var filePathNoSlash string
 	if filePath[0] == '/' {
@@ -393,6 +397,7 @@ func GetUploadTmpFile(repoID, filePath string) (string, error) {
 	return tmpFile, nil
 }
 
+// AddUploadTmpFile adds the tmp file path of upload file.
 func AddUploadTmpFile(repoID, filePath, tmpFile string) error {
 	if filePath[0] != '/' {
 		filePath = "/" + filePath
@@ -408,6 +413,7 @@ func AddUploadTmpFile(repoID, filePath, tmpFile string) error {
 	return nil
 }
 
+// DelUploadTmpFile deletes the tmp file path of upload file.
 func DelUploadTmpFile(repoID, filePath string) error {
 	var filePathNoSlash string
 	if filePath[0] == '/' {
@@ -427,6 +433,7 @@ func DelUploadTmpFile(repoID, filePath string) error {
 	return nil
 }
 
+// SetRepoCommitToDb updates the table of RepoInfo.
 func SetRepoCommitToDb(repoID, repoName string, updateTime int64, version int, isEncrypted string, lastModifier string) error {
 	var exists int
 	var encrypted int
@@ -463,6 +470,7 @@ func SetRepoCommitToDb(repoID, repoName string, updateTime int64, version int, i
 	return nil
 }
 
+// SetVirtualRepoBaseCommitPath updates the table of VirtualRepo.
 func SetVirtualRepoBaseCommitPath(repoID, baseCommitID, newPath string) error {
 	sqlStr := "UPDATE VirtualRepo SET base_commit=?, path=? WHERE repo_id=?"
 	if _, err := seafileDB.Exec(sqlStr, baseCommitID, newPath, repoID); err != nil {
@@ -471,6 +479,7 @@ func SetVirtualRepoBaseCommitPath(repoID, baseCommitID, newPath string) error {
 	return nil
 }
 
+// GetVirtualRepoIDsByOrigin return the virtual repo ids by origin repo id.
 func GetVirtualRepoIDsByOrigin(repoID string) ([]string, error) {
 	sqlStr := "SELECT repo_id FROM VirtualRepo WHERE origin_repo=?"
 
@@ -492,10 +501,11 @@ func GetVirtualRepoIDsByOrigin(repoID string) ([]string, error) {
 	return ids, nil
 }
 
+// DelVirtualRepo deletes virtual repo from database.
 func DelVirtualRepo(repoID string, cloudMode bool) error {
 	err := removeVirtualRepoOndisk(repoID, cloudMode)
 	if err != nil {
-		err := fmt.Errorf("failed to remove virtual repo on disk: %v.\n", err)
+		err := fmt.Errorf("failed to remove virtual repo on disk: %v", err)
 		return err
 	}
 	sqlStr := "DELETE FROM VirtualRepo WHERE repo_id = ?"
@@ -605,6 +615,7 @@ func removeVirtualRepoOndisk(repoID string, cloudMode bool) error {
 	return nil
 }
 
+// IsVirtualRepo check if the repo is a virtual reop.
 func IsVirtualRepo(repoID string) (bool, error) {
 	var exists int
 	sqlStr := "SELECT 1 FROM VirtualRepo WHERE repo_id = ?"
@@ -620,6 +631,7 @@ func IsVirtualRepo(repoID string) (bool, error) {
 
 }
 
+// GetOldRepoInfo gets the old repo info.
 func GetOldRepoInfo(repoID string) (*RepoInfo, error) {
 	sqlStr := "select s.head_id,s.size,f.file_count FROM RepoSize s LEFT JOIN RepoFileCount f ON " +
 		"s.repo_id=f.repo_id WHERE s.repo_id=?"
@@ -637,6 +649,7 @@ func GetOldRepoInfo(repoID string) (*RepoInfo, error) {
 	return repoInfo, nil
 }
 
+// GetRepoOwner get the owner of repo.
 func GetRepoOwner(repoID string) (string, error) {
 	var owner string
 	sqlStr := "SELECT owner_id FROM RepoOwner WHERE repo_id=?"

@@ -14,6 +14,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 )
 
+// Job is the job object of workpool.
 type Job struct {
 	callback jobCB
 	repoID   string
@@ -78,13 +79,13 @@ func computeRepoSize(repoID string) error {
 
 	repo := repomgr.Get(repoID)
 	if repo == nil {
-		err := fmt.Errorf("[scheduler] failed to get repo %s.\n", repoID)
+		err := fmt.Errorf("[scheduler] failed to get repo %s", repoID)
 		return err
 	}
 
 	info, err := repomgr.GetOldRepoInfo(repoID)
 	if err != nil {
-		err := fmt.Errorf("[scheduler] failed to get old repo info: %v.\n", err)
+		err := fmt.Errorf("[scheduler] failed to get old repo info: %v", err)
 		return err
 	}
 
@@ -94,7 +95,7 @@ func computeRepoSize(repoID string) error {
 
 	head, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
-		err := fmt.Errorf("[scheduler] failed to get head commit %s.\n", repo.HeadCommitID)
+		err := fmt.Errorf("[scheduler] failed to get head commit %s", repo.HeadCommitID)
 		return err
 	}
 
@@ -110,23 +111,23 @@ func computeRepoSize(repoID string) error {
 		var changeFileCount int64
 		err := diffCommits(oldHead, head, &results, false)
 		if err != nil {
-			err := fmt.Errorf("[scheduler] failed to do diff commits: %v.\n", err)
+			err := fmt.Errorf("[scheduler] failed to do diff commits: %v", err)
 			return err
 		}
 
 		for _, v := range results {
 			de, ok := v.(*diffEntry)
 			if !ok {
-				err := fmt.Errorf("failed to assert diff entry.\n")
+				err := fmt.Errorf("failed to assert diff entry")
 				return err
 			}
-			if de.status == DIFF_STATUS_DELETED {
+			if de.status == DiffStatusDeleted {
 				changeSize -= de.size
 				changeFileCount--
-			} else if de.status == DIFF_STATUS_ADDED {
+			} else if de.status == DiffStatusAdded {
 				changeSize += de.size
 				changeFileCount++
-			} else if de.status == DIFF_STATUS_MODIFIED {
+			} else if de.status == DiffStatusModified {
 				changeSize = changeSize + de.size + de.originSize
 			}
 		}
@@ -135,7 +136,7 @@ func computeRepoSize(repoID string) error {
 	} else {
 		info, err := fsmgr.GetFileCountInfoByPath(repo.StoreID, repo.RootID, "/")
 		if err != nil {
-			err := fmt.Errorf("[scheduler] failed to get file count.\n")
+			err := fmt.Errorf("[scheduler] failed to get file count")
 			return err
 		}
 
@@ -145,7 +146,7 @@ func computeRepoSize(repoID string) error {
 
 	err = setRepoSizeAndFileCount(repoID, repo.HeadCommitID, size, fileCount)
 	if err != nil {
-		err := fmt.Errorf("[scheduler] failed to set repo size and file count %s: %v.\n", repoID, err)
+		err := fmt.Errorf("[scheduler] failed to set repo size and file count %s: %v", repoID, err)
 		return err
 	}
 
@@ -155,7 +156,7 @@ func computeRepoSize(repoID string) error {
 func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) error {
 	trans, err := seafileDB.Begin()
 	if err != nil {
-		err := fmt.Errorf("failed to start transaction: %v.\n", err)
+		err := fmt.Errorf("failed to start transaction: %v", err)
 		return err
 	}
 
