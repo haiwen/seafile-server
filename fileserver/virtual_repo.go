@@ -200,7 +200,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 
 	rootID, err := doPutFile(repo, headCommit.RootID, canonPath, newDent)
 	if err != nil || rootID == "" {
-		err := fmt.Errorf("failed to put file", err)
+		err := fmt.Errorf("failed to put file")
 		return "", err
 	}
 
@@ -219,7 +219,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 }
 
 func genCommitDesc(repo *repomgr.Repo, root, parentRoot string) string {
-	var results []interface{}
+	var results []*diffEntry
 	err := diffCommitRoots(repo.StoreID, parentRoot, root, &results, true)
 	if err != nil {
 		return ""
@@ -349,7 +349,7 @@ func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo 
 		return "", err
 	}
 
-	var results []interface{}
+	var results []*diffEntry
 	err = diffCommits(parent, head, &results, true)
 	if err != nil {
 		err := fmt.Errorf("failed to diff commits")
@@ -372,14 +372,9 @@ func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo 
 			return "", err
 		}
 
-		for _, v := range results {
-			de, ok := v.(*diffEntry)
-			if !ok {
-				err := fmt.Errorf("failed to assert diff entry")
-				return "", err
-			}
+		for _, de := range results {
 			if de.status == DiffStatusDirRenamed {
-				if de.dirID == oldDirID {
+				if de.sha1 == oldDirID {
 					if subPath != "" {
 						newPath = filepath.Join("/", de.newName, subPath)
 					} else {

@@ -22,7 +22,7 @@ type Job struct {
 
 type jobCB func(repoID string) error
 
-var jobs = make(chan Job, 10)
+var jobs = make(chan Job, 100)
 
 func sizeSchedulerInit() {
 	var n int = 1
@@ -49,7 +49,6 @@ func createWorkerPool(n int) {
 		wg.Add(1)
 		go worker(&wg)
 	}
-	wg.Wait()
 }
 
 func worker(wg *sync.WaitGroup) {
@@ -65,7 +64,6 @@ func worker(wg *sync.WaitGroup) {
 		default:
 		}
 	}
-	wg.Done()
 }
 
 func updateRepoSize(repoID string) {
@@ -83,7 +81,7 @@ func computeRepoSize(repoID string) error {
 		return err
 	}
 
-	info, err := repomgr.GetOldRepoInfo(repoID)
+	info, err := getOldRepoInfo(repoID)
 	if err != nil {
 		err := fmt.Errorf("[scheduler] failed to get old repo info: %v", err)
 		return err
@@ -106,7 +104,7 @@ func computeRepoSize(repoID string) error {
 	}
 
 	if info != nil && oldHead != nil {
-		var results []interface{}
+		var results []*diffEntry
 		var changeSize int64
 		var changeFileCount int64
 		err := diffCommits(oldHead, head, &results, false)
@@ -115,12 +113,7 @@ func computeRepoSize(repoID string) error {
 			return err
 		}
 
-		for _, v := range results {
-			de, ok := v.(*diffEntry)
-			if !ok {
-				err := fmt.Errorf("failed to assert diff entry")
-				return err
-			}
+		for _, de := range results {
 			if de.status == DiffStatusDeleted {
 				changeSize -= de.size
 				changeFileCount--
@@ -216,4 +209,28 @@ func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) er
 	trans.Commit()
 
 	return nil
+}
+
+// RepoInfo contains repo information.
+type RepoInfo struct {
+	HeadID    string
+	Size      int64
+	FileCount int64
+}
+
+func getOldRepoInfo(repoID string) (*RepoInfo, error) {
+	sqlStr := "select s.head_id,s.size,f.file_count FROM RepoSize s LEFT JOIN RepoFileCount f ON " +
+		"s.repo_id=f.repo_id WHERE s.repo_id=?"
+
+	repoInfo := new(RepoInfo)
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	if err := row.Scan(&repoInfo.HeadID, &repoInfo.Size, &repoInfo.FileCount); err != nil {
+		if err != sql.ErrNoRows {
+			return nil, err
+		}
+
+		return nil, nil
+	}
+
+	return repoInfo, nil
 }

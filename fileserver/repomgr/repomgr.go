@@ -53,13 +53,6 @@ type VRepoInfo struct {
 	BaseCommitID string
 }
 
-// RepoInfo contains repo information.
-type RepoInfo struct {
-	HeadID    string
-	Size      int64
-	FileCount int64
-}
-
 var seafileDB *sql.DB
 
 // Init initialize status of repomgr package
@@ -76,14 +69,14 @@ func Get(id string) *Repo {
 
 	stmt, err := seafileDB.Prepare(query)
 	if err != nil {
-		log.Printf("failed to prepare sql : %s ：%v.\n", query, err)
+		log.Printf("failed to prepare sql : %s ：%v", query, err)
 		return nil
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.Query(id)
 	if err != nil {
-		log.Printf("failed to query sql : %v.\n", err)
+		log.Printf("failed to query sql : %v", err)
 		return nil
 	}
 	defer rows.Close()
@@ -96,7 +89,7 @@ func Get(id string) *Repo {
 	if rows.Next() {
 		err := rows.Scan(&repo.ID, &repo.HeadCommitID, &originRepoID, &path, &baseCommitID)
 		if err != nil {
-			log.Printf("failed to scan sql rows : %v.\n", err)
+			log.Printf("failed to scan sql rows : %v", err)
 			return nil
 		}
 	} else {
@@ -126,7 +119,7 @@ func Get(id string) *Repo {
 
 	commit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
-		log.Printf("failed to load commit %s/%s : %v.\n", repo.ID, repo.HeadCommitID, err)
+		log.Printf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
 		return nil
 	}
 
@@ -188,14 +181,14 @@ func GetEx(id string) *Repo {
 
 	stmt, err := seafileDB.Prepare(query)
 	if err != nil {
-		log.Printf("failed to prepare sql : %s ：%v.\n", query, err)
+		log.Printf("failed to prepare sql : %s ：%v", query, err)
 		return nil
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.Query(id)
 	if err != nil {
-		log.Printf("failed to query sql : %v.\n", err)
+		log.Printf("failed to query sql : %v", err)
 		return nil
 	}
 	defer rows.Close()
@@ -208,7 +201,7 @@ func GetEx(id string) *Repo {
 	if rows.Next() {
 		err := rows.Scan(&repo.ID, &repo.HeadCommitID, &originRepoID, &path, &baseCommitID)
 		if err != nil {
-			log.Printf("failed to scan sql rows : %v.\n", err)
+			log.Printf("failed to scan sql rows : %v", err)
 			return nil
 		}
 	} else {
@@ -237,7 +230,7 @@ func GetEx(id string) *Repo {
 
 	commit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
-		log.Printf("failed to load commit %s/%s : %v.\n", repo.ID, repo.HeadCommitID, err)
+		log.Printf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
 		repo.IsCorrupted = true
 		return nil
 	}
@@ -629,24 +622,6 @@ func IsVirtualRepo(repoID string) (bool, error) {
 	}
 	return true, nil
 
-}
-
-// GetOldRepoInfo gets the old repo info.
-func GetOldRepoInfo(repoID string) (*RepoInfo, error) {
-	sqlStr := "select s.head_id,s.size,f.file_count FROM RepoSize s LEFT JOIN RepoFileCount f ON " +
-		"s.repo_id=f.repo_id WHERE s.repo_id=?"
-
-	repoInfo := new(RepoInfo)
-	row := seafileDB.QueryRow(sqlStr, repoID)
-	if err := row.Scan(&repoInfo.HeadID, &repoInfo.Size, &repoInfo.FileCount); err != nil {
-		if err != sql.ErrNoRows {
-			return nil, err
-		}
-
-		return nil, nil
-	}
-
-	return repoInfo, nil
 }
 
 // GetRepoOwner get the owner of repo.

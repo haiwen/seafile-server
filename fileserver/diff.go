@@ -15,19 +15,19 @@ const (
 	EmptySha1 = "0000000000000000000000000000000000000000"
 )
 
-type fileCB func(string, []*fsmgr.SeafDirent, *diffData) error
-type dirCB func(string, []*fsmgr.SeafDirent, *diffData, *bool) error
+type fileCB func(string, []*fsmgr.SeafDirent, interface{}) error
+type dirCB func(string, []*fsmgr.SeafDirent, interface{}, *bool) error
 
 type diffOptions struct {
 	fileCB fileCB
 	dirCB  dirCB
 	repoID string
-	data   diffData
+	data   interface{}
 }
 
 type diffData struct {
 	foldDirDiff bool
-	results     *[]interface{}
+	results     *[]*diffEntry
 }
 
 func diffTrees(roots []string, opt *diffOptions) error {
@@ -131,7 +131,7 @@ func diffFiles(baseDir string, dents []*fsmgr.SeafDirent, opt *diffOptions) erro
 		return nil
 	}
 
-	return opt.fileCB(baseDir, files, &opt.data)
+	return opt.fileCB(baseDir, files, opt.data)
 }
 
 func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *diffOptions) error {
@@ -150,7 +150,7 @@ func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *diffOptions
 	}
 
 	recurse := true
-	err := opt.dirCB(baseDir, dirs, &opt.data, &recurse)
+	err := opt.dirCB(baseDir, dirs, opt.data, &recurse)
 	if err != nil {
 		err := fmt.Errorf("failed to call dir callback: %v", err)
 		return err
@@ -185,9 +185,7 @@ func direntSame(dentA, dentB *fsmgr.SeafDirent) bool {
 
 // Diff type and diff status.
 const (
-	DiffTypeWorktree = 'W' /* diff from index to worktree */
-	DiffTypeIndex    = 'I' /* diff from commit to index */
-	DiffTypeCommits  = 'C' /* diff between two commits*/
+	DiffTypeCommits = 'C' /* diff between two commits*/
 
 	DiffStatusAdded      = 'A'
 	DiffStatusDeleted    = 'D'
@@ -200,19 +198,18 @@ const (
 )
 
 type diffEntry struct {
-	diffType     rune
-	status       rune
-	unmergeState int
-	dirID        string
-	name         string
-	newName      string
-	size         int64
-	originSize   int64
+	diffType   rune
+	status     rune
+	sha1       string
+	name       string
+	newName    string
+	size       int64
+	originSize int64
 }
 
 func diffEntryNewFromDirent(diffType, status rune, dent *fsmgr.SeafDirent, baseDir string) *diffEntry {
 	de := new(diffEntry)
-	de.dirID = dent.ID
+	de.sha1 = dent.ID
 	de.diffType = diffType
 	de.status = status
 	de.size = dent.Size
@@ -225,35 +222,41 @@ func diffEntryNew(diffType, status rune, dirID, name string) *diffEntry {
 	de := new(diffEntry)
 	de.diffType = diffType
 	de.status = status
-	de.dirID = dirID
+	de.sha1 = dirID
 	de.name = name
 
 	return de
 }
 
-func diffMergeRoots(storeID, mergedRoot, p1Root, p2Root string, results *[]interface{}, foldDirDiff bool) error {
-	roots := []string{p1Root, p2Root}
+func diffMergeRoots(storeID, mergedRoot, p1Root, p2Root string, results *[]*diffEntry, foldDirDiff bool) error {
+	roots := []string{mergedRoot, p1Root, p2Root}
 
 	opt := new(diffOptions)
 	opt.repoID = storeID
 	opt.fileCB = threewayDiffFiles
 	opt.dirCB = threewayDiffDirs
-	opt.data.results = results
+	opt.data = diffData{foldDirDiff, results}
 
 	err := diffTrees(roots, opt)
 	if err != nil {
 		err := fmt.Errorf("failed to diff trees: %v", err)
 		return err
 	}
+
 	diffResolveRenames(results)
 
 	return nil
 }
 
-func threewayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, data *diffData) error {
+func threewayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, optData interface{}) error {
 	m := dents[0]
 	p1 := dents[1]
 	p2 := dents[2]
+	data, ok := optData.(diffData)
+	if !ok {
+		err := fmt.Errorf("failed to assert diff data")
+		return err
+	}
 	results := data.results
 
 	if m != nil && p1 != nil && p2 != nil {
@@ -282,32 +285,32 @@ func threewayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, data *diffData
 	return nil
 }
 
-func threewayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, data *diffData, recurse *bool) error {
+func threewayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, optData interface{}, recurse *bool) error {
 	*recurse = true
 	return nil
 }
 
-func diffCommitRoots(storeID, p1Root, p2Root string, results *[]interface{}, foldDirDiff bool) error {
+func diffCommitRoots(storeID, p1Root, p2Root string, results *[]*diffEntry, foldDirDiff bool) error {
 	roots := []string{p1Root, p2Root}
 
 	opt := new(diffOptions)
 	opt.repoID = storeID
 	opt.fileCB = twowayDiffFiles
 	opt.dirCB = twowayDiffDirs
-	opt.data.results = results
-	opt.data.foldDirDiff = foldDirDiff
+	opt.data = diffData{foldDirDiff, results}
 
 	err := diffTrees(roots, opt)
 	if err != nil {
 		err := fmt.Errorf("failed to diff trees: %v", err)
 		return err
 	}
+
 	diffResolveRenames(results)
 
 	return nil
 }
 
-func diffCommits(commit1, commit2 *commitmgr.Commit, results *[]interface{}, foldDirDiff bool) error {
+func diffCommits(commit1, commit2 *commitmgr.Commit, results *[]*diffEntry, foldDirDiff bool) error {
 	repo := repomgr.Get(commit1.RepoID)
 	if repo == nil {
 		err := fmt.Errorf("failed to get repo %s", commit1.RepoID)
@@ -319,22 +322,27 @@ func diffCommits(commit1, commit2 *commitmgr.Commit, results *[]interface{}, fol
 	opt.repoID = repo.StoreID
 	opt.fileCB = twowayDiffFiles
 	opt.dirCB = twowayDiffDirs
-	opt.data.results = results
-	opt.data.foldDirDiff = foldDirDiff
+	opt.data = diffData{foldDirDiff, results}
 
 	err := diffTrees(roots, opt)
 	if err != nil {
 		err := fmt.Errorf("failed to diff trees: %v", err)
 		return err
 	}
+
 	diffResolveRenames(results)
 
 	return nil
 }
 
-func twowayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, data *diffData) error {
+func twowayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, optData interface{}) error {
 	p1 := dents[0]
 	p2 := dents[1]
+	data, ok := optData.(diffData)
+	if !ok {
+		err := fmt.Errorf("failed to assert diff data")
+		return err
+	}
 	results := data.results
 
 	if p1 == nil {
@@ -358,9 +366,14 @@ func twowayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, data *diffData) 
 	return nil
 }
 
-func twowayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, data *diffData, recurse *bool) error {
+func twowayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, optData interface{}, recurse *bool) error {
 	p1 := dents[0]
 	p2 := dents[1]
+	data, ok := optData.(diffData)
+	if !ok {
+		err := fmt.Errorf("failed to assert diff data")
+		return err
+	}
 	results := data.results
 
 	if p1 == nil {
@@ -377,7 +390,6 @@ func twowayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, data *diffData, r
 
 	if p2 == nil {
 		de := diffEntryNewFromDirent(DiffTypeCommits, DiffStatusDirDeleted, p1, baseDir)
-		de.originSize = p1.Size
 		*results = append(*results, de)
 		if data.foldDirDiff {
 			*recurse = false
@@ -389,15 +401,10 @@ func twowayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, data *diffData, r
 	return nil
 }
 
-func diffResolveRenames(des *[]interface{}) error {
+func diffResolveRenames(des *[]*diffEntry) error {
 	var deletedEmptyCount, deletedEmptyDirCount, addedEmptyCount, addedEmptyDirCount int
-	for _, v := range *des {
-		de, ok := v.(*diffEntry)
-		if !ok {
-			err := fmt.Errorf("failed to assert diff entry")
-			return err
-		}
-		if de.dirID == EmptySha1 {
+	for _, de := range *des {
+		if de.sha1 == EmptySha1 {
 			if de.status == DiffStatusDeleted {
 				deletedEmptyCount++
 			}
@@ -415,44 +422,44 @@ func diffResolveRenames(des *[]interface{}) error {
 
 	deletedFiles := make(map[string]*diffEntry)
 	deletedDirs := make(map[string]*diffEntry)
+	var results []*diffEntry
 	var added []*diffEntry
 
 	checkEmptyDir := (deletedEmptyDirCount == 1 && addedEmptyDirCount == 1)
 	checkEmptyFile := (deletedEmptyCount == 1 && addedEmptyCount == 1)
 
-	for _, v := range *des {
-		de, ok := v.(*diffEntry)
-		if !ok {
-			err := fmt.Errorf("failed to assert diff entry")
-			return err
-		}
+	for _, de := range *des {
 		if de.status == DiffStatusDeleted {
-			if de.dirID == EmptySha1 && !checkEmptyFile {
+			if de.sha1 == EmptySha1 && !checkEmptyFile {
 				continue
 			}
-			deletedFiles[de.dirID] = de
+			deletedFiles[de.sha1] = de
 		}
 
 		if de.status == DiffStatusDirDeleted {
-			if de.dirID == EmptySha1 && !checkEmptyDir {
+			if de.sha1 == EmptySha1 && !checkEmptyDir {
 				continue
 			}
-			deletedDirs[de.dirID] = de
+			deletedDirs[de.sha1] = de
 		}
 
 		if de.status == DiffStatusAdded {
-			if de.dirID == EmptySha1 && !checkEmptyFile {
+			if de.sha1 == EmptySha1 && !checkEmptyFile {
 				continue
 			}
 			added = append(added, de)
 		}
 
 		if de.status == DiffStatusDirAdded {
-			if de.dirID == EmptySha1 && !checkEmptyDir {
+			if de.sha1 == EmptySha1 && !checkEmptyDir {
 				continue
 			}
 
 			added = append(added, de)
+		}
+
+		if de.status == DiffStatusModified {
+			results = append(results, de)
 		}
 	}
 
@@ -462,14 +469,16 @@ func diffResolveRenames(des *[]interface{}) error {
 
 		deAdd = de
 		if deAdd.status == DiffStatusAdded {
-			deTmp, ok := deletedFiles[de.dirID]
+			deTmp, ok := deletedFiles[de.sha1]
 			if !ok {
+				results = append(results, deAdd)
 				continue
 			}
 			deDel = deTmp
 		} else {
-			deTmp, ok := deletedDirs[de.dirID]
+			deTmp, ok := deletedDirs[de.sha1]
 			if !ok {
+				results = append(results, deAdd)
 				continue
 			}
 			deDel = deTmp
@@ -481,37 +490,29 @@ func diffResolveRenames(des *[]interface{}) error {
 			renameStatus = DiffStatusRenamed
 		}
 
-		deRename = diffEntryNew(deDel.diffType, renameStatus, deDel.dirID, deDel.name)
+		deRename = diffEntryNew(deDel.diffType, renameStatus, deDel.sha1, deDel.name)
 		deRename.newName = de.name
-		*des = removeElems(*des, deAdd)
-		*des = removeElems(*des, deDel)
-		*des = append(*des, deRename)
+		results = append(results, deRename)
 		if deDel.status == DiffStatusDirDeleted {
-			delete(deletedDirs, deAdd.dirID)
+			delete(deletedDirs, deAdd.sha1)
 		} else {
-			delete(deletedFiles, deAdd.dirID)
+			delete(deletedFiles, deAdd.sha1)
 		}
 	}
+
+	for _, de := range deletedFiles {
+		results = append(results, de)
+	}
+
+	for _, de := range deletedDirs {
+		results = append(results, de)
+	}
+	*des = results
 
 	return nil
 }
 
-func removeElems(s []interface{}, e *diffEntry) []interface{} {
-	for i, v := range s {
-		de, ok := v.(*diffEntry)
-		if !ok {
-			continue
-		}
-		if de == e {
-			s = append(s[:i], s[i+1:]...)
-			break
-		}
-	}
-
-	return s
-}
-
-func diffResultsToDesc(results []interface{}) string {
+func diffResultsToDesc(results []*diffEntry) string {
 	var nAddMod, nRemoved, nRenamed int
 	var nNewDir, nRemovedDir int
 	var addModFile, removedFile string
@@ -523,11 +524,7 @@ func diffResultsToDesc(results []interface{}) string {
 		return ""
 	}
 
-	for _, v := range results {
-		de, ok := v.(*diffEntry)
-		if !ok {
-			return ""
-		}
+	for _, de := range results {
 		switch de.status {
 		case DiffStatusAdded:
 			if nAddMod == 0 {
