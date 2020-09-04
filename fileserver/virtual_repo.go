@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"math/rand"
-	"sort"
-	"syscall"
 
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
@@ -74,8 +72,7 @@ func mergeRepo(repoID string) error {
 			origRoot, _ = fsmgr.GetSeafdirIDByPath(origRepo.StoreID, origHead.RootID, newPath)
 		}
 		if origRoot == "" {
-			err := fmt.Errorf("path %s not found in origin repo %.8s, delete or rename virtual repo %.8s", vInfo.Path, vInfo.OriginRepoID, repoID)
-			return err
+			return nil
 		}
 	}
 
@@ -138,178 +135,6 @@ func mergeRepo(repoID string) error {
 	}
 
 	return nil
-}
-
-func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
-	repo := repomgr.Get(repoID)
-	if repo == nil {
-		err := fmt.Errorf("failed to get repo %.10s", repoID)
-		return "", err
-	}
-
-	var base string
-	if headID == "" {
-		base = repo.HeadCommitID
-	} else {
-		base = headID
-	}
-
-	headCommit, err := commitmgr.Load(repo.ID, base)
-	if err != nil {
-		err := fmt.Errorf("failed to get head commit for repo %s", repo.ID)
-		return "", err
-	}
-
-	if dirPath == "/" {
-		commitDesc := genCommitDesc(repo, newDirID, headCommit.RootID)
-		if commitDesc == "" {
-			commitDesc = fmt.Sprintf("Auto merge by system")
-		}
-		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc)
-		if err != nil {
-			err := fmt.Errorf("failed to generate new commit: %v", err)
-			return "", err
-		}
-		return newCommitID, nil
-	}
-
-	parent := filepath.Dir(dirPath)
-	canonPath := getCanonPath(parent)
-	dirName := filepath.Base(dirPath)
-
-	dir, err := fsmgr.GetSeafdirByPath(repo.StoreID, headCommit.RootID, canonPath)
-	if err != nil {
-		err := fmt.Errorf("dir %s doesn't exist in repo %s", canonPath, repo.StoreID)
-		return "", err
-	}
-	var exists bool
-	for _, de := range dir.Entries {
-		if de.Name == dirName {
-			exists = true
-		}
-	}
-	if !exists {
-		err := fmt.Errorf("file %s doesn't exist in repo %s", dirName, repo.StoreID)
-		return "", err
-	}
-	newDent := new(fsmgr.SeafDirent)
-	newDent.ID = newDirID
-	newDent.Mode = (syscall.S_IFDIR | 0644)
-	newDent.Mtime = time.Now().Unix()
-	newDent.Name = dirName
-
-	rootID, err := doPutFile(repo, headCommit.RootID, canonPath, newDent)
-	if err != nil || rootID == "" {
-		err := fmt.Errorf("failed to put file")
-		return "", err
-	}
-
-	commitDesc := genCommitDesc(repo, rootID, headCommit.RootID)
-	if commitDesc == "" {
-		commitDesc = fmt.Sprintf("Auto merge by system")
-	}
-
-	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc)
-	if err != nil {
-		err := fmt.Errorf("failed to generate new commit: %v", err)
-		return "", err
-	}
-
-	return newCommitID, nil
-}
-
-func genCommitDesc(repo *repomgr.Repo, root, parentRoot string) string {
-	var results []*diffEntry
-	err := diffCommitRoots(repo.StoreID, parentRoot, root, &results, true)
-	if err != nil {
-		return ""
-	}
-
-	desc := diffResultsToDesc(results)
-
-	return desc
-}
-
-func doPutFile(repo *repomgr.Repo, rootID, parentDir string, dent *fsmgr.SeafDirent) (string, error) {
-	if strings.Index(parentDir, "/") == 0 {
-		parentDir = parentDir[1:]
-	}
-
-	return putFileRecursive(repo, rootID, parentDir, dent)
-}
-
-func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.SeafDirent) (string, error) {
-	olddir, err := fsmgr.GetSeafdir(repo.StoreID, dirID)
-	if err != nil {
-		err := fmt.Errorf("failed to get dir")
-		return "", err
-	}
-	entries := olddir.Entries
-	sort.Sort(Dirents(entries))
-
-	var ret string
-
-	if toPath == "" {
-		var newEntries []*fsmgr.SeafDirent
-		for _, dent := range entries {
-			if dent.Name == newDent.Name {
-				newEntries = append(newEntries, newDent)
-			} else {
-				newEntries = append(newEntries, dent)
-			}
-		}
-
-		newdir, err := fsmgr.NewSeafdir(1, newEntries)
-		if err != nil {
-			err := fmt.Errorf("failed to new seafdir: %v", err)
-			return "", err
-		}
-		err = fsmgr.SaveSeafdir(repo.StoreID, newdir)
-		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s", repo.ID, newdir.DirID)
-			return "", err
-		}
-
-		return newdir.DirID, nil
-	}
-
-	var remain string
-	if slash := strings.Index(toPath, "/"); slash >= 0 {
-		remain = toPath[slash+1:]
-	}
-
-	for _, dent := range entries {
-		if dent.Name != toPath {
-			continue
-		}
-		id, err := putFileRecursive(repo, dent.ID, remain, newDent)
-		if err != nil {
-			err := fmt.Errorf("failed to put dirent %s: %v", dent.Name, err)
-			return "", err
-		}
-		if id != "" {
-			dent.ID = id
-			dent.Mtime = time.Now().Unix()
-		}
-		ret = id
-		break
-	}
-
-	if ret != "" {
-		newdir, err := fsmgr.NewSeafdir(1, entries)
-		if err != nil {
-			err := fmt.Errorf("failed to new seafdir: %v", err)
-			return "", err
-		}
-		err = fsmgr.SaveSeafdir(repo.StoreID, newdir)
-		if err != nil {
-			err := fmt.Errorf("failed to save seafdir %s/%s", repo.ID, newdir.DirID)
-			return "", err
-		}
-		ret = newdir.DirID
-	}
-
-	return ret, nil
 }
 
 func cleanupVirtualRepos(repoID string) error {
@@ -399,7 +224,7 @@ func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo 
 			break
 		}
 
-		slash := strings.Index(parPath, "/")
+		slash := strings.LastIndex(parPath, "/")
 		if slash <= 0 {
 			break
 		}
