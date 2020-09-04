@@ -5,7 +5,6 @@ import (
 	"gopkg.in/ini.v1"
 	"log"
 	"path/filepath"
-	"sync"
 
 	"database/sql"
 
@@ -44,14 +43,12 @@ func sizeSchedulerInit() {
 
 // need to start a go routine
 func createWorkerPool(n int) {
-	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
-		wg.Add(1)
-		go worker(&wg)
+		go worker()
 	}
 }
 
-func worker(wg *sync.WaitGroup) {
+func worker() {
 	for {
 		select {
 		case job := <-jobs:
