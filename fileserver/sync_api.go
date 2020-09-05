@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -400,6 +401,8 @@ func headCommitOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
 func commitOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if r.Method == http.MethodGet {
 		return getCommitInfo(rsp, r)
+	} else if r.Method == http.MethodPut {
+		return putCommitCB(rsp, r)
 	}
 	return &appError{nil, "", http.StatusBadRequest}
 }
@@ -493,6 +496,44 @@ func publishStatusEvent(rData *statusEventData) {
 	if _, err := rpcclient.Call("publish_event", seafileServerChannelStats, buf); err != nil {
 		log.Printf("Failed to publish event: %v", err)
 	}
+}
+
+func putCommitCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	commitID := vars["id"]
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+	appErr = checkPermission(repoID, user, "upload", true)
+	if appErr != nil {
+		return appErr
+	}
+
+	data, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return &appError{nil, err.Error(), http.StatusBadRequest}
+	}
+
+	commit := new(commitmgr.Commit)
+	if err := commit.FromData(data); err != nil {
+		return &appError{nil, err.Error(), http.StatusBadRequest}
+	}
+
+	if commit.RepoID != repoID {
+		msg := "The repo id in commit does not match current repo id"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	if err := commitmgr.Save(commit); err != nil {
+		err := fmt.Errorf("Failed to add commit %s: %v", commitID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	rsp.WriteHeader(http.StatusOK)
+
+	return nil
 }
 
 func getCommitInfo(rsp http.ResponseWriter, r *http.Request) *appError {
