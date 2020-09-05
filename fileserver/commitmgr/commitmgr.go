@@ -13,6 +13,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 )
 
+// Commit is a commit object
 type Commit struct {
 	CommitID       string `json:"commit_id"`
 	RepoID         string `json:"repo_id"`
@@ -46,6 +47,7 @@ func Init(seafileConfPath string, seafileDataDir string) {
 	store = objstore.New(seafileConfPath, seafileDataDir, "commits")
 }
 
+// NewCommit initializes a Commit object.
 func NewCommit(repoID, parentID, newRoot, user, desc string) *Commit {
 	commit := new(Commit)
 	commit.RepoID = repoID
@@ -87,8 +89,8 @@ func (commit *Commit) FromData(p []byte) error {
 }
 
 // ToData converts commit to JSON-encoded data and writes to w.
-func (c *Commit) ToData(w io.Writer) error {
-	jsonstr, err := json.Marshal(c)
+func (commit *Commit) ToData(w io.Writer) error {
+	jsonstr, err := json.Marshal(commit)
 	if err != nil {
 		return err
 	}
@@ -110,7 +112,7 @@ func ReadRaw(repoID string, commitID string, w io.Writer) error {
 	return nil
 }
 
-// WrtieRaw writes data in binary format to storage backend.
+// WriteRaw writes data in binary format to storage backend.
 func WriteRaw(repoID string, commitID string, r io.Reader) error {
 	err := store.Write(repoID, commitID, r, false)
 	if err != nil {

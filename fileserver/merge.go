@@ -20,7 +20,7 @@ type mergeOptions struct {
 
 func mergeTrees(storeID string, roots []string, opt *mergeOptions) error {
 	if len(roots) != 3 {
-		err := fmt.Errorf("invalid argument.\n")
+		err := fmt.Errorf("invalid argument")
 		return err
 	}
 
@@ -28,7 +28,7 @@ func mergeTrees(storeID string, roots []string, opt *mergeOptions) error {
 	for i := 0; i < 3; i++ {
 		dir, err := fsmgr.GetSeafdir(storeID, roots[i])
 		if err != nil {
-			err := fmt.Errorf("failed to get dir: %v.\n", err)
+			err := fmt.Errorf("failed to get dir: %v", err)
 			return err
 		}
 		trees = append(trees, dir)
@@ -36,7 +36,7 @@ func mergeTrees(storeID string, roots []string, opt *mergeOptions) error {
 
 	err := mergeTreesRecursive(storeID, trees, "", opt)
 	if err != nil {
-		err := fmt.Errorf("failed to merge trees: %v.\n", err)
+		err := fmt.Errorf("failed to merge trees: %v", err)
 		return err
 	}
 
@@ -112,7 +112,7 @@ func mergeTreesRecursive(storeID string, trees []*fsmgr.SeafDir, baseDir string,
 	sort.Sort(Dirents(mergedDents))
 	mergedTree, err := fsmgr.NewSeafdir(1, mergedDents)
 	if err != nil {
-		err := fmt.Errorf("failed to new seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to new seafdir: %v", err)
 		return err
 	}
 
@@ -125,7 +125,7 @@ func mergeTreesRecursive(storeID string, trees []*fsmgr.SeafDir, baseDir string,
 
 	err = fsmgr.SaveSeafdir(storeID, mergedTree)
 	if err != nil {
-		err := fmt.Errorf("failed to save merged tree %s/%s.\n", storeID, baseDir)
+		err := fmt.Errorf("failed to save merged tree %s/%s", storeID, baseDir)
 		return err
 	}
 
@@ -157,7 +157,7 @@ func mergeEntries(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt
 		} else {
 			conflictName, _ := mergeConflictFileName(storeID, opt, baseDir, head.Name)
 			if conflictName == "" {
-				err := fmt.Errorf("failed to generate conflict file name.\n")
+				err := fmt.Errorf("failed to generate conflict file name")
 				return nil, err
 			}
 			dents[2].Name = conflictName
@@ -169,7 +169,7 @@ func mergeEntries(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt
 			if dents[1] != nil {
 				conflictName, _ := mergeConflictFileName(storeID, opt, baseDir, remote.Name)
 				if conflictName == "" {
-					err := fmt.Errorf("failed to generate conflict file name.\n")
+					err := fmt.Errorf("failed to generate conflict file name")
 					return nil, err
 				}
 				dents[2].Name = conflictName
@@ -184,7 +184,7 @@ func mergeEntries(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt
 			if dents[2] != nil {
 				conflictName, _ := mergeConflictFileName(storeID, opt, baseDir, dents[2].Name)
 				if conflictName == "" {
-					err := fmt.Errorf("failed to generate conflict file name.\n")
+					err := fmt.Errorf("failed to generate conflict file name")
 					return nil, err
 				}
 				dents[2].Name = conflictName
@@ -202,7 +202,7 @@ func mergeEntries(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt
 		} else {
 			conflictName, _ := mergeConflictFileName(storeID, opt, baseDir, remote.Name)
 			if conflictName == "" {
-				err := fmt.Errorf("failed to generate conflict file name.\n")
+				err := fmt.Errorf("failed to generate conflict file name")
 				return nil, err
 			}
 			dents[2].Name = conflictName
@@ -217,7 +217,7 @@ func mergeEntries(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt
 		} else {
 			conflictName, _ := mergeConflictFileName(storeID, opt, baseDir, dents[2].Name)
 			if conflictName == "" {
-				err := fmt.Errorf("failed to generate conflict file name.\n")
+				err := fmt.Errorf("failed to generate conflict file name")
 				return nil, err
 			}
 			dents[2].Name = conflictName
@@ -244,7 +244,7 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 
 	switch dirMask {
 	case 0:
-		err := fmt.Errorf("no dirent for merge.\n")
+		err := fmt.Errorf("no dirent for merge")
 		return nil, err
 	case 1:
 		return mergedDents, nil
@@ -278,7 +278,7 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 		}
 		break
 	default:
-		err := fmt.Errorf("wrong dir mask for merge.\n")
+		err := fmt.Errorf("wrong dir mask for merge")
 		return nil, err
 	}
 
@@ -290,7 +290,7 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 		if dents[i] != nil && fsmgr.IsDir(dents[i].Mode) {
 			dir, err := fsmgr.GetSeafdir(storeID, dents[i].ID)
 			if err != nil {
-				err := fmt.Errorf("failed to get seafdir %s/%s.\n", storeID, dents[i].ID)
+				err := fmt.Errorf("failed to get seafdir %s/%s", storeID, dents[i].ID)
 				return nil, err
 			}
 			subDirs[i] = dir
@@ -302,7 +302,7 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 	newBaseDir = newBaseDir + "/"
 	err := mergeTreesRecursive(storeID, subDirs, newBaseDir, opt)
 	if err != nil {
-		err := fmt.Errorf("failed to merge trees: %v.\n", err)
+		err := fmt.Errorf("failed to merge trees: %v", err)
 		return nil, err
 	}
 
@@ -327,7 +327,7 @@ func mergeConflictFileName(storeID string, opt *mergeOptions, baseDir, fileName 
 	if err != nil {
 		commit, err := commitmgr.Load(opt.remoteRepoID, opt.remoteHead)
 		if err != nil {
-			err := fmt.Errorf("failed to get head commit.\n")
+			err := fmt.Errorf("failed to get head commit")
 			return "", err
 		}
 		modifier = commit.CreatorName
@@ -368,7 +368,7 @@ func genConflictPath(originPath, modifier string, mtime int64) string {
 func getFileModifierMtime(repoID, storeID, head, filePath string) (string, int64, error) {
 	commit, err := commitmgr.Load(repoID, head)
 	if err != nil {
-		err := fmt.Errorf("failed to get head commit.\n")
+		err := fmt.Errorf("failed to get head commit")
 		return "", -1, err
 	}
 
@@ -380,7 +380,7 @@ func getFileModifierMtime(repoID, storeID, head, filePath string) (string, int64
 	fileName := filepath.Base(filePath)
 	dir, err := fsmgr.GetSeafdirByPath(storeID, commit.RootID, parent)
 	if err != nil {
-		err := fmt.Errorf("dir %s doesn't exist in repo %s.\n", parent, repoID)
+		err := fmt.Errorf("dir %s doesn't exist in repo %s", parent, repoID)
 		return "", -1, err
 	}
 
@@ -394,7 +394,7 @@ func getFileModifierMtime(repoID, storeID, head, filePath string) (string, int64
 	}
 
 	if dent == nil {
-		err := fmt.Errorf("file %s doesn't exist in repo %s.\n", fileName, repoID)
+		err := fmt.Errorf("file %s doesn't exist in repo %s", fileName, repoID)
 		return "", -1, err
 	}
 
