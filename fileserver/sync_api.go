@@ -39,8 +39,6 @@ const (
 	permExpireTime            = 7200
 	virtualRepoExpireTime     = 7200
 	cleaningIntervalSec       = 300
-	seafHTTPResRepoDeleted    = 444
-	seafHTTPResRepoCorrupted  = 445
 )
 
 var (
@@ -391,8 +389,7 @@ func headCommitOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if r.Method == http.MethodGet {
 		return getHeadCommit(rsp, r)
 	} else if r.Method == http.MethodPut {
-		// TODO: handle put
-		return nil
+		return putUpdateBranchCB(rsp, r)
 	}
 	return &appError{nil, "", http.StatusBadRequest}
 }
@@ -519,6 +516,69 @@ func getCommitInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	rsp.WriteHeader(http.StatusOK)
 	rsp.Write(data.Bytes())
 
+	return nil
+}
+
+func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	queries := r.URL.Query()
+	newCommitID := queries.Get("head")
+	if newCommitID == "" || !isObjectIDValid(newCommitID) {
+		msg := fmt.Sprintf("commit id %s is invalid", newCommitID)
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	appErr = checkPermission(repoID, user, "upload", false)
+	if appErr != nil && appErr.Code == http.StatusForbidden {
+		return appErr
+	}
+
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		err := fmt.Errorf("Repo %s is missing or corrupted", repoID)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	newCommit, err := commitmgr.Load(repoID, newCommitID)
+	if err != nil {
+		err := fmt.Errorf("Failed to get commit %s for repo %s", newCommitID, repoID)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	base, err := commitmgr.Load(repoID, newCommit.ParentID)
+	if err != nil {
+		err := fmt.Errorf("Failed to get commit %s for repo %s", newCommit.ParentID, repoID)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	ret, err := checkQuota(repoID, 0)
+	if err != nil {
+		err := fmt.Errorf("Failed to check quota: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	if ret == 1 {
+		msg := "Out of quota.\n"
+		return &appError{nil, msg, seafHTTPResNoQuota}
+	}
+
+	if err := fastForwardOrMerge(user, repo, base, newCommit); err != nil {
+		err := fmt.Errorf("Fast forward merge for repo %s is failed: %v", repoID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	mergeVirtualRepo(repoID, "")
+
+	if err := computeRepoSize(repoID); err != nil {
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	rsp.WriteHeader(http.StatusOK)
 	return nil
 }
 
