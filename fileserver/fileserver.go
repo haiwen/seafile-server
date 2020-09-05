@@ -386,6 +386,8 @@ func newHTTPRouter() *mux.Router {
 		appHandler(checkFSCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/check-blocks",
 		appHandler(checkBlockCB))
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/recv-fs",
+		appHandler(recvFSCB))
 	return r
 }
 
