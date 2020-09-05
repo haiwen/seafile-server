@@ -410,8 +410,43 @@ func commitOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
 func blockOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if r.Method == http.MethodGet {
 		return getBlockInfo(rsp, r)
+	} else if r.Method == http.MethodPut {
+		return putSendBlockCB(rsp, r)
 	}
 	return &appError{nil, "", http.StatusBadRequest}
+}
+
+func putSendBlockCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	blockID := vars["id"]
+
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	appErr = checkPermission(repoID, user, "upload", false)
+	if appErr != nil {
+		return appErr
+	}
+
+	storeID, err := getRepoStoreID(repoID)
+	if err != nil {
+		err := fmt.Errorf("Failed to get repo store id by repo id %s: %v", repoID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	if err := blockmgr.Write(storeID, blockID, r.Body); err != nil {
+		err := fmt.Errorf("Failed to close block %.8s:%s", storeID, blockID)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	rsp.WriteHeader(http.StatusOK)
+
+	sendStatisticMsg(storeID, user, "sync-file-upload", uint64(r.ContentLength))
+
+	return nil
 }
 
 func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
@@ -419,7 +454,7 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	repoID := vars["repoid"]
 	blockID := vars["id"]
 
-	userName, appErr := validateToken(r, repoID, false)
+	user, appErr := validateToken(r, repoID, false)
 	if appErr != nil {
 		return appErr
 	}
@@ -446,7 +481,7 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	sendStatisticMsg(repoID, userName, "sync-file-download", uint64(blockSize))
+	sendStatisticMsg(repoID, user, "sync-file-download", uint64(blockSize))
 	return nil
 }
 
