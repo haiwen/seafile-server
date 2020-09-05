@@ -2079,7 +2079,7 @@ func checkTmpFileList(fsm *recvData) *appError {
 
 	if options.maxUploadSize > 0 && uint64(totalSize) > options.maxUploadSize {
 		msg := "File size is too large.\n"
-		return &appError{nil, msg, 442}
+		return &appError{nil, msg, seafHTTPResTooLarge}
 	}
 
 	return nil
