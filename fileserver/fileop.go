@@ -994,7 +994,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	}
 	if ret == 1 {
 		msg := "Out of quota.\n"
-		return &appError{nil, msg, 443}
+		return &appError{nil, msg, seafHTTPResNoQuota}
 	}
 
 	if err := createRelativePath(repoID, parentDir, relativePath, user); err != nil {
@@ -1550,6 +1550,25 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	return commitID, nil
 }
 
+func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commitmgr.Commit) error {
+	var retryCnt int
+	for retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, nil); retry || err != nil; {
+		if err != nil {
+			return err
+		}
+
+		if retryCnt < 3 {
+			random := rand.Intn(10) + 1
+			time.Sleep(time.Duration(random*100) * time.Millisecond)
+			retryCnt++
+		} else {
+			err := fmt.Errorf("stop updating repo %s after 3 retries", repo.ID)
+			return err
+		}
+	}
+	return nil
+}
+
 func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, commitID *string) (bool, error) {
 	repoID := repo.ID
 	var mergeDesc string
@@ -1559,6 +1578,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		err := fmt.Errorf("failed to get head commit for repo %s", repoID)
 		return false, err
 	}
+
 	if base.CommitID != currentHead.CommitID {
 		roots := []string{base.RootID, currentHead.RootID, newRoot}
 		opt := new(mergeOptions)
@@ -1588,7 +1608,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 			mergedCommit.Conflict = 1
 		}
 
-		err = commitmgr.Save(commit)
+		err = commitmgr.Save(mergedCommit)
 		if err != nil {
 			err := fmt.Errorf("failed to add commit: %v", err)
 			return false, err
@@ -1602,7 +1622,9 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		return true, nil
 	}
 
-	*commitID = mergedCommit.CommitID
+	if commitID != nil {
+		*commitID = mergedCommit.CommitID
+	}
 	return false, nil
 }
 
