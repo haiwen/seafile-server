@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -172,6 +173,64 @@ func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
+func recvFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	appErr = checkPermission(repoID, user, "upload", false)
+	if appErr != nil {
+		return appErr
+	}
+
+	storeID, err := getRepoStoreID(repoID)
+	if err != nil {
+		err := fmt.Errorf("Failed to get repo store id by repo id %s: %v", repoID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	fsBuf, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return &appError{nil, err.Error(), http.StatusBadRequest}
+	}
+
+	for len(fsBuf) > 44 {
+		objID := string(fsBuf[:40])
+		if !isObjectIDValid(objID) {
+			msg := fmt.Sprintf("Fs obj id %s is invalid", objID)
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+
+		var objSize uint32
+		sizeBuffer := bytes.NewBuffer(fsBuf[40:44])
+		if err := binary.Read(sizeBuffer, binary.BigEndian, &objSize); err != nil {
+			msg := fmt.Sprintf("Failed to read fs obj size: %v", err)
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+
+		if len(fsBuf) < int(44+objSize) {
+			msg := "Request body size invalid"
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+
+		objBuffer := bytes.NewBuffer(fsBuf[44 : 44+objSize])
+		if err := fsmgr.WriteRaw(storeID, objID, objBuffer); err != nil {
+			err := fmt.Errorf("Failed to write fs obj %s:%s : %v", storeID, objID, err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+		fsBuf = fsBuf[44+objSize:]
+	}
+	if len(fsBuf) == 0 {
+		rsp.WriteHeader(http.StatusOK)
+		return nil
+	}
+
+	msg := "Request body size invalid"
+	return &appError{nil, msg, http.StatusBadRequest}
+}
 func checkFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return postCheckExistCB(rsp, r, checkFSExist)
 }
