@@ -40,13 +40,13 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	var unixAddr *net.UnixAddr
 	unixAddr, err := net.ResolveUnixAddr("unix", c.pipePath)
 	if err != nil {
-		err := fmt.Errorf("failed to resolve unix addr when calling rpc : %v.\n", err)
+		err := fmt.Errorf("failed to resolve unix addr when calling rpc : %v", err)
 		return nil, err
 	}
 
 	conn, err := net.DialUnix("unix", nil, unixAddr)
 	if err != nil {
-		err := fmt.Errorf("failed to dial unix when calling rpc : %v.\n", err)
+		err := fmt.Errorf("failed to dial unix when calling rpc : %v", err)
 		return nil, err
 	}
 	defer conn.Close()
@@ -56,7 +56,7 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	req = append(req, params...)
 	jsonstr, err := json.Marshal(req)
 	if err != nil {
-		err := fmt.Errorf("failed to encode rpc call to json : %v\n", err)
+		err := fmt.Errorf("failed to encode rpc call to json : %v", err)
 		return nil, err
 	}
 
@@ -66,7 +66,7 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 
 	jsonstr, err = json.Marshal(reqHeader)
 	if err != nil {
-		err := fmt.Errorf("failed to convert object to json : %v.\n", err)
+		err := fmt.Errorf("failed to convert object to json : %v", err)
 		return nil, err
 	}
 
@@ -74,13 +74,13 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	binary.LittleEndian.PutUint32(header, uint32(len(jsonstr)))
 	_, err = conn.Write([]byte(header))
 	if err != nil {
-		err := fmt.Errorf("Failed to write rpc request header : %v.\n", err)
+		err := fmt.Errorf("Failed to write rpc request header : %v", err)
 		return nil, err
 	}
 
 	_, err = conn.Write([]byte(jsonstr))
 	if err != nil {
-		err := fmt.Errorf("Failed to write rpc request body : %v.\n", err)
+		err := fmt.Errorf("Failed to write rpc request body : %v", err)
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	buflen := make([]byte, 4)
 	_, err = io.ReadFull(reader, buflen)
 	if err != nil {
-		err := fmt.Errorf("failed to read response header from rpc server : %v.\n", err)
+		err := fmt.Errorf("failed to read response header from rpc server : %v", err)
 		return nil, err
 	}
 	retlen := binary.LittleEndian.Uint32(buflen)
@@ -96,19 +96,19 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	msg := make([]byte, retlen)
 	_, err = io.ReadFull(reader, msg)
 	if err != nil {
-		err := fmt.Errorf("failed to read response body from rpc server : %v.\n", err)
+		err := fmt.Errorf("failed to read response body from rpc server : %v", err)
 		return nil, err
 	}
 
 	retlist := make(map[string]interface{})
 	err = json.Unmarshal(msg, &retlist)
 	if err != nil {
-		err := fmt.Errorf("failed to decode rpc response : %v.\n", err)
+		err := fmt.Errorf("failed to decode rpc response : %v", err)
 		return nil, err
 	}
 
 	if _, ok := retlist["err_code"]; ok {
-		err := fmt.Errorf("searpc server returned error : %v.\n", retlist["err_msg"])
+		err := fmt.Errorf("searpc server returned error : %v", retlist["err_msg"])
 		return nil, err
 	}
 

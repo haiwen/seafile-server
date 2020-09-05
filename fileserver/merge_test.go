@@ -53,32 +53,32 @@ func createTestDir() error {
 
 	emptyDir, err := createSeafdir(nil)
 	if err != nil {
-		err := fmt.Errorf("failed to get seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 	tree5 = emptyDir
 
 	file1, err := fsmgr.NewSeafile(1, 1, nil)
 	if err != nil {
-		err := fmt.Errorf("failed to new seafile: %v.\n", err)
+		err := fmt.Errorf("failed to new seafile: %v", err)
 		return err
 	}
 	err = fsmgr.SaveSeafile(repoID, file1)
 	if err != nil {
-		err := fmt.Errorf("failed to save seafile: %v.\n", err)
+		err := fmt.Errorf("failed to save seafile: %v", err)
 		return err
 	}
 
 	dent1 := fsmgr.SeafDirent{ID: file1.FileID, Name: "testfile", Mode: modeFile, Size: 1}
 	dir1, err := createSeafdir([]*fsmgr.SeafDirent{&dent1})
 	if err != nil {
-		err := fmt.Errorf("failed to get seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 	dent2 := fsmgr.SeafDirent{ID: dir1, Name: "bbb", Mode: modeDir}
 	dir2, err := createSeafdir([]*fsmgr.SeafDirent{&dent2})
 	if err != nil {
-		err := fmt.Errorf("failed to get seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
@@ -87,33 +87,33 @@ func createTestDir() error {
 	commit1 := commitmgr.NewCommit(repoID, "", tree1, "seafile", "this is the first commit.\n")
 	err = commitmgr.Save(commit1)
 	if err != nil {
-		err := fmt.Errorf("failed to save commit: %v.\n", err)
+		err := fmt.Errorf("failed to save commit: %v", err)
 		return err
 	}
 	tree1CommitID = commit1.CommitID
 
 	file2, err := fsmgr.NewSeafile(1, 10, nil)
 	if err != nil {
-		err := fmt.Errorf("failed to new seafile: %v.\n", err)
+		err := fmt.Errorf("failed to new seafile: %v", err)
 		return err
 	}
 	err = fsmgr.SaveSeafile(repoID, file2)
 	if err != nil {
-		err := fmt.Errorf("failed to save seafile: %v.\n", err)
+		err := fmt.Errorf("failed to save seafile: %v", err)
 		return err
 	}
 
 	dent3 := fsmgr.SeafDirent{ID: file2.FileID, Name: "testfile", Mode: modeFile, Size: 10}
 	dir3, err := createSeafdir([]*fsmgr.SeafDirent{&dent3})
 	if err != nil {
-		err := fmt.Errorf("failed to get seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
 	dent4 := fsmgr.SeafDirent{ID: dir3, Name: "bbb", Mode: modeDir}
 	dir4, err := createSeafdir([]*fsmgr.SeafDirent{&dent4})
 	if err != nil {
-		err := fmt.Errorf("failed to get seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
@@ -122,21 +122,21 @@ func createTestDir() error {
 	commit2 := commitmgr.NewCommit(repoID, "", tree2, "seafile", "this is the second commit.\n")
 	err = commitmgr.Save(commit2)
 	if err != nil {
-		err := fmt.Errorf("failed to save commit: %v.\n", err)
+		err := fmt.Errorf("failed to save commit: %v", err)
 		return err
 	}
 	tree2CommitID = commit2.CommitID
 
 	dir5, err := createSeafdir(nil)
 	if err != nil {
-		err := fmt.Errorf("failed to get seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
 	dent6 := fsmgr.SeafDirent{ID: dir5, Name: "bbb", Mode: modeDir}
 	dir6, err := createSeafdir([]*fsmgr.SeafDirent{&dent6})
 	if err != nil {
-		err := fmt.Errorf("failed to get seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
@@ -145,32 +145,32 @@ func createTestDir() error {
 	commit3 := commitmgr.NewCommit(repoID, "", tree3, "seafile", "this is the third commit.\n")
 	err = commitmgr.Save(commit3)
 	if err != nil {
-		err := fmt.Errorf("failed to save commit: %v.\n", err)
+		err := fmt.Errorf("failed to save commit: %v", err)
 		return err
 	}
 	tree3CommitID = commit3.CommitID
 
 	file3, err := fsmgr.NewSeafile(1, 100, nil)
 	if err != nil {
-		err := fmt.Errorf("failed to new seafile: %v.\n", err)
+		err := fmt.Errorf("failed to new seafile: %v", err)
 		return err
 	}
 	err = fsmgr.SaveSeafile(repoID, file3)
 	if err != nil {
-		err := fmt.Errorf("failed to save seafile: %v.\n", err)
+		err := fmt.Errorf("failed to save seafile: %v", err)
 		return err
 	}
 	dent7 := fsmgr.SeafDirent{ID: file3.FileID, Name: "testfile", Mode: modeFile, Size: 100}
 	dir7, err := createSeafdir([]*fsmgr.SeafDirent{&dent7})
 	if err != nil {
-		err := fmt.Errorf("failed to get seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
 	dent8 := fsmgr.SeafDirent{ID: dir7, Name: "bbb", Mode: modeDir}
 	dir8, err := createSeafdir([]*fsmgr.SeafDirent{&dent8})
 	if err != nil {
-		err := fmt.Errorf("failed to get seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
@@ -179,7 +179,7 @@ func createTestDir() error {
 	commit4 := commitmgr.NewCommit(repoID, "", tree3, "seafile", "this is the fourth commit.\n")
 	err = commitmgr.Save(commit4)
 	if err != nil {
-		err := fmt.Errorf("failed to save commit: %v.\n", err)
+		err := fmt.Errorf("failed to save commit: %v", err)
 		return err
 	}
 	tree4CommitID = commit4.CommitID
@@ -190,7 +190,7 @@ func createTestDir() error {
 func createSeafdir(dents []*fsmgr.SeafDirent) (string, error) {
 	seafdir, err := fsmgr.NewSeafdir(1, dents)
 	if err != nil {
-		err := fmt.Errorf("failed to new seafdir: %v.\n", err)
+		err := fmt.Errorf("failed to new seafdir: %v", err)
 		return "", err
 	}
 	err = fsmgr.SaveSeafdir(repoID, seafdir)
@@ -215,13 +215,13 @@ func TestMain(m *testing.M) {
 	fsmgr.Init(seafileConfPath, seafileDataDir)
 	err := createTestDir()
 	if err != nil {
-		fmt.Printf("failed to create test dir: %v.\n", err)
+		fmt.Printf("failed to create test dir: %v", err)
 		os.Exit(1)
 	}
 	code := m.Run()
 	err = delFile()
 	if err != nil {
-		fmt.Printf("failed to remove test file : %v\n", err)
+		fmt.Printf("failed to remove test file : %v", err)
 	}
 	os.Exit(code)
 }
