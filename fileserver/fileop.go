@@ -2283,6 +2283,8 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		return "", err
 	}
 
+	go updateRepoSize(repoID)
+
 	return newCommitID, nil
 }
 

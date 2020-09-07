@@ -74,13 +74,13 @@ func computeRepoSize(repoID string) error {
 
 	repo := repomgr.Get(repoID)
 	if repo == nil {
-		err := fmt.Errorf("[scheduler] failed to get repo %s", repoID)
+		err := fmt.Errorf("failed to get repo %s", repoID)
 		return err
 	}
 
 	info, err := getOldRepoInfo(repoID)
 	if err != nil {
-		err := fmt.Errorf("[scheduler] failed to get old repo info: %v", err)
+		err := fmt.Errorf("failed to get old repo info: %v", err)
 		return err
 	}
 
@@ -90,7 +90,7 @@ func computeRepoSize(repoID string) error {
 
 	head, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
-		err := fmt.Errorf("[scheduler] failed to get head commit %s", repo.HeadCommitID)
+		err := fmt.Errorf("failed to get head commit %s", repo.HeadCommitID)
 		return err
 	}
 
@@ -106,7 +106,7 @@ func computeRepoSize(repoID string) error {
 		var changeFileCount int64
 		err := diffCommits(oldHead, head, &results, false)
 		if err != nil {
-			err := fmt.Errorf("[scheduler] failed to do diff commits: %v", err)
+			err := fmt.Errorf("failed to do diff commits: %v", err)
 			return err
 		}
 
@@ -126,7 +126,7 @@ func computeRepoSize(repoID string) error {
 	} else {
 		info, err := fsmgr.GetFileCountInfoByPath(repo.StoreID, repo.RootID, "/")
 		if err != nil {
-			err := fmt.Errorf("[scheduler] failed to get file count")
+			err := fmt.Errorf("failed to get file count")
 			return err
 		}
 
@@ -136,7 +136,7 @@ func computeRepoSize(repoID string) error {
 
 	err = setRepoSizeAndFileCount(repoID, repo.HeadCommitID, size, fileCount)
 	if err != nil {
-		err := fmt.Errorf("[scheduler] failed to set repo size and file count %s: %v", repoID, err)
+		err := fmt.Errorf("failed to set repo size and file count %s: %v", repoID, err)
 		return err
 	}
 
