@@ -424,7 +424,7 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 		return rootID, nil
 	}
 	index := strings.Index(formatPath, "/")
-	if index == 0 {
+	if formatPath == "/" {
 		return rootID, nil
 	} else if index < 0 {
 		dir, err := GetSeafdir(repoID, rootID)
