@@ -417,20 +417,32 @@ func GetSeafdirByPath(repoID string, rootID string, path string) (*SeafDir, erro
 
 // GetSeafdirIDByPath gets the dirID of SeafDir by path.
 func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
+	dirID, mode, err := GetObjIDByPath(repoID, rootID, path)
+	if err != nil {
+		err := fmt.Errorf("failed to get dir id by path: %s: %v", path, err)
+		return "", err
+	}
+	if dirID == "" || !IsDir(mode) {
+		return "", nil
+	}
+
+	return dirID, nil
+}
+
+// GetObjIDByPath gets the obj id by path
+func GetObjIDByPath(repoID, rootID, path string) (string, uint32, error) {
 	var name string
 	var baseDir *SeafDir
 	formatPath := filepath.Join(path)
-	if len(formatPath) == 0 {
-		return rootID, nil
+	if len(formatPath) == 0 || formatPath == "/" {
+		return rootID, syscall.S_IFDIR, nil
 	}
 	index := strings.Index(formatPath, "/")
-	if index == 0 {
-		return rootID, nil
-	} else if index < 0 {
+	if index < 0 {
 		dir, err := GetSeafdir(repoID, rootID)
 		if err != nil {
 			err := fmt.Errorf("failed to find root dir %s: %v", rootID, err)
-			return "", err
+			return "", 0, err
 		}
 		name = formatPath
 		baseDir = dir
@@ -440,10 +452,10 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 		dir, err := GetSeafdirByPath(repoID, rootID, dirName)
 		if err != nil {
 			if err == ErrPathNoExist {
-				return "", ErrPathNoExist
+				return "", syscall.S_IFDIR, ErrPathNoExist
 			}
 			err := fmt.Errorf("failed to find dir %s in repo %s: %v", dirName, repoID, err)
-			return "", err
+			return "", syscall.S_IFDIR, err
 		}
 		baseDir = dir
 	}
@@ -451,14 +463,12 @@ func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 	entries := baseDir.Entries
 	for _, de := range entries {
 		if de.Name == name {
-			if IsDir(de.Mode) {
-				return de.ID, nil
-			}
-			return "", nil
+			return de.ID, de.Mode, nil
 		}
 	}
 
-	return "", nil
+	return "", 0, nil
+
 }
 
 // GetFileCountInfoByPath gets the count info of file by path.

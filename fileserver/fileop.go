@@ -1319,7 +1319,7 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 	if op != "update" {
 		obj := make(map[string]interface{})
 		if err := json.Unmarshal([]byte(id), &obj); err != nil {
-			err := fmt.Errorf("failed to decode obj data : %v.\n", err)
+			err := fmt.Errorf("failed to decode obj data : %v", err)
 			return nil, &appError{err, "", http.StatusBadRequest}
 		}
 
@@ -2482,6 +2482,10 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 			msg := "No file in multipart form.\n"
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
+		if len(fileHeaders) > 1 {
+			msg := "More files in one request"
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
 		for _, handler := range fileHeaders {
 			fileName := filepath.Base(handler.Filename)
 			fsm.fileNames = append(fsm.fileNames, fileName)
@@ -2496,11 +2500,6 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 
 	if err := checkParentDir(repoID, parentDir); err != nil {
 		return err
-	}
-
-	if !isParentMatched(fsm.parentDir, parentDir) {
-		msg := "Permission denied."
-		return &appError{nil, msg, http.StatusForbidden}
 	}
 
 	if err := checkTmpFileList(fsm); err != nil {
@@ -2533,7 +2532,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	}
 	if ret == 1 {
 		msg := "Out of quota.\n"
-		return &appError{nil, msg, 443}
+		return &appError{nil, msg, seafHTTPResNoQuota}
 	}
 
 	headIDs, ok := r.Form["head"]
@@ -2594,7 +2593,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 	exist, _ := checkFileExists(repo.StoreID, headCommit.RootID, canonPath, fileName)
 	if !exist {
 		msg := "File does not exist.\n"
-		return &appError{nil, msg, 441}
+		return &appError{nil, msg, seafHTTPResNotExists}
 	}
 
 	var cryptKey *seafileCrypt
@@ -2606,37 +2605,31 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		cryptKey = key
 	}
 
-	var ids []string
-	var sizes []int64
+	var fileID string
+	var size int64
 	if fsm.rstart >= 0 {
 		filePath := files[0]
-		id, size, err := indexBlocks(repo.StoreID, repo.Version, filePath, nil, cryptKey)
+		id, fileSize, err := indexBlocks(repo.StoreID, repo.Version, filePath, nil, cryptKey)
 		if err != nil {
 			err := fmt.Errorf("failed to index blocks: %v", err)
 			return &appError{err, "", http.StatusInternalServerError}
 		}
-		ids = append(ids, id)
-		sizes = append(sizes, size)
+		fileID = id
+		size = fileSize
 	} else {
 		handler := fsm.fileHeaders[0]
-		id, size, err := indexBlocks(repo.StoreID, repo.Version, "", handler, cryptKey)
+		id, fileSize, err := indexBlocks(repo.StoreID, repo.Version, "", handler, cryptKey)
 		if err != nil {
 			err := fmt.Errorf("failed to index blocks: %v", err)
 			return &appError{err, "", http.StatusInternalServerError}
 		}
-		ids = append(ids, id)
-		sizes = append(sizes, size)
+		fileID = id
+		size = fileSize
 	}
 
-	fileID := ids[0]
-	size := sizes[0]
 	fullPath := filepath.Join(parentDir, fileName)
-	oldFileID, _ := fsmgr.GetSeafdirIDByPath(repo.StoreID, headCommit.RootID, fullPath)
+	oldFileID, _, _ := fsmgr.GetObjIDByPath(repo.StoreID, headCommit.RootID, fullPath)
 	if fileID == oldFileID {
-		if fileID == "" {
-			return nil
-		}
-
 		if isAjax {
 			retJSON, err := formatUpdateJSONRet(fileName, fileID, size)
 			if err != nil {
@@ -2668,10 +2661,6 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	if fileID == "" {
-		return nil
-	}
-
 	if isAjax {
 		retJSON, err := formatUpdateJSONRet(fileName, fileID, size)
 		if err != nil {
@@ -2683,9 +2672,9 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		rsp.Write([]byte(fileID))
 	}
 
-	//TODO:merge and compute repo
-	//go mergeVirtualRepo(repo.ID, "")
-	//go updateRepoSize(repo.ID)
+	go mergeVirtualRepo(repo.ID, "")
+	go updateRepoSize(repo.ID)
+
 	return nil
 }
 
