@@ -367,6 +367,8 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/zip/{.*}/{.*}", appHandler(accessZipCB))
 	r.Handle("/upload-api/{.*}", appHandler(uploadAPICB))
 	r.Handle("/upload-aj/{.*}", appHandler(uploadAjaxCB))
+	r.Handle("/update-api/{.*}", appHandler(updateAPICB))
+	r.Handle("/update-aj/{.*}", appHandler(updateAjaxCB))
 	// file syncing api
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check/",
 		appHandler(permissionCheckCB))

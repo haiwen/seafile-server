@@ -118,7 +118,7 @@ func computeRepoSize(repoID string) error {
 				changeSize += de.size
 				changeFileCount++
 			} else if de.status == DiffStatusModified {
-				changeSize = changeSize + de.size + de.originSize
+				changeSize = changeSize + de.size - de.originSize
 			}
 		}
 		size = info.Size + changeSize
