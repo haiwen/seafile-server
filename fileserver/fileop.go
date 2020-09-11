@@ -2545,10 +2545,8 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return err
 	}
 
-	if isAjax {
-		oper := "web-file-upload"
-		sendStatisticMsg(repoID, user, oper, uint64(contentLen))
-	}
+    oper := "web-file-upload"
+    sendStatisticMsg(repoID, user, oper, uint64(contentLen))
 
 	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
