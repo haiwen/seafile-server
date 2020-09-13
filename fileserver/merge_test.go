@@ -2,30 +2,31 @@ package main
 
 import (
 	"fmt"
-	"github.com/haiwen/seafile-server/fileserver/commitmgr"
-	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"os"
 	"syscall"
 	"testing"
+
+	"github.com/haiwen/seafile-server/fileserver/commitmgr"
+	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 )
 
 const (
-	commitID        = "0401fc662e3bc87a41f299a907c056aaf8322a27"
-	repoID          = "b1f2ad61-9164-418a-a47f-ab805dbd5694"
-	seafileConfPath = "/tmp/conf"
-	seafileDataDir  = "/tmp/conf/seafile-data"
+	mergeTestCommitID        = "0401fc662e3bc87a41f299a907c056aaf8322a27"
+	mergeTestRepoID          = "b1f2ad61-9164-418a-a47f-ab805dbd5694"
+	mergeTestSeafileConfPath = "/tmp/conf"
+	mergeTestSeafileDataDir  = "/tmp/conf/seafile-data"
 )
 
-var tree1 string
-var tree2 string
-var tree3 string
-var tree4 string
-var tree5 string
-var tree1CommitID string
-var tree2CommitID string
-var tree3CommitID string
-var tree4CommitID string
-var tree5CommitID string
+var mergeTestTree1 string
+var mergeTestTree2 string
+var mergeTestTree3 string
+var mergeTestTree4 string
+var mergeTestTree5 string
+var mergeTestTree1CommitID string
+var mergeTestTree2CommitID string
+var mergeTestTree3CommitID string
+var mergeTestTree4CommitID string
+var mergeTestTree5CommitID string
 
 /*
    test directory structure:
@@ -47,153 +48,153 @@ var tree5CommitID string
    tree5
    |--
 */
-func createTestDir() error {
+func mergeTestCreateTestDir() error {
 	modeDir := uint32(syscall.S_IFDIR | 0644)
 	modeFile := uint32(syscall.S_IFREG | 0644)
 
-	emptyDir, err := createSeafdir(nil)
+	emptyDir, err := mergeTestCreateSeafdir(nil)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
-	tree5 = emptyDir
+	mergeTestTree5 = emptyDir
 
 	file1, err := fsmgr.NewSeafile(1, 1, nil)
 	if err != nil {
 		err := fmt.Errorf("failed to new seafile: %v", err)
 		return err
 	}
-	err = fsmgr.SaveSeafile(repoID, file1)
+	err = fsmgr.SaveSeafile(mergeTestRepoID, file1)
 	if err != nil {
 		err := fmt.Errorf("failed to save seafile: %v", err)
 		return err
 	}
 
 	dent1 := fsmgr.SeafDirent{ID: file1.FileID, Name: "testfile", Mode: modeFile, Size: 1}
-	dir1, err := createSeafdir([]*fsmgr.SeafDirent{&dent1})
+	dir1, err := mergeTestCreateSeafdir([]*fsmgr.SeafDirent{&dent1})
 	if err != nil {
 		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 	dent2 := fsmgr.SeafDirent{ID: dir1, Name: "bbb", Mode: modeDir}
-	dir2, err := createSeafdir([]*fsmgr.SeafDirent{&dent2})
+	dir2, err := mergeTestCreateSeafdir([]*fsmgr.SeafDirent{&dent2})
 	if err != nil {
 		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
-	tree1 = dir2
+	mergeTestTree1 = dir2
 
-	commit1 := commitmgr.NewCommit(repoID, "", tree1, "seafile", "this is the first commit.\n")
+	commit1 := commitmgr.NewCommit(mergeTestRepoID, "", mergeTestTree1, "seafile", "this is the first commit.\n")
 	err = commitmgr.Save(commit1)
 	if err != nil {
 		err := fmt.Errorf("failed to save commit: %v", err)
 		return err
 	}
-	tree1CommitID = commit1.CommitID
+	mergeTestTree1CommitID = commit1.CommitID
 
 	file2, err := fsmgr.NewSeafile(1, 10, nil)
 	if err != nil {
 		err := fmt.Errorf("failed to new seafile: %v", err)
 		return err
 	}
-	err = fsmgr.SaveSeafile(repoID, file2)
+	err = fsmgr.SaveSeafile(mergeTestRepoID, file2)
 	if err != nil {
 		err := fmt.Errorf("failed to save seafile: %v", err)
 		return err
 	}
 
 	dent3 := fsmgr.SeafDirent{ID: file2.FileID, Name: "testfile", Mode: modeFile, Size: 10}
-	dir3, err := createSeafdir([]*fsmgr.SeafDirent{&dent3})
+	dir3, err := mergeTestCreateSeafdir([]*fsmgr.SeafDirent{&dent3})
 	if err != nil {
 		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
 	dent4 := fsmgr.SeafDirent{ID: dir3, Name: "bbb", Mode: modeDir}
-	dir4, err := createSeafdir([]*fsmgr.SeafDirent{&dent4})
+	dir4, err := mergeTestCreateSeafdir([]*fsmgr.SeafDirent{&dent4})
 	if err != nil {
 		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
-	tree2 = dir4
+	mergeTestTree2 = dir4
 
-	commit2 := commitmgr.NewCommit(repoID, "", tree2, "seafile", "this is the second commit.\n")
+	commit2 := commitmgr.NewCommit(mergeTestRepoID, "", mergeTestTree2, "seafile", "this is the second commit.\n")
 	err = commitmgr.Save(commit2)
 	if err != nil {
 		err := fmt.Errorf("failed to save commit: %v", err)
 		return err
 	}
-	tree2CommitID = commit2.CommitID
+	mergeTestTree2CommitID = commit2.CommitID
 
-	dir5, err := createSeafdir(nil)
+	dir5, err := mergeTestCreateSeafdir(nil)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
 	dent6 := fsmgr.SeafDirent{ID: dir5, Name: "bbb", Mode: modeDir}
-	dir6, err := createSeafdir([]*fsmgr.SeafDirent{&dent6})
+	dir6, err := mergeTestCreateSeafdir([]*fsmgr.SeafDirent{&dent6})
 	if err != nil {
 		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
-	tree3 = dir6
+	mergeTestTree3 = dir6
 
-	commit3 := commitmgr.NewCommit(repoID, "", tree3, "seafile", "this is the third commit.\n")
+	commit3 := commitmgr.NewCommit(mergeTestRepoID, "", mergeTestTree3, "seafile", "this is the third commit.\n")
 	err = commitmgr.Save(commit3)
 	if err != nil {
 		err := fmt.Errorf("failed to save commit: %v", err)
 		return err
 	}
-	tree3CommitID = commit3.CommitID
+	mergeTestTree3CommitID = commit3.CommitID
 
 	file3, err := fsmgr.NewSeafile(1, 100, nil)
 	if err != nil {
 		err := fmt.Errorf("failed to new seafile: %v", err)
 		return err
 	}
-	err = fsmgr.SaveSeafile(repoID, file3)
+	err = fsmgr.SaveSeafile(mergeTestRepoID, file3)
 	if err != nil {
 		err := fmt.Errorf("failed to save seafile: %v", err)
 		return err
 	}
 	dent7 := fsmgr.SeafDirent{ID: file3.FileID, Name: "testfile", Mode: modeFile, Size: 100}
-	dir7, err := createSeafdir([]*fsmgr.SeafDirent{&dent7})
+	dir7, err := mergeTestCreateSeafdir([]*fsmgr.SeafDirent{&dent7})
 	if err != nil {
 		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
 	dent8 := fsmgr.SeafDirent{ID: dir7, Name: "bbb", Mode: modeDir}
-	dir8, err := createSeafdir([]*fsmgr.SeafDirent{&dent8})
+	dir8, err := mergeTestCreateSeafdir([]*fsmgr.SeafDirent{&dent8})
 	if err != nil {
 		err := fmt.Errorf("failed to get seafdir: %v", err)
 		return err
 	}
 
-	tree4 = dir8
+	mergeTestTree4 = dir8
 
-	commit4 := commitmgr.NewCommit(repoID, "", tree3, "seafile", "this is the fourth commit.\n")
+	commit4 := commitmgr.NewCommit(mergeTestRepoID, "", mergeTestTree3, "seafile", "this is the fourth commit.\n")
 	err = commitmgr.Save(commit4)
 	if err != nil {
 		err := fmt.Errorf("failed to save commit: %v", err)
 		return err
 	}
-	tree4CommitID = commit4.CommitID
+	mergeTestTree4CommitID = commit4.CommitID
 
 	return nil
 }
 
-func createSeafdir(dents []*fsmgr.SeafDirent) (string, error) {
+func mergeTestCreateSeafdir(dents []*fsmgr.SeafDirent) (string, error) {
 	seafdir, err := fsmgr.NewSeafdir(1, dents)
 	if err != nil {
 		err := fmt.Errorf("failed to new seafdir: %v", err)
 		return "", err
 	}
-	err = fsmgr.SaveSeafdir(repoID, seafdir)
+	err = fsmgr.SaveSeafdir(mergeTestRepoID, seafdir)
 	if err != nil {
 		return "", err
 	}
@@ -201,8 +202,8 @@ func createSeafdir(dents []*fsmgr.SeafDirent) (string, error) {
 	return seafdir.DirID, nil
 }
 
-func delFile() error {
-	err := os.RemoveAll(seafileConfPath)
+func mergeTestDelFile() error {
+	err := os.RemoveAll(mergeTestSeafileConfPath)
 	if err != nil {
 		return err
 	}
@@ -210,118 +211,131 @@ func delFile() error {
 	return nil
 }
 
-func TestMain(m *testing.M) {
-	commitmgr.Init(seafileConfPath, seafileDataDir)
-	fsmgr.Init(seafileConfPath, seafileDataDir)
-	err := createTestDir()
+func TestMergeTrees(t *testing.T) {
+	commitmgr.Init(mergeTestSeafileConfPath, mergeTestSeafileDataDir)
+	fsmgr.Init(mergeTestSeafileConfPath, mergeTestSeafileDataDir)
+	err := mergeTestCreateTestDir()
 	if err != nil {
 		fmt.Printf("failed to create test dir: %v", err)
 		os.Exit(1)
 	}
-	code := m.Run()
-	err = delFile()
+
+	t.Run("test1", testMergeTrees1)
+	t.Run("test2", testMergeTrees2)
+	t.Run("test3", testMergeTrees3)
+	t.Run("test4", testMergeTrees4)
+	t.Run("test5", testMergeTrees5)
+	t.Run("test6", testMergeTrees6)
+	t.Run("test7", testMergeTrees7)
+	t.Run("test8", testMergeTrees8)
+	t.Run("test9", testMergeTrees9)
+	t.Run("test10", testMergeTrees10)
+	t.Run("test11", testMergeTrees11)
+	t.Run("test12", testMergeTrees12)
+
+	err = mergeTestDelFile()
 	if err != nil {
 		fmt.Printf("failed to remove test file : %v", err)
+		os.Exit(1)
 	}
-	os.Exit(code)
 }
 
 // head add file
-func TestMergeTrees1(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree3CommitID)
+func testMergeTrees1(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree3CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree3, tree2, tree3}
+	roots := []string{mergeTestTree3, mergeTestTree2, mergeTestTree3}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
 
-	if opt.mergedRoot != tree2 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree2)
+	if opt.mergedRoot != mergeTestTree2 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree2)
 	}
 }
 
 // remote add file
-func TestMergeTrees2(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree3CommitID)
+func testMergeTrees2(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree3CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree3, tree3, tree2}
+	roots := []string{mergeTestTree3, mergeTestTree3, mergeTestTree2}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
 
-	if opt.mergedRoot != tree2 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree2)
+	if opt.mergedRoot != mergeTestTree2 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree2)
 	}
 }
 
 // head modify file
-func TestMergeTrees3(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree1CommitID)
+func testMergeTrees3(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree1CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree1, tree2, tree1}
+	roots := []string{mergeTestTree1, mergeTestTree2, mergeTestTree1}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
 
-	if opt.mergedRoot != tree2 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree2)
+	if opt.mergedRoot != mergeTestTree2 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree2)
 	}
 }
 
 // remote modify file
-func TestMergeTrees4(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree1CommitID)
+func testMergeTrees4(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree1CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree1, tree1, tree2}
+	roots := []string{mergeTestTree1, mergeTestTree1, mergeTestTree2}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
 
-	if opt.mergedRoot != tree2 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree2)
+	if opt.mergedRoot != mergeTestTree2 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree2)
 	}
 }
 
 // head and remote add file
-func TestMergeTrees5(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree3CommitID)
+func testMergeTrees5(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree3CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree3, tree1, tree2}
+	roots := []string{mergeTestTree3, mergeTestTree1, mergeTestTree2}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
@@ -331,17 +345,17 @@ func TestMergeTrees5(t *testing.T) {
 }
 
 // head and remote modify file
-func TestMergeTrees6(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree1CommitID)
+func testMergeTrees6(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree1CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree1, tree2, tree4}
+	roots := []string{mergeTestTree1, mergeTestTree2, mergeTestTree4}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
@@ -351,121 +365,121 @@ func TestMergeTrees6(t *testing.T) {
 }
 
 // head modify file and remote delete file
-func TestMergeTrees7(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree1CommitID)
+func testMergeTrees7(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree1CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree1, tree2, tree3}
+	roots := []string{mergeTestTree1, mergeTestTree2, mergeTestTree3}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
-	if opt.mergedRoot != tree2 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree2)
+	if opt.mergedRoot != mergeTestTree2 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree2)
 	}
 }
 
 // head delete file and remote modify file
-func TestMergeTrees8(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree1CommitID)
+func testMergeTrees8(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree1CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree1, tree3, tree2}
+	roots := []string{mergeTestTree1, mergeTestTree3, mergeTestTree2}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
-	if opt.mergedRoot != tree2 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree2)
+	if opt.mergedRoot != mergeTestTree2 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree2)
 	}
 }
 
 // head modify file and remote delete dir of this file
-func TestMergeTrees9(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree1CommitID)
+func testMergeTrees9(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree1CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree1, tree2, tree5}
+	roots := []string{mergeTestTree1, mergeTestTree2, mergeTestTree5}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
-	if opt.mergedRoot != tree2 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree2)
+	if opt.mergedRoot != mergeTestTree2 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree2)
 	}
 }
 
 // remote modify file and head delete dir of this file
-func TestMergeTrees10(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree1CommitID)
+func testMergeTrees10(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree1CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree1, tree5, tree2}
+	roots := []string{mergeTestTree1, mergeTestTree5, mergeTestTree2}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
-	if opt.mergedRoot != tree2 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree2)
+	if opt.mergedRoot != mergeTestTree2 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree2)
 	}
 }
 
 // head add file and remote delete dir of thie file
-func TestMergeTrees11(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree3CommitID)
+func testMergeTrees11(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree3CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree3, tree1, tree5}
+	roots := []string{mergeTestTree3, mergeTestTree1, mergeTestTree5}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
-	if opt.mergedRoot != tree1 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree1)
+	if opt.mergedRoot != mergeTestTree1 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree1)
 	}
 }
 
 // remote add file and head delete dir of this file
-func TestMergeTrees12(t *testing.T) {
-	commit, err := commitmgr.Load(repoID, tree3CommitID)
+func testMergeTrees12(t *testing.T) {
+	commit, err := commitmgr.Load(mergeTestRepoID, mergeTestTree3CommitID)
 	if err != nil {
 		t.Errorf("failed to load commit.\n")
 	}
-	roots := []string{tree3, tree5, tree1}
+	roots := []string{mergeTestTree3, mergeTestTree5, mergeTestTree1}
 	opt := new(mergeOptions)
-	opt.remoteRepoID = repoID
+	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
 
-	err = mergeTrees(repoID, roots, opt)
+	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
 		t.Errorf("failed to merge.\n")
 	}
-	if opt.mergedRoot != tree1 {
-		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, tree1)
+	if opt.mergedRoot != mergeTestTree1 {
+		t.Errorf("merge error %s/%s.\n", opt.mergedRoot, mergeTestTree1)
 	}
 }
