@@ -2284,6 +2284,8 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		return "", err
 	}
 
+	go updateRepoSize(repoID)
+
 	return newCommitID, nil
 }
 
@@ -2545,8 +2547,8 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return err
 	}
 
-    oper := "web-file-upload"
-    sendStatisticMsg(repoID, user, oper, uint64(contentLen))
+	oper := "web-file-upload"
+	sendStatisticMsg(repoID, user, oper, uint64(contentLen))
 
 	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
