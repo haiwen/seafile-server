@@ -330,6 +330,7 @@ func main() {
 	commitmgr.Init(ccnetDir, dataDir)
 
 	share.Init(ccnetDB, seafileDB, groupTableName, cloudMode)
+
 	rpcClientInit()
 
 	syncAPIInit()
