@@ -176,6 +176,8 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
             } else {
                 if (check_blocks (seaf_dent->id, fsck_data, &io_error) < 0) {
                     if (io_error) {
+                        seaf_message ("Failed to check blocks for repo[%.8s] file %s(%.8s).\n",
+                                      fsck_data->repo->id, path, seaf_dent->id);
                         g_free (path);
                         goto out;
                     }
