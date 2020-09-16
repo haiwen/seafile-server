@@ -404,7 +404,7 @@ def test_api(repo):
     response = requests.post(update_url_base, files = files)
     assert_update_response(response, False)
 
-    time.sleep (1.5)
+    time.sleep (1.6)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size + file_size
 
