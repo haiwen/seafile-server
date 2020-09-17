@@ -390,6 +390,8 @@ func newHTTPRouter() *mux.Router {
 		appHandler(checkBlockCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/recv-fs",
 		appHandler(recvFSCB))
+
+	r.Handle("/accessible-repos", appHandler(getAccessibleRepoListCB))
 	return r
 }
 

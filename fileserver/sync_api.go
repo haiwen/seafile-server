@@ -171,6 +171,113 @@ func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
+func getAccessibleRepoListCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	queries := r.URL.Query()
+	repoID := queries.Get("repo_id")
+
+	if repoID == "" || !isValidUUID(repoID) {
+		msg := "Invalid repo id."
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	obtainedRepos := make(map[string]string)
+
+	repos, err := share.GetReposByOwner(user)
+	if err != nil {
+		err := fmt.Errorf("Failed to get repos by owner %s: %v", user, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	var repoObjects []*share.SharedRepo
+	for _, repo := range repos {
+		if _, ok := obtainedRepos[repo.ID]; !ok {
+			obtainedRepos[repo.ID] = repo.ID
+		}
+		repo.Permission = "rw"
+		repo.Type = "repo"
+		repo.Owner = user
+		repoObjects = append(repoObjects, repo)
+	}
+
+	repos, err = share.ListShareRepos(user, "to_email")
+	if err != nil {
+		err := fmt.Errorf("Failed to get share repos by user %s: %v", user, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	for _, sRepo := range repos {
+		if _, ok := obtainedRepos[sRepo.ID]; ok {
+			continue
+		}
+		sRepo.Type = "srepo"
+		sRepo.Owner = strings.ToLower(sRepo.Owner)
+		repoObjects = append(repoObjects, sRepo)
+	}
+
+	repos, err = share.GetGroupReposByUser(user, -1)
+	if err != nil {
+		err := fmt.Errorf("Failed to get group repos by user %s: %v", user, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	reposTable := filterGroupRepos(repos)
+
+	for _, gRepo := range reposTable {
+		if _, ok := obtainedRepos[gRepo.ID]; ok {
+			continue
+		}
+
+		gRepo.Type = "grepo"
+		gRepo.Owner = strings.ToLower(gRepo.Owner)
+		repoObjects = append(repoObjects, gRepo)
+	}
+
+	repos, err = share.ListInnerPubRepos()
+	if err != nil {
+		err := fmt.Errorf("Failed to get inner public repos: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	for _, sRepo := range repos {
+		if _, ok := obtainedRepos[sRepo.ID]; ok {
+			continue
+		}
+
+		sRepo.Type = "grepo"
+		sRepo.Owner = "Organization"
+		repoObjects = append(repoObjects, sRepo)
+	}
+
+	data, err := json.Marshal(repoObjects)
+	if err != nil {
+		err := fmt.Errorf("Failed to marshal json: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	rsp.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(data)
+	return nil
+}
+
+func filterGroupRepos(repos []*share.SharedRepo) map[string]*share.SharedRepo {
+	table := make(map[string]*share.SharedRepo)
+
+	for _, repo := range repos {
+		if repoPrev, ok := table[repo.ID]; ok {
+			if repo.Permission == "rw" && repoPrev.Permission == "r" {
+				table[repo.ID] = repo
+			}
+		} else {
+			table[repo.ID] = repo
+		}
+	}
+
+	return table
+}
+
 func recvFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
@@ -822,7 +929,7 @@ func validateToken(r *http.Request, repoID string, skipCache bool) (string, *app
 		return email, &appError{err, "", http.StatusInternalServerError}
 	}
 	if email == "" {
-		msg := "email is null"
+		msg := fmt.Sprintf("Failed to get email by token %s", token)
 		return email, &appError{nil, msg, http.StatusForbidden}
 	}
 
