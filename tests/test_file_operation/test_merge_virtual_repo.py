@@ -107,7 +107,7 @@ def test_merge_virtual_repo(repo):
     obj_id = '{"parent_dir":"/"}'
     create_test_dir(repo,'test')
 
-    #test upload file to root dir.
+    #test upload file to vritual repo root dir.
     token = api.get_fileserver_access_token(v_repo_id, obj_id, 'upload', USER2, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
     files = {'file':open(file_path, 'rb'),
@@ -122,7 +122,7 @@ def test_merge_virtual_repo(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == 0
 
-    #test resumable upload file to root dir
+    #test resumable upload file to virtual repo root dir
     parent_dir = '/'
     headers = {'Content-Range':'bytes 0-{}/{}'.format(str(len(chunked_part1_content) - 1),
                                                       str(total_size)),
@@ -151,7 +151,7 @@ def test_merge_virtual_repo(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size
 
-    #test update file.
+    #test update file to virtual repo.
     write_file(file_path, file_content)
     token = api.get_fileserver_access_token(v_repo_id, obj_id, 'update', USER2, False)
     update_url_base = 'http://127.0.0.1:8082/update-api/' + token
