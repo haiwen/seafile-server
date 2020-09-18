@@ -244,6 +244,7 @@ def test_ajax(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size + file_size
 
+    time.sleep(1)
     del_repo_files(repo.id)
     del_local_files()
 
@@ -443,5 +444,6 @@ def test_api(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size + file_size
 
+    time.sleep(1)
     del_repo_files(repo.id)
     del_local_files()
