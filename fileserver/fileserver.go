@@ -391,6 +391,9 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/recv-fs",
 		appHandler(recvFSCB))
 
+	// seadrive api
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/block-map/{id:[\\da-z]{40}}",
+		appHandler(getBlockMapCB))
 	r.Handle("/accessible-repos", appHandler(getAccessibleRepoListCB))
 	return r
 }

@@ -170,6 +170,50 @@ func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 	return nil
 }
+func getBlockMapCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	fileID := vars["id"]
+
+	_, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	storeID, err := getRepoStoreID(repoID)
+	if err != nil {
+		err := fmt.Errorf("Failed to get repo store id by repo id %s: %v", repoID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	seafile, err := fsmgr.GetSeafile(repoID, fileID)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to get seafile object by file id %s: %v", fileID, err)
+		return &appError{nil, msg, http.StatusNotFound}
+	}
+
+	var blockSizes []int64
+	for _, blockID := range seafile.BlkIDs {
+		blockSize, err := blockmgr.Stat(repoID, blockID)
+		if err != nil {
+			err := fmt.Errorf("Failed to find block %s/%s", storeID, blockID)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+		blockSizes = append(blockSizes, blockSize)
+	}
+
+	data, err := json.Marshal(blockSizes)
+	if err != nil {
+		err := fmt.Errorf("Failed to marshal json: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	rsp.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(data)
+
+	return nil
+}
 
 func getAccessibleRepoListCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	queries := r.URL.Query()
