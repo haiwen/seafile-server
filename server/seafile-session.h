@@ -76,6 +76,8 @@ struct _SeafileSession {
 
     gboolean create_tables;
     gboolean ccnet_create_tables;
+
+    gboolean go_fileserver;
 };
 
 extern SeafileSession *seaf;

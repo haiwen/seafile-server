@@ -26,6 +26,7 @@ import (
 
 var ccnetDir string
 var dataDir, absDataDir string
+var centralDir string
 var logFile, absLogFile string
 var rpcPipePath string
 
@@ -58,6 +59,7 @@ var options fileServerOptions
 
 func init() {
 	flag.StringVar(&ccnetDir, "c", "", "ccnet config directory")
+	flag.StringVar(&centralDir, "F", "", "central config directory")
 	flag.StringVar(&dataDir, "d", "", "seafile data directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
 	flag.StringVar(&rpcPipePath, "p", "", "rpc pipe path")
@@ -132,7 +134,12 @@ func loadCcnetDB() {
 }
 
 func loadSeafileDB() {
-	seafileConfPath := filepath.Join(absDataDir, "seafile.conf")
+	var seafileConfPath string
+	if centralDir != "" {
+		seafileConfPath = filepath.Join(centralDir, "seafile.conf")
+	} else {
+		seafileConfPath = filepath.Join(absDataDir, "seafile.conf")
+	}
 	config, err := ini.Load(seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
@@ -201,7 +208,12 @@ func loadSeafileDB() {
 }
 
 func loadFileServerOptions() {
-	seafileConfPath := filepath.Join(absDataDir, "seafile.conf")
+	var seafileConfPath string
+	if centralDir != "" {
+		seafileConfPath = filepath.Join(centralDir, "seafile.conf")
+	} else {
+		seafileConfPath = filepath.Join(absDataDir, "seafile.conf")
+	}
 	config, err := ini.Load(seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
@@ -337,6 +349,8 @@ func main() {
 
 	sizeSchedulerInit()
 
+	initUpload()
+
 	router := newHTTPRouter()
 
 	log.Print("Seafile file server started.")
@@ -364,8 +378,8 @@ func newHTTPRouter() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/protocol-version", handleProtocolVersion)
 	r.Handle("/files/{.*}/{.*}", appHandler(accessCB))
-	r.Handle("/blks/{.*}.{.*}", appHandler(accessBlksCB))
-	r.Handle("/zip/{.*}/{.*}", appHandler(accessZipCB))
+	r.Handle("/blks/{.*}/{.*}", appHandler(accessBlksCB))
+	r.Handle("/zip/{.*}", appHandler(accessZipCB))
 	r.Handle("/upload-api/{.*}", appHandler(uploadAPICB))
 	r.Handle("/upload-aj/{.*}", appHandler(uploadAjaxCB))
 	r.Handle("/update-api/{.*}", appHandler(updateAPICB))
