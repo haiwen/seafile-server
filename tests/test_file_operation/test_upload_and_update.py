@@ -1,6 +1,7 @@
 import pytest
 import requests
 import os
+import time
 from tests.config import USER
 from seaserv import seafile_api as api
 
@@ -123,6 +124,10 @@ def test_ajax(repo):
     response = requests.post(upload_url_base, files = files)
     assert_upload_response(response, False, False)
 
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
+
     #test upload file to test dir when file already exists.
     files = {'file': open(file_path, 'rb'),
              'parent_dir':'/test'}
@@ -134,6 +139,10 @@ def test_ajax(repo):
              'parent_dir':'/'}
     response = requests.post(upload_url_base, files = files)
     assert_upload_response(response, False, True)
+
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
 
     #test upload file to subdir whose parent is test dir.
     files = {'file': open(file_path, 'rb'),
@@ -148,6 +157,10 @@ def test_ajax(repo):
     response = requests.post(upload_url_base,  files = files)
     assert_upload_response(response, False, False)
 
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
+
     #test upload file to subdir whose parent is test dir when file already exists.
     files = {'file': open(file_path, 'rb'),
              'parent_dir':'/test',
@@ -161,6 +174,10 @@ def test_ajax(repo):
              'relative_path':'subdir'}
     response = requests.post(upload_url_base, files = files)
     assert_upload_response(response, False, True)
+
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
 
     #test resumable upload file to test dir
     parent_dir = '/test'
@@ -187,6 +204,9 @@ def test_ajax(repo):
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, False)
 
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
+
     headers = {'Content-Range':'bytes {}-{}/{}'.format(str(len(chunked_part1_content)),
                                                        str(total_size - 1),
                                                        str(total_size)),
@@ -197,6 +217,10 @@ def test_ajax(repo):
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, True)
 
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == total_size
+
     #test update file.
     write_file(file_path, file_content)
     token = api.get_fileserver_access_token(repo.id, obj_id, 'update', USER, False)
@@ -205,6 +229,10 @@ def test_ajax(repo):
              'target_file':'/' + file_name}
     response = requests.post(update_url_base, files = files)
     assert_update_response(response, True)
+
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == total_size + file_size
 
     del_repo_files(repo.id)
     del_local_files()
@@ -232,6 +260,10 @@ def test_api(repo):
                              files = files)
     assert_upload_response(response, False, False)
 
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
+
     #test upload file to test dir instead of root dir when file already exists and replace is set.
     files = {'file':open(file_path, 'rb'),
              'parent_dir':'/test',
@@ -248,6 +280,10 @@ def test_api(repo):
                              files = files)
     assert_upload_response(response, True, True)
 
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
+
     #test upload file to test dir instead of root dir when file already exists and replace is unset.
     files = {'file':open(file_path, 'rb'),
              'parent_dir':'/test'}
@@ -261,6 +297,10 @@ def test_api(repo):
     response = requests.post(upload_url_base, params = params,
                              files = files)
     assert_upload_response(response, False, True)
+
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
 
     #test upload the file to subdir whose parent is test.
     files = {'file':open(file_path, 'rb'),
@@ -277,6 +317,10 @@ def test_api(repo):
     response = requests.post(upload_url_base, params = params,
                              files = files)
     assert_upload_response(response, False, False)
+
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
 
     #test upload the file to subdir whose parent is test when file already exists and replace is set.
     files = {'file':open(file_path, 'rb'),
@@ -296,6 +340,10 @@ def test_api(repo):
                              files = files)
     assert_upload_response(response, True, True)
 
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
+
     #unset test upload the file to subdir whose parent is test dir when file already exists and replace is unset.
     files = {'file':open(file_path, 'rb'),
              'parent_dir':'/test',
@@ -312,6 +360,10 @@ def test_api(repo):
                              files = files)
     assert_upload_response(response, False, True)
 
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
+
     #test resumable upload file to test
     parent_dir = '/test'
     headers = {'Content-Range':'bytes 0-{}/{}'.format(str(len(chunked_part1_content) - 1),
@@ -320,6 +372,10 @@ def test_api(repo):
     response = request_resumable_upload(chunked_part1_path, headers, upload_url_base, parent_dir, False)
     assert_resumable_upload_response(response, repo.id,
                                      resumable_test_file_name, False)
+
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
 
     headers = {'Content-Range':'bytes {}-{}/{}'.format(str(len(chunked_part1_content)),
                                                        str(total_size - 1),
@@ -337,6 +393,9 @@ def test_api(repo):
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, False)
 
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == 0
+
     headers = {'Content-Range':'bytes {}-{}/{}'.format(str(len(chunked_part1_content)),
                                                        str(total_size - 1),
                                                        str(total_size)),
@@ -344,6 +403,10 @@ def test_api(repo):
     response = request_resumable_upload(chunked_part2_path, headers, upload_url_base, parent_dir, False)
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, True)
+
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == total_size
 
     #test update file.
     write_file(file_path, file_content)
@@ -353,6 +416,10 @@ def test_api(repo):
              'target_file':'/' + file_name}
     response = requests.post(update_url_base, files = files)
     assert_update_response(response, False)
+
+    time.sleep (1.5)
+    repo_size = api.get_repo_size (repo.id)
+    assert repo_size == total_size + file_size
 
     del_repo_files(repo.id)
     del_local_files()
