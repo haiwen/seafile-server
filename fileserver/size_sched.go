@@ -63,7 +63,6 @@ func worker() {
 					log.Printf("failed to call jobs: %v.\n", err)
 				}
 			}
-		default:
 		}
 	}
 }
