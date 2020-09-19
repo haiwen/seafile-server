@@ -112,7 +112,7 @@ seafile_session_new(const char *central_config_dir,
                                                   NULL);
 
     session->go_fileserver = g_key_file_get_boolean (config,
-                                                     "fileserver", "go_fileserver",
+                                                     "fileserver", "use_go_fileserver",
                                                      NULL);
 
     if (load_database_config (session) < 0) {

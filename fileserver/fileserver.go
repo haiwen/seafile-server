@@ -77,12 +77,12 @@ func loadCcnetDB() {
 		log.Fatal("No database section in ccnet.conf.")
 	}
 
+	var dbEngine string = "sqlite"
 	key, err := section.GetKey("ENGINE")
-	if err != nil {
-		log.Fatal("No database ENGINE in ccnet.conf.")
+	if err == nil {
+		dbEngine = key.String()
 	}
 
-	dbEngine := key.String()
 	if strings.EqualFold(dbEngine, "mysql") {
 		if key, err = section.GetKey("HOST"); err != nil {
 			log.Fatal("No database host in ccnet.conf.")
@@ -149,11 +149,12 @@ func loadSeafileDB() {
 	if err != nil {
 		log.Fatal("No database section in seafile.conf.")
 	}
+
+	var dbEngine string = "sqlite"
 	key, err := section.GetKey("type")
-	if err != nil {
-		log.Fatal("No database type in seafile.conf.")
+	if err == nil {
+		dbEngine = key.String()
 	}
-	dbEngine := key.String()
 	if strings.EqualFold(dbEngine, "mysql") {
 		if key, err = section.GetKey("host"); err != nil {
 			log.Fatal("No database host in seafile.conf.")

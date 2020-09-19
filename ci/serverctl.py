@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 class ServerCtl(object):
-    def __init__(self, topdir, projectdir, datadir, db='sqlite3', seaf_server_bin='seaf-server', ccnet_server_bin='ccnet-server'):
+    def __init__(self, topdir, projectdir, datadir, fileserver, db='sqlite3', seaf_server_bin='seaf-server', ccnet_server_bin='ccnet-server'):
         self.db = db
         self.datadir = datadir
         self.central_conf_dir = join(datadir, 'conf')
@@ -44,6 +44,7 @@ class ServerCtl(object):
         self.seafile_proc = None
         self.fileserver_proc = None
         self.projectdir = projectdir
+        self.fileserver = fileserver
 
     def setup(self):
         if self.db == 'mysql':
@@ -66,7 +67,6 @@ class ServerCtl(object):
         ccnet_conf = join(self.central_conf_dir, 'ccnet.conf')
         ccnet_db_conf = '''\
 [Database]
-ENGINE = sqlite
 '''
         with open(ccnet_conf, 'a+') as fp:
             fp.write('\n')
@@ -90,9 +90,15 @@ CONNECTION_CHARSET = utf8
 
     def init_seafile(self):
         seafile_conf = join(self.central_conf_dir, 'seafile.conf')
-        seafile_fileserver_conf = '''\
+        if self.fileserver == 'go_fileserver':
+            seafile_fileserver_conf = '''\
 [fileserver]
-go_fileserver = true
+use_go_fileserver = true
+port=8082
+'''
+        else:
+            seafile_fileserver_conf = '''\
+[fileserver]
 port=8082
 '''
         with open(seafile_conf, 'a+') as fp:
@@ -108,7 +114,6 @@ port=8082
         seafile_conf = join(self.central_conf_dir, 'seafile.conf')
         seafile_db_conf = '''\
 [database]
-type = sqlite
 '''
         with open(seafile_conf, 'a+') as fp:
             fp.write('\n')
