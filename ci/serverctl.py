@@ -257,6 +257,8 @@ connection_charset = utf8
         if self.fileserver_proc:
             logger.info('Stopping go fileserver')
             self.fileserver_proc.kill()
+        if self.db == 'mysql':
+            del_mysql_dbs()
 
     def get_seaserv_envs(self):
         envs = dict(os.environ)
@@ -277,6 +279,15 @@ create user 'seafile'@'localhost' identified by 'seafile';
 
 GRANT ALL PRIVILEGES ON `ccnet`.* to `seafile`@localhost;
 GRANT ALL PRIVILEGES ON `seafile`.* to `seafile`@localhost;
+    '''
+
+    shell('sudo mysql -u root -proot', inputdata=sql)
+
+def del_mysql_dbs():
+    sql = b'''\
+drop database `ccnet`;
+drop database `seafile`;
+drop user 'seafile'@'localhost';
     '''
 
     shell('sudo mysql -u root -proot', inputdata=sql)
