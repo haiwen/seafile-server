@@ -282,6 +282,7 @@ func GetVirtualRepoInfoByOrigin(originRepo string) ([]*VRepoInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer row.Close()
 	for row.Next() {
 		vRepoInfo := new(VRepoInfo)
 		if err := row.Scan(&vRepoInfo.OriginRepoID, &vRepoInfo.Path, &vRepoInfo.BaseCommitID); err != nil {
@@ -482,6 +483,7 @@ func GetVirtualRepoIDsByOrigin(repoID string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer row.Close()
 	for row.Next() {
 		if err := row.Scan(&id); err != nil {
 			if err != sql.ErrNoRows {
@@ -521,6 +523,7 @@ func removeVirtualRepoOndisk(repoID string, cloudMode bool) error {
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var name, id, commitID string
 		if err := rows.Scan(&name, &id, &commitID); err != nil {

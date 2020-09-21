@@ -431,6 +431,7 @@ func diffResolveRenames(des *[]*diffEntry) error {
 	for _, de := range *des {
 		if de.status == DiffStatusDeleted {
 			if de.sha1 == EmptySha1 && !checkEmptyFile {
+				results = append(results, de)
 				continue
 			}
 			deletedFiles[de.sha1] = de
@@ -438,6 +439,7 @@ func diffResolveRenames(des *[]*diffEntry) error {
 
 		if de.status == DiffStatusDirDeleted {
 			if de.sha1 == EmptySha1 && !checkEmptyDir {
+				results = append(results, de)
 				continue
 			}
 			deletedDirs[de.sha1] = de
@@ -445,6 +447,7 @@ func diffResolveRenames(des *[]*diffEntry) error {
 
 		if de.status == DiffStatusAdded {
 			if de.sha1 == EmptySha1 && !checkEmptyFile {
+				results = append(results, de)
 				continue
 			}
 			added = append(added, de)
@@ -452,6 +455,7 @@ func diffResolveRenames(des *[]*diffEntry) error {
 
 		if de.status == DiffStatusDirAdded {
 			if de.sha1 == EmptySha1 && !checkEmptyDir {
+				results = append(results, de)
 				continue
 			}
 

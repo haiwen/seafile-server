@@ -4,6 +4,7 @@ import os
 import time
 from tests.config import USER, USER2
 from seaserv import seafile_api as api
+from requests_toolbelt import MultipartEncoder
 
 file_name = 'file.txt'
 file_name_not_replaced = 'file (1).txt'
@@ -76,15 +77,19 @@ def request_resumable_upload(filepath, headers,upload_url_base,parent_dir,is_aja
     write_file(chunked_part1_path, chunked_part1_content)
     write_file(chunked_part2_path, chunked_part2_content)
 
-    files = {'file': open(filepath, 'rb'),
-             'parent_dir':parent_dir}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': parent_dir,
+                    'file': (resumable_file_name, open(filepath, 'rb'), 'application/octet-stream')
+            })
     params = {'ret-json':'1'}
+    headers["Content-type"] = m.content_type
     if is_ajax:
         response = requests.post(upload_url_base, headers = headers,
-                             files = files)
+                             data = m)
     else:
         response = requests.post(upload_url_base, headers = headers,
-                             files = files, params = params)
+                             data = m, params = params)
     return response
 
 def write_file(file_path, file_content):
@@ -110,15 +115,20 @@ def test_merge_virtual_repo(repo):
     #test upload file to vritual repo root dir.
     token = api.get_fileserver_access_token(v_repo_id, obj_id, 'upload', USER2, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, False, False)
 
+    time.sleep (1.5)
     repo_size = api.get_repo_size (v_repo_id)
     assert repo_size == 0
 
+    time.sleep (1.5)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == 0
 
@@ -134,6 +144,7 @@ def test_merge_virtual_repo(repo):
     time.sleep (1.5)
     v_repo_size = api.get_repo_size (v_repo_id)
     assert v_repo_size == 0
+    time.sleep (1.5)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == 0
 
@@ -145,9 +156,10 @@ def test_merge_virtual_repo(repo):
     assert_resumable_upload_response(response, v_repo_id,
                                      resumable_file_name, True)
 
-    time.sleep (1.5)
+    time.sleep (2.5)
     v_repo_size = api.get_repo_size (v_repo_id)
     assert v_repo_size == total_size
+    time.sleep (1.5)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size
 
@@ -155,14 +167,19 @@ def test_merge_virtual_repo(repo):
     write_file(file_path, file_content)
     token = api.get_fileserver_access_token(v_repo_id, obj_id, 'update', USER2, False)
     update_url_base = 'http://127.0.0.1:8082/update-api/' + token
-    files = {'file':open(file_path, 'rb'),
-             'target_file':'/' + file_name}
-    response = requests.post(update_url_base, files = files)
+    m = MultipartEncoder(
+            fields={
+                    'target_file': '/' + file_name,
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(update_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_update_response(response, False)
 
     time.sleep (1.5)
     v_repo_size = api.get_repo_size (v_repo_id)
     assert v_repo_size == total_size + file_size
+    time.sleep (1.5)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size + file_size
 
@@ -171,6 +188,7 @@ def test_merge_virtual_repo(repo):
     time.sleep (1.5)
     v_repo_size = api.get_repo_size (v_repo_id)
     assert v_repo_size == total_size
+    time.sleep (1.5)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size
 
@@ -179,6 +197,7 @@ def test_merge_virtual_repo(repo):
     time.sleep (1.5)
     v_repo_size = api.get_repo_size (v_repo_id)
     assert v_repo_size == 0
+    time.sleep (1.5)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == 0
 

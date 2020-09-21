@@ -263,7 +263,6 @@ def test_ajax(repo):
     m = MultipartEncoder(
             fields={
                     'target_file': '/' + file_name,
-                    'relative_path':'subdir',
                     'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
             })
     response = requests.post(update_url_base,
