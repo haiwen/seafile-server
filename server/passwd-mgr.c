@@ -118,7 +118,7 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
         return -1;
     }
 
-    if (repo->enc_version != 1 && repo->enc_version != 2 && repo->enc_version != 3) {
+    if (repo->enc_version != 1 && repo->enc_version != 2 && repo->enc_version != 3 && repo->enc_version != 4) {
         seaf_repo_unref (repo);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                      "Unsupported encryption version");
