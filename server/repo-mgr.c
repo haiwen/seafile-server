@@ -146,6 +146,10 @@ seaf_repo_from_commit (SeafRepo *repo, SeafCommit *commit)
             memcpy (repo->magic, commit->magic, 64);
             memcpy (repo->random_key, commit->random_key, 96);
             memcpy (repo->salt, commit->salt, 64);
+        } else if (repo->enc_version == 4) {
+            memcpy (repo->magic, commit->magic, 64);
+            memcpy (repo->random_key, commit->random_key, 96);
+            memcpy (repo->salt, commit->salt, 64);
         }
     }
     repo->no_local_history = commit->no_local_history;
@@ -168,6 +172,10 @@ seaf_repo_to_commit (SeafRepo *repo, SeafCommit *commit)
             commit->magic = g_strdup (repo->magic);
             commit->random_key = g_strdup (repo->random_key);
         } else if (commit->enc_version == 3) {
+            commit->magic = g_strdup (repo->magic);
+            commit->random_key = g_strdup (repo->random_key);
+            commit->salt = g_strdup (repo->salt);
+        } else if (commit->enc_version == 4) {
             commit->magic = g_strdup (repo->magic);
             commit->random_key = g_strdup (repo->random_key);
             commit->salt = g_strdup (repo->salt);
@@ -3580,7 +3588,7 @@ create_repo_common (SeafRepoManager *mgr,
     SeafBranch *master = NULL;
     int ret = -1;
 
-    if (enc_version != 3 && enc_version != 2 && enc_version != -1) {
+    if (enc_version != 4 && enc_version != 3 && enc_version != 2 && enc_version != -1) {
         seaf_warning ("Unsupported enc version %d.\n", enc_version);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                      "Unsupported encryption version");

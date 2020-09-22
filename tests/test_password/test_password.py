@@ -3,8 +3,8 @@ from tests.config import USER
 from seaserv import seafile_api as api
 
 @pytest.mark.parametrize('rpc, enc_version',
-                         [('create_repo', 2), ('create_repo', 3),
-                          ('create_enc_repo', 2), ('create_enc_repo', 3)])
+                         [('create_repo', 2), ('create_repo', 3), ('create_repo', 4),
+                          ('create_enc_repo', 2), ('create_enc_repo', 3), ('create_enc_repo', 4)])
 def test_encrypted_repo(rpc, enc_version):
     test_repo_name = 'test_enc_repo'
     test_repo_desc = 'test_enc_repo'
@@ -16,8 +16,10 @@ def test_encrypted_repo(rpc, enc_version):
     else:
         if enc_version == 2:
             repo_id = 'd17bf8ca-3019-40ee-8fdb-0258c89fb762'
-        else:
+        elif enc_version == 3:
             repo_id = 'd17bf8ca-3019-40ee-8fdb-0258c89fb763'
+        else:
+            repo_id = 'd17bf8ca-3019-40ee-8fdb-0258c89fb764'
         enc_info = api.generate_magic_and_random_key(enc_version, repo_id, test_repo_passwd)
         assert enc_info
         ret_repo_id = api.create_enc_repo(repo_id, test_repo_name, test_repo_desc,
@@ -30,7 +32,7 @@ def test_encrypted_repo(rpc, enc_version):
     assert repo.enc_version == enc_version
     assert len(repo.magic) == 64
     assert len(repo.random_key) == 96
-    if enc_version == 3:
+    if enc_version == 3 or enc_version == 4:
         assert len(repo.salt) == 64
         
     new_passwd = 'new password'
