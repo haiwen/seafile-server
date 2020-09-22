@@ -40,7 +40,7 @@ seafile_derive_key (const char *data_in, int in_len, int version,
                     const char *repo_salt,
                     unsigned char *key, unsigned char *iv)
 {
-    if (version == 3 || version == 4) {
+    if (version >= 3) {
         unsigned char repo_salt_bin[32];
         hex_to_rawdata (repo_salt, repo_salt_bin, 32);
 
@@ -305,21 +305,21 @@ seafile_encrypt (char **data_out,
     /* Prepare CTX for encryption. */
     ctx = EVP_CIPHER_CTX_new ();
 
-    if (crypt->version >= 2)
-        ret = EVP_EncryptInit_ex (ctx,
-                                  EVP_aes_256_cbc(), /* cipher mode */
-                                  NULL, /* engine, NULL for default */
-                                  crypt->key,  /* derived key */
-                                  crypt->iv);  /* initial vector */
-    else if (crypt->version == 1)
+    if (crypt->version == 1)
         ret = EVP_EncryptInit_ex (ctx,
                                   EVP_aes_128_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
-    else
+    else if (crypt->version == 3)
         ret = EVP_EncryptInit_ex (ctx,
                                   EVP_aes_128_ecb(), /* cipher mode */
+                                  NULL, /* engine, NULL for default */
+                                  crypt->key,  /* derived key */
+                                  crypt->iv);  /* initial vector */
+    else
+        ret = EVP_EncryptInit_ex (ctx,
+                                  EVP_aes_256_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
@@ -416,21 +416,21 @@ seafile_decrypt (char **data_out,
     /* Prepare CTX for decryption. */
     ctx = EVP_CIPHER_CTX_new ();
 
-    if (crypt->version >= 2)
-       ret = EVP_DecryptInit_ex (ctx,
-                                  EVP_aes_256_cbc(), /* cipher mode */
-                                  NULL, /* engine, NULL for default */
-                                  crypt->key,  /* derived key */
-                                  crypt->iv);  /* initial vector */
-    else if (crypt->version == 1)
+    if (crypt->version == 1)
         ret = EVP_DecryptInit_ex (ctx,
                                   EVP_aes_128_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
-    else
+    else if (crypt->version == 3)
         ret = EVP_DecryptInit_ex (ctx,
                                   EVP_aes_128_ecb(), /* cipher mode */
+                                  NULL, /* engine, NULL for default */
+                                  crypt->key,  /* derived key */
+                                  crypt->iv);  /* initial vector */
+    else
+        ret = EVP_DecryptInit_ex (ctx,
+                                  EVP_aes_256_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   crypt->key,  /* derived key */
                                   crypt->iv);  /* initial vector */
