@@ -1282,13 +1282,18 @@ func clearTmpFile(fsm *recvData, parentDir string) {
 }
 
 func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
+	tokenLen := 36
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) < 2 {
 		msg := "Invalid URL"
 		return nil, &appError{nil, msg, http.StatusBadRequest}
 	}
 	urlOp := parts[0]
-	token := parts[1]
+	if len(parts[1]) < tokenLen {
+		msg := "Invalid URL"
+		return nil, &appError{nil, msg, http.StatusBadRequest}
+	}
+	token := parts[1][:tokenLen]
 
 	accessInfo, appErr := parseWebaccessInfo(token)
 	if appErr != nil {
@@ -2726,4 +2731,338 @@ func checkFileExists(storeID, rootID, parentDir, fileName string) (bool, error) 
 	}
 
 	return ret, nil
+}
+
+func uploadBlksAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
+	fsm, err := parseUploadHeaders(r)
+	if err != nil {
+		return err
+	}
+
+	if err := doUploadBlks(rsp, r, fsm); err != nil {
+		formatJSONError(rsp, err)
+		return err
+	}
+
+	return nil
+}
+
+func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appError {
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
+		return &appError{nil, "", http.StatusBadRequest}
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	repoID := fsm.repoID
+	user := fsm.user
+
+	replaceStr := r.FormValue("replace")
+	var replaceExisted bool
+	if replaceStr != "" {
+		replace, err := strconv.ParseInt(replaceStr, 10, 64)
+		if err != nil || (replace != 0 && replace != 1) {
+			msg := "Invalid argument.\n"
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+		if replace == 1 {
+			replaceExisted = true
+		}
+	}
+
+	parentDir := r.FormValue("parent_dir")
+	if parentDir == "" {
+		msg := "Invalid URL.\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	fileName := r.FormValue("file_name")
+	if fileName == "" {
+		msg := "Invalid URL.\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	fileSizeStr := r.FormValue("file_size")
+	var fileSize int64 = -1
+	if fileSizeStr != "" {
+		size, err := strconv.ParseInt(fileSizeStr, 10, 64)
+		if err != nil {
+			msg := "Invalid argument.\n"
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+		fileSize = size
+	}
+
+	if fileSize < 0 {
+		msg := "Invalid URL.\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	commitOnlyStr, ok := r.Form["commitonly"]
+	if !ok || len(commitOnlyStr) == 0 {
+		msg := "Only commit supported.\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	if err := checkParentDir(repoID, parentDir); err != nil {
+		return err
+	}
+
+	blockIDsJSON := r.FormValue("blockids")
+	if blockIDsJSON == "" {
+		msg := "Invalid URL.\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	fileID, appErr := commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user, fileSize, replaceExisted)
+	if appErr != nil {
+		return appErr
+	}
+	_, ok = r.Form["ret-json"]
+	if ok {
+		obj := make(map[string]interface{})
+		obj["id"] = fileID
+
+		jsonstr, err := json.Marshal(obj)
+		if err != nil {
+			err := fmt.Errorf("failed to convert array to json: %v", err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+		rsp.Write([]byte(jsonstr))
+	} else {
+		rsp.Write([]byte("\""))
+		rsp.Write([]byte(fileID))
+		rsp.Write([]byte("\""))
+	}
+
+	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	return nil
+}
+
+func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fileSize int64, replace bool) (string, *appError) {
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		msg := "Failed to get repo.\n"
+		err := fmt.Errorf("Failed to get repo %s", repoID)
+		return "", &appError{err, msg, http.StatusInternalServerError}
+	}
+
+	headCommit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
+	if err != nil {
+		msg := "Failed to get head commit.\n"
+		err := fmt.Errorf("failed to get head commit for repo %s", repo.ID)
+		return "", &appError{err, msg, http.StatusInternalServerError}
+	}
+
+	canonPath := getCanonPath(parentDir)
+
+	if shouldIgnoreFile(fileName) {
+		msg := fmt.Sprintf("invalid fileName: %s.\n", fileName)
+		return "", &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	if strings.Index(parentDir, "//") != -1 {
+		msg := "parent_dir contains // sequence.\n"
+		return "", &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	var blkIDs []string
+	err = json.Unmarshal([]byte(blockIDsJSON), &blkIDs)
+	if err != nil {
+		err := fmt.Errorf("failed to decode data to json: %v", err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
+
+	appErr := checkQuotaBeforeCommitBlocks(repo.StoreID, blkIDs)
+	if appErr != nil {
+		return "", appErr
+	}
+
+	fileID, appErr := indexExistedFileBlocks(repoID, repo.Version, blkIDs, fileSize)
+	if appErr != nil {
+		return "", appErr
+	}
+
+	mtime := time.Now().Unix()
+	mode := (syscall.S_IFREG | 0644)
+	newDent := fsmgr.NewDirent(fileID, fileName, uint32(mode), mtime, user, fileSize)
+	var names []string
+	rootID, err := doPostMultiFiles(repo, headCommit.RootID, canonPath, []*fsmgr.SeafDirent{newDent}, user, replace, &names)
+	if err != nil {
+		err := fmt.Errorf("failed to post file %s to %s in repo %s: %v", fileName, canonPath, repo.ID, err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
+
+	desc := fmt.Sprintf("Added \"%s\"", fileName)
+	_, err = genNewCommit(repo, headCommit, rootID, user, desc)
+	if err != nil {
+		err := fmt.Errorf("failed to generate new commit: %v", err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
+
+	return fileID, nil
+}
+
+func checkQuotaBeforeCommitBlocks(storeID string, blockIDs []string) *appError {
+	var totalSize int64
+	for _, blkID := range blockIDs {
+		size, err := blockmgr.Stat(storeID, blkID)
+		if err != nil {
+			err := fmt.Errorf("failed to stat block %s in store %s: %v", blkID, storeID, err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+		totalSize += size
+	}
+	ret, err := checkQuota(storeID, totalSize)
+	if err != nil {
+		msg := "Internal error.\n"
+		err := fmt.Errorf("failed to check quota: %v", err)
+		return &appError{err, msg, http.StatusInternalServerError}
+	}
+	if ret == 1 {
+		msg := "Out of quota.\n"
+		return &appError{nil, msg, seafHTTPResNoQuota}
+	}
+
+	return nil
+}
+
+func indexExistedFileBlocks(repoID string, version int, blkIDs []string, fileSize int64) (string, *appError) {
+	if len(blkIDs) == 0 {
+		return fsmgr.EmptySha1, nil
+	}
+
+	for _, blkID := range blkIDs {
+		if !blockmgr.Exists(repoID, blkID) {
+			err := fmt.Errorf("failed to check block: %s", blkID)
+			return "", &appError{err, "", seafHTTPResBlockMissing}
+		}
+	}
+
+	fileID, err := writeSeafile(repoID, version, fileSize, blkIDs)
+	if err != nil {
+		err := fmt.Errorf("failed to write seafile: %v", err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
+
+	return fileID, nil
+}
+
+func uploadRawBlksAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
+	fsm, err := parseUploadHeaders(r)
+	if err != nil {
+		return err
+	}
+
+	if err := doUploadRawBlks(rsp, r, fsm); err != nil {
+		formatJSONError(rsp, err)
+		return err
+	}
+
+	return nil
+}
+
+func doUploadRawBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appError {
+	if err := r.ParseMultipartForm(1 << 20); err != nil {
+		return &appError{nil, "", http.StatusBadRequest}
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	repoID := fsm.repoID
+	user := fsm.user
+
+	formFiles := r.MultipartForm.File
+	fileHeaders, ok := formFiles["file"]
+	if !ok {
+		msg := "No file in multipart form.\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+	for _, handler := range fileHeaders {
+		fileName := filepath.Base(handler.Filename)
+		fsm.fileNames = append(fsm.fileNames, fileName)
+		fsm.fileHeaders = append(fsm.fileHeaders, handler)
+	}
+
+	if fsm.fileNames == nil {
+		msg := "No file.\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	if err := checkTmpFileList(fsm); err != nil {
+		return err
+	}
+
+	if err := postBlocks(repoID, user, fsm); err != nil {
+		return err
+	}
+
+	var contentLen int64
+	lenstr := rsp.Header().Get("Content-Length")
+	if lenstr != "" {
+		conLen, err := strconv.ParseInt(lenstr, 10, 64)
+		if err != nil {
+			msg := "Internal error.\n"
+			err := fmt.Errorf("failed to parse content len: %v", err)
+			return &appError{err, msg, http.StatusInternalServerError}
+		}
+		contentLen = conLen
+	}
+
+	oper := "web-file-upload"
+	sendStatisticMsg(repoID, user, oper, uint64(contentLen))
+
+	rsp.Write([]byte("\"OK\""))
+	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	return nil
+}
+
+func postBlocks(repoID, user string, fsm *recvData) *appError {
+	blockIDs := fsm.fileNames
+	fileHeaders := fsm.fileHeaders
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		msg := "Failed to get repo.\n"
+		err := fmt.Errorf("Failed to get repo %s", repoID)
+		return &appError{err, msg, http.StatusInternalServerError}
+	}
+
+	if err := indexRawBlocks(repo.StoreID, blockIDs, fileHeaders); err != nil {
+		err := fmt.Errorf("failed to index file blocks")
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	go updateRepoSize(repo.ID)
+
+	return nil
+}
+
+func indexRawBlocks(repoID string, blockIDs []string, fileHeaders []*multipart.FileHeader) error {
+	for i, handler := range fileHeaders {
+		var buf bytes.Buffer
+		f, err := handler.Open()
+		if err != nil {
+			err := fmt.Errorf("failed to open file for read: %v", err)
+			return err
+		}
+		_, err = buf.ReadFrom(f)
+		if err != nil {
+			err := fmt.Errorf("failed to read block: %v", err)
+			return err
+		}
+		checkSum := sha1.Sum(buf.Bytes())
+		blkID := hex.EncodeToString(checkSum[:])
+		if blkID != blockIDs[i] {
+			err := fmt.Errorf("block id %s:%s doesn't match content", blkID, blockIDs[i])
+			return err
+		}
+
+		err = blockmgr.Write(repoID, blkID, &buf)
+		if err != nil {
+			err := fmt.Errorf("failed to write block: %s/%s: %v", repoID, blkID, err)
+			return err
+		}
+	}
+
+	return nil
 }
