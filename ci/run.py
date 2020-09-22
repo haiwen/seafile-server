@@ -212,24 +212,28 @@ def main():
     else:
         dbs = ('sqlite3',)
     for db in dbs:
-        shell('rm -rf {}/*'.format(INSTALLDIR))
         start_and_test_with_db(db)
 
 
 def start_and_test_with_db(db):
-    info('Setting up seafile server with %s database', db)
-    server = ServerCtl(
-        TOPDIR,
-        INSTALLDIR,
-        db=db,
-        # Use the newly built seaf-server (to avoid "make install" each time when developping locally)
-        seaf_server_bin=join(SeafileServer().projectdir, 'server/seaf-server')
-    )
-    server.setup()
-    with server.run():
-        info('Testing with %s database', db)
-        with cd(SeafileServer().projectdir):
-            shell('py.test', env=server.get_seaserv_envs())
+    fileservers = ('go_fileserver', 'c_fileserver')
+    for fileserver in fileservers:
+        shell('rm -rf {}/*'.format(INSTALLDIR))
+        info('Setting up seafile server with %s database, use %s', db, fileserver)
+        server = ServerCtl(
+            TOPDIR,
+            SeafileServer().projectdir,
+            INSTALLDIR,
+            fileserver,
+            db=db,
+            # Use the newly built seaf-server (to avoid "make install" each time when developping locally)
+            seaf_server_bin=join(SeafileServer().projectdir, 'server/seaf-server')
+        )
+        server.setup()
+        with server.run():
+            info('Testing with %s database', db)
+            with cd(SeafileServer().projectdir):
+                shell('py.test', env=server.get_seaserv_envs())
 
 
 if __name__ == '__main__':

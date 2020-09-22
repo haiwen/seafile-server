@@ -25,7 +25,12 @@ var jobs = make(chan Job, 100)
 
 func sizeSchedulerInit() {
 	var n int = 1
-	seafileConfPath := filepath.Join(absDataDir, "seafile.conf")
+	var seafileConfPath string
+	if centralDir != "" {
+		seafileConfPath = filepath.Join(centralDir, "seafile.conf")
+	} else {
+		seafileConfPath = filepath.Join(absDataDir, "seafile.conf")
+	}
 	config, err := ini.Load(seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
@@ -58,7 +63,6 @@ func worker() {
 					log.Printf("failed to call jobs: %v.\n", err)
 				}
 			}
-		default:
 		}
 	}
 }

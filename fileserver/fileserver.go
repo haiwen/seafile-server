@@ -26,6 +26,7 @@ import (
 
 var ccnetDir string
 var dataDir, absDataDir string
+var centralDir string
 var logFile, absLogFile string
 var rpcPipePath string
 
@@ -58,6 +59,7 @@ var options fileServerOptions
 
 func init() {
 	flag.StringVar(&ccnetDir, "c", "", "ccnet config directory")
+	flag.StringVar(&centralDir, "F", "", "central config directory")
 	flag.StringVar(&dataDir, "d", "", "seafile data directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
 	flag.StringVar(&rpcPipePath, "p", "", "rpc pipe path")
@@ -75,12 +77,12 @@ func loadCcnetDB() {
 		log.Fatal("No database section in ccnet.conf.")
 	}
 
+	var dbEngine string = "sqlite"
 	key, err := section.GetKey("ENGINE")
-	if err != nil {
-		log.Fatal("No database ENGINE in ccnet.conf.")
+	if err == nil {
+		dbEngine = key.String()
 	}
 
-	dbEngine := key.String()
 	if strings.EqualFold(dbEngine, "mysql") {
 		if key, err = section.GetKey("HOST"); err != nil {
 			log.Fatal("No database host in ccnet.conf.")
@@ -132,7 +134,12 @@ func loadCcnetDB() {
 }
 
 func loadSeafileDB() {
-	seafileConfPath := filepath.Join(absDataDir, "seafile.conf")
+	var seafileConfPath string
+	if centralDir != "" {
+		seafileConfPath = filepath.Join(centralDir, "seafile.conf")
+	} else {
+		seafileConfPath = filepath.Join(absDataDir, "seafile.conf")
+	}
 	config, err := ini.Load(seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
@@ -142,11 +149,12 @@ func loadSeafileDB() {
 	if err != nil {
 		log.Fatal("No database section in seafile.conf.")
 	}
+
+	var dbEngine string = "sqlite"
 	key, err := section.GetKey("type")
-	if err != nil {
-		log.Fatal("No database type in seafile.conf.")
+	if err == nil {
+		dbEngine = key.String()
 	}
-	dbEngine := key.String()
 	if strings.EqualFold(dbEngine, "mysql") {
 		if key, err = section.GetKey("host"); err != nil {
 			log.Fatal("No database host in seafile.conf.")
@@ -201,7 +209,12 @@ func loadSeafileDB() {
 }
 
 func loadFileServerOptions() {
-	seafileConfPath := filepath.Join(absDataDir, "seafile.conf")
+	var seafileConfPath string
+	if centralDir != "" {
+		seafileConfPath = filepath.Join(centralDir, "seafile.conf")
+	} else {
+		seafileConfPath = filepath.Join(absDataDir, "seafile.conf")
+	}
 	config, err := ini.Load(seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
@@ -337,6 +350,8 @@ func main() {
 
 	sizeSchedulerInit()
 
+	initUpload()
+
 	router := newHTTPRouter()
 
 	log.Print("Seafile file server started.")
@@ -364,8 +379,8 @@ func newHTTPRouter() *mux.Router {
 	r := mux.NewRouter()
 	r.HandleFunc("/protocol-version", handleProtocolVersion)
 	r.Handle("/files/{.*}/{.*}", appHandler(accessCB))
-	r.Handle("/blks/{.*}.{.*}", appHandler(accessBlksCB))
-	r.Handle("/zip/{.*}/{.*}", appHandler(accessZipCB))
+	r.Handle("/blks/{.*}/{.*}", appHandler(accessBlksCB))
+	r.Handle("/zip/{.*}", appHandler(accessZipCB))
 	r.Handle("/upload-api/{.*}", appHandler(uploadAPICB))
 	r.Handle("/upload-aj/{.*}", appHandler(uploadAjaxCB))
 	r.Handle("/update-api/{.*}", appHandler(updateAPICB))

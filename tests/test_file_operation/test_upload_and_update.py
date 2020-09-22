@@ -4,6 +4,7 @@ import os
 import time
 from tests.config import USER
 from seaserv import seafile_api as api
+from requests_toolbelt import MultipartEncoder
 
 file_name = 'file.txt'
 file_name_not_replaced = 'file (1).txt'
@@ -76,15 +77,19 @@ def request_resumable_upload(filepath, headers,upload_url_base,parent_dir,is_aja
     write_file(chunked_part1_path, chunked_part1_content)
     write_file(chunked_part2_path, chunked_part2_content)
 
-    files = {'file': open(filepath, 'rb'),
-             'parent_dir':parent_dir}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': parent_dir,
+                    'file': (resumable_file_name, open(filepath, 'rb'), 'application/octet-stream')
+            })
     params = {'ret-json':'1'}
+    headers["Content-type"] = m.content_type
     if is_ajax:
         response = requests.post(upload_url_base, headers = headers,
-                             files = files)
+                             data = m)
     else:
         response = requests.post(upload_url_base, headers = headers,
-                             files = files, params = params)
+                             data = m, params = params)
     return response
 
 def write_file(file_path, file_content):
@@ -111,17 +116,25 @@ def test_ajax(repo):
     #test upload file to test dir.
     token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-aj/'+ token
-    files = {'file': open(file_path, 'rb'),
-             'parent_dir':'/test'}
-    response = requests.post(upload_url_base, files = files)
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
 
     #test upload file to root dir.
     token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-aj/'+ token
-    files = {'file': open(file_path, 'rb'),
-             'parent_dir':'/'}
-    response = requests.post(upload_url_base, files = files)
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, False, False)
 
     time.sleep (1.5)
@@ -129,15 +142,23 @@ def test_ajax(repo):
     assert repo_size == 0
 
     #test upload file to test dir when file already exists.
-    files = {'file': open(file_path, 'rb'),
-             'parent_dir':'/test'}
-    response = requests.post(upload_url_base, files = files)
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
 
     #test upload file to root dir when file already exists.
-    files = {'file': open(file_path, 'rb'),
-             'parent_dir':'/'}
-    response = requests.post(upload_url_base, files = files)
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, False, True)
 
     time.sleep (1.5)
@@ -145,16 +166,24 @@ def test_ajax(repo):
     assert repo_size == 0
 
     #test upload file to subdir whose parent is test dir.
-    files = {'file': open(file_path, 'rb'),
-             'parent_dir':'/test',
-             'relative_path':'subdir'}
-    response = requests.post(upload_url_base,  files = files)
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'relative_path':'subdir',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
     #test upload file to subdir whose parent is root dir.
-    files = {'file': open(file_path, 'rb'),
-             'parent_dir':'/',
-             'relative_path':'subdir'}
-    response = requests.post(upload_url_base,  files = files)
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'relative_path':'subdir',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, False, False)
 
     time.sleep (1.5)
@@ -162,17 +191,25 @@ def test_ajax(repo):
     assert repo_size == 0
 
     #test upload file to subdir whose parent is test dir when file already exists.
-    files = {'file': open(file_path, 'rb'),
-             'parent_dir':'/test',
-             'relative_path':'subdir'}
-    response = requests.post(upload_url_base, files = files)
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'relative_path':'subdir',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
 
     #test upload file to subdir whose parent is root dir when file already exists.
-    files = {'file': open(file_path, 'rb'),
-             'parent_dir':'/',
-             'relative_path':'subdir'}
-    response = requests.post(upload_url_base, files = files)
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'relative_path':'subdir',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, False, True)
 
     time.sleep (1.5)
@@ -211,8 +248,6 @@ def test_ajax(repo):
                                                        str(total_size - 1),
                                                        str(total_size)),
                'Content-Disposition':'attachment; filename=\"{}\"'.format(resumable_file_name)}
-    response = requests.post(upload_url_base, headers = headers,
-                             files = files)
     response = request_resumable_upload(chunked_part2_path, headers, upload_url_base, parent_dir, True)
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, True)
@@ -225,15 +260,20 @@ def test_ajax(repo):
     write_file(file_path, file_content)
     token = api.get_fileserver_access_token(repo.id, obj_id, 'update', USER, False)
     update_url_base = 'http://127.0.0.1:8082/update-aj/' + token
-    files = {'file': open(file_path, 'rb'),
-             'target_file':'/' + file_name}
-    response = requests.post(update_url_base, files = files)
+    m = MultipartEncoder(
+            fields={
+                    'target_file': '/' + file_name,
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(update_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_update_response(response, True)
 
     time.sleep (1.5)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size + file_size
 
+    time.sleep(1)
     del_repo_files(repo.id)
     del_local_files()
 
@@ -245,19 +285,26 @@ def test_api(repo):
     #test upload file to test dir instead of  root dir.
     token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/test'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
 
     #test upload file to root dir.
+    params = {'ret-json':'1'}
     token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, False, False)
 
     time.sleep (1.5)
@@ -265,19 +312,27 @@ def test_api(repo):
     assert repo_size == 0
 
     #test upload file to test dir instead of root dir when file already exists and replace is set.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/test',
-             'replace':'1'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'replace': '1',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
 
     #test upload file to root dir when file already exists and replace is set.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/',
-             'replace':'1'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'replace': '1',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, True, True)
 
     time.sleep (1.5)
@@ -285,17 +340,25 @@ def test_api(repo):
     assert repo_size == 0
 
     #test upload file to test dir instead of root dir when file already exists and replace is unset.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/test'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
 
     #test upload file to root dir when file already exists and replace is unset.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, False, True)
 
     time.sleep (1.5)
@@ -303,19 +366,27 @@ def test_api(repo):
     assert repo_size == 0
 
     #test upload the file to subdir whose parent is test.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/test',
-             'relative_path':'subdir'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'relative_path': 'subdir',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
 
     #test upload the file to subdir.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/',
-             'relative_path':'subdir'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'relative_path': 'subdir',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, False, False)
 
     time.sleep (1.5)
@@ -323,21 +394,29 @@ def test_api(repo):
     assert repo_size == 0
 
     #test upload the file to subdir whose parent is test when file already exists and replace is set.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/test',
-             'relative_path':'subdir',
-             'replace':'1'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'relative_path': 'subdir',
+                    'replace': '1',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
 
     #test upload the file to subdir when file already exists and replace is set.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/',
-             'relative_path':'subdir',
-             'replace':'1'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'relative_path': 'subdir',
+                    'replace': '1',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, True, True)
 
     time.sleep (1.5)
@@ -345,19 +424,27 @@ def test_api(repo):
     assert repo_size == 0
 
     #unset test upload the file to subdir whose parent is test dir when file already exists and replace is unset.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/test',
-             'relative_path':'subdir'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/test',
+                    'relative_path': 'subdir',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert response.status_code == 403
 
     #unset test upload the file to subdir when file already exists and replace is unset.
-    files = {'file':open(file_path, 'rb'),
-             'parent_dir':'/',
-             'relative_path':'subdir'}
+    params = {'ret-json':'1'}
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'relative_path': 'subdir',
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
     response = requests.post(upload_url_base, params = params,
-                             files = files)
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_upload_response(response, False, True)
 
     time.sleep (1.5)
@@ -412,14 +499,19 @@ def test_api(repo):
     write_file(file_path, file_content)
     token = api.get_fileserver_access_token(repo.id, obj_id, 'update', USER, False)
     update_url_base = 'http://127.0.0.1:8082/update-api/' + token
-    files = {'file':open(file_path, 'rb'),
-             'target_file':'/' + file_name}
-    response = requests.post(update_url_base, files = files)
+    m = MultipartEncoder(
+            fields={
+                    'target_file': '/' + file_name,
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(update_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
     assert_update_response(response, False)
 
     time.sleep (1.5)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size + file_size
 
+    time.sleep(1)
     del_repo_files(repo.id)
     del_local_files()

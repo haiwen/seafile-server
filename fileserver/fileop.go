@@ -47,6 +47,11 @@ func (d Dirents) Len() int {
 	return len(d)
 }
 
+func initUpload() {
+	objDir := filepath.Join(dataDir, "httptemp", "cluster-shared")
+	os.MkdirAll(objDir, os.ModePerm)
+}
+
 //contentType = "application/octet-stream"
 func parseContentType(fileName string) string {
 	var contentType string
@@ -1644,7 +1649,12 @@ func genMergeDesc(repo *repomgr.Repo, mergedRoot, p1Root, p2Root string) string 
 func updateBranch(repoID, newCommitID, oldCommitID string) error {
 	var commitID string
 	name := "master"
-	sqlStr := "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ? FOR UPDATE"
+	var sqlStr string
+	if strings.EqualFold(dbType, "mysql") {
+		sqlStr = "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ? FOR UPDATE"
+	} else {
+		sqlStr = "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ?"
+	}
 
 	trans, err := seafileDB.Begin()
 	if err != nil {
@@ -1867,6 +1877,10 @@ func indexBlocks(repoID string, version int, filePath string, handler *multipart
 			return "", -1, err
 		}
 		size = fileInfo.Size()
+	}
+
+	if size == 0 {
+		return fsmgr.EmptySha1, 0, nil
 	}
 
 	chunkJobs := make(chan chunkingData, 10)
@@ -2679,12 +2693,14 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 }
 
 func formatUpdateJSONRet(fileName, fileID string, size int64) ([]byte, error) {
+	var array []map[string]interface{}
 	obj := make(map[string]interface{})
 	obj["name"] = fileName
 	obj["id"] = fileID
 	obj["size"] = size
+	array = append(array, obj)
 
-	jsonstr, err := json.Marshal(obj)
+	jsonstr, err := json.Marshal(array)
 	if err != nil {
 		err := fmt.Errorf("failed to convert array to json")
 		return nil, err
