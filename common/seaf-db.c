@@ -370,8 +370,10 @@ seaf_db_statement_exists (SeafDB *db, const char *sql, gboolean *db_err, int n, 
     DBConnection *conn = NULL;
 
     conn = db_ops.get_connection(db);
-    if (!conn)
+    if (!conn) {
+        *db_err = TRUE;
         return FALSE;
+    }
 
     va_list args;
     va_start (args, n);
