@@ -273,6 +273,9 @@ setup_python_path()
         return;
     }
 
+    /* Allow seafdav to access seahub_settings.py */
+    path_list = g_list_prepend (path_list, g_build_filename (topdir, "conf", NULL));
+
     path_list = g_list_prepend (path_list,
         g_build_filename (installpath, "seahub", NULL));
 
