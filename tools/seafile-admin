@@ -483,10 +483,10 @@ def init_seahub():
 
 
 def check_django_version():
-    '''Requires django 1.8'''
+    '''Requires django >= 1.8'''
     import django
-    if django.VERSION[0] != 1 or django.VERSION[1] != 8:
-        error('Django 1.8 is required')
+    if django.VERSION[0] != 1 or django.VERSION[1] < 8:
+        error('Django 1.8+ is required')
     del django
 
 
