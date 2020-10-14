@@ -1250,7 +1250,7 @@ GObject *
 ccnet_rpc_get_group (int group_id, GError **error);
 
 GList *
-ccnet_rpc_get_group_members (int group_id, GError **error);
+ccnet_rpc_get_group_members (int group_id, int start, int limit, GError **error);
 
 GList *
 ccnet_rpc_get_members_with_prefix(int group_id, const char *prefix, GError **error);

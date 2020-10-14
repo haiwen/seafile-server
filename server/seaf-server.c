@@ -899,7 +899,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      ccnet_rpc_get_group_members,
                                      "get_group_members",
-                                     searpc_signature_objlist__int());
+                                     searpc_signature_objlist__int_int_int());
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      ccnet_rpc_get_members_with_prefix,
                                      "get_members_with_prefix",

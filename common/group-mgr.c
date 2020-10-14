@@ -1003,18 +1003,34 @@ get_ccnet_groupuser_cb (CcnetDBRow *row, void *data)
 }
 
 GList *
-ccnet_group_manager_get_group_members (CcnetGroupManager *mgr, int group_id,
+ccnet_group_manager_get_group_members (CcnetGroupManager *mgr,
+                                       int group_id,
+                                       int start,
+                                       int limit,
                                        GError **error)
 {
     CcnetDB *db = mgr->priv->db;
     char *sql;
     GList *group_users = NULL;
+    int rc;
     
-    sql = "SELECT group_id, user_name, is_staff FROM GroupUser WHERE group_id = ?";
-    if (seaf_db_statement_foreach_row (db, sql,
-                                        get_ccnet_groupuser_cb, &group_users,
-                                        1, "int", group_id) < 0)
+    if (limit == -1) {
+        sql = "SELECT group_id, user_name, is_staff FROM GroupUser WHERE group_id = ?";
+        rc =seaf_db_statement_foreach_row (db, sql,
+                                           get_ccnet_groupuser_cb, &group_users,
+                                           1, "int", group_id);
+    } else {
+        sql = "SELECT group_id, user_name, is_staff FROM GroupUser WHERE group_id = ? LIMIT ? OFFSET ?";
+        rc = seaf_db_statement_foreach_row (db, sql,
+                                            get_ccnet_groupuser_cb, &group_users,
+                                            3, "int", group_id,
+                                            "int", limit,
+                                            "int", start);
+    }
+
+    if (rc < 0) {
         return NULL;
+    }
 
     return g_list_reverse (group_users);
 }
