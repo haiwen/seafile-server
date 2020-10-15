@@ -84,7 +84,10 @@ ccnet_group_manager_get_group (CcnetGroupManager *mgr, int group_id,
                                GError **error);
 
 GList *
-ccnet_group_manager_get_group_members (CcnetGroupManager *mgr, int group_id,
+ccnet_group_manager_get_group_members (CcnetGroupManager *mgr,
+                                       int group_id,
+                                       int start,
+                                       int limit,
                                        GError **error);
 
 GList *

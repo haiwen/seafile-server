@@ -1048,11 +1048,11 @@ class CcnetAPI(object):
     def get_group(self, group_id):
         return ccnet_threaded_rpc.get_group(group_id)
 
-    def get_group_members(self, group_id):
+    def get_group_members(self, group_id, start=-1, limit=-1):
         """
         Return a list of GroupUser objects (ccnet/lib/ccnetobj.vala)
         """
-        return ccnet_threaded_rpc.get_group_members(group_id)
+        return ccnet_threaded_rpc.get_group_members(group_id, start, limit)
 
     def get_members_with_prefix (self, group_id, prefix=None):
         """
