@@ -71,6 +71,7 @@ lib/commit.c
 lib/crypt.c
 lib/repo.c
 lib/copy-task.c
+lib/search-result.c
 seaf-server
 seafserv-gc
 seaf-migrate

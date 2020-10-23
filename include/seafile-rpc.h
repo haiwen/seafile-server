@@ -1134,6 +1134,9 @@ seafile_publish_event(const char *channel, const char *content, GError **error);
 json_t *
 seafile_pop_event(const char *channel, GError **error);
 
+GList *
+seafile_search_files (const char *repo_id, const char *str, GError **error);
+
 /*Following is ccnet rpc*/
 int
 ccnet_rpc_add_emailuser (const char *email, const char *passwd,

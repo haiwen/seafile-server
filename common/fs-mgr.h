@@ -43,6 +43,12 @@ struct _Seafile {
     int         ref_count;
 };
 
+typedef struct SearchResult {
+    char *path;
+    gint64 size;
+    gint64 mtime;
+} SearchResult;
+
 void
 seafile_ref (Seafile *seafile);
 
@@ -428,5 +434,10 @@ seaf_fs_manager_get_file_count_info_by_path (SeafFSManager *mgr,
                                              const char *root_id,
                                              const char *path,
                                              GError **error);
+
+GList *
+seaf_fs_manager_search_files (SeafFSManager *mgr,
+                              const char *repo_id,
+                              const char *str);
 
 #endif
