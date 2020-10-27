@@ -4543,7 +4543,7 @@ seafile_search_files (const char *repo_id, const char *str, GError **error)
         SearchResult *sr = ptr->data;
         SeafileSearchResult *search_result = seafile_search_result_new ();
         g_object_set (search_result, "path", sr->path, "size", sr->size,
-                      "mtime", sr->mtime, NULL);
+                      "mtime", sr->mtime, "is_dir", sr->is_dir, NULL);
 
         ret = g_list_prepend (ret, search_result);
         g_free (sr->path);

@@ -47,6 +47,7 @@ typedef struct SearchResult {
     char *path;
     gint64 size;
     gint64 mtime;
+    gboolean is_dir;
 } SearchResult;
 
 void

@@ -26,10 +26,18 @@ def test_file_operation():
     file_list = api.search_files (t_repo_id1, "test")
     assert len(file_list) == 2
     assert file_list[0].path == "/test.txt"
+    assert file_list[0].is_dir == False
     assert file_list[1].path == "/test_dir"
+    assert file_list[1].is_dir == True
 
     file_list = api.search_files (t_repo_id1, "dir")
     assert len(file_list) == 1
     assert file_list[0].path == "/test_dir"
+    assert file_list[0].is_dir == True
+
+    file_list = api.search_files (t_repo_id1, "DiR")
+    assert len(file_list) == 1
+    assert file_list[0].path == "/test_dir"
+    assert file_list[0].is_dir == True
 
     api.remove_repo(t_repo_id1)

@@ -1,5 +1,10 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
+#ifndef _GNU_SOURECE
+#define _GNU_SOURCE
+char *strcasestr (const char *haystack, const char *needle);
+#undef _GNU_SOURCE
+#endif
 #include "common.h"
 
 #include <sys/stat.h>
@@ -3141,12 +3146,15 @@ search_files_recursive (SeafFSManager *mgr,
         seaf_dent = (SeafDirent *)p->data;
         full_path = g_strconcat (path, "/", seaf_dent->name, NULL);
 
-        if (g_strrstr (seaf_dent->name, str) != NULL) {
+        if (seaf_dent->name && strcasestr (seaf_dent->name, str) != NULL) {
             SearchResult *sr = g_new0(SearchResult, 1);
             sr->path = g_strdup (full_path);
             sr->size = seaf_dent->size;
             sr->mtime = seaf_dent->mtime;
             *file_list = g_list_prepend (*file_list, sr);
+            if (S_ISDIR(seaf_dent->mode)) {
+                sr->is_dir = TRUE;
+            }
         }
 
         if (S_ISDIR(seaf_dent->mode)) {

@@ -12,6 +12,7 @@ public class SearchResult: Object {
 
     public int64  size { get; set; }
     public int64  mtime { get; set; }
+    public bool is_dir { set; get; }
 }
 
 } // namespace
