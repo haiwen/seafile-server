@@ -1,5 +1,10 @@
 /* -*- Mode: C; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 
+#ifndef _GNU_SOURECE
+#define _GNU_SOURCE
+char *strcasestr (const char *haystack, const char *needle);
+#undef _GNU_SOURCE
+#endif
 #include "common.h"
 
 #include <sys/stat.h>
@@ -3114,4 +3119,86 @@ out:
     g_free (dir_id);
 
     return (GObject *)info;
+}
+
+static int
+search_files_recursive (SeafFSManager *mgr,
+                        const char *repo_id,
+                        const char *path,
+                        const char *id,
+                        const char *str,
+                        int version,
+                        GList **file_list)
+{
+    SeafDir *dir;
+    GList *p;
+    SeafDirent *seaf_dent;
+    int ret = 0;
+    char *full_path = NULL;
+
+    dir = seaf_fs_manager_get_seafdir (mgr, repo_id, version, id);
+    if (!dir) {
+        seaf_warning ("[fs-mgr]get seafdir %s failed\n", id);
+        return -1;
+    }
+
+    for (p = dir->entries; p; p = p->next) {
+        seaf_dent = (SeafDirent *)p->data;
+        full_path = g_strconcat (path, "/", seaf_dent->name, NULL);
+
+        if (seaf_dent->name && strcasestr (seaf_dent->name, str) != NULL) {
+            SearchResult *sr = g_new0(SearchResult, 1);
+            sr->path = g_strdup (full_path);
+            sr->size = seaf_dent->size;
+            sr->mtime = seaf_dent->mtime;
+            *file_list = g_list_prepend (*file_list, sr);
+            if (S_ISDIR(seaf_dent->mode)) {
+                sr->is_dir = TRUE;
+            }
+        }
+
+        if (S_ISDIR(seaf_dent->mode)) {
+            if (search_files_recursive (mgr, repo_id, full_path,
+                                        seaf_dent->id, str,
+                                        version, file_list) < 0) {
+                g_free (full_path);
+                ret = -1;
+                break;
+            }
+        }
+
+        g_free (full_path);
+    }
+
+    seaf_dir_free (dir);
+    return ret;
+}
+
+GList *
+seaf_fs_manager_search_files (SeafFSManager *mgr,
+                              const char *repo_id,
+                              const char *str)
+{
+    GList *file_list = NULL;
+    SeafCommit *head = NULL;
+
+    SeafRepo *repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
+    if (!repo) {
+        seaf_warning ("Failed to find repo %s\n", repo_id);
+        goto out;
+    }
+
+    head = seaf_commit_manager_get_commit (seaf->commit_mgr,repo->id, repo->version, repo->head->commit_id);
+    if (!head) {
+        seaf_warning ("Failed to find commit %s\n", repo->head->commit_id);
+        goto out;
+    }
+
+    search_files_recursive (mgr, repo_id, "", head->root_id,
+                            str, repo->version, &file_list);
+
+out:
+    seaf_repo_unref (repo);
+    seaf_commit_unref (head);
+    return file_list;
 }

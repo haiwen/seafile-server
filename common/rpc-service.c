@@ -4528,6 +4528,31 @@ seafile_get_repo_status(const char *repo_id, GError **error)
     return (status == -1) ? 0 : status;
 }
 
+GList *
+seafile_search_files (const char *repo_id, const char *str, GError **error)
+{
+    if (!is_uuid_valid (repo_id)) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
+        return NULL;
+    }
+
+    GList *file_list = seaf_fs_manager_search_files (seaf->fs_mgr, repo_id, str);
+    GList *ret = NULL, *ptr;
+
+    for (ptr = file_list; ptr; ptr=ptr->next) {
+        SearchResult *sr = ptr->data;
+        SeafileSearchResult *search_result = seafile_search_result_new ();
+        g_object_set (search_result, "path", sr->path, "size", sr->size,
+                      "mtime", sr->mtime, "is_dir", sr->is_dir, NULL);
+
+        ret = g_list_prepend (ret, search_result);
+        g_free (sr->path);
+        g_free (sr);
+    }
+
+    return g_list_reverse (ret);
+}
+
 /*RPC functions merged from ccnet-server*/
 int
 ccnet_rpc_add_emailuser (const char *email, const char *passwd,

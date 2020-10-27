@@ -838,6 +838,9 @@ class SeafileAPI(object):
 
     def pop_event(self, channel):
         return seafserv_threaded_rpc.pop_event(channel)
+
+    def search_files(self, repo_id, search_str):
+        return seafserv_threaded_rpc.search_files(repo_id, search_str)
     
 seafile_api = SeafileAPI()
 
