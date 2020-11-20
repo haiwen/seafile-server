@@ -16,6 +16,8 @@ import warnings
 
 from configparser import ConfigParser
 
+from seaserv import ccnet_api
+
 try:
     import readline # pylint: disable=W0611
 except ImportError:
@@ -279,26 +281,12 @@ class InvalidAnswer(Exception):
 ### END of Utils
 ####################
 
-class RPC(object):
-    def __init__(self):
-        import ccnet
-        ccnet_dir = os.environ['CCNET_CONF_DIR']
-        central_config_dir = os.environ['SEAFILE_CENTRAL_CONF_DIR']
-        ccnet_named_pipe_path = ccnet_dir + '/' + 'ccnet-rpc.sock'
-        self.rpc_client = ccnet.CcnetThreadedRpcClient(ccnet_named_pipe_path)
-
-    def get_db_email_users(self):
-        return self.rpc_client.get_emailusers('DB', 0, 1)
-
-    def create_admin(self, email, user):
-        return self.rpc_client.add_emailuser(email, user, 1, 1)
-
 def need_create_admin():
-    users = rpc.get_db_email_users()
+    users = ccnet_api.get_emailusers('DB', 0, 1)
     return len(users) == 0
 
 def create_admin(email, passwd):
-    if rpc.create_admin(email, passwd) < 0:
+    if ccnet_api.add_emailuser(email, passwd, 1, 1) < 0:
         raise Exception('failed to create admin')
     else:
         print('\n\n')
@@ -348,7 +336,6 @@ def ask_admin_password():
                               password=True,
                               validate=validate)
 
-rpc = RPC()
 
 def main():
     if not need_create_admin():

@@ -132,7 +132,7 @@ Press ENTER to continue
         if os.path.exists(path):
             return
         try:
-            os.mkdir(path)
+            os.makedirs(path)
         except OSError as e:
             Utils.error('failed to create directory %s:%s' % (path, e))
 
@@ -805,19 +805,12 @@ class CcnetConfigurator(AbstractConfigurator):
 
     def generate(self):
         print('Generating ccnet configuration ...\n')
-        ccnet_init = os.path.join(env_mgr.bin_dir, 'ccnet-init')
-        argv = [
-            ccnet_init,
-            '-F', env_mgr.central_config_dir,
-            '--config-dir', self.ccnet_dir,
-            '--host', self.ip_or_domain,
-        ]
+        with open(self.ccnet_conf, 'w') as fp:
+            fp.write('[General]\nSERVICE_URL = http://%s/\n' % self.ip_or_domain)
 
-        if Utils.run_argv(argv, env=env_mgr.get_binary_env()) != 0:
-            Utils.error('Failed to generate ccnet configuration')
-
-        time.sleep(1)
         self.generate_db_conf()
+
+        Utils.must_mkdir(self.ccnet_dir)
 
     def generate_db_conf(self):
         config = Utils.read_config(self.ccnet_conf)
@@ -933,22 +926,12 @@ class SeafileConfigurator(AbstractConfigurator):
 
     def generate(self):
         print('Generating seafile configuration ...\n')
-        seafserv_init = os.path.join(env_mgr.bin_dir, 'seaf-server-init')
-        argv = [
-            seafserv_init,
-            '-F', env_mgr.central_config_dir,
-            '--seafile-dir', self.seafile_dir,
-            '--fileserver-port', str(self.fileserver_port),
-        ]
+        with open(self.seafile_conf, 'w') as fp:
+            fp.write('[fileserver]\nport=%d\n' % self.fileserver_port)
 
-        if Utils.run_argv(argv, env=env_mgr.get_binary_env()) != 0:
-            Utils.error('Failed to generate ccnet configuration')
-
-        time.sleep(1)
         self.generate_db_conf()
 
         ## use default seafile-data path: seafile_data_dir=${TOPDIR}/seafile-data
-        # self.write_seafile_ini()
 
         print('done')
 
@@ -1015,11 +998,6 @@ class SeafileConfigurator(AbstractConfigurator):
                                                   default=default,
                                                   validate=Utils.validate_port)
 
-    def write_seafile_ini(self):
-        seafile_ini = os.path.join(ccnet_config.ccnet_dir, 'seafile.ini')
-        with open(seafile_ini, 'w') as fp:
-            fp.write(self.seafile_dir)
-
     def do_syncdb(self):
         print('----------------------------------------')
         print('Now creating seafile database tables ...\n')
@@ -1071,7 +1049,6 @@ class SeahubConfigurator(AbstractConfigurator):
     def generate(self):
         '''Generating seahub_settings.py'''
         print('Generating seahub configuration ...\n')
-        time.sleep(1)
         with open(self.seahub_settings_py, 'w') as fp:
             self.write_utf8_comment(fp)
             fp.write('\n')
