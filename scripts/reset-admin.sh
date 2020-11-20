@@ -48,6 +48,7 @@ export CCNET_CONF_DIR=${default_ccnet_conf_dir}
 export SEAFILE_CONF_DIR=${default_seafile_data_dir}
 export SEAFILE_CENTRAL_CONF_DIR=${central_config_dir}
 export PYTHONPATH=${INSTALLPATH}/seafile/lib/python3.6/site-packages:${INSTALLPATH}/seafile/lib64/python3.6/site-packages:${INSTALLPATH}/seahub/thirdpart:$PYTHONPATH
+export SEAFILE_RPC_PIPE_PATH=${INSTALLPATH}/runtime
 
 manage_py=${INSTALLPATH}/seahub/manage.py
 exec "$PYTHON" "$manage_py" createsuperuser
