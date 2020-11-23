@@ -285,6 +285,36 @@ function get_fileserver_port () {
 #     echo
 # }
 
+function gen_ccnet_conf () {
+    mkdir -p ${default_conf_dir}
+    ccnet_conf=${default_conf_dir}/ccnet.conf
+    if ! $(cat > ${ccnet_conf} <<EOF
+[General]
+SERVICE_URL = http://$ip_or_domain
+EOF
+); then
+    echo "failed to generate ccnet.conf";
+    err_and_quit
+fi
+
+mkdir -p ${default_ccnet_conf_dir}
+}
+
+function gen_seafile_conf () {
+    mkdir -p ${default_conf_dir}
+    seafile_conf=${default_conf_dir}/seafile.conf
+    if ! $(cat > ${seafile_conf} <<EOF
+[fileserver]
+port=$fileserver_port
+EOF
+); then
+    echo "failed to generate seafile.conf";
+    err_and_quit
+fi
+
+mkdir -p ${default_seafile_data_dir}
+}
+
 function gen_gunicorn_conf () {
     mkdir -p ${default_conf_dir}
     gunicorn_conf=${default_conf_dir}/gunicorn.conf.py
@@ -455,8 +485,6 @@ if [[ "${need_pause}" == "1" ]]; then
     read dummy
 fi
 
-ccnet_init=${INSTALLPATH}/seafile/bin/ccnet-init
-seaf_server_init=${INSTALLPATH}/seafile/bin/seaf-server-init
 
 # -------------------------------------------
 # Create ccnet conf 
@@ -464,17 +492,10 @@ seaf_server_init=${INSTALLPATH}/seafile/bin/seaf-server-init
 
 echo "Generating ccnet configuration in ${default_ccnet_conf_dir}..."
 echo
-if ! LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH "${ccnet_init}" \
-        -F "${default_conf_dir}" \
-        -c "${default_ccnet_conf_dir}" \
-        --host "${ip_or_domain}"; then
-    err_and_quit;
-fi
+
+gen_ccnet_conf;
 
 echo
-
-
-sleep 0.5
 
 # -------------------------------------------
 # Create seafile conf
@@ -482,24 +503,10 @@ sleep 0.5
 
 echo "Generating seafile configuration in ${default_seafile_data_dir} ..."
 echo
-if ! LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH ${seaf_server_init} \
-        --central-config-dir "${default_conf_dir}" \
-        --seafile-dir "${default_seafile_data_dir}" \
-        --fileserver-port ${fileserver_port}; then
-    
-    echo "Failed to generate seafile configuration"
-    err_and_quit;
-fi
+
+gen_seafile_conf;
 
 echo
-
-
-# -------------------------------------------
-# Write seafile.ini
-# -------------------------------------------
-
-## use default seafile-data path: seafile_data_dir=${TOPDIR}/seafile-data
-# echo "${seafile_data_dir}" > "${default_ccnet_conf_dir}/seafile.ini"
 
 # -------------------------------------------
 # Generate gunicorn.conf.py
