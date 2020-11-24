@@ -20,6 +20,13 @@ fileserver_config_get_integer(GKeyFile *config, char *key, GError **error)
     return g_key_file_get_integer (config, group, key, error);
 }
 
+int
+fileserver_config_get_int64(GKeyFile *config, char *key, GError **error)
+{
+    const char *group = get_group_name(config);
+    return g_key_file_get_int64 (config, group, key, error);
+}
+
 char *
 fileserver_config_get_string(GKeyFile *config, char *key, GError **error)
 {
