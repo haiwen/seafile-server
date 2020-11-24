@@ -75,15 +75,6 @@ function validate_seafile_data_dir () {
     fi
 }
 
-function test_config() {
-    if ! LD_LIBRARY_PATH=$SEAFILE_LD_LIBRARY_PATH ${seaf_controller} --test \
-         -c "${default_ccnet_conf_dir}" \
-         -d "${default_seafile_data_dir}" \
-         -F "${central_config_dir}" ; then
-        exit 1;
-    fi
-}
-
 function check_component_running() {
     name=$1
     cmd=$2
@@ -116,7 +107,6 @@ function start_seafile_server () {
     validate_ccnet_conf_dir;
     validate_seafile_data_dir;
     validate_running_user;
-    test_config;
 
     echo "Starting seafile server, please wait ..."
 
