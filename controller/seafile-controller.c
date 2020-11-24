@@ -150,38 +150,6 @@ kill_by_force (int which)
 //
 
 static int
-start_ccnet_server ()
-{
-    if (!ctl->config_dir)
-        return -1;
-
-    seaf_message ("starting ccnet-server ...\n");
-
-
-    static char *logfile = NULL;
-    if (logfile == NULL) {
-        logfile = g_build_filename (ctl->logdir, "ccnet.log", NULL);
-    }
-
-    char *argv[] = {
-        "ccnet-server",
-        "-F", ctl->central_config_dir,
-        "-c", ctl->config_dir,
-        "-f", logfile,
-        "-d",
-        "-P", ctl->pidfile[PID_CCNET],
-        NULL};
-
-    int pid = spawn_process (argv);
-    if (pid <= 0) {
-        seaf_warning ("Failed to spawn ccnet-server\n");
-        return -1;
-    }
-
-    return 0;
-}
-
-static int
 start_seaf_server ()
 {
     if (!ctl->config_dir || !ctl->seafile_dir)
@@ -438,11 +406,6 @@ check_process (void *data)
         start_seaf_server();
     }
 
-    if (need_restart(PID_CCNET)) {
-        seaf_message ("ccnet-server need restart...\n");
-        start_ccnet_server();
-    }
-
     if (ctl->seafdav_config.enabled) {
         if (need_restart(PID_SEAFDAV)) {
             seaf_message ("seafdav need restart...\n");
@@ -472,7 +435,6 @@ stop_services ()
 {
     seaf_message ("shutting down all services ...\n");
 
-    kill_by_force(PID_CCNET);
     kill_by_force(PID_SERVER);
     kill_by_force(PID_SEAFDAV);
     if (ctl->has_seafevents)
@@ -490,7 +452,6 @@ init_pidfile_path (SeafileController *ctl)
         }
     }
 
-    ctl->pidfile[PID_CCNET] = g_build_filename (pid_dir, "ccnet.pid", NULL);
     ctl->pidfile[PID_SERVER] = g_build_filename (pid_dir, "seaf-server.pid", NULL);
     ctl->pidfile[PID_SEAFDAV] = g_build_filename (pid_dir, "seafdav.pid", NULL);
     ctl->pidfile[PID_SEAFEVENTS] = g_build_filename (pid_dir, "seafevents.pid", NULL);
@@ -556,11 +517,6 @@ seaf_controller_init (SeafileController *ctl,
 static int
 seaf_controller_start ()
 {
-    if (start_ccnet_server () < 0) {
-        seaf_warning ("Failed to start ccnet server\n");
-        return -1;
-    }
-
     if (start_seaf_server() < 0) {
         seaf_warning ("Failed to start seaf server\n");
         return -1;
@@ -663,21 +619,23 @@ test_config (const char *central_config_dir,
     char *child_stdout = NULL;
     char *child_stderr = NULL;
 
-    snprintf(buf,
-             sizeof(buf),
-             "ccnet-server -F \"%s\" -c \"%s\" -t",
-             central_config_dir,
-             ccnet_dir);
+    snprintf (buf,
+          sizeof(buf),
+          "seaf-server -F \"%s\" -c \"%s\" -d \"%s\" -L \"%s\" -t -f",
+          central_config_dir,
+          ccnet_dir,
+          seafile_dir,
+          topdir);
 
     g_spawn_command_line_sync (buf,
-                               &child_stdout, /* stdout */
-                               &child_stderr, /* stderror */
+                               &child_stdout,
+                               &child_stderr,
                                &retcode,
                                &error);
 
     if (error != NULL) {
         fprintf (stderr,
-                 "failed to run \"ccnet-server -t\": %s\n",
+                 "failed to run \"seaf-server -t\": %s\n",
                  error->message);
         exit (1);
     }
@@ -692,7 +650,7 @@ test_config (const char *central_config_dir,
 
     if (retcode != 0) {
         fprintf (stderr,
-                 "failed to run \"ccnet-server -t\"\n");
+                 "failed to run \"seaf-server -t\" [%d]\n", retcode);
         exit (1);
     }
 
