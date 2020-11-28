@@ -603,7 +603,8 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                                       const char *email,
                                       int ret_corrupted,
                                       int start,
-                                      int limit);
+                                      int limit,
+                                      gboolean *db_err);
 GList *
 seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name);
 
@@ -690,7 +691,7 @@ seaf_repo_manager_is_inner_pub_repo (SeafRepoManager *mgr,
                                      const char *repo_id);
 
 GList *
-seaf_repo_manager_list_inner_pub_repos (SeafRepoManager *mgr);
+seaf_repo_manager_list_inner_pub_repos (SeafRepoManager *mgr, gboolean *db_err);
 
 gint64
 seaf_repo_manager_count_inner_pub_repos (SeafRepoManager *mgr);

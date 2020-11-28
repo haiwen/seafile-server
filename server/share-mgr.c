@@ -293,7 +293,8 @@ seaf_fill_repo_commit_if_not_in_db (GList **repos)
 
 GList*
 seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
-                                     const char *type, int start, int limit)
+                                     const char *type, int start, int limit,
+                                     gboolean *db_err)
 {
     GList *ret = NULL, *p;
     char *sql;
@@ -341,6 +342,8 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             for (p = ret; p; p = p->next)
                 g_object_unref (p->data);
             g_list_free (ret);
+            if (db_err)
+                *db_err = TRUE;
             return NULL;
         }
     }
@@ -390,6 +393,8 @@ seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
             for (p = ret; p; p = p->next)
                 g_object_unref (p->data);
             g_list_free (ret);
+            if (db_err)
+                *db_err = TRUE;
             return NULL;
         }
     }

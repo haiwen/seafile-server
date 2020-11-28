@@ -2255,7 +2255,8 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                                       const char *email,
                                       int ret_corrupted,
                                       int start,
-                                      int limit)
+                                      int limit,
+                                      gboolean *db_err)
 {
     GList *repo_list = NULL, *ptr;
     GList *ret = NULL;
@@ -2285,8 +2286,11 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
 
         if (seaf_db_statement_foreach_row (mgr->seaf->db, sql, 
                                            collect_repos_fill_size_commit, &repo_list,
-                                           1, "string", email) < 0)
+                                           1, "string", email) < 0) {
+            if (db_err)
+                *db_err = TRUE;
             return NULL;
+        }
     } else {
         if (db_type != SEAF_DB_TYPE_PGSQL)
             sql = "SELECT o.repo_id, s.size, b.commit_id, i.name, i.update_time, "
@@ -2315,6 +2319,8 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                                            3, "string", email,
                                            "int", limit,
                                            "int", start) < 0) {
+            if (db_err)
+                *db_err = TRUE;
             return NULL;
         }
     }
@@ -3469,7 +3475,7 @@ collect_public_repos (SeafDBRow *row, void *data)
 }
 
 GList *
-seaf_repo_manager_list_inner_pub_repos (SeafRepoManager *mgr)
+seaf_repo_manager_list_inner_pub_repos (SeafRepoManager *mgr, gboolean *db_err)
 {
     GList *ret = NULL, *p;
     char *sql;
@@ -3491,6 +3497,8 @@ seaf_repo_manager_list_inner_pub_repos (SeafRepoManager *mgr)
         for (p = ret; p != NULL; p = p->next)
             g_object_unref (p->data);
         g_list_free (ret);
+        if (db_err)
+            *db_err = TRUE;
         return NULL;
     }
 
