@@ -39,7 +39,8 @@ seaf_share_manager_set_permission (SeafShareManager *mgr, const char *repo_id,
 
 GList*
 seaf_share_manager_list_share_repos (SeafShareManager *mgr, const char *email,
-                                     const char *type, int start, int limit);
+                                     const char *type, int start, int limit,
+                                     gboolean *db_err);
 
 GList *
 seaf_share_manager_list_shared_to (SeafShareManager *mgr,

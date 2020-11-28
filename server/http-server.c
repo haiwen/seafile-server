@@ -2204,13 +2204,17 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     json_t *obj;
     json_t *repo_array = json_array ();
 
+    gboolean db_err = FALSE;
     GHashTable *obtained_repos = NULL;
     char *repo_id_tmp = NULL;
     obtained_repos = g_hash_table_new_full (g_str_hash, g_str_equal,
                                             g_free,
                                             NULL);
     //get personal repo list
-    repos = seaf_repo_manager_get_repos_by_owner (seaf->repo_mgr, user, 0, -1, -1);
+    repos = seaf_repo_manager_get_repos_by_owner (seaf->repo_mgr, user, 0, -1, -1, &db_err);
+    if (db_err)
+        goto out;
+
     for (iter = repos; iter; iter = iter->next) {
         repo = iter->data;
 
@@ -2238,7 +2242,10 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     GError *error = NULL;
     SeafileRepo *srepo = NULL;
     //get shared repo list
-    repos = seaf_share_manager_list_share_repos (seaf->share_mgr, user, "to_email", -1, -1);
+    repos = seaf_share_manager_list_share_repos (seaf->share_mgr, user, "to_email", -1, -1, &db_err);
+    if (db_err)
+        goto out;
+
     for (iter = repos; iter; iter = iter->next) {
         srepo = iter->data;
         obj = fill_obj_from_seafilerepo (srepo, obtained_repos);
@@ -2256,6 +2263,11 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     //get group repo list
     GHashTable *group_repos = NULL;
     repos = seaf_get_group_repos_by_user (seaf->repo_mgr, user, org_id, &error);
+    if (error) {
+        g_clear_error (&error);
+        goto out;
+    }
+
     if (repos) {
         group_repos = filter_group_repos (repos);
         group_repos_to_json (repo_array, group_repos, obtained_repos);
@@ -2264,7 +2276,10 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     }
 
     //get inner public repo list
-    repos = seaf_repo_manager_list_inner_pub_repos (seaf->repo_mgr);
+    repos = seaf_repo_manager_list_inner_pub_repos (seaf->repo_mgr, &db_err);
+    if (db_err)
+        goto out;
+
     for (iter = repos; iter; iter = iter->next) {
         srepo = iter->data;
         obj = fill_obj_from_seafilerepo (srepo, obtained_repos);
@@ -2280,7 +2295,15 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     }
     g_list_free (repos);
 
+out:
     g_hash_table_destroy (obtained_repos);
+
+    if (db_err) {
+        json_decref (repo_array);
+        seaf_warning ("DB error when get accessible repo list.\n");
+        evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        return;
+    }
 
     char *json_str = json_dumps (repo_array, JSON_COMPACT);
     evbuffer_add (req->buffer_out, json_str, strlen(json_str));
