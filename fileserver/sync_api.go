@@ -202,10 +202,15 @@ func getBlockMapCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		blockSizes = append(blockSizes, blockSize)
 	}
 
-	data, err := json.Marshal(blockSizes)
-	if err != nil {
-		err := fmt.Errorf("Failed to marshal json: %v", err)
-		return &appError{err, "", http.StatusInternalServerError}
+	var data []byte
+	if blockSizes != nil {
+		data, err = json.Marshal(blockSizes)
+		if err != nil {
+			err := fmt.Errorf("Failed to marshal json: %v", err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+	} else {
+		data = []byte{'[', ']'}
 	}
 
 	rsp.Header().Set("Content-Length", strconv.Itoa(len(data)))
@@ -295,10 +300,15 @@ func getAccessibleRepoListCB(rsp http.ResponseWriter, r *http.Request) *appError
 		repoObjects = append(repoObjects, sRepo)
 	}
 
-	data, err := json.Marshal(repoObjects)
-	if err != nil {
-		err := fmt.Errorf("Failed to marshal json: %v", err)
-		return &appError{err, "", http.StatusInternalServerError}
+	var data []byte
+	if repoObjects != nil {
+		data, err = json.Marshal(repoObjects)
+		if err != nil {
+			err := fmt.Errorf("Failed to marshal json: %v", err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+	} else {
+		data = []byte{'[', ']'}
 	}
 	rsp.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	rsp.WriteHeader(http.StatusOK)
@@ -424,10 +434,15 @@ func postCheckExistCB(rsp http.ResponseWriter, r *http.Request, existType checkE
 		}
 	}
 
-	data, err := json.Marshal(neededObjs)
-	if err != nil {
-		err := fmt.Errorf("Failed to marshal json: %v", err)
-		return &appError{err, "", http.StatusInternalServerError}
+	var data []byte
+	if neededObjs != nil {
+		data, err = json.Marshal(neededObjs)
+		if err != nil {
+			err := fmt.Errorf("Failed to marshal json: %v", err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+	} else {
+		data = []byte{'[', ']'}
 	}
 	rsp.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	rsp.WriteHeader(http.StatusOK)
@@ -541,6 +556,11 @@ func headCommitsMultiCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
+func getCheckQuotaCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	rsp.WriteHeader(http.StatusOK)
+	return nil
+}
+
 func isValidUUID(u string) bool {
 	_, err := uuid.Parse(u)
 	return err == nil
@@ -556,7 +576,7 @@ func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	clientHead := queries.Get("client-head")
-	if !isObjectIDValid(clientHead) {
+	if clientHead != "" && !isObjectIDValid(clientHead) {
 		msg := "Invalid client-head parameter."
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
@@ -583,9 +603,15 @@ func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	objList, err := json.Marshal(ret)
-	if err != nil {
-		return &appError{err, "", http.StatusInternalServerError}
+	var objList []byte
+	if ret != nil {
+		objList, err = json.Marshal(ret)
+		if err != nil {
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+	} else {
+		// when get obj list is nil, return []
+		objList = []byte{'[', ']'}
 	}
 
 	rsp.Header().Set("Content-Length", strconv.Itoa(len(objList)))
@@ -927,13 +953,15 @@ func checkPermission(repoID, user, op string, skipCache bool) *appError {
 		return nil
 	}
 
-	status, err := repomgr.GetRepoStatus(repoID)
-	if err != nil {
-		msg := fmt.Sprintf("Failed to get repo status by repo id %s: %v", repoID, err)
-		return &appError{nil, msg, http.StatusForbidden}
-	}
-	if status != repomgr.RepoStatusNormal && status != -1 {
-		return &appError{nil, "", http.StatusForbidden}
+	if op == "upload" {
+		status, err := repomgr.GetRepoStatus(repoID)
+		if err != nil {
+			msg := fmt.Sprintf("Failed to get repo status by repo id %s: %v", repoID, err)
+			return &appError{nil, msg, http.StatusForbidden}
+		}
+		if status != repomgr.RepoStatusNormal && status != -1 {
+			return &appError{nil, "", http.StatusForbidden}
+		}
 	}
 
 	perm := share.CheckPerm(repoID, user)

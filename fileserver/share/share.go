@@ -113,7 +113,7 @@ func GetGroupReposByUser(user string, orgID int) ([]*SharedRepo, error) {
 }
 
 func checkVirtualRepoPerm(repoID, originRepoID, user, vPath string) string {
-	owner, err := getRepoOwner(repoID)
+	owner, err := getRepoOwner(originRepoID)
 	if err != nil {
 		log.Printf("Failed to get repo owner: %v", err)
 	}
@@ -126,7 +126,7 @@ func checkVirtualRepoPerm(repoID, originRepoID, user, vPath string) string {
 	if perm != "" {
 		return perm
 	}
-	perm = checkRepoSharePerm(repoID, user)
+	perm = checkRepoSharePerm(originRepoID, user)
 	return perm
 }
 
