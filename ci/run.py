@@ -152,7 +152,7 @@ class CcnetServer(Project):
         super(CcnetServer, self).__init__('ccnet-server')
 
     def branch(self):
-        return 'master'
+        return '7.1'
 
 
 class SeafileServer(Project):

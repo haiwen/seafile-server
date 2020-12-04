@@ -1191,7 +1191,7 @@ seafile_list_owned_repos (const char *email, int ret_corrupted,
     GList *repos, *ptr;
 
     repos = seaf_repo_manager_get_repos_by_owner (seaf->repo_mgr, email, ret_corrupted,
-                                                  start, limit);
+                                                  start, limit, NULL);
     ret = convert_repo_list (repos);
 
     /* for (ptr = ret; ptr; ptr = ptr->next) { */
@@ -1491,7 +1491,8 @@ seafile_list_share_repos (const char *email, const char *type,
 
     return seaf_share_manager_list_share_repos (seaf->share_mgr,
                                                 email, type,
-                                                start, limit);
+                                                start, limit,
+                                                NULL);
 }
 
 GList *
@@ -2140,7 +2141,7 @@ seafile_unset_inner_pub_repo (const char *repo_id, GError **error)
 GList *
 seafile_list_inner_pub_repos (GError **error)
 {
-    return seaf_repo_manager_list_inner_pub_repos (seaf->repo_mgr);
+    return seaf_repo_manager_list_inner_pub_repos (seaf->repo_mgr, NULL);
 }
 
 gint64
