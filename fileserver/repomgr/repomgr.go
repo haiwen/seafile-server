@@ -19,6 +19,8 @@ const (
 	NRepoStatus
 )
 
+const minErrorTimeGap = 300
+
 // Repo contains information about a repo.
 type Repo struct {
 	ID                   string
@@ -640,4 +642,29 @@ func GetRepoOwner(repoID string) (string, error) {
 	}
 
 	return owner, nil
+}
+
+// AddRepoSyncError add repo sync error to db
+func AddRepoSyncError(token, errorCon string) error {
+	sqlStr := "SELECT error_time FROM RepoSyncError WHERE token=?"
+	var prevTs int64
+	curTs := time.Now().Unix()
+	row := seafileDB.QueryRow(sqlStr, token)
+	if err := row.Scan(&prevTs); err != nil {
+		return err
+	}
+	if prevTs == 0 {
+		sqlStr := "INSERT INTO RepoSyncError (token, error_time, error_con) VALUES (?,?,?)"
+		if _, err := seafileDB.Exec(sqlStr, token, curTs, errorCon); err != nil {
+			return err
+		}
+	} else if prevTs+minErrorTimeGap >= curTs {
+		return nil
+	} else {
+		sqlStr := "UPDATE RepoSyncError SET error_time=?, error_con=? WHERE token=?"
+		if _, err := seafileDB.Exec(sqlStr, curTs, errorCon, token); err != nil {
+			return err
+		}
+	}
+	return nil
 }

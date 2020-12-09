@@ -1220,3 +1220,11 @@ func isObjectIDValid(objID string) bool {
 	}
 	return true
 }
+
+func recordSyncError(r *http.Request, errorCon string) error {
+	token := r.Header.Get("Seafile-Repo-Token")
+	if token == "" {
+		return nil
+	}
+	return repomgr.AddRepoSyncError(token, errorCon)
+}
