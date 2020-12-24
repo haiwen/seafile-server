@@ -286,7 +286,7 @@ func main() {
 	}
 	_, err := os.Stat(centralDir)
 	if os.IsNotExist(err) {
-		log.Fatalf("ccnet config directory %s doesn't exist: %v.", centralDir, err)
+		log.Fatalf("central config directory %s doesn't exist: %v.", centralDir, err)
 	}
 	loadCcnetDB()
 
