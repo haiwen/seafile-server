@@ -96,24 +96,26 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
             ret = -1;
         }
 
-        // check block integrity, if not remove it
-        ok = seaf_block_manager_verify_block (seaf->block_mgr,
-                                              store_id, version,
-                                              block_id, io_error);
-        if (!ok) {
-            if (*io_error) {
-                ret = -1;
-                break;
-            } else {
-                if (fsck_data->repair) {
-                    seaf_message ("Repo[%.8s] block %s is damaged, remove it.\n", repo->id, block_id);
-                    seaf_block_manager_remove_block (seaf->block_mgr,
-                                                     store_id, version,
-                                                     block_id);
+        if (ret == 0) {
+            // check block integrity, if not remove it
+            ok = seaf_block_manager_verify_block (seaf->block_mgr,
+                                                  store_id, version,
+                                                  block_id, io_error);
+            if (!ok) {
+                if (*io_error) {
+                    ret = -1;
+                    break;
                 } else {
-                    seaf_message ("Repo[%.8s] block %s is damaged.\n", repo->id, block_id);
+                    if (fsck_data->repair) {
+                        seaf_message ("Repo[%.8s] block %s is damaged, remove it.\n", repo->id, block_id);
+                        seaf_block_manager_remove_block (seaf->block_mgr,
+                                                         store_id, version,
+                                                         block_id);
+                    } else {
+                        seaf_message ("Repo[%.8s] block %s is damaged.\n", repo->id, block_id);
+                    }
+                    ret = -1;
                 }
-                ret = -1;
             }
         }
 
