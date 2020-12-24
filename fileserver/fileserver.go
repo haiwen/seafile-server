@@ -24,7 +24,6 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-var ccnetDir string
 var dataDir, absDataDir string
 var centralDir string
 var logFile, absLogFile string
@@ -58,7 +57,6 @@ type fileServerOptions struct {
 var options fileServerOptions
 
 func init() {
-	flag.StringVar(&ccnetDir, "c", "", "ccnet config directory")
 	flag.StringVar(&centralDir, "F", "", "central config directory")
 	flag.StringVar(&dataDir, "d", "", "seafile data directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
@@ -66,7 +64,7 @@ func init() {
 }
 
 func loadCcnetDB() {
-	ccnetConfPath := filepath.Join(ccnetDir, "ccnet.conf")
+	ccnetConfPath := filepath.Join(centralDir, "ccnet.conf")
 	config, err := ini.Load(ccnetConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load ccnet.conf: %v", err)
@@ -123,7 +121,7 @@ func loadCcnetDB() {
 			log.Fatalf("Failed to open database: %v", err)
 		}
 	} else if strings.EqualFold(dbEngine, "sqlite") {
-		ccnetDBPath := filepath.Join(ccnetDir, "groupmgr.db")
+		ccnetDBPath := filepath.Join(centralDir, "groupmgr.db")
 		ccnetDB, err = sql.Open("sqlite3", ccnetDBPath)
 		if err != nil {
 			log.Fatalf("Failed to open database %s: %v", ccnetDBPath, err)
@@ -135,11 +133,8 @@ func loadCcnetDB() {
 
 func loadSeafileDB() {
 	var seafileConfPath string
-	if centralDir != "" {
-		seafileConfPath = filepath.Join(centralDir, "seafile.conf")
-	} else {
-		seafileConfPath = filepath.Join(absDataDir, "seafile.conf")
-	}
+	seafileConfPath = filepath.Join(centralDir, "seafile.conf")
+
 	config, err := ini.Load(seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
@@ -210,11 +205,8 @@ func loadSeafileDB() {
 
 func loadFileServerOptions() {
 	var seafileConfPath string
-	if centralDir != "" {
-		seafileConfPath = filepath.Join(centralDir, "seafile.conf")
-	} else {
-		seafileConfPath = filepath.Join(absDataDir, "seafile.conf")
-	}
+	seafileConfPath = filepath.Join(centralDir, "seafile.conf")
+
 	config, err := ini.Load(seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
@@ -263,7 +255,7 @@ func loadFileServerOptions() {
 		}
 	}
 
-	ccnetConfPath := filepath.Join(ccnetDir, "ccnet.conf")
+	ccnetConfPath := filepath.Join(centralDir, "ccnet.conf")
 	config, err = ini.Load(ccnetConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load ccnet.conf: %v", err)
@@ -289,12 +281,12 @@ func initDefaultOptions() {
 func main() {
 	flag.Parse()
 
-	if ccnetDir == "" {
-		log.Fatal("ccnet config directory must be specified.")
+	if centralDir == "" {
+		log.Fatal("central config directory must be specified.")
 	}
-	_, err := os.Stat(ccnetDir)
+	_, err := os.Stat(centralDir)
 	if os.IsNotExist(err) {
-		log.Fatalf("ccnet config directory %s doesn't exist: %v.", ccnetDir, err)
+		log.Fatalf("ccnet config directory %s doesn't exist: %v.", centralDir, err)
 	}
 	loadCcnetDB()
 
@@ -336,11 +328,11 @@ func main() {
 
 	repomgr.Init(seafileDB)
 
-	fsmgr.Init(ccnetDir, dataDir)
+	fsmgr.Init(centralDir, dataDir)
 
-	blockmgr.Init(ccnetDir, dataDir)
+	blockmgr.Init(centralDir, dataDir)
 
-	commitmgr.Init(ccnetDir, dataDir)
+	commitmgr.Init(centralDir, dataDir)
 
 	share.Init(ccnetDB, seafileDB, groupTableName, cloudMode)
 

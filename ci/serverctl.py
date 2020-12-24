@@ -234,8 +234,6 @@ connection_charset = utf8
             "./fileserver",
             "-F",
             self.central_conf_dir,
-            "-c",
-            self.central_conf_dir,
             "-d",
             self.seafile_conf_dir,
             "-l",
