@@ -187,7 +187,7 @@ func getBlockMapCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	seafile, err := fsmgr.GetSeafile(repoID, fileID)
+	seafile, err := fsmgr.GetSeafile(storeID, fileID)
 	if err != nil {
 		msg := fmt.Sprintf("Failed to get seafile object by file id %s: %v", fileID, err)
 		return &appError{nil, msg, http.StatusNotFound}
@@ -195,7 +195,7 @@ func getBlockMapCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	var blockSizes []int64
 	for _, blockID := range seafile.BlkIDs {
-		blockSize, err := blockmgr.Stat(repoID, blockID)
+		blockSize, err := blockmgr.Stat(storeID, blockID)
 		if err != nil {
 			err := fmt.Errorf("Failed to find block %s/%s", storeID, blockID)
 			return &appError{err, "", http.StatusInternalServerError}
@@ -728,7 +728,7 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	blockSize, err := blockmgr.Stat(repoID, blockID)
+	blockSize, err := blockmgr.Stat(storeID, blockID)
 	if err != nil {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
@@ -740,11 +740,11 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	blockLen := fmt.Sprintf("%d", blockSize)
 	rsp.Header().Set("Content-Length", blockLen)
 	rsp.WriteHeader(http.StatusOK)
-	if err := blockmgr.Read(repoID, blockID, rsp); err != nil {
+	if err := blockmgr.Read(storeID, blockID, rsp); err != nil {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	sendStatisticMsg(repoID, user, "sync-file-download", uint64(blockSize))
+	sendStatisticMsg(storeID, user, "sync-file-download", uint64(blockSize))
 	return nil
 }
 
@@ -766,10 +766,12 @@ func getRepoStoreID(repoID string) (string, error) {
 	}
 
 	var vInfo virtualRepoInfo
+	var rID, originRepoID sql.NullString
 	sqlStr := "SELECT repo_id, origin_repo FROM VirtualRepo where repo_id = ?"
 	row := seafileDB.QueryRow(sqlStr, repoID)
-	if err := row.Scan(&vInfo); err != nil {
+	if err := row.Scan(&rID, &originRepoID); err != nil {
 		if err == sql.ErrNoRows {
+			vInfo.storeID = repoID
 			vInfo.expireTime = time.Now().Unix() + virtualRepoExpireTime
 			virtualRepoInfoCache.Store(repoID, &vInfo)
 			return repoID, nil
@@ -777,8 +779,14 @@ func getRepoStoreID(repoID string) (string, error) {
 		return "", err
 	}
 
+	if !rID.Valid || !originRepoID.Valid {
+		return "", nil
+	}
+
+	vInfo.storeID = originRepoID.String
+	vInfo.expireTime = time.Now().Unix() + virtualRepoExpireTime
 	virtualRepoInfoCache.Store(repoID, &vInfo)
-	return vInfo.storeID, nil
+	return originRepoID.String, nil
 }
 
 func sendStatisticMsg(repoID, user, operation string, bytes uint64) {
