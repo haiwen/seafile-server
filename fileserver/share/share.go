@@ -113,7 +113,7 @@ func GetGroupReposByUser(user string, orgID int) ([]*SharedRepo, error) {
 }
 
 func checkVirtualRepoPerm(repoID, originRepoID, user, vPath string) string {
-	owner, err := getRepoOwner(originRepoID)
+	owner, err := repomgr.GetRepoOwner(originRepoID)
 	if err != nil {
 		log.Printf("Failed to get repo owner: %v", err)
 	}
@@ -308,7 +308,7 @@ func checkInnerPubRepoPerm(repoID string) (string, error) {
 }
 
 func checkRepoSharePerm(repoID string, userName string) string {
-	owner, err := getRepoOwner(repoID)
+	owner, err := repomgr.GetRepoOwner(repoID)
 	if err != nil {
 		log.Printf("Failed to get repo owner: %v", err)
 	}
@@ -339,20 +339,6 @@ func checkRepoSharePerm(repoID string, userName string) string {
 		return perm
 	}
 	return ""
-}
-
-func getRepoOwner(repoID string) (string, error) {
-	sqlStr := "SELECT owner_id FROM RepoOwner WHERE repo_id=?"
-	row := seafileDB.QueryRow(sqlStr, repoID)
-
-	var owner string
-	if err := row.Scan(&owner); err != nil {
-		if err != sql.ErrNoRows {
-			err := fmt.Errorf("Failed to get repo owner: %v", err)
-			return "", err
-		}
-	}
-	return strings.ToLower(owner), nil
 }
 
 func getSharedDirsToUser(originRepoID string, toEmail string) (map[string]string, error) {
