@@ -51,7 +51,7 @@ func checkQuota(repoID string, delta int64) (int, error) {
 	}
 	usage, err := getUserUsage(user)
 	if err != nil || usage < 0 {
-		err := fmt.Errorf("failed to get user usage")
+		err := fmt.Errorf("failed to get user usage: %v", err)
 		return -1, err
 	}
 	usage += delta
@@ -151,7 +151,7 @@ func parseQuota(quotaStr string) int64 {
 }
 
 func getUserUsage(user string) (int64, error) {
-	var usage int64
+	var usage sql.NullInt64
 	sqlStr := "SELECT SUM(size) FROM " +
 		"RepoOwner o LEFT JOIN VirtualRepo v ON o.repo_id=v.repo_id, " +
 		"RepoSize WHERE " +
@@ -165,5 +165,9 @@ func getUserUsage(user string) (int64, error) {
 		}
 	}
 
-	return usage, nil
+	if usage.Valid {
+		return usage.Int64, nil
+	}
+
+	return 0, nil
 }

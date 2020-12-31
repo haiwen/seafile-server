@@ -198,10 +198,11 @@ func getGroupsByUser(userName string, returnAncestors bool) ([]group, error) {
 		sqlStr = fmt.Sprintf("SELECT g.group_id, group_name, creator_name, timestamp, parent_group_id FROM "+
 			"`%s` g WHERE g.group_id IN (%s) ORDER BY g.group_id DESC",
 			groupTableName, paths)
-		ret, err = getUserGroups(sqlStr)
+		groups, err := getUserGroups(sqlStr)
 		if err != nil {
 			return nil, err
 		}
+		ret = append(ret, groups...)
 	}
 	return ret, nil
 }
@@ -433,13 +434,11 @@ func checkPermOnParentRepo(originRepoID, user, vPath string) string {
 		log.Printf("Failed to get all shared folder perms in parent repo %.8s for user %s", originRepoID, user)
 		return ""
 	}
-	if len(userPerms) == 0 {
-		return ""
-	}
-
-	perm = getDirPerm(userPerms, vPath)
-	if perm != "" {
-		return perm
+	if len(userPerms) > 0 {
+		perm = getDirPerm(userPerms, vPath)
+		if perm != "" {
+			return perm
+		}
 	}
 
 	groups, err := getGroupsByUser(user, false)

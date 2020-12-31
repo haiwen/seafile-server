@@ -173,7 +173,7 @@ func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions
 		}
 	}
 
-	newBaseDir := baseDir + "/" + dirName
+	newBaseDir := baseDir + dirName + "/"
 	return diffTreesRecursive(subDirs, newBaseDir, opt)
 }
 
