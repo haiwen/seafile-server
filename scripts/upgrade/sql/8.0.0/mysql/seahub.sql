@@ -37,8 +37,3 @@ CREATE TABLE IF NOT EXISTS `ocm_share_received` (
   KEY `ocm_share_received_repo_id_9e77a1b9` (`repo_id`),
   KEY `ocm_share_received_provider_id_60c873e0` (`provider_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET=utf8;
-
-ALTER TABLE `VirusFile` ADD COLUMN IF NOT EXISTS `has_ignored` TINYINT(1) NOT NULL DEFAULT 0;
-ALTER TABLE `VirusFile` CHANGE `has_handle` `has_deleted` TINYINT(1);
-ALTER TABLE `VirusFile` ADD INDEX IF NOT EXISTS `has_deleted` (`has_deleted`);
-ALTER TABLE `VirusFile` ADD INDEX IF NOT EXISTS `has_ignored` (`has_ignored`);
