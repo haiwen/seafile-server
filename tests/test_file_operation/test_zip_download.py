@@ -43,15 +43,8 @@ def test_zip_download():
     obj_id_json_str = json.dumps(obj_id)
     token = api.get_fileserver_access_token(t_repo_id, obj_id_json_str,
                                             'download-dir', USER)
-    while True:
-        time.sleep(0.5)
-        progress_json_str = api.query_zip_progress(token)
-        progress = json.loads(progress_json_str)
-        if progress['zipped'] != progress['total']:
-            continue
-        assert progress['zipped'] == 2 and progress['total'] == 2
-        break
 
+    time.sleep(1)
     download_url = base_url + 'zip/' + token
     response = requests.get(download_url)
     assert response.status_code == 200
@@ -88,15 +81,7 @@ def test_zip_download():
     obj_id_json_str = json.dumps(obj_id)
     token = api.get_fileserver_access_token(t_repo_id, obj_id_json_str,
                                             'download-dir', USER)
-    while True:
-        time.sleep(0.5)
-        progress_json_str = api.query_zip_progress(token)
-        progress = json.loads(progress_json_str)
-        if progress['zipped'] != progress['total']:
-            continue
-        assert progress['zipped'] == 0 and progress['total'] == 0
-        break
-
+    time.sleep(1)
     download_url = base_url + 'zip/' + token
     response = requests.get(download_url)
     assert response.status_code == 200
@@ -121,15 +106,8 @@ def test_zip_download():
     obj_id_json_str = json.dumps(obj_id)
     token = api.get_fileserver_access_token(t_repo_id, obj_id_json_str,
                                             'download-multi', USER)
-    while True:
-        time.sleep(0.5)
-        progress_json_str = api.query_zip_progress(token)
-        progress = json.loads(progress_json_str)
-        if progress['zipped'] != progress['total']:
-            continue
-        assert progress['zipped'] == 2 and progress['total'] == 2
-        break
 
+    time.sleep(1)
     download_url = base_url + 'zip/' + token
     response = requests.get(download_url)
     assert response.status_code == 200

@@ -111,6 +111,10 @@ seafile_session_new(const char *central_config_dir,
                                                   "general", "cloud_mode",
                                                   NULL);
 
+    session->go_fileserver = g_key_file_get_boolean (config,
+                                                     "fileserver", "use_go_fileserver",
+                                                     NULL);
+
     if (load_database_config (session) < 0) {
         seaf_warning ("Failed to load database config.\n");
         goto onerror;
@@ -278,9 +282,11 @@ seafile_session_start (SeafileSession *session)
         return -1;
     }
 
-    if (seaf_http_server_start (session->http_server) < 0) {
-        seaf_warning ("Failed to start http server thread.\n");
-        return -1;
+    if (!session->go_fileserver) {
+        if (seaf_http_server_start (session->http_server) < 0) {
+            seaf_warning ("Failed to start http server thread.\n");
+            return -1;
+        }
     }
 
     return 0;
