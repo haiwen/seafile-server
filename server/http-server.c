@@ -54,8 +54,8 @@
 #define PERM_EXPIRE_TIME 7200       /* 2 hours */
 #define VIRINFO_EXPIRE_TIME 7200       /* 2 hours */
 
-#define MAX_WORKERS 3
-#define TOKEN_LEN 36
+#define FS_ID_LIST_MAX_WORKERS 3
+#define FS_ID_LIST_TOKEN_LEN 36
 
 struct _HttpServer {
     evbase_t *evbase;
@@ -1667,7 +1667,7 @@ start_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     char uuid[37];
     char *new_token;
     gen_uuid_inplace (uuid);
-    new_token = g_strndup(uuid, TOKEN_LEN);
+    new_token = g_strndup(uuid, FS_ID_LIST_TOKEN_LEN);
 
     CalObjResult *result = g_new0(CalObjResult, 1);
     if (!result) {
@@ -1726,9 +1726,8 @@ query_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     }
 
     token = evhtp_kv_find (req->uri->query, "token");
-    if (!token || strlen(token)!=TOKEN_LEN) {
+    if (!token || strlen(token)!=FS_ID_LIST_TOKEN_LEN) {
         evhtp_send_reply (req, EVHTP_RES_BADREQ);
-        seaf_warning ("Invalid token.\n");
         goto out;
     }
 
@@ -1738,7 +1737,7 @@ query_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     result = g_hash_table_lookup (htp_server->fs_obj_ids, token);
     if (!result) {
         pthread_mutex_unlock (&htp_server->fs_obj_ids_lock);
-        evhtp_send_reply (req, EVHTP_RES_BADREQ);
+        evhtp_send_reply (req, EVHTP_RES_NOTFOUND);
         goto out;
     } else {
         if (!result->done) {
@@ -1784,9 +1783,8 @@ retrieve_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     }
 
     token = evhtp_kv_find (req->uri->query, "token");
-    if (!token || strlen(token)!=TOKEN_LEN) {
+    if (!token || strlen(token)!=FS_ID_LIST_TOKEN_LEN) {
         evhtp_send_reply (req, EVHTP_RES_BADREQ);
-        seaf_warning ("Invalid token.\n");
         goto out;
     }
 
@@ -1794,16 +1792,22 @@ retrieve_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     result = g_hash_table_lookup (htp_server->fs_obj_ids, token);
     if (!result) {
         pthread_mutex_unlock (&htp_server->fs_obj_ids_lock);
-        evhtp_send_reply (req, EVHTP_RES_BADREQ);
-        seaf_warning ("No calculate result found by token: %s.\n", token);
+        evhtp_send_reply (req, EVHTP_RES_NOTFOUND);
 
         return;
     }
     if (!result->done) {
         pthread_mutex_unlock (&htp_server->fs_obj_ids_lock);
-        evhtp_send_reply (req, EVHTP_RES_BADREQ);
-        seaf_warning ("The cauculation task is not completed.\n");
 
+        char *error = "The cauculation task is not completed.\n";
+        json_t *obj = json_object;
+        json_object_set_new (obj, "reason", json_string (error));
+        char *json_str = json_dumps (obj, JSON_COMPACT);
+        evbuffer_add (req->buffer_out, json_str, strlen(json_str));
+        g_free (json_str);
+        json_decref (obj);
+
+        evhtp_send_reply (req, EVHTP_RES_BADREQ);
         return;
     }
     list = result->list;
@@ -2845,7 +2849,7 @@ seaf_http_server_new (struct _SeafileSession *session)
     server->http_temp_dir = g_build_filename (session->seaf_dir, "httptemp", NULL);
 
     priv->compute_fs_obj_id_pool = g_thread_pool_new (compute_fs_obj_id, NULL,
-                                                      MAX_WORKERS, FALSE, NULL);
+                                                      FS_ID_LIST_MAX_WORKERS, FALSE, NULL);
 
     priv->fs_obj_ids = g_hash_table_new_full (g_str_hash, g_str_equal,
                                               g_free, free_obj_cal_result);
