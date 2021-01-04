@@ -94,6 +94,7 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
                                               block_id)) {
             seaf_warning ("Repo[%.8s] block %s:%s is missing.\n", repo->id, store_id, block_id);
             ret = -1;
+            continue;
         }
 
         // check block integrity, if not remove it
@@ -102,6 +103,9 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
                                               block_id, io_error);
         if (!ok) {
             if (*io_error) {
+                if (ret < 0) {
+                    *io_error = FALSE;
+                }
                 ret = -1;
                 break;
             } else {
