@@ -1981,18 +1981,6 @@ recv_form_field (RecvFSM *fsm, gboolean *no_line)
         }
         free (line);
     } else {
-        size_t size = evbuffer_get_length (fsm->line);
-        if (size > 0) {
-            char *buf = g_new (char, size);
-            evbuffer_remove (fsm->line, buf, size);
-            if (strstr(buf, fsm->boundary) != NULL) {
-                seaf_debug ("[upload] form field ends.\n");
-
-                g_free (fsm->input_name);
-                fsm->input_name = NULL;
-                fsm->state = RECV_HEADERS;
-            }
-        }
         *no_line = TRUE;
     }
 
@@ -2041,39 +2029,33 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
 
     line = evbuffer_readln (fsm->line, &len, EVBUFFER_EOL_CRLF_STRICT);
     if (!line) {
-        // handle boundary
-        size_t size = evbuffer_get_length (fsm->line);
-        if (size > 0) {
-            char *buf = g_new (char, size);
-            evbuffer_remove (fsm->line, buf, size);
-            if (strstr(buf, fsm->boundary) != NULL) {
-                seaf_debug ("[upload] file data ends.\n");
-                evhtp_res res = add_uploaded_file (fsm);
-                if (res != EVHTP_RES_OK) {
-                    g_free(buf);
-                    return res;
-                }
-                g_free (fsm->input_name);
-                fsm->input_name = NULL;
-                fsm->state = RECV_HEADERS;
-            } else {
-                seaf_debug ("[upload] recv file data %d bytes.\n", size);
-                if (fsm->recved_crlf) {
-                    if (writen (fsm->fd, "\r\n", 2) < 0) {
-                        seaf_warning ("[upload] Failed to write temp file: %s.\n",
-                                   strerror(errno));
-                        return EVHTP_RES_SERVERR;
-                    }
-                }
-                if (writen (fsm->fd, buf, size) < 0) {
+        /* If we haven't read an entire line, but the line
+         * buffer gets too long, flush the content to file.
+         * It should be safe to assume the boundary line is
+         * no longer than 10240 bytes.
+         */
+        if (evbuffer_get_length (fsm->line) >= MAX_CONTENT_LINE) {
+            seaf_debug ("[upload] recv file data %d bytes.\n",
+                     evbuffer_get_length(fsm->line));
+            if (fsm->recved_crlf) {
+                if (writen (fsm->fd, "\r\n", 2) < 0) {
                     seaf_warning ("[upload] Failed to write temp file: %s.\n",
                                strerror(errno));
-                    g_free (buf);
                     return EVHTP_RES_SERVERR;
                 }
-                fsm->recved_crlf = FALSE;
             }
-            g_free(buf);
+
+            size_t size = evbuffer_get_length (fsm->line);
+            char *buf = g_new (char, size);
+            evbuffer_remove (fsm->line, buf, size);
+            if (writen (fsm->fd, buf, size) < 0) {
+                seaf_warning ("[upload] Failed to write temp file: %s.\n",
+                           strerror(errno));
+                g_free (buf);
+                return EVHTP_RES_SERVERR;
+            }
+            g_free (buf);
+            fsm->recved_crlf = FALSE;
         }
         *no_line = TRUE;
     } else if (strstr (line, fsm->boundary) != NULL) {
