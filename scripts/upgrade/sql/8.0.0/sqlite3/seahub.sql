@@ -10,3 +10,5 @@ CREATE INDEX IF NOT EXISTS "ocm_share_received_to_user_0921d09a" ON "ocm_share_r
 CREATE INDEX IF NOT EXISTS "ocm_share_received_from_server_url_10527b80" ON "ocm_share_received" ("from_server_url");
 CREATE INDEX IF NOT EXISTS "ocm_share_received_repo_id_9e77a1b9" ON "ocm_share_received" ("repo_id");
 CREATE INDEX IF NOT EXISTS "ocm_share_received_provider_id_60c873e0" ON "ocm_share_received" ("provider_id");
+
+CREATE TABLE IF NOT EXISTS "repo_auto_delete" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "repo_id" varchar(36) NOT NULL UNIQUE, "days" integer NOT NULL);
