@@ -1798,13 +1798,7 @@ retrieve_fs_obj_id_cb (evhtp_request_t *req, void *arg)
         pthread_mutex_unlock (&htp_server->fs_obj_ids_lock);
 
         char *error = "The cauculation task is not completed.\n";
-        json_t *obj = json_object;
-        json_object_set_new (obj, "reason", json_string (error));
-        char *json_str = json_dumps (obj, JSON_COMPACT);
-        evbuffer_add (req->buffer_out, json_str, strlen(json_str));
-        g_free (json_str);
-        json_decref (obj);
-
+        evbuffer_add (req->buffer_out, error, strlen(error));
         evhtp_send_reply (req, EVHTP_RES_BADREQ);
         return;
     }
