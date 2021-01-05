@@ -1636,7 +1636,6 @@ start_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     const char *server_head = evhtp_kv_find (req->uri->query, "server-head");
     if (server_head == NULL || !is_object_id_valid (server_head)) {
         char *error = "Invalid server-head parameter.\n";
-        seaf_warning ("%s", error);
         evbuffer_add (req->buffer_out, error, strlen (error));
         evhtp_send_reply (req, EVHTP_RES_BADREQ);
         return;
@@ -1645,7 +1644,6 @@ start_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     const char *client_head = evhtp_kv_find (req->uri->query, "client-head");
     if (client_head && !is_object_id_valid (client_head)) {
         char *error = "Invalid client-head parameter.\n";
-        seaf_warning ("%s", error);
         evbuffer_add (req->buffer_out, error, strlen (error));
         evhtp_send_reply (req, EVHTP_RES_BADREQ);
         return;
