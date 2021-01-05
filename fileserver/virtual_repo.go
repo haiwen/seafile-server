@@ -23,6 +23,9 @@ func mergeVirtualRepo(repoID, excludeRepo string) {
 
 	if virtual {
 		mergeRepo(repoID)
+
+		go updateRepoSize(repoID)
+
 		return
 	}
 
@@ -34,6 +37,8 @@ func mergeVirtualRepo(repoID, excludeRepo string) {
 
 		mergeRepo(id)
 	}
+
+	go updateRepoSize(repoID)
 
 	return
 }

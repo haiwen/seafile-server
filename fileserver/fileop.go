@@ -1489,8 +1489,6 @@ func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPa
 
 	go mergeVirtualRepo(repo.ID, "")
 
-	go updateRepoSize(repo.ID)
-
 	retJSON, err := formatJSONRet(names, ids, sizes)
 	if err != nil {
 		err := fmt.Errorf("failed to format json data")
@@ -2693,7 +2691,6 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 	}
 
 	go mergeVirtualRepo(repo.ID, "")
-	go updateRepoSize(repo.ID)
 
 	return nil
 }
