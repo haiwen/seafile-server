@@ -72,6 +72,10 @@ def get_fileserver_option(key, default):
 
     return default
 
+USE_GO_FILESERVER = False
+if config.has_option('fileserver', 'use_go_fileserver'):
+    USE_GO_FILESERVER = config.getboolean('fileserver', 'use_go_fileserver')
+
 MAX_UPLOAD_FILE_SIZE = None # Defaults to no limit
 try:
     max_upload_size_mb = int(get_fileserver_option('max_upload_size', 0))
