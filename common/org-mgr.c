@@ -186,11 +186,9 @@ static int check_db_table (CcnetDB *db)
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        //if (!pgsql_index_exists (db, "orguser_email_idx")) {
-        //    sql = "CREATE INDEX orguser_email_idx ON OrgUser (email)";
-        //    if (seaf_db_query (db, sql) < 0)
-        //        return -1;
-        //}
+        sql = "CREATE INDEX IF NOT EXISTS orguser_email_idx ON OrgUser (email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS OrgGroup (org_id INTEGER, "
             "group_id INTEGER, "
@@ -198,11 +196,9 @@ static int check_db_table (CcnetDB *db)
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        //if (!pgsql_index_exists (db, "orggroup_groupid_idx")) {
-        //    sql = "CREATE INDEX orggroup_groupid_idx ON OrgGroup (group_id)";
-        //    if (seaf_db_query (db, sql) < 0)
-        //        return -1;
-        //}
+        sql = "CREATE INDEX IF NOT EXISTS orggroup_groupid_idx ON OrgGroup (group_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
     }
 
     return 0;
