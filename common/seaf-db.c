@@ -697,6 +697,8 @@ mysql_db_new (const char *host,
     return (SeafDB *)db;
 }
 
+typedef char my_bool;
+
 static DBConnection *
 mysql_db_get_connection (SeafDB *vdb)
 {
