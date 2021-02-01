@@ -35,11 +35,12 @@ struct SeafDBRow {
 
 struct SeafDBTrans {
     DBConnection *conn;
+    gboolean need_close;
 };
 
 typedef struct DBOperations {
     DBConnection* (*get_connection)(SeafDB *db);
-    void (*release_connection)(DBConnection *conn);
+    void (*release_connection)(DBConnection *conn, gboolean need_close);
     int (*execute_sql_no_stmt)(DBConnection *conn, const char *sql);
     int (*execute_sql)(DBConnection *conn, const char *sql,
                        int n, va_list args);
@@ -138,12 +139,20 @@ out:
 }
 
 static void
-mysql_conn_pool_release_connection (DBConnection *conn)
+mysql_conn_pool_release_connection (DBConnection *conn, gboolean need_close)
 {
     if (!conn)
         return;
 
     if (conn->pool->max_connections == 0) {
+        mysql_db_release_connection (conn);
+        return;
+    }
+
+    if (need_close) {
+        pthread_mutex_lock (&conn->pool->lock);
+        g_ptr_array_remove (conn->pool->connections, conn);
+        pthread_mutex_unlock (&conn->pool->lock);
         mysql_db_release_connection (conn);
         return;
     }
@@ -227,7 +236,7 @@ sqlite_db_new (const char *db_path);
 static DBConnection *
 sqlite_db_get_connection (SeafDB *db);
 static void
-sqlite_db_release_connection (DBConnection *vconn);
+sqlite_db_release_connection (DBConnection *vconn, gboolean need_close);
 static int
 sqlite_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql);
 static int
@@ -284,7 +293,7 @@ seaf_db_query (SeafDB *db, const char *sql)
     int ret;
     ret = db_ops.execute_sql_no_stmt (conn, sql);
 
-    db_ops.release_connection (conn);
+    db_ops.release_connection (conn, ret < 0);
     return ret;
 }
 
@@ -358,7 +367,7 @@ seaf_db_statement_query (SeafDB *db, const char *sql, int n, ...)
     ret = db_ops.execute_sql (conn, sql, n, args);
     va_end (args);
 
-    db_ops.release_connection (conn);
+    db_ops.release_connection (conn, ret < 0);
 
     return ret;
 }
@@ -380,7 +389,7 @@ seaf_db_statement_exists (SeafDB *db, const char *sql, gboolean *db_err, int n, 
     n_rows = db_ops.query_foreach_row (conn, sql, NULL, NULL, n, args);
     va_end (args);
 
-    db_ops.release_connection(conn);
+    db_ops.release_connection(conn, n_rows < 0);
 
     if (n_rows < 0) {
         *db_err = TRUE;
@@ -408,7 +417,7 @@ seaf_db_statement_foreach_row (SeafDB *db, const char *sql,
     ret = db_ops.query_foreach_row (conn, sql, callback, data, n, args);
     va_end (args);
 
-    db_ops.release_connection (conn);
+    db_ops.release_connection (conn, ret < 0);
 
     return ret;
 }
@@ -439,7 +448,7 @@ seaf_db_statement_get_int (SeafDB *db, const char *sql, int n, ...)
     rc = db_ops.query_foreach_row (conn, sql, get_int_cb, &ret, n, args);
     va_end (args);
 
-    db_ops.release_connection (conn);
+    db_ops.release_connection (conn, rc < 0);
 
     if (rc < 0)
         return -1;
@@ -473,7 +482,7 @@ seaf_db_statement_get_int64 (SeafDB *db, const char *sql, int n, ...)
     rc = db_ops.query_foreach_row (conn, sql, get_int64_cb, &ret, n, args);
     va_end(args);
 
-    db_ops.release_connection (conn);
+    db_ops.release_connection (conn, rc < 0);
 
     if (rc < 0)
         return -1;
@@ -507,7 +516,7 @@ seaf_db_statement_get_string (SeafDB *db, const char *sql, int n, ...)
     rc = db_ops.query_foreach_row (conn, sql, get_string_cb, &ret, n, args);
     va_end(args);
 
-    db_ops.release_connection (conn);
+    db_ops.release_connection (conn, rc < 0);
 
     if (rc < 0)
         return NULL;
@@ -527,7 +536,7 @@ seaf_db_begin_transaction (SeafDB *db)
     }
 
     if (db_ops.execute_sql_no_stmt (conn, "BEGIN") < 0) {
-        db_ops.release_connection (conn);
+        db_ops.release_connection (conn, TRUE);
         return trans;
     }
 
@@ -540,7 +549,7 @@ seaf_db_begin_transaction (SeafDB *db)
 void
 seaf_db_trans_close (SeafDBTrans *trans)
 {
-    db_ops.release_connection (trans->conn);
+    db_ops.release_connection (trans->conn, trans->need_close);
     g_free (trans);
 }
 
@@ -550,6 +559,7 @@ seaf_db_commit (SeafDBTrans *trans)
     DBConnection *conn = trans->conn;
 
     if (db_ops.execute_sql_no_stmt (conn, "COMMIT") < 0) {
+        trans->need_close = TRUE;
         return -1;
     }
 
@@ -562,6 +572,7 @@ seaf_db_rollback (SeafDBTrans *trans)
     DBConnection *conn = trans->conn;
 
     if (db_ops.execute_sql_no_stmt (conn, "ROLLBACK") < 0) {
+        trans->need_close = TRUE;
         return -1;
     }
 
@@ -577,6 +588,9 @@ seaf_db_trans_query (SeafDBTrans *trans, const char *sql, int n, ...)
     va_start (args, n);
     ret = db_ops.execute_sql (trans->conn, sql, n, args);
     va_end (args);
+
+    if (ret < 0)
+        trans->need_close = TRUE;
 
     return ret;
 }
@@ -595,6 +609,7 @@ seaf_db_trans_check_for_existence (SeafDBTrans *trans,
     va_end (args);
 
     if (n_rows < 0) {
+        trans->need_close = TRUE;
         *db_err = TRUE;
         return FALSE;
     } else {
@@ -614,6 +629,9 @@ seaf_db_trans_foreach_selected_row (SeafDBTrans *trans, const char *sql,
     va_start (args, n);
     ret = db_ops.query_foreach_row (trans->conn, sql, callback, data, n, args);
     va_end (args);
+
+    if (ret < 0)
+        trans->need_close = TRUE;
 
     return ret;
 }
@@ -1200,7 +1218,7 @@ sqlite_db_get_connection (SeafDB *vdb)
 }
 
 static void
-sqlite_db_release_connection (DBConnection *vconn)
+sqlite_db_release_connection (DBConnection *vconn, gboolean need_close)
 {
     if (!vconn)
         return;
