@@ -90,6 +90,7 @@ seafile_session_new(const char *central_config_dir,
     session->ccnet_dir = abs_ccnet_dir;
     session->tmp_file_dir = tmp_file_dir;
     session->config = config;
+    session->ccnet_config = ccnet_config;
     session->excluded_users = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                      g_free, NULL);
 
