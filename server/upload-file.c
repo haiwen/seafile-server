@@ -2159,6 +2159,11 @@ upload_read_cb (evhtp_request_t *req, evbuf_t *buf, void *arg)
                 if (len == 0) {
                     /* Read an blank line, headers end. */
                     free (line);
+                    // Each part MUST contain a Content-Disposition header field
+                    if (!fsm->input_name) {
+                        res = EVHTP_RES_BADREQ;
+                        goto out;
+                    }
                     if (g_strcmp0 (fsm->input_name, "file") == 0) {
                         if (open_temp_file (fsm) < 0) {
                             seaf_warning ("[upload] Failed open temp file, errno:[%d]\n", errno);
