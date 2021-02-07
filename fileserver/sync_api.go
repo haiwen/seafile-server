@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"database/sql"
 	"encoding/binary"
 	"encoding/json"
@@ -628,7 +629,7 @@ func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		err := fmt.Errorf("Failed to find repo %.8s", repoID)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
-	ret, err := calculateSendObjectList(repo, serverHead, clientHead, dirOnly)
+	ret, err := calculateSendObjectList(r.Context(), repo, serverHead, clientHead, dirOnly)
 	if err != nil {
 		err := fmt.Errorf("Failed to get fs id list: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -1162,7 +1163,7 @@ func removeExpireCache() {
 	virtualRepoInfoCache.Range(deleteVirtualRepoInfo)
 }
 
-func calculateSendObjectList(repo *repomgr.Repo, serverHead string, clientHead string, dirOnly bool) ([]interface{}, error) {
+func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead string, clientHead string, dirOnly bool) ([]interface{}, error) {
 	masterHead, err := commitmgr.Load(repo.ID, serverHead)
 	if err != nil {
 		err := fmt.Errorf("Failed to load server head commit %s:%s: %v", repo.ID, serverHead, err)
@@ -1189,12 +1190,14 @@ func calculateSendObjectList(repo *repomgr.Repo, serverHead string, clientHead s
 		opt = &diff.DiffOptions{
 			FileCB: collectFileIDs,
 			DirCB:  collectDirIDs,
+			Ctx:    ctx,
 			RepoID: repo.ID}
 		opt.Data = &results
 	} else {
 		opt = &diff.DiffOptions{
 			FileCB: collectFileIDsNOp,
 			DirCB:  collectDirIDs,
+			Ctx:    ctx,
 			RepoID: repo.ID}
 		opt.Data = &results
 	}
@@ -1206,7 +1209,13 @@ func calculateSendObjectList(repo *repomgr.Repo, serverHead string, clientHead s
 	return results, nil
 }
 
-func collectFileIDs(baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
+func collectFileIDs(ctx context.Context, baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("request canceled")
+	default:
+	}
+
 	file1 := files[0]
 	file2 := files[1]
 	results, ok := data.(*[]interface{})
@@ -1224,11 +1233,17 @@ func collectFileIDs(baseDir string, files []*fsmgr.SeafDirent, data interface{})
 	return nil
 }
 
-func collectFileIDsNOp(baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
+func collectFileIDsNOp(ctx context.Context, baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
 	return nil
 }
 
-func collectDirIDs(baseDir string, dirs []*fsmgr.SeafDirent, data interface{}, recurse *bool) error {
+func collectDirIDs(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent, data interface{}, recurse *bool) error {
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("request canceled")
+	default:
+	}
+
 	dir1 := dirs[0]
 	dir2 := dirs[1]
 	results, ok := data.(*[]interface{})
