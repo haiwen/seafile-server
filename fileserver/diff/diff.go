@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -15,13 +16,14 @@ const (
 	EmptySha1 = "0000000000000000000000000000000000000000"
 )
 
-type fileCB func(string, []*fsmgr.SeafDirent, interface{}) error
-type dirCB func(string, []*fsmgr.SeafDirent, interface{}, *bool) error
+type fileCB func(context.Context, string, []*fsmgr.SeafDirent, interface{}) error
+type dirCB func(context.Context, string, []*fsmgr.SeafDirent, interface{}, *bool) error
 
 type DiffOptions struct {
 	FileCB fileCB
 	DirCB  dirCB
 	RepoID string
+	Ctx    context.Context
 	Data   interface{}
 }
 
@@ -131,7 +133,7 @@ func diffFiles(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions) erro
 		return nil
 	}
 
-	return opt.FileCB(baseDir, files, opt.Data)
+	return opt.FileCB(opt.Ctx, baseDir, files, opt.Data)
 }
 
 func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions) error {
@@ -150,7 +152,7 @@ func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions
 	}
 
 	recurse := true
-	err := opt.DirCB(baseDir, dirs, opt.Data, &recurse)
+	err := opt.DirCB(opt.Ctx, baseDir, dirs, opt.Data, &recurse)
 	if err != nil {
 		err := fmt.Errorf("failed to call dir callback: %v", err)
 		return err
@@ -248,7 +250,7 @@ func DiffMergeRoots(storeID, mergedRoot, p1Root, p2Root string, results *[]*Diff
 	return nil
 }
 
-func threewayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, optData interface{}) error {
+func threewayDiffFiles(ctx context.Context, baseDir string, dents []*fsmgr.SeafDirent, optData interface{}) error {
 	m := dents[0]
 	p1 := dents[1]
 	p2 := dents[2]
@@ -285,7 +287,7 @@ func threewayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, optData interf
 	return nil
 }
 
-func threewayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, optData interface{}, recurse *bool) error {
+func threewayDiffDirs(ctx context.Context, baseDir string, dents []*fsmgr.SeafDirent, optData interface{}, recurse *bool) error {
 	*recurse = true
 	return nil
 }
@@ -335,7 +337,7 @@ func DiffCommits(commit1, commit2 *commitmgr.Commit, results *[]*DiffEntry, fold
 	return nil
 }
 
-func twowayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, optData interface{}) error {
+func twowayDiffFiles(ctx context.Context, baseDir string, dents []*fsmgr.SeafDirent, optData interface{}) error {
 	p1 := dents[0]
 	p2 := dents[1]
 	data, ok := optData.(diffData)
@@ -366,7 +368,7 @@ func twowayDiffFiles(baseDir string, dents []*fsmgr.SeafDirent, optData interfac
 	return nil
 }
 
-func twowayDiffDirs(baseDir string, dents []*fsmgr.SeafDirent, optData interface{}, recurse *bool) error {
+func twowayDiffDirs(ctx context.Context, baseDir string, dents []*fsmgr.SeafDirent, optData interface{}, recurse *bool) error {
 	p1 := dents[0]
 	p2 := dents[1]
 	data, ok := optData.(diffData)

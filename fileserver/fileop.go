@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
@@ -1394,7 +1395,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 	var sizes []int64
 	if fsm.rstart >= 0 {
 		for _, filePath := range files {
-			id, size, err := indexBlocks(repo.StoreID, repo.Version, filePath, nil, cryptKey)
+			id, size, err := indexBlocks(r.Context(), repo.StoreID, repo.Version, filePath, nil, cryptKey)
 			if err != nil {
 				err := fmt.Errorf("failed to index blocks: %v", err)
 				return &appError{err, "", http.StatusInternalServerError}
@@ -1404,7 +1405,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		}
 	} else {
 		for _, handler := range fsm.fileHeaders {
-			id, size, err := indexBlocks(repo.StoreID, repo.Version, "", handler, cryptKey)
+			id, size, err := indexBlocks(r.Context(), repo.StoreID, repo.Version, "", handler, cryptKey)
 			if err != nil {
 				err := fmt.Errorf("failed to index blocks: %v", err)
 				return &appError{err, "", http.StatusInternalServerError}
@@ -1864,7 +1865,7 @@ func shouldIgnoreFile(fileName string) bool {
 	return false
 }
 
-func indexBlocks(repoID string, version int, filePath string, handler *multipart.FileHeader, cryptKey *seafileCrypt) (string, int64, error) {
+func indexBlocks(ctx context.Context, repoID string, version int, filePath string, handler *multipart.FileHeader, cryptKey *seafileCrypt) (string, int64, error) {
 	var size int64
 	if handler != nil {
 		size = handler.Size
@@ -1889,7 +1890,7 @@ func indexBlocks(repoID string, version int, filePath string, handler *multipart
 
 	chunkJobs := make(chan chunkingData, 10)
 	results := make(chan chunkingResult, 10)
-	go createChunkPool(int(options.maxIndexingThreads), chunkJobs, results)
+	go createChunkPool(ctx, int(options.maxIndexingThreads), chunkJobs, results)
 
 	var blkSize int64
 	var offset int64
@@ -1978,18 +1979,28 @@ type chunkingResult struct {
 	err   error
 }
 
-func createChunkPool(n int, chunkJobs chan chunkingData, res chan chunkingResult) {
+func createChunkPool(ctx context.Context, n int, chunkJobs chan chunkingData, res chan chunkingResult) {
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
 		wg.Add(1)
-		go chunkingWorker(&wg, chunkJobs, res)
+		go chunkingWorker(ctx, &wg, chunkJobs, res)
 	}
 	wg.Wait()
 	close(res)
 }
 
-func chunkingWorker(wg *sync.WaitGroup, chunkJobs chan chunkingData, res chan chunkingResult) {
+func chunkingWorker(ctx context.Context, wg *sync.WaitGroup, chunkJobs chan chunkingData, res chan chunkingResult) {
 	for job := range chunkJobs {
+		select {
+		case <-ctx.Done():
+			err := fmt.Errorf("chunk work canceled")
+			result := chunkingResult{-1, "", err}
+			res <- result
+			wg.Done()
+			return
+		default:
+		}
+
 		job := job
 		blkID, err := chunkFile(job)
 		idx := job.offset / int64(options.fixedBlockSize)
@@ -2627,7 +2638,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 	var size int64
 	if fsm.rstart >= 0 {
 		filePath := files[0]
-		id, fileSize, err := indexBlocks(repo.StoreID, repo.Version, filePath, nil, cryptKey)
+		id, fileSize, err := indexBlocks(r.Context(), repo.StoreID, repo.Version, filePath, nil, cryptKey)
 		if err != nil {
 			err := fmt.Errorf("failed to index blocks: %v", err)
 			return &appError{err, "", http.StatusInternalServerError}
@@ -2636,7 +2647,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		size = fileSize
 	} else {
 		handler := fsm.fileHeaders[0]
-		id, fileSize, err := indexBlocks(repo.StoreID, repo.Version, "", handler, cryptKey)
+		id, fileSize, err := indexBlocks(r.Context(), repo.StoreID, repo.Version, "", handler, cryptKey)
 		if err != nil {
 			err := fmt.Errorf("failed to index blocks: %v", err)
 			return &appError{err, "", http.StatusInternalServerError}

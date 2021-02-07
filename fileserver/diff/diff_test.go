@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"syscall"
@@ -244,7 +245,7 @@ func diffTestDelFile() error {
 	return nil
 }
 
-func diffTestFileCB(baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
+func diffTestFileCB(ctx context.Context, baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
 	file1 := files[0]
 	file2 := files[1]
 	results, ok := data.(*[]interface{})
@@ -262,7 +263,7 @@ func diffTestFileCB(baseDir string, files []*fsmgr.SeafDirent, data interface{})
 	return nil
 }
 
-func diffTestDirCB(baseDir string, dirs []*fsmgr.SeafDirent, data interface{}, recurse *bool) error {
+func diffTestDirCB(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent, data interface{}, recurse *bool) error {
 	dir1 := dirs[0]
 	dir2 := dirs[1]
 	results, ok := data.(*[]interface{})
