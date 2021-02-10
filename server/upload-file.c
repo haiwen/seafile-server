@@ -1982,7 +1982,7 @@ recv_form_field (RecvFSM *fsm, gboolean *no_line)
         free (line);
     } else {
         size_t size = evbuffer_get_length (fsm->line);
-        if (size > 0) {
+        if (size >= strlen(fsm->boundary)) {
             char *buf = g_new (char, size);
             evbuffer_remove (fsm->line, buf, size);
             if (strstr(buf, fsm->boundary) != NULL) {
@@ -2043,7 +2043,7 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
     if (!line) {
         // handle boundary
         size_t size = evbuffer_get_length (fsm->line);
-        if (size > 0) {
+        if (size >= strlen(fsm->boundary)) {
             char *buf = g_new (char, size);
             evbuffer_remove (fsm->line, buf, size);
             if (strstr(buf, fsm->boundary) != NULL) {
