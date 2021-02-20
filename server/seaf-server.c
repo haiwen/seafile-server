@@ -32,7 +32,7 @@ SeafileSession *seaf;
 
 char *pidfile = NULL;
 
-static const char *short_options = "hvc:d:l:fP:D:F:p:";
+static const char *short_options = "hvc:d:l:fP:D:F:p:t";
 static struct option long_options[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
@@ -44,6 +44,7 @@ static struct option long_options[] = {
     { "foreground", no_argument, NULL, 'f' },
     { "pidfile", required_argument, NULL, 'P' },
     { "rpc-pipe-path", required_argument, NULL, 'p' },
+    { "test-config", no_argument, NULL, 't' },
     { NULL, 0, NULL, 0, },
 };
 
@@ -1152,6 +1153,39 @@ get_argv_utf8 (int *argc)
 #endif
 
 int
+test_seafile_config(const char *central_config_dir, const char *config_dir, const char *seafile_dir)
+{
+#if !GLIB_CHECK_VERSION(2, 36, 0)
+    g_type_init ();
+#endif
+
+    config_dir = ccnet_expand_path (config_dir);
+    if (central_config_dir) {
+        central_config_dir = ccnet_expand_path (central_config_dir);
+    }
+
+    if (seafile_log_init ("-", "debug", "debug") < 0) {
+        fprintf (stderr, "seafile_log_init error: %s\n", strerror(errno));
+        return -1;
+    }
+
+    srand (time(NULL));
+
+    event_init ();
+
+    seaf = seafile_session_new (central_config_dir, seafile_dir, config_dir);
+    if (!seaf) {
+        fprintf (stderr, "Error: failed to create ccnet session\n");
+        return -1;
+    }
+
+    if (seafile_session_init (seaf) < 0)
+        return -1;
+
+    return 0;
+}
+
+int
 main (int argc, char **argv)
 {
     int c;
@@ -1162,6 +1196,7 @@ main (int argc, char **argv)
     char *rpc_pipe_path = NULL;
     const char *debug_str = NULL;
     int daemon_mode = 1;
+    gboolean test_config = FALSE;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -1201,6 +1236,9 @@ main (int argc, char **argv)
         case 'p':
             rpc_pipe_path = g_strdup (optarg);
             break;
+        case 't':
+            test_config = TRUE;
+            break;
         default:
             usage ();
             exit (1);
@@ -1209,6 +1247,10 @@ main (int argc, char **argv)
 
     argc -= optind;
     argv += optind;
+
+    if (test_config) {
+        return test_seafile_config (central_config_dir, ccnet_dir, seafile_dir);
+    }
 
 #ifndef WIN32
     if (daemon_mode) {
