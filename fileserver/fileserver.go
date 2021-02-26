@@ -338,6 +338,8 @@ func main() {
 
 	rpcClientInit()
 
+	fileopInit()
+
 	syncAPIInit()
 
 	sizeSchedulerInit()

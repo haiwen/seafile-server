@@ -35,13 +35,13 @@ const (
 )
 
 const (
-	seafileServerChannelEvent = "seaf_server.event"
-	seafileServerChannelStats = "seaf_server.stats"
-	emptySHA1                 = "0000000000000000000000000000000000000000"
-	tokenExpireTime           = 7200
-	permExpireTime            = 7200
-	virtualRepoExpireTime     = 7200
-	cleaningIntervalSec       = 300
+	seafileServerChannelEvent  = "seaf_server.event"
+	seafileServerChannelStats  = "seaf_server.stats"
+	emptySHA1                  = "0000000000000000000000000000000000000000"
+	tokenExpireTime            = 7200
+	permExpireTime             = 7200
+	virtualRepoExpireTime      = 7200
+	syncAPICleaningIntervalSec = 300
 )
 
 var (
@@ -83,10 +83,10 @@ type statusEventData struct {
 }
 
 func syncAPIInit() {
-	ticker := time.NewTicker(time.Second * cleaningIntervalSec)
+	ticker := time.NewTicker(time.Second * syncAPICleaningIntervalSec)
 	go func() {
 		for range ticker.C {
-			removeExpireCache()
+			removeSyncAPIExpireCache()
 		}
 	}()
 }
@@ -1130,7 +1130,7 @@ func publishRepoEvent(rData *repoEventData) {
 	}
 }
 
-func removeExpireCache() {
+func removeSyncAPIExpireCache() {
 	deleteTokens := func(key interface{}, value interface{}) bool {
 		if info, ok := value.(*tokenInfo); ok {
 			if info.expireTime <= time.Now().Unix() {

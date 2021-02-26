@@ -35,6 +35,14 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 )
 
+const (
+	cacheBlockMapThreshold          = 1 << 23
+	blockMapCacheExpiretime   int64 = 3600 * 24
+	fileopCleaningIntervalSec       = 3600
+)
+
+var blockMapCacheTable sync.Map
+
 // Dirents is an alias for slice of SeafDirent.
 type Dirents []*fsmgr.SeafDirent
 
@@ -47,6 +55,15 @@ func (d Dirents) Swap(i, j int) {
 }
 func (d Dirents) Len() int {
 	return len(d)
+}
+
+func fileopInit() {
+	ticker := time.NewTicker(time.Second * fileopCleaningIntervalSec)
+	go func() {
+		for range ticker.C {
+			removeFileopExpireCache()
+		}
+	}()
 }
 
 func initUpload() {
@@ -284,6 +301,11 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 	return nil
 }
 
+type blockMap struct {
+	blkSize    []uint64
+	expireTime int64
+}
+
 func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID string,
 	fileName string, operation string, byteRanges string, user string) *appError {
 
@@ -317,13 +339,32 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 	rsp.Header().Set("Content-Range", conRange)
 
 	var blkSize []uint64
-	for _, v := range file.BlkIDs {
-		size, err := blockmgr.Stat(repo.StoreID, v)
-		if err != nil {
-			err := fmt.Errorf("failed to stat block %s : %v", v, err)
-			return &appError{err, "", http.StatusInternalServerError}
+	if file.FileSize > cacheBlockMapThreshold {
+		if v, ok := blockMapCacheTable.Load(file.FileID); ok {
+			if blkMap, ok := v.(*blockMap); ok {
+				blkSize = blkMap.blkSize
+			}
 		}
-		blkSize = append(blkSize, uint64(size))
+		if len(blkSize) == 0 {
+			for _, v := range file.BlkIDs {
+				size, err := blockmgr.Stat(repo.StoreID, v)
+				if err != nil {
+					err := fmt.Errorf("failed to stat block %s : %v", v, err)
+					return &appError{err, "", http.StatusInternalServerError}
+				}
+				blkSize = append(blkSize, uint64(size))
+			}
+			blockMapCacheTable.Store(file.FileID, &blockMap{blkSize, time.Now().Unix() + blockMapCacheExpiretime})
+		}
+	} else {
+		for _, v := range file.BlkIDs {
+			size, err := blockmgr.Stat(repo.StoreID, v)
+			if err != nil {
+				err := fmt.Errorf("failed to stat block %s : %v", v, err)
+				return &appError{err, "", http.StatusInternalServerError}
+			}
+			blkSize = append(blkSize, uint64(size))
+		}
 	}
 
 	var off uint64
@@ -3074,4 +3115,17 @@ func indexRawBlocks(repoID string, blockIDs []string, fileHeaders []*multipart.F
 	}
 
 	return nil
+}
+
+func removeFileopExpireCache() {
+	deleteBlockMaps := func(key interface{}, value interface{}) bool {
+		if blkMap, ok := value.(*blockMap); ok {
+			if blkMap.expireTime <= time.Now().Unix() {
+				blockMapCacheTable.Delete(key)
+			}
+		}
+		return true
+	}
+
+	blockMapCacheTable.Range(deleteBlockMaps)
 }
