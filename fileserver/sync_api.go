@@ -40,14 +40,17 @@ const (
 	emptySHA1                  = "0000000000000000000000000000000000000000"
 	tokenExpireTime            = 7200
 	permExpireTime             = 7200
+	fsIDListExpireTime         = 3600
 	virtualRepoExpireTime      = 7200
 	syncAPICleaningIntervalSec = 300
+	fsIDListTokenLen           = 36
 )
 
 var (
 	tokenCache           sync.Map
 	permCache            sync.Map
 	virtualRepoInfoCache sync.Map
+	fsObjIDsCache        sync.Map
 )
 
 type tokenInfo struct {
@@ -653,6 +656,190 @@ func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
+type computeObjTask struct {
+	token      string
+	repoID     string
+	clientHead string
+	serverHead string
+	dirOnly    bool
+}
+
+type calObjResult struct {
+	list       []interface{}
+	done       bool
+	expireTime int64
+}
+
+func computeFsObjID(task *computeObjTask) {
+	var result *calObjResult
+	if v, ok := fsObjIDsCache.Load(task.token); ok {
+		if r, ok := v.(*calObjResult); ok {
+			result = r
+		}
+	}
+	if result == nil {
+		return
+	}
+	repo := repomgr.Get(task.repoID)
+	if repo == nil {
+		log.Printf("Failed to find repo by repo id %s", task.repoID)
+		fsObjIDsCache.Delete(task.token)
+		return
+	}
+
+	var err error
+	result.list, err = calculateSendObjectList(context.TODO(), repo, task.serverHead, task.clientHead, task.dirOnly)
+	if err != nil {
+		fsObjIDsCache.Delete(task.token)
+		return
+	}
+	result.expireTime = time.Now().Unix() + fsIDListExpireTime
+	result.done = true
+}
+
+func startFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	queries := r.URL.Query()
+
+	serverHead := queries.Get("server-head")
+	if !isObjectIDValid(serverHead) {
+		msg := "Invalid server-head parameter."
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	clientHead := queries.Get("client-head")
+	if clientHead != "" && !isObjectIDValid(clientHead) {
+		msg := "Invalid client-head parameter."
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	dirOnlyArg := queries.Get("dir-only")
+	var dirOnly bool
+	if dirOnlyArg != "" {
+		dirOnly = true
+	}
+
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	if _, err := validateToken(r, repoID, false); err != nil {
+		return err
+	}
+
+	newToken := uuid.New().String()
+
+	result := new(calObjResult)
+	task := new(computeObjTask)
+	task.token = newToken
+	task.dirOnly = dirOnly
+	task.repoID = repoID
+	task.clientHead = clientHead
+	task.serverHead = serverHead
+
+	fsObjIDsCache.Store(task.token, result)
+
+	go computeFsObjID(task)
+
+	retObj := struct {
+		Token string `json:"token"`
+	}{newToken}
+	ret, err := json.Marshal(retObj)
+	if err != nil {
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	rsp.Header().Set("Content-Length", strconv.Itoa(len(ret)))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(ret)
+	return nil
+}
+
+func queryFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	if _, err := validateToken(r, repoID, false); err != nil {
+		return err
+	}
+
+	queries := r.URL.Query()
+	token := queries.Get("token")
+	if len(token) != fsIDListTokenLen {
+		return &appError{nil, "", http.StatusBadRequest}
+	}
+
+	var result *calObjResult
+	if v, ok := fsObjIDsCache.Load(token); ok {
+		if r, ok := v.(*calObjResult); ok {
+			result = r
+		}
+	}
+	if result == nil {
+		return &appError{nil, "", http.StatusNotFound}
+	}
+
+	var success bool
+	if result.done {
+		success = true
+	}
+
+	retObj := struct {
+		Success bool   `json:"success"`
+		Token   string `json:"token"`
+	}{success, token}
+	ret, err := json.Marshal(retObj)
+	if err != nil {
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+	rsp.Header().Set("Content-Length", strconv.Itoa(len(ret)))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(ret)
+	return nil
+}
+
+func retrieveFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	if _, err := validateToken(r, repoID, false); err != nil {
+		return err
+	}
+
+	queries := r.URL.Query()
+	token := queries.Get("token")
+	if len(token) != fsIDListTokenLen {
+		return &appError{nil, "", http.StatusBadRequest}
+	}
+
+	var result *calObjResult
+	if v, ok := fsObjIDsCache.Load(token); ok {
+		if r, ok := v.(*calObjResult); ok {
+			result = r
+		}
+	}
+	if result == nil {
+		return &appError{nil, "", http.StatusNotFound}
+	}
+	if !result.done {
+		msg := "The cauculation task is not completed."
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	fsObjIDsCache.Delete(token)
+
+	var objList []byte
+	if len(result.list) != 0 {
+		var err error
+		objList, err = json.Marshal(result.list)
+		if err != nil {
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+	} else {
+		// when get obj list is nil, return []
+		objList = []byte{'[', ']'}
+	}
+
+	rsp.Header().Set("Content-Length", strconv.Itoa(len(objList)))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(objList)
+	return nil
+}
+
 func headCommitOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if r.Method == http.MethodGet {
 		return getHeadCommit(rsp, r)
@@ -1158,9 +1345,19 @@ func removeSyncAPIExpireCache() {
 		return true
 	}
 
+	deleteFsIDListObjResult := func(key interface{}, value interface{}) bool {
+		if result, ok := value.(*calObjResult); ok {
+			if result.expireTime <= time.Now().Unix() {
+				fsObjIDsCache.Delete(key)
+			}
+		}
+		return true
+	}
+
 	tokenCache.Range(deleteTokens)
 	permCache.Range(deletePerms)
 	virtualRepoInfoCache.Range(deleteVirtualRepoInfo)
+	fsObjIDsCache.Range(deleteFsIDListObjResult)
 }
 
 func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead string, clientHead string, dirOnly bool) ([]interface{}, error) {

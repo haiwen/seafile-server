@@ -392,6 +392,12 @@ func newHTTPRouter() *mux.Router {
 		appHandler(blockOperCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/fs-id-list/",
 		appHandler(getFsObjIDCB))
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/start-fs-id-list/",
+		appHandler(startFsObjIDCB))
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/query-fs-id-list/",
+		appHandler(queryFsObjIDCB))
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/retrieve-fs-id-list/",
+		appHandler(retrieveFsObjIDCB))
 	r.Handle("/repo/head-commits-multi/",
 		appHandler(headCommitsMultiCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/pack-fs/",
