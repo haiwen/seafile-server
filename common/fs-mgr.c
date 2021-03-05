@@ -3194,7 +3194,7 @@ seaf_fs_manager_search_files (SeafFSManager *mgr,
         goto out;
     }
 
-    search_files_recursive (mgr, repo_id, "", head->root_id,
+    search_files_recursive (mgr, repo->store_id, "", head->root_id,
                             str, repo->version, &file_list);
 
 out:
