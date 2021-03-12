@@ -51,4 +51,7 @@ export PYTHONPATH=${INSTALLPATH}/seafile/lib/python3.6/site-packages:${INSTALLPA
 export SEAFILE_RPC_PIPE_PATH=${INSTALLPATH}/runtime
 
 manage_py=${INSTALLPATH}/seahub/manage.py
-exec "$PYTHON" "$manage_py" createsuperuser
+[ ! -z $DJANGO_SUPERUSER_EMAIL ] && ARGS="--email ${DJANGO_SUPERUSER_EMAIL}"
+[ ! -z $DJANGO_SUPERUSER_USERNAME ] && ARGS="${ARGS} --username ${DJANGO_SUPERUSER_USERNAME}"
+[ ! -z $DJANGO_SUPERUSER_PASSWORD ] && ARGS="${ARGS} --password ${DJANGO_SUPERUSER_PASSWORD}"
+exec "$PYTHON" "$manage_py" createsuperuser ${ARGS}
