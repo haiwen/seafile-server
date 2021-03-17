@@ -54,7 +54,7 @@
 #define PERM_EXPIRE_TIME 7200       /* 2 hours */
 #define VIRINFO_EXPIRE_TIME 7200       /* 2 hours */
 
-#define FS_ID_LIST_MAX_WORKERS 10
+#define FS_ID_LIST_MAX_WORKERS 3
 #define FS_ID_LIST_TOKEN_LEN 36
 
 struct _HttpServer {
