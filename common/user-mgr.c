@@ -2075,6 +2075,15 @@ ccnet_user_manager_update_emailuser_id (CcnetUserManager *manager,
         ccnet_warning ("Failed to update LDAP user\n");
         goto out;
     }
+    //7.update UserQuota
+    g_string_printf (sql, "UPDATE UserQuota SET user=? WHERE user=?");
+    rc = seaf_db_statement_query (seaf->db, sql->str, 2,
+                                  "string", new_email,
+                                  "string", old_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update user quota\n");
+        goto out;
+    }
 
     ret = 0;
 out:
