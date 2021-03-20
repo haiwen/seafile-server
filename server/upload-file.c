@@ -1982,7 +1982,7 @@ recv_form_field (RecvFSM *fsm, gboolean *no_line)
         free (line);
     } else {
         size_t size = evbuffer_get_length (fsm->line);
-        if (size >= strlen(fsm->boundary)) {
+        if (size >= strlen(fsm->boundary) + 4) {
             char *buf = g_new (char, size);
             evbuffer_remove (fsm->line, buf, size);
             if (strstr(buf, fsm->boundary) != NULL) {
@@ -2043,7 +2043,13 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
     if (!line) {
         // handle boundary
         size_t size = evbuffer_get_length (fsm->line);
-        if (size >= strlen(fsm->boundary)) {
+        /* If we haven't read an entire line, but the line
+         * buffer gets too long, flush the content to file,
+         * or we reach the last boundary line (without CRLF at the end).
+         * Since the last boundary line starts with "--" and ends with "--"
+         * we have to add 4 bytes to the boundary size.
+         */
+        if (size >= strlen(fsm->boundary) + 4) {
             char *buf = g_new (char, size);
             evbuffer_remove (fsm->line, buf, size);
             if (strstr(buf, fsm->boundary) != NULL) {
@@ -2112,6 +2118,8 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
 }
 
 /*
+   Refer to https://www.w3.org/Protocols/rfc1341/7_2_Multipart.html
+   and https://tools.ietf.org/html/rfc7578
    Example multipart form-data request content format:
 
    --AaB03x
