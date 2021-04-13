@@ -251,7 +251,7 @@ should_ignore_file(const char *filename, void *data)
     if (strlen(filename) >= SEAF_DIR_NAME_LEN)
         return TRUE;
 
-    if (strchr (filename, '/'))
+    if (strchr (filename, '/') || strchr (filename, '<') || strchr (filename, '>'))
         return TRUE;
 
     return FALSE;
