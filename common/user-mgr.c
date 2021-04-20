@@ -2085,6 +2085,16 @@ ccnet_user_manager_update_emailuser_id (CcnetUserManager *manager,
         goto out;
     }
 
+    //8.update UserRole
+    g_string_printf (sql, "UPDATE UserRole SET email=? WHERE email=?");
+    rc = seaf_db_statement_query (manager->priv->db, sql->str, 2,
+                                  "string", new_email,
+                                  "string", old_email);
+    if (rc < 0){
+        ccnet_warning ("Failed to update user role\n");
+        goto out;
+    }
+
     ret = 0;
 out:
     g_string_free (sql, TRUE);
