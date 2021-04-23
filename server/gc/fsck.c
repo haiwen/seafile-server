@@ -232,18 +232,18 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                 fsck_data->repaired_folders = g_list_prepend (fsck_data->repaired_folders,
                                                               g_strdup(path));
             } else {
-                dir_id = fsck_check_dir_recursive (seaf_dent->id, path, fsck_data);
-                if (dir_id == NULL) {
+                char *sub_dir_id = fsck_check_dir_recursive (seaf_dent->id, path, fsck_data);
+                if (sub_dir_id == NULL) {
                     // IO error
                     g_free (path);
                     goto out;
                 }
-                if (strcmp (dir_id, seaf_dent->id) != 0) {
+                if (strcmp (sub_dir_id, seaf_dent->id) != 0) {
                     is_corrupted = TRUE;
                     // dir damaged, set it to new dir_id
-                    memcpy (seaf_dent->id, dir_id, 41);
+                    memcpy (seaf_dent->id, sub_dir_id, 41);
                 }
-                g_free (dir_id);
+                g_free (sub_dir_id);
             }
             g_free (path);
         }
