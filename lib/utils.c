@@ -1397,12 +1397,7 @@ nfree_string_array (char **array, int n)
 gint64
 get_current_time()
 {
-    GTimeVal tv;
-    gint64 t;
-
-    g_get_current_time (&tv);
-    t = tv.tv_sec * (gint64)1000000 + tv.tv_usec;
-    return t;
+    return g_get_real_time();
 }
 
 #ifdef WIN32

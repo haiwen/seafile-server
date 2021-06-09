@@ -382,7 +382,7 @@ pack_dir_data_new (const char *store_id,
     }
 
     a = archive_write_new ();
-    archive_write_set_compression_none (a);
+    archive_write_add_filter_none (a);
     archive_write_set_format_zip (a);
     archive_write_open_fd (a, fd);
 
@@ -470,7 +470,7 @@ pack_files (const char *store_id,
         }
     }
 
-    if (archive_write_finish(data->a) < 0) {
+    if (archive_write_free (data->a) < 0) {
         seaf_warning ("Failed to archive write finish for %s in repo %.8s.\n",
                       strcmp (dirname, "")==0 ? "multi files" : dirname, store_id);
         ret = -1;

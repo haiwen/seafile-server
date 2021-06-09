@@ -2644,17 +2644,17 @@ http_request_init (HttpServerStruct *server)
                         GET_FS_OBJ_ID_REGEX, get_fs_obj_id_cb,
                         priv);
 
-    evhtp_set_regex_cb (priv->evhtp,
-                        START_FS_OBJ_ID_REGEX, start_fs_obj_id_cb,
-                        priv);
+    // evhtp_set_regex_cb (priv->evhtp,
+    //                     START_FS_OBJ_ID_REGEX, start_fs_obj_id_cb,
+    //                     priv);
 
-    evhtp_set_regex_cb (priv->evhtp,
-                        QUERY_FS_OBJ_ID_REGEX, query_fs_obj_id_cb,
-                        priv);
+    // evhtp_set_regex_cb (priv->evhtp,
+    //                     QUERY_FS_OBJ_ID_REGEX, query_fs_obj_id_cb,
+    //                     priv);
 
-    evhtp_set_regex_cb (priv->evhtp,
-                        RETRIEVE_FS_OBJ_ID_REGEX, retrieve_fs_obj_id_cb,
-                        priv);
+    // evhtp_set_regex_cb (priv->evhtp,
+    //                     RETRIEVE_FS_OBJ_ID_REGEX, retrieve_fs_obj_id_cb,
+    //                     priv);
 
     evhtp_set_regex_cb (priv->evhtp,
                         BLOCK_OPER_REGEX, block_oper_cb,
@@ -2840,12 +2840,12 @@ seaf_http_server_new (struct _SeafileSession *session)
 
     server->http_temp_dir = g_build_filename (session->seaf_dir, "httptemp", NULL);
 
-    priv->compute_fs_obj_id_pool = g_thread_pool_new (compute_fs_obj_id, NULL,
-                                                      FS_ID_LIST_MAX_WORKERS, FALSE, NULL);
+    // priv->compute_fs_obj_id_pool = g_thread_pool_new (compute_fs_obj_id, NULL,
+    //                                                   FS_ID_LIST_MAX_WORKERS, FALSE, NULL);
 
-    priv->fs_obj_ids = g_hash_table_new_full (g_str_hash, g_str_equal,
-                                              g_free, free_obj_cal_result);
-    pthread_mutex_init (&priv->fs_obj_ids_lock, NULL);
+    // priv->fs_obj_ids = g_hash_table_new_full (g_str_hash, g_str_equal,
+    //                                           g_free, free_obj_cal_result);
+    // pthread_mutex_init (&priv->fs_obj_ids_lock, NULL);
 
     server->seaf_session = session;
     server->priv = priv;

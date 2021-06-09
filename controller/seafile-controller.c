@@ -49,6 +49,7 @@ static const struct option long_opts[] = {
     { "ccnet-debug-level", required_argument, NULL, 'g' },
     { "seafile-debug-level", required_argument, NULL, 'G' },
     { "pidfile", required_argument, NULL, 'P' },
+    { NULL, 0, NULL, 0, },
 };
 
 static void controller_exit (int code) __attribute__((noreturn));
@@ -652,11 +653,10 @@ test_config (const char *central_config_dir,
 
     snprintf (buf,
           sizeof(buf),
-          "seaf-server -F \"%s\" -c \"%s\" -d \"%s\" -L \"%s\" -t -f",
+          "seaf-server -F \"%s\" -c \"%s\" -d \"%s\" -t -f",
           central_config_dir,
           ccnet_dir,
-          seafile_dir,
-          topdir);
+          seafile_dir);
 
     g_spawn_command_line_sync (buf,
                                &child_stdout,
