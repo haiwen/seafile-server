@@ -643,13 +643,6 @@ int ccnet_group_manager_quit_group (CcnetGroupManager *mgr,
 {
     CcnetDB *db = mgr->priv->db;
     
-    /* check where user is the staff of the group */
-    if (check_group_staff (db, group_id, user_name, FALSE)) {
-        g_set_error (error, CCNET_DOMAIN, 0,
-                     "Group staff can not quit group");
-        return -1; 
-    }    
-
     /* check whether group exists */
     if (!check_group_exists (mgr, db, group_id)) {
         g_set_error (error, CCNET_DOMAIN, 0, "Group not exists");
