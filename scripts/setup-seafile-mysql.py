@@ -16,7 +16,7 @@ import warnings
 import socket
 from configparser import ConfigParser
 
-import pymysql
+import MySQLdb
 
 try:
     import readline # pylint: disable=W0611
@@ -469,7 +469,7 @@ Please choose a way to initialize seafile databases:
     def check_mysql_server(self, host, port):
         print('\nverifying mysql server running ... ', end=' ')
         try:
-            dummy = pymysql.connect(host=host, port=port)
+            dummy = MySQLdb.connect(host=host, port=port)
         except Exception:
             print()
             raise InvalidAnswer('Failed to connect to mysql server at "%s:%s"' \
@@ -488,9 +488,9 @@ Please choose a way to initialize seafile databases:
             kwargs['host'] = host or self.mysql_host
 
         try:
-            conn = pymysql.connect(**kwargs)
+            conn = MySQLdb.connect(**kwargs)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 raise InvalidAnswer('Failed to connect to mysql server using user "%s" and password "***": %s' \
                                     % (user, e.args[1]))
             else:
@@ -502,13 +502,13 @@ Please choose a way to initialize seafile databases:
 
     def create_seahub_admin(self):
         try:
-            conn = pymysql.connect(host=self.mysql_host,
+            conn = MySQLdb.connect(host=self.mysql_host,
                                    port=self.mysql_port,
                                    user=self.seafile_mysql_user,
                                    passwd=self.seafile_mysql_password,
                                    db=self.ccnet_db_name)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to connect to mysql database %s: %s' % (self.ccnet_db_name, e.args[1]))
             else:
                 Utils.error('Failed to connect to mysql database %s: %s' % (self.ccnet_db_name, e))
@@ -520,7 +520,7 @@ CREATE TABLE IF NOT EXISTS EmailUser (id INTEGER NOT NULL PRIMARY KEY AUTO_INCRE
         try:
             cursor.execute(sql)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to create ccnet user table: %s' % e.args[1])
             else:
                 Utils.error('Failed to create ccnet user table: %s' % e)
@@ -531,7 +531,7 @@ CREATE TABLE IF NOT EXISTS EmailUser (id INTEGER NOT NULL PRIMARY KEY AUTO_INCRE
         try:
             cursor.execute(sql)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to create admin user: %s' % e.args[1])
             else:
                 Utils.error('Failed to create admin user: %s' % e)
@@ -592,7 +592,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
             cursor.execute(sql)
             return cursor.fetchall()[0][0]
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to check mysql user %s@%s: %s' % \
                             (user, self.seafile_mysql_userhost, e.args[1]))
             else:
@@ -655,7 +655,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
         try:
             cursor.execute(sql)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to create mysql user {}@{}: {}'.format(self.seafile_mysql_user, self.seafile_mysql_userhost, e.args[1]))
             else:
                 Utils.error('Failed to create mysql user {}@{}: {}'.format(self.seafile_mysql_user, self.seafile_mysql_userhost, e))
@@ -671,7 +671,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
         try:
             cursor.execute(sql)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to create database %s: %s' % (db_name, e.args[1]))
             else:
                 Utils.error('Failed to create database %s: %s' % (db_name, e))
@@ -689,7 +689,7 @@ class NewDBConfigurator(AbstractDBConfigurator):
         try:
             cursor.execute(sql)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to grant permission of database %s: %s' % (db_name, e.args[1]))
             else:
                 Utils.error('Failed to grant permission of database %s: %s' % (db_name, e))
@@ -761,7 +761,7 @@ class ExistingDBConfigurator(AbstractDBConfigurator):
 
         print('\nverifying user "%s" access to database %s ... ' % (user, db_name), end=' ')
         try:
-            conn = pymysql.connect(host=self.mysql_host,
+            conn = MySQLdb.connect(host=self.mysql_host,
                                    port=self.mysql_port,
                                    user=user,
                                    passwd=password,
@@ -771,7 +771,7 @@ class ExistingDBConfigurator(AbstractDBConfigurator):
             cursor.execute('show tables')
             cursor.close()
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 raise InvalidAnswer('Failed to access database %s using user "%s" and password "***": %s' \
                                     % (db_name, user, e.args[1]))
             else:
@@ -879,13 +879,13 @@ class CcnetConfigurator(AbstractConfigurator):
         print('----------------------------------------')
 
         try:
-            conn = pymysql.connect(host=db_config.mysql_host,
+            conn = MySQLdb.connect(host=db_config.mysql_host,
                                    port=db_config.mysql_port,
                                    user=db_config.seafile_mysql_user,
                                    passwd=db_config.seafile_mysql_password,
                                    db=db_config.ccnet_db_name)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to connect to mysql database %s: %s' % (db_config.ccnet_db_name, e.args[1]))
             else:
                 Utils.error('Failed to connect to mysql database %s: %s' % (db_config.ccnet_db_name, e))
@@ -901,7 +901,7 @@ class CcnetConfigurator(AbstractConfigurator):
             try:
                 cursor.execute(sql)
             except Exception as e:
-                if isinstance(e, pymysql.err.OperationalError):
+                if isinstance(e, MySQLdb.OperationalError):
                     Utils.error('Failed to init ccnet database: %s' % e.args[1])
                 else:
                     Utils.error('Failed to init ccnet database: %s' % e)
@@ -1004,13 +1004,13 @@ class SeafileConfigurator(AbstractConfigurator):
         print('----------------------------------------')
 
         try:
-            conn = pymysql.connect(host=db_config.mysql_host,
+            conn = MySQLdb.connect(host=db_config.mysql_host,
                                    port=db_config.mysql_port,
                                    user=db_config.seafile_mysql_user,
                                    passwd=db_config.seafile_mysql_password,
                                    db=db_config.seafile_db_name)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to connect to mysql database %s: %s' % (db_config.seafile_db_name, e.args[1]))
             else:
                 Utils.error('Failed to connect to mysql database %s: %s' % (db_config.seafile_db_name, e))
@@ -1026,7 +1026,7 @@ class SeafileConfigurator(AbstractConfigurator):
             try:
                 cursor.execute(sql)
             except Exception as e:
-                if isinstance(e, pymysql.err.OperationalError):
+                if isinstance(e, MySQLdb.OperationalError):
                     Utils.error('Failed to init seafile database: %s' % e.args[1])
                 else:
                     Utils.error('Failed to init seafile database: %s' % e)
@@ -1137,13 +1137,13 @@ class SeahubConfigurator(AbstractConfigurator):
         print('----------------------------------------')
 
         try:
-            conn = pymysql.connect(host=db_config.mysql_host,
+            conn = MySQLdb.connect(host=db_config.mysql_host,
                                    port=db_config.mysql_port,
                                    user=db_config.seafile_mysql_user,
                                    passwd=db_config.seafile_mysql_password,
                                    db=db_config.seahub_db_name)
         except Exception as e:
-            if isinstance(e, pymysql.err.OperationalError):
+            if isinstance(e, MySQLdb.OperationalError):
                 Utils.error('Failed to connect to mysql database %s: %s' % (db_config.seahub_db_name, e.args[1]))
             else:
                 Utils.error('Failed to connect to mysql database %s: %s' % (db_config.seahub_db_name, e))
@@ -1159,7 +1159,7 @@ class SeahubConfigurator(AbstractConfigurator):
             try:
                 cursor.execute(sql)
             except Exception as e:
-                if isinstance(e, pymysql.err.OperationalError):
+                if isinstance(e, MySQLdb.OperationalError):
                     Utils.error('Failed to init seahub database: %s' % e.args[1])
                 else:
                     Utils.error('Failed to init seahub database: %s' % e)
@@ -1486,7 +1486,7 @@ def main():
 
     if need_pause:
         Utils.welcome()
-    warnings.filterwarnings('ignore', category=pymysql.Warning)
+    warnings.filterwarnings('ignore', category=MySQLdb.Warning)
 
     env_mgr.check_pre_condiction()
 
