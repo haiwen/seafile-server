@@ -518,7 +518,7 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 		if testFireFox(r) {
 			contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\"", fileName)
 		} else {
-			contFileName = fmt.Sprintf("attachment;filename*=\"%s\"", fileName)
+			contFileName = fmt.Sprintf("attachment;filename=\"%s\"", fileName)
 		}
 	} else {
 		if testFireFox(r) {
