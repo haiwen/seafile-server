@@ -37,7 +37,6 @@ conf = {}
 CONF_VERSION            = 'version'
 CONF_SEAFILE_VERSION    = 'seafile_version'
 CONF_LIBSEARPC_VERSION  = 'libsearpc_version'
-CONF_CCNET_VERSION      = 'ccnet_version'
 CONF_SRCDIR             = 'srcdir'
 CONF_KEEP               = 'keep'
 CONF_BUILDDIR           = 'builddir'
@@ -141,7 +140,7 @@ def must_copy(src, dst):
 
 class Project(object):
     '''Base class for a project'''
-    # Probject name, i.e. libseaprc/ccnet/seafile/seahub
+    # Project name, i.e. libseaprc/seafile/seahub
     name = ''
 
     # A list of shell commands to configure/build the project
@@ -157,7 +156,7 @@ class Project(object):
         self.projdir = os.path.join(conf[CONF_BUILDDIR], '%s-%s' % (self.name, self.version))
 
     def get_version(self):
-        # libsearpc and ccnet can have different versions from seafile.
+        # libsearpc can have different versions from seafile.
         raise NotImplementedError
 
     def uncompress(self):
@@ -188,22 +187,6 @@ class Libsearpc(Project):
     def get_version(self):
         return conf[CONF_LIBSEARPC_VERSION]
 
-class Ccnet(Project):
-    name = 'ccnet'
-    def __init__(self):
-        Project.__init__(self)
-        configure_command = './configure --prefix=%s --enable-ldap' % self.prefix
-        if conf[CONF_MYSQL_CONFIG]:
-            configure_command += ' --with-mysql=%s' % conf[CONF_MYSQL_CONFIG]
-        self.build_commands = [
-            configure_command,
-            'make -j%s' % conf[CONF_JOBS],
-            'make install'
-        ]
-
-    def get_version(self):
-        return conf[CONF_CCNET_VERSION]
-
 class Seafile(Project):
     name = 'seafile'
     def __init__(self):
@@ -212,7 +195,7 @@ class Seafile(Project):
         if conf[CONF_ENABLE_S3]:
             s3_support = '--enable-s3'
 
-        configure_command = './configure --prefix=%s %s' % (self.prefix, s3_support)
+        configure_command = './configure --prefix=%s %s --enable-ldap' % (self.prefix, s3_support)
         if conf[CONF_MYSQL_CONFIG]:
             configure_command += ' --with-mysql=%s' % conf[CONF_MYSQL_CONFIG]
 
@@ -296,7 +279,6 @@ def validate_args(usage, options):
     required_args = [
         CONF_VERSION,
         CONF_LIBSEARPC_VERSION,
-        CONF_CCNET_VERSION,
         CONF_SEAFILE_VERSION,
         CONF_SRCDIR,
         CONF_THIRDPARTDIR,
@@ -319,17 +301,14 @@ def validate_args(usage, options):
     version = get_option(CONF_VERSION)
     seafile_version = get_option(CONF_SEAFILE_VERSION)
     libsearpc_version = get_option(CONF_LIBSEARPC_VERSION)
-    ccnet_version = get_option(CONF_CCNET_VERSION)
 
     check_project_version(version)
     check_project_version(libsearpc_version)
-    check_project_version(ccnet_version)
     check_project_version(seafile_version)
 
     # [ srcdir ]
     srcdir = get_option(CONF_SRCDIR)
     check_targz_src('libsearpc', libsearpc_version, srcdir)
-    check_targz_src('ccnet', ccnet_version, srcdir)
     check_targz_src('seafile', seafile_version, srcdir)
     check_targz_src('seahub', seafile_version, srcdir)
     check_targz_src_no_version('seafdav', srcdir)
@@ -376,7 +355,6 @@ def validate_args(usage, options):
     conf[CONF_VERSION] = version
     conf[CONF_LIBSEARPC_VERSION] = libsearpc_version
     conf[CONF_SEAFILE_VERSION] = seafile_version
-    conf[CONF_CCNET_VERSION] = ccnet_version
 
     conf[CONF_BUILDDIR] = builddir
     conf[CONF_SRCDIR] = srcdir
@@ -398,7 +376,6 @@ def show_build_info():
     info('Seafile server %s: BUILD INFO' % conf[CONF_VERSION])
     info('------------------------------------------')
     info('seafile:          %s' % conf[CONF_SEAFILE_VERSION])
-    info('ccnet:            %s' % conf[CONF_CCNET_VERSION])
     info('libsearpc:        %s' % conf[CONF_LIBSEARPC_VERSION])
     info('builddir:         %s' % conf[CONF_BUILDDIR])
     info('outputdir:        %s' % conf[CONF_OUTPUTDIR])
@@ -461,11 +438,6 @@ def parse_args():
                       dest=CONF_LIBSEARPC_VERSION,
                       nargs=1,
                       help='the version of libsearpc as specified in its "configure.ac". Must be digits delimited by dots, like 1.3.0')
-
-    parser.add_option(long_opt(CONF_CCNET_VERSION),
-                      dest=CONF_CCNET_VERSION,
-                      nargs=1,
-                      help='the version of ccnet as specified in its "configure.ac". Must be digits delimited by dots, like 1.3.0')
 
     parser.add_option(long_opt(CONF_BUILDDIR),
                       dest=CONF_BUILDDIR,
@@ -676,7 +648,7 @@ def copy_pdf2htmlex():
     must_copy(pdf2htmlEX_executable, dst_bin_dir)
 
 def get_dependent_libs(executable):
-    syslibs = ['libsearpc', 'libccnet', 'libseafile', 'libpthread.so', 'libc.so', 'libm.so', 'librt.so', 'libdl.so', 'libselinux.so', 'libresolv.so' ]
+    syslibs = ['libsearpc', 'libseafile', 'libpthread.so', 'libc.so', 'libm.so', 'librt.so', 'libdl.so', 'libselinux.so', 'libresolv.so' ]
     def is_syslib(lib):
         for syslib in syslibs:
             if syslib in lib:
@@ -711,12 +683,6 @@ def copy_shared_libs():
                                    'bin',
                                    'seaf-server')
 
-    ccnet_server_path = os.path.join(builddir,
-                                     'seafile-server',
-                                     'seafile',
-                                     'bin',
-                                     'ccnet-server')
-
     seaf_fuse_path = os.path.join(builddir,
                                   'seafile-server',
                                   'seafile',
@@ -724,7 +690,6 @@ def copy_shared_libs():
                                   'seaf-fuse')
 
     libs = set()
-    libs.update(get_dependent_libs(ccnet_server_path))
     libs.update(get_dependent_libs(seafile_path))
     libs.update(get_dependent_libs(seaf_fuse_path))
 
@@ -812,9 +777,6 @@ def create_tarball(tarball_name):
         os.path.join(versioned_serverdir, 'seafile', 'include*'),
         os.path.join(versioned_serverdir, 'seafile', 'lib', 'pkgconfig*'),
         os.path.join(versioned_serverdir, 'seafile', 'lib64', 'pkgconfig*'),
-        os.path.join(versioned_serverdir, 'seafile', 'bin', 'ccnet-demo*'),
-        os.path.join(versioned_serverdir, 'seafile', 'bin', 'ccnet-tool'),
-        os.path.join(versioned_serverdir, 'seafile', 'bin', 'ccnet-servtool'),
         os.path.join(versioned_serverdir, 'seafile', 'bin', 'searpc-codegen.py'),
         os.path.join(versioned_serverdir, 'seafile', 'bin', 'seafile-admin'),
         os.path.join(versioned_serverdir, 'seafile', 'bin', 'seafile'),
@@ -878,15 +840,11 @@ def main():
     setup_build_env()
 
     libsearpc = Libsearpc()
-    ccnet = Ccnet()
     seafile = Seafile()
     seahub = Seahub()
 
     libsearpc.uncompress()
     libsearpc.build()
-
-    ccnet.uncompress()
-    ccnet.build()
 
     seafile.uncompress()
     seafile.build()
