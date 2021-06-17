@@ -220,39 +220,9 @@ func loadFileServerOptions() {
 
 	initDefaultOptions()
 	if section, err := config.GetSection("fileserver"); err == nil {
-		if key, err := section.GetKey("host"); err == nil {
-			options.host = key.String()
-		}
-		if key, err := section.GetKey("port"); err == nil {
-			port, err := key.Uint()
-			if err == nil {
-				options.port = uint32(port)
-			}
-		}
-		if key, err := section.GetKey("max_indexing_threads"); err == nil {
-			threads, err := key.Uint()
-			if err == nil {
-				options.maxIndexingThreads = uint32(threads)
-			}
-		}
-		if key, err := section.GetKey("fixed_block_size"); err == nil {
-			blkSize, err := key.Uint64()
-			if err == nil {
-				options.fixedBlockSize = blkSize
-			}
-		}
-		if key, err := section.GetKey("web_token_expire_time"); err == nil {
-			expire, err := key.Uint()
-			if err == nil {
-				options.webTokenExpireTime = uint32(expire)
-			}
-		}
-		if key, err := section.GetKey("cluster_shared_temp_file_mode"); err == nil {
-			fileMode, err := key.Uint()
-			if err == nil {
-				options.clusterSharedTempFileMode = uint32(fileMode)
-			}
-		}
+		parseFileServerSection(section)
+	} else if section, err := config.GetSection("httpserver"); err == nil {
+		parseFileServerSection(section)
 	}
 
 	ccnetConfPath := filepath.Join(centralDir, "ccnet.conf")
@@ -264,6 +234,42 @@ func loadFileServerOptions() {
 	if section, err := config.GetSection("GROUP"); err == nil {
 		if key, err := section.GetKey("TABLE_NAME"); err == nil {
 			groupTableName = key.String()
+		}
+	}
+}
+
+func parseFileServerSection(section *ini.Section) {
+	if key, err := section.GetKey("host"); err == nil {
+		options.host = key.String()
+	}
+	if key, err := section.GetKey("port"); err == nil {
+		port, err := key.Uint()
+		if err == nil {
+			options.port = uint32(port)
+		}
+	}
+	if key, err := section.GetKey("max_indexing_threads"); err == nil {
+		threads, err := key.Uint()
+		if err == nil {
+			options.maxIndexingThreads = uint32(threads)
+		}
+	}
+	if key, err := section.GetKey("fixed_block_size"); err == nil {
+		blkSize, err := key.Uint64()
+		if err == nil {
+			options.fixedBlockSize = blkSize
+		}
+	}
+	if key, err := section.GetKey("web_token_expire_time"); err == nil {
+		expire, err := key.Uint()
+		if err == nil {
+			options.webTokenExpireTime = uint32(expire)
+		}
+	}
+	if key, err := section.GetKey("cluster_shared_temp_file_mode"); err == nil {
+		fileMode, err := key.Uint()
+		if err == nil {
+			options.clusterSharedTempFileMode = uint32(fileMode)
 		}
 	}
 }
