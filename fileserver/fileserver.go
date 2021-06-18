@@ -219,7 +219,7 @@ func loadFileServerOptions() {
 	}
 
 	initDefaultOptions()
-	if section, err := config.GetSection("fileserver"); err == nil {
+	if section, err := config.GetSection("httpserver"); err == nil {
 		if key, err := section.GetKey("host"); err == nil {
 			options.host = key.String()
 		}
