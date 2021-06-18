@@ -92,7 +92,7 @@ def get_branch_json_file():
 def get_project_branch(project, default_branch='master'):
     travis_branch = os.environ.get('TRAVIS_BRANCH', 'master')
     if project.name == 'seafile-server':
-        return travis_branch
+        return 'fixed-ci-02'
     conf = get_branch_json_file()
     return conf.get(travis_branch, {}).get(project.name, default_branch)
 
