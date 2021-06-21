@@ -57,7 +57,7 @@ class Utils(object):
         if not os.path.exists(config_path):
             Utils.error('Config path %s doesn\'t exist, stop db upgrade' %
                         config_path)
-        cp = configparser.ConfigParser(defaults)
+        cp = configparser.ConfigParser(defaults, interpolation=None)
         cp.read(config_path)
         return cp
 

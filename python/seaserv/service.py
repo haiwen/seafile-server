@@ -39,7 +39,7 @@ ccnet_threaded_rpc = seafserv_threaded_rpc
 
 # load ccnet server addr and port from ccnet.conf.
 # 'addr:port' is used when downloading a repo
-config = configparser.ConfigParser()
+config = configparser.ConfigParser(interpolation=None)
 config.read(os.path.join(SEAFILE_CENTRAL_CONF_DIR if SEAFILE_CENTRAL_CONF_DIR else CCNET_CONF_PATH,
                          'ccnet.conf'))
 
