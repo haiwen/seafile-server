@@ -1020,7 +1020,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	if fsm.fsize > 0 {
 		contentLen = fsm.fsize
 	} else {
-		lenstr := rsp.Header().Get("Content-Length")
+		lenstr := r.Header.Get("Content-Length")
 		if lenstr == "" {
 			contentLen = -1
 		} else {
@@ -2582,7 +2582,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	if fsm.fsize > 0 {
 		contentLen = fsm.fsize
 	} else {
-		lenstr := rsp.Header().Get("Content-Length")
+		lenstr := r.Header.Get("Content-Length")
 		if lenstr == "" {
 			contentLen = -1
 		} else {
@@ -3047,7 +3047,7 @@ func doUploadRawBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *a
 	}
 
 	var contentLen int64
-	lenstr := rsp.Header().Get("Content-Length")
+	lenstr := r.Header.Get("Content-Length")
 	if lenstr != "" {
 		conLen, err := strconv.ParseInt(lenstr, 10, 64)
 		if err != nil {
