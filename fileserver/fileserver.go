@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -33,6 +34,7 @@ var dbType string
 var groupTableName string
 var cloudMode bool
 var seafileDB, ccnetDB *sql.DB
+var defaultQuota int64
 
 // when SQLite is used, user and group db are separated.
 var userDB, groupDB *sql.DB
@@ -132,8 +134,7 @@ func loadCcnetDB() {
 }
 
 func loadSeafileDB() {
-	var seafileConfPath string
-	seafileConfPath = filepath.Join(centralDir, "seafile.conf")
+	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
 
 	config, err := ini.Load(seafileConfPath)
 	if err != nil {
@@ -203,9 +204,72 @@ func loadSeafileDB() {
 	dbType = dbEngine
 }
 
+func parseQuota(quotaStr string) int64 {
+	var quota int64
+	var multiplier int64 = GB
+	if end := strings.Index(quotaStr, "kb"); end > 0 {
+		multiplier = KB
+		quotaInt, err := strconv.ParseInt(quotaStr[:end], 10, 0)
+		if err != nil {
+			return InfiniteQuota
+		}
+		quota = quotaInt * multiplier
+	} else if end := strings.Index(quotaStr, "mb"); end > 0 {
+		multiplier = MB
+		quotaInt, err := strconv.ParseInt(quotaStr[:end], 10, 0)
+		if err != nil {
+			return InfiniteQuota
+		}
+		quota = quotaInt * multiplier
+	} else if end := strings.Index(quotaStr, "gb"); end > 0 {
+		multiplier = GB
+		quotaInt, err := strconv.ParseInt(quotaStr[:end], 10, 0)
+		if err != nil {
+			return InfiniteQuota
+		}
+		quota = quotaInt * multiplier
+	} else if end := strings.Index(quotaStr, "tb"); end > 0 {
+		multiplier = TB
+		quotaInt, err := strconv.ParseInt(quotaStr[:end], 10, 0)
+		if err != nil {
+			return InfiniteQuota
+		}
+		quota = quotaInt * multiplier
+	} else {
+		quotaInt, err := strconv.ParseInt(quotaStr, 10, 0)
+		if err != nil {
+			return InfiniteQuota
+		}
+		quota = quotaInt * multiplier
+	}
+
+	return quota
+}
+
+func loadQuota() {
+	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
+
+	config, err := ini.Load(seafileConfPath)
+	if err != nil {
+		log.Fatalf("Failed to load seafile.conf: %v", err)
+	}
+
+	section, err := config.GetSection("quota")
+	if err != nil {
+		defaultQuota = InfiniteQuota
+		return
+	}
+	key, err := section.GetKey("default")
+	if err != nil {
+		defaultQuota = InfiniteQuota
+		return
+	}
+	quotaStr := key.String()
+	defaultQuota = parseQuota(quotaStr)
+}
+
 func loadFileServerOptions() {
-	var seafileConfPath string
-	seafileConfPath = filepath.Join(centralDir, "seafile.conf")
+	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
 
 	config, err := ini.Load(seafileConfPath)
 	if err != nil {
@@ -309,6 +373,7 @@ func main() {
 	}
 	loadSeafileDB()
 	loadFileServerOptions()
+	loadQuota()
 
 	if logFile == "" {
 		absLogFile = filepath.Join(absDataDir, "seafile.log")
