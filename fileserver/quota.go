@@ -70,19 +70,11 @@ func getUserQuota(user string) (int64, error) {
 	}
 
 	if quota <= 0 {
-		quota = defaultQuota
+		quota = options.defaultQuota
 	}
 
 	return quota, nil
 }
-
-// Storage unit.
-const (
-	KB = 1000
-	MB = 1000000
-	GB = 1000000000
-	TB = 1000000000000
-)
 
 func getUserUsage(user string) (int64, error) {
 	var usage sql.NullInt64

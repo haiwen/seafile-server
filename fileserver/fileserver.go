@@ -34,10 +34,17 @@ var dbType string
 var groupTableName string
 var cloudMode bool
 var seafileDB, ccnetDB *sql.DB
-var defaultQuota int64
 
 // when SQLite is used, user and group db are separated.
 var userDB, groupDB *sql.DB
+
+// Storage unit.
+const (
+	KB = 1000
+	MB = 1000000
+	GB = 1000000000
+	TB = 1000000000000
+)
 
 type fileServerOptions struct {
 	host               string
@@ -54,6 +61,7 @@ type fileServerOptions struct {
 	windowsEncoding           string
 	// Timeout for fs-id-list requests.
 	fsIDListRequestTimeout uint32
+	defaultQuota           int64
 }
 
 var options fileServerOptions
@@ -246,28 +254,6 @@ func parseQuota(quotaStr string) int64 {
 	return quota
 }
 
-func loadQuota() {
-	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
-
-	config, err := ini.Load(seafileConfPath)
-	if err != nil {
-		log.Fatalf("Failed to load seafile.conf: %v", err)
-	}
-
-	section, err := config.GetSection("quota")
-	if err != nil {
-		defaultQuota = InfiniteQuota
-		return
-	}
-	key, err := section.GetKey("default")
-	if err != nil {
-		defaultQuota = InfiniteQuota
-		return
-	}
-	quotaStr := key.String()
-	defaultQuota = parseQuota(quotaStr)
-}
-
 func loadFileServerOptions() {
 	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
 
@@ -287,6 +273,13 @@ func loadFileServerOptions() {
 		parseFileServerSection(section)
 	} else if section, err := config.GetSection("httpserver"); err == nil {
 		parseFileServerSection(section)
+	}
+
+	if section, err := config.GetSection("quota"); err == nil {
+		if key, err := section.GetKey("default"); err == nil {
+			quotaStr := key.String()
+			options.defaultQuota = parseQuota(quotaStr)
+		}
 	}
 
 	ccnetConfPath := filepath.Join(centralDir, "ccnet.conf")
@@ -346,6 +339,7 @@ func initDefaultOptions() {
 	options.maxIndexingThreads = 1
 	options.webTokenExpireTime = 7200
 	options.clusterSharedTempFileMode = 0600
+	options.defaultQuota = InfiniteQuota
 }
 
 func main() {
@@ -373,7 +367,6 @@ func main() {
 	}
 	loadSeafileDB()
 	loadFileServerOptions()
-	loadQuota()
 
 	if logFile == "" {
 		absLogFile = filepath.Join(absDataDir, "seafile.log")
