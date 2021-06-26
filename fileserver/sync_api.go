@@ -925,9 +925,7 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	mergeVirtualRepo(repoID, "")
 
-	if err := computeRepoSize(repoID); err != nil {
-		return &appError{err, "", http.StatusInternalServerError}
-	}
+	go updateRepoSize(repoID)
 
 	rsp.WriteHeader(http.StatusOK)
 	return nil
