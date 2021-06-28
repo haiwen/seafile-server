@@ -2225,7 +2225,6 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
     gboolean is_encrypted = seaf_db_row_get_column_int (row, 6) ? TRUE : FALSE;
     const char *last_modifier = seaf_db_row_get_column_text (row, 7);
     int status = seaf_db_row_get_column_int (row, 8);
-    gint64 file_count = seaf_db_row_get_column_int64 (row, 9);
 
     repo = seaf_repo_new (repo_id, NULL, NULL);
     if (!repo)
@@ -2237,8 +2236,10 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
     }
 
     repo->size = size;
-    repo->file_count = file_count;
-
+    if (seaf_db_row_get_column_count (row) == 10) {
+        gint64 file_count = seaf_db_row_get_column_int64 (row, 9);
+        repo->file_count = file_count;
+    }
     head = seaf_branch_new ("master", repo_id, commit_id);
     repo->head = head;
     if (repo_name) {
