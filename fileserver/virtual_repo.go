@@ -15,6 +15,29 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 )
 
+const mergeVirtualRepoWorkerNumber = 5
+
+var mergeVirtualRepoTasks = make(chan string, 100)
+
+func virtualRepoInit() {
+	go createMergeVirtualRepoTaskPool(mergeVirtualRepoWorkerNumber)
+}
+
+func createMergeVirtualRepoTaskPool(n int) {
+	for i := 0; i < n; i++ {
+		go mergeVirtualRepoWorker()
+	}
+}
+
+func mergeVirtualRepoWorker() {
+	for {
+		select {
+		case repoID := <-mergeVirtualRepoTasks:
+			mergeVirtualRepo(repoID, "")
+		}
+	}
+}
+
 func mergeVirtualRepo(repoID, excludeRepo string) {
 	virtual, err := repomgr.IsVirtualRepo(repoID)
 	if err != nil {
