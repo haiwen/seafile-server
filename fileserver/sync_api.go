@@ -923,7 +923,7 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	mergeVirtualRepo(repoID, "")
+	mergeVirtualRepoTasks <- repoID
 
 	go updateRepoSize(repoID)
 

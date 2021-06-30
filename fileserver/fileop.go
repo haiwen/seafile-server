@@ -1210,7 +1210,7 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 		return err
 	}
 
-	go mergeVirtualRepo(repo.ID, "")
+	mergeVirtualRepoTasks <- repo.ID
 
 	return nil
 }
@@ -1529,7 +1529,7 @@ func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPa
 		return "", err
 	}
 
-	go mergeVirtualRepo(repo.ID, "")
+	mergeVirtualRepoTasks <- repo.ID
 
 	retJSON, err := formatJSONRet(names, ids, sizes)
 	if err != nil {
@@ -2742,7 +2742,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		rsp.Write([]byte(fileID))
 	}
 
-	go mergeVirtualRepo(repo.ID, "")
+	mergeVirtualRepoTasks <- repo.ID
 
 	return nil
 }

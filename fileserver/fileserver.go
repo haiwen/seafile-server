@@ -408,6 +408,8 @@ func main() {
 
 	sizeSchedulerInit()
 
+	virtualRepoInit()
+
 	initUpload()
 
 	router := newHTTPRouter()
