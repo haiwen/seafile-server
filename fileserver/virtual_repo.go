@@ -30,11 +30,8 @@ func createMergeVirtualRepoTaskPool(n int) {
 }
 
 func mergeVirtualRepoWorker() {
-	for {
-		select {
-		case repoID := <-mergeVirtualRepoTasks:
-			mergeVirtualRepo(repoID, "")
-		}
+	for repoID := range mergeVirtualRepoTasks {
+		mergeVirtualRepo(repoID, "")
 	}
 }
 
