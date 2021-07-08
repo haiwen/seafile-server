@@ -11,6 +11,7 @@ typedef struct Progress {
     char *zip_file_path;
     gint64 expire_ts;
     gboolean canceled;
+    gboolean size_too_large;
 } Progress;
 
 int
