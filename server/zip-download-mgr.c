@@ -610,8 +610,6 @@ zip_download_mgr_query_zip_progress (ZipDownloadMgr *mgr,
         if (progress->size_too_large || progress->canceled)
             remove_progress_by_token(mgr->priv, token);
     }else {
-        seaf_warning ("Zip progress info not found for token %s: "
-                      "invalid token or related zip task failed.\n", token);
         json_object_set_int_member (obj, "failed", 1);
         json_object_set_string_member (obj, "failed_reason", "internal error");
     }
