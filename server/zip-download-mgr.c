@@ -591,28 +591,26 @@ zip_download_mgr_query_zip_progress (ZipDownloadMgr *mgr,
     char *info;
 
     progress = get_progress_obj (mgr->priv, token);
+    if (!progress)
+        return NULL;
+
     obj = json_object ();
-    if (progress) {
-        json_object_set_int_member (obj, "zipped", g_atomic_int_get (&progress->zipped));
-        json_object_set_int_member (obj, "total", progress->total);
-        if (progress->size_too_large) {
-            json_object_set_int_member (obj, "failed", 1);
-            json_object_set_string_member (obj, "failed_reason", "size too large");
-        } else {
-            json_object_set_int_member (obj, "failed", 0);
-            json_object_set_string_member (obj, "failed_reason", "");
-        }
-        if (progress->canceled)
-            json_object_set_int_member (obj, "canceled", 1);
-        else
-            json_object_set_int_member (obj, "canceled", 0);
-        
-        if (progress->size_too_large || progress->canceled)
-            remove_progress_by_token(mgr->priv, token);
-    }else {
+    json_object_set_int_member (obj, "zipped", g_atomic_int_get (&progress->zipped));
+    json_object_set_int_member (obj, "total", progress->total);
+    if (progress->size_too_large) {
         json_object_set_int_member (obj, "failed", 1);
-        json_object_set_string_member (obj, "failed_reason", "internal error");
+        json_object_set_string_member (obj, "failed_reason", "size too large");
+    } else {
+        json_object_set_int_member (obj, "failed", 0);
+        json_object_set_string_member (obj, "failed_reason", "");
     }
+    if (progress->canceled)
+        json_object_set_int_member (obj, "canceled", 1);
+    else
+        json_object_set_int_member (obj, "canceled", 0);
+    
+    if (progress->size_too_large || progress->canceled)
+        remove_progress_by_token(mgr->priv, token);
         
     info = json_dumps (obj, JSON_COMPACT);
     json_decref (obj);
