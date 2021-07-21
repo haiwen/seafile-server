@@ -6289,15 +6289,28 @@ scan_commits_for_collect_deleted (CollectDelData *data,
         key = g_strdup (commit->commit_id);
         g_hash_table_replace (commit_hash, key, key);
     } else {
-        commit = seaf_commit_manager_get_commit (seaf->commit_mgr, repo->id,
-                                                 repo->version, prev_scan_stat);
-        if (!commit) {
+        json_t *commit_array = NULL, *commit_obj = NULL;
+        char *commit_id = NULL;
+        commit_array = json_loadb (prev_scan_stat, strlen(prev_scan_stat), 0, NULL);
+        if (!commit_array) {
             ret = FALSE;
             goto out;
         }
-        list = g_list_append (list, commit);
-        key = g_strdup (commit->commit_id);
-        g_hash_table_replace (commit_hash, key, key);
+        int i;
+        for (i = 0; i < json_array_size (commit_array); i++) {
+            commit_obj = json_array_get (commit_array, i);
+            commit_id = json_string_value (commit_obj);
+            commit = seaf_commit_manager_get_commit (seaf->commit_mgr, repo->id,
+                                                    repo->version, commit_id);
+            if (!commit) {
+                ret = FALSE;
+                goto out;
+            }
+            list = g_list_append (list, commit);
+            key = g_strdup (commit->commit_id);
+            g_hash_table_replace (commit_hash, key, key);
+        }
+        json_decref (commit_array);
     }
 
     while (list) {
@@ -6342,20 +6355,23 @@ scan_commits_for_collect_deleted (CollectDelData *data,
         }
         seaf_commit_unref (commit);
 
-        if (++scan_num >= limit && (!list || !list->next)) {
+        if (++scan_num >= limit) {
             break;
         }
     }
 
-    // two scenarios:
-    // 1. list is empty, indicate scan end
-    // 2. list only have one commit, as start for next scan
-    if (list) {
+    json_t *commit_array = json_array ();
+    while (list) {
         commit = list->data;
-        *next_scan_stat = g_strdup (commit->commit_id);
+        json_array_append_new (commit_array, json_string (commit->commit_id));
         seaf_commit_unref (commit);
         list = g_list_delete_link (list, list);
     }
+    if (json_array_size(commit_array) > 0) {
+        char *commits = json_dumps (commit_array, JSON_COMPACT);
+        *next_scan_stat = commits;
+    }
+    json_decref (commit_array);
     g_hash_table_destroy (commit_hash);
 
     return ret;
