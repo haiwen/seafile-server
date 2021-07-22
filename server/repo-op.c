@@ -6261,6 +6261,38 @@ insert_parent_commit (GList **list, GHashTable *hash,
     return 0;
 }
 
+static GList *
+scan_stat_to_list(const char *scan_stat, GHashTable *commit_hash, SeafRepo *repo)
+{
+    json_t *commit_array = NULL, *commit_obj = NULL;
+    char *commit_id = NULL;
+    SeafCommit *commit = NULL;
+    GList *list = NULL;
+    char *key;
+    commit_array = json_loadb (scan_stat, strlen(scan_stat), 0, NULL);
+    if (!commit_array) {
+        return NULL;
+    }
+    int i;
+    for (i = 0; i < json_array_size (commit_array); i++) {
+        commit_obj = json_array_get (commit_array, i);
+        commit_id = json_string_value (commit_obj);
+        if (commit_id && strlen(commit_id) == 40) {
+            commit = seaf_commit_manager_get_commit (seaf->commit_mgr, repo->id,
+                                                    repo->version, commit_id);
+            if (!commit) {
+                return NULL;
+            }
+            list = g_list_prepend (list, commit);
+            key = g_strdup (commit->commit_id);
+            g_hash_table_replace (commit_hash, key, key);
+        }
+    }
+    json_decref (commit_array);
+    list = g_list_sort (list, compare_commit_by_time);
+    return list;
+}
+
 static int
 scan_commits_for_collect_deleted (CollectDelData *data,
                                   const char *prev_scan_stat,
@@ -6277,7 +6309,6 @@ scan_commits_for_collect_deleted (CollectDelData *data,
     /* A hash table for recording id of traversed commits. */
     commit_hash = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
-    char *key;
     if (prev_scan_stat == NULL) {
         commit = seaf_commit_manager_get_commit (seaf->commit_mgr, repo->id,
                                                  repo->version, repo->head->commit_id);
@@ -6286,31 +6317,14 @@ scan_commits_for_collect_deleted (CollectDelData *data,
             goto out;
         }
         list = g_list_prepend (list, commit);
-        key = g_strdup (commit->commit_id);
+        char *key = g_strdup (commit->commit_id);
         g_hash_table_replace (commit_hash, key, key);
     } else {
-        json_t *commit_array = NULL, *commit_obj = NULL;
-        char *commit_id = NULL;
-        commit_array = json_loadb (prev_scan_stat, strlen(prev_scan_stat), 0, NULL);
-        if (!commit_array) {
+        list = scan_stat_to_list (prev_scan_stat, commit_hash, repo);
+        if (list == NULL) {
             ret = FALSE;
             goto out;
         }
-        int i;
-        for (i = 0; i < json_array_size (commit_array); i++) {
-            commit_obj = json_array_get (commit_array, i);
-            commit_id = json_string_value (commit_obj);
-            commit = seaf_commit_manager_get_commit (seaf->commit_mgr, repo->id,
-                                                    repo->version, commit_id);
-            if (!commit) {
-                ret = FALSE;
-                goto out;
-            }
-            list = g_list_append (list, commit);
-            key = g_strdup (commit->commit_id);
-            g_hash_table_replace (commit_hash, key, key);
-        }
-        json_decref (commit_array);
     }
 
     while (list) {
