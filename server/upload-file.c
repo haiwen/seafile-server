@@ -1983,11 +1983,13 @@ recv_form_field (RecvFSM *fsm, gboolean *no_line)
     } else {
         size_t size = evbuffer_get_length (fsm->line);
         if (size >= strlen(fsm->boundary) + 4) {
-            char *buf = g_new (char, size);
-            evbuffer_remove (fsm->line, buf, size);
-            if (strstr(buf, fsm->boundary) != NULL) {
+            struct evbuffer_ptr search_boundary = evbuffer_search (fsm->line,
+                                                                   fsm->boundary,
+                                                                   strlen(fsm->boundary),
+                                                                   NULL);
+            if (search_boundary.pos != -1) {
                 seaf_debug ("[upload] form field ends.\n");
-
+                evbuffer_drain (fsm->line, size);
                 g_free (fsm->input_name);
                 fsm->input_name = NULL;
                 fsm->state = RECV_HEADERS;
