@@ -51,67 +51,6 @@ func CheckPerm(repoID string, user string) string {
 	return perm
 }
 
-// GetGroupReposByUser get group repos by user
-func GetGroupReposByUser(user string, orgID int) ([]*SharedRepo, error) {
-	groups, err := getGroupsByUser(user, true)
-	if err != nil {
-		return nil, err
-	}
-	if len(groups) == 0 {
-		return nil, nil
-	}
-
-	var sqlBuilder strings.Builder
-	if orgID < 0 {
-		sqlBuilder.WriteString("SELECT g.repo_id, " +
-			"user_name, permission, commit_id, " +
-			"i.name, i.update_time, i.version " +
-			"FROM RepoGroup g " +
-			"LEFT JOIN RepoInfo i ON g.repo_id = i.repo_id, " +
-			"Branch b WHERE g.repo_id = b.repo_id AND " +
-			"b.name = 'master' AND group_id IN (")
-	} else {
-		sqlBuilder.WriteString("SELECT g.repo_id, " +
-			"owner, permission, commit_id, " +
-			"i.name, i.update_time, i.version " +
-			"FROM OrgGroupRepo g " +
-			"LEFT JOIN RepoInfo i ON g.repo_id = i.repo_id, " +
-			"Branch b WHERE g.repo_id = b.repo_id AND " +
-			"b.name = 'master' AND group_id IN (")
-	}
-
-	for i := 0; i < len(groups); i++ {
-		sqlBuilder.WriteString(strconv.Itoa(groups[i].id))
-		if i+1 < len(groups) {
-			sqlBuilder.WriteString(",")
-		}
-	}
-	sqlBuilder.WriteString(" ) ORDER BY group_id")
-
-	rows, err := seafileDB.Query(sqlBuilder.String())
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var repos []*SharedRepo
-	for rows.Next() {
-		gRepo := new(SharedRepo)
-		if err := rows.Scan(&gRepo.ID, &gRepo.Owner,
-			&gRepo.Permission, &gRepo.HeadCommitID,
-			&gRepo.Name, &gRepo.MTime, &gRepo.Version); err == nil {
-
-			repos = append(repos, gRepo)
-		}
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return repos, nil
-}
-
 func checkVirtualRepoPerm(repoID, originRepoID, user, vPath string) string {
 	owner, err := repomgr.GetRepoOwner(originRepoID)
 	if err != nil {
@@ -635,6 +574,67 @@ func ListShareRepos(email, columnType string) ([]*SharedRepo, error) {
 			repo.Name = repoName.String
 
 			repos = append(repos, repo)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return repos, nil
+}
+
+// GetGroupReposByUser get group repos by user
+func GetGroupReposByUser(user string, orgID int) ([]*SharedRepo, error) {
+	groups, err := getGroupsByUser(user, true)
+	if err != nil {
+		return nil, err
+	}
+	if len(groups) == 0 {
+		return nil, nil
+	}
+
+	var sqlBuilder strings.Builder
+	if orgID < 0 {
+		sqlBuilder.WriteString("SELECT g.repo_id, " +
+			"user_name, permission, commit_id, " +
+			"i.name, i.update_time, i.version " +
+			"FROM RepoGroup g " +
+			"LEFT JOIN RepoInfo i ON g.repo_id = i.repo_id, " +
+			"Branch b WHERE g.repo_id = b.repo_id AND " +
+			"b.name = 'master' AND group_id IN (")
+	} else {
+		sqlBuilder.WriteString("SELECT g.repo_id, " +
+			"owner, permission, commit_id, " +
+			"i.name, i.update_time, i.version " +
+			"FROM OrgGroupRepo g " +
+			"LEFT JOIN RepoInfo i ON g.repo_id = i.repo_id, " +
+			"Branch b WHERE g.repo_id = b.repo_id AND " +
+			"b.name = 'master' AND group_id IN (")
+	}
+
+	for i := 0; i < len(groups); i++ {
+		sqlBuilder.WriteString(strconv.Itoa(groups[i].id))
+		if i+1 < len(groups) {
+			sqlBuilder.WriteString(",")
+		}
+	}
+	sqlBuilder.WriteString(" ) ORDER BY group_id")
+
+	rows, err := seafileDB.Query(sqlBuilder.String())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var repos []*SharedRepo
+	for rows.Next() {
+		gRepo := new(SharedRepo)
+		if err := rows.Scan(&gRepo.ID, &gRepo.Owner,
+			&gRepo.Permission, &gRepo.HeadCommitID,
+			&gRepo.Name, &gRepo.MTime, &gRepo.Version); err == nil {
+
+			repos = append(repos, gRepo)
 		}
 	}
 
