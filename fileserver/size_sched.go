@@ -45,7 +45,7 @@ func sizeSchedulerInit() {
 			}
 		}
 	}
-	go createWorkerPool(n)
+	createWorkerPool(n)
 }
 
 // need to start a go routine
@@ -56,20 +56,27 @@ func createWorkerPool(n int) {
 }
 
 func worker() {
-	for {
-		select {
-		case job := <-jobs:
-			if job.callback != nil {
-				err := job.callback(job.repoID)
-				if err != nil {
-					log.Printf("failed to call jobs: %v.\n", err)
-				}
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v", err)
+		}
+	}()
+	for job := range jobs {
+		if job.callback != nil {
+			err := job.callback(job.repoID)
+			if err != nil {
+				log.Printf("failed to call jobs: %v.\n", err)
 			}
 		}
 	}
 }
 
 func updateRepoSize(repoID string) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v", err)
+		}
+	}()
 	job := Job{computeRepoSize, repoID}
 	jobs <- job
 }

@@ -60,6 +60,11 @@ func (d Dirents) Len() int {
 func fileopInit() {
 	ticker := time.NewTicker(time.Second * fileopCleaningIntervalSec)
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("panic: %v", err)
+			}
+		}()
 		for range ticker.C {
 			removeFileopExpireCache()
 		}
@@ -1956,6 +1961,11 @@ func indexBlocks(ctx context.Context, repoID string, version int, filePath strin
 				if result.err != nil {
 					close(chunkJobs)
 					go func() {
+						defer func() {
+							if err := recover(); err != nil {
+								log.Printf("panic: %v", err)
+							}
+						}()
 						for result := range results {
 							_ = result
 						}
@@ -1969,6 +1979,11 @@ func indexBlocks(ctx context.Context, repoID string, version int, filePath strin
 			for result := range results {
 				if result.err != nil {
 					go func() {
+						defer func() {
+							if err := recover(); err != nil {
+								log.Printf("panic: %v", err)
+							}
+						}()
 						for result := range results {
 							_ = result
 						}
@@ -2021,6 +2036,11 @@ type chunkingResult struct {
 }
 
 func createChunkPool(ctx context.Context, n int, chunkJobs chan chunkingData, res chan chunkingResult) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v", err)
+		}
+	}()
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
 		wg.Add(1)
@@ -2031,6 +2051,11 @@ func createChunkPool(ctx context.Context, n int, chunkJobs chan chunkingData, re
 }
 
 func chunkingWorker(ctx context.Context, wg *sync.WaitGroup, chunkJobs chan chunkingData, res chan chunkingResult) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v", err)
+		}
+	}()
 	for job := range chunkJobs {
 		select {
 		case <-ctx.Done():

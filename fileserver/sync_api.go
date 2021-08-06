@@ -85,6 +85,11 @@ type statusEventData struct {
 func syncAPIInit() {
 	ticker := time.NewTicker(time.Second * syncAPICleaningIntervalSec)
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("panic: %v", err)
+			}
+		}()
 		for range ticker.C {
 			removeSyncAPIExpireCache()
 		}

@@ -20,7 +20,7 @@ const mergeVirtualRepoWorkerNumber = 5
 var mergeVirtualRepoTasks = make(chan string, 100)
 
 func virtualRepoInit() {
-	go createMergeVirtualRepoTaskPool(mergeVirtualRepoWorkerNumber)
+	createMergeVirtualRepoTaskPool(mergeVirtualRepoWorkerNumber)
 }
 
 func createMergeVirtualRepoTaskPool(n int) {
@@ -30,6 +30,11 @@ func createMergeVirtualRepoTaskPool(n int) {
 }
 
 func mergeVirtualRepoWorker() {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v", err)
+		}
+	}()
 	for repoID := range mergeVirtualRepoTasks {
 		mergeVirtualRepo(repoID, "")
 	}
