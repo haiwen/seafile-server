@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -497,4 +498,14 @@ func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Error(w, e.Message, e.Code)
 	}
+}
+
+func RecoverWrapper(f func()) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v\n%s", err, debug.Stack())
+		}
+	}()
+
+	f()
 }

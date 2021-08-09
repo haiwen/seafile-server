@@ -13,17 +13,10 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
+	"github.com/haiwen/seafile-server/fileserver/workerpool"
 )
 
-// Job is the job object of workpool.
-type Job struct {
-	callback jobCB
-	repoID   string
-}
-
-type jobCB func(repoID string) error
-
-var jobs = make(chan Job, 100)
+var updateSizePool *workerpool.WorkPool
 
 func sizeSchedulerInit() {
 	var n int = 1
@@ -45,43 +38,10 @@ func sizeSchedulerInit() {
 			}
 		}
 	}
-	createWorkerPool(n)
+	updateSizePool = workerpool.CreateWorkerPool(n)
 }
 
-// need to start a go routine
-func createWorkerPool(n int) {
-	for i := 0; i < n; i++ {
-		go worker()
-	}
-}
-
-func worker() {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("panic: %v", err)
-		}
-	}()
-	for job := range jobs {
-		if job.callback != nil {
-			err := job.callback(job.repoID)
-			if err != nil {
-				log.Printf("failed to call jobs: %v.\n", err)
-			}
-		}
-	}
-}
-
-func updateRepoSize(repoID string) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("panic: %v", err)
-		}
-	}()
-	job := Job{computeRepoSize, repoID}
-	jobs <- job
-}
-
-func computeRepoSize(repoID string) error {
+func computeRepoSize(repoID string, args ...string) error {
 	var size int64
 	var fileCount int64
 

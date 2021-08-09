@@ -84,16 +84,11 @@ type statusEventData struct {
 
 func syncAPIInit() {
 	ticker := time.NewTicker(time.Second * syncAPICleaningIntervalSec)
-	go func() {
-		defer func() {
-			if err := recover(); err != nil {
-				log.Printf("panic: %v", err)
-			}
-		}()
+	go RecoverWrapper(func() {
 		for range ticker.C {
 			removeSyncAPIExpireCache()
 		}
-	}()
+	})
 }
 
 func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
@@ -928,9 +923,9 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	mergeVirtualRepoTasks <- repoID
+	mergeVirtualRepoPool.AddTask(mergeVirtualRepo, repoID, "")
 
-	go updateRepoSize(repoID)
+	updateSizePool.AddTask(computeRepoSize, repoID)
 
 	rsp.WriteHeader(http.StatusOK)
 	return nil

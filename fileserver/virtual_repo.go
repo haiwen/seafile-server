@@ -13,47 +13,35 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
+	"github.com/haiwen/seafile-server/fileserver/workerpool"
 )
 
 const mergeVirtualRepoWorkerNumber = 5
 
-var mergeVirtualRepoTasks = make(chan string, 100)
+var mergeVirtualRepoPool *workerpool.WorkPool
 
 func virtualRepoInit() {
-	createMergeVirtualRepoTaskPool(mergeVirtualRepoWorkerNumber)
+	mergeVirtualRepoPool = workerpool.CreateWorkerPool(mergeVirtualRepoWorkerNumber)
 }
 
-func createMergeVirtualRepoTaskPool(n int) {
-	for i := 0; i < n; i++ {
-		go mergeVirtualRepoWorker()
-	}
-}
-
-func mergeVirtualRepoWorker() {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("panic: %v", err)
-		}
-	}()
-	for repoID := range mergeVirtualRepoTasks {
-		mergeVirtualRepo(repoID, "")
-	}
-}
-
-func mergeVirtualRepo(repoID, excludeRepo string) {
+func mergeVirtualRepo(repoID string, args ...string) error {
 	virtual, err := repomgr.IsVirtualRepo(repoID)
 	if err != nil {
-		return
+		return err
 	}
 
 	if virtual {
 		mergeRepo(repoID)
 
-		go updateRepoSize(repoID)
+		updateSizePool.AddTask(computeRepoSize, repoID)
 
-		return
+		return nil
 	}
 
+	excludeRepo := ""
+	if len(args) > 0 {
+		excludeRepo = args[0]
+	}
 	vRepos, _ := repomgr.GetVirtualRepoIDsByOrigin(repoID)
 	for _, id := range vRepos {
 		if id == excludeRepo {
@@ -63,9 +51,9 @@ func mergeVirtualRepo(repoID, excludeRepo string) {
 		mergeRepo(id)
 	}
 
-	go updateRepoSize(repoID)
+	updateSizePool.AddTask(computeRepoSize, repoID)
 
-	return
+	return nil
 }
 
 func mergeRepo(repoID string) error {
