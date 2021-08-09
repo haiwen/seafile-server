@@ -21,10 +21,14 @@ const mergeVirtualRepoWorkerNumber = 5
 var mergeVirtualRepoPool *workerpool.WorkPool
 
 func virtualRepoInit() {
-	mergeVirtualRepoPool = workerpool.CreateWorkerPool(mergeVirtualRepoWorkerNumber)
+	mergeVirtualRepoPool = workerpool.CreateWorkerPool(mergeVirtualRepo, mergeVirtualRepoWorkerNumber)
 }
 
-func mergeVirtualRepo(repoID string, args ...string) error {
+func mergeVirtualRepo(args ...string) error {
+	if len(args) < 1 {
+		return nil
+	}
+	repoID := args[0]
 	virtual, err := repomgr.IsVirtualRepo(repoID)
 	if err != nil {
 		return err
@@ -33,14 +37,14 @@ func mergeVirtualRepo(repoID string, args ...string) error {
 	if virtual {
 		mergeRepo(repoID)
 
-		updateSizePool.AddTask(computeRepoSize, repoID)
+		updateSizePool.AddTask(repoID)
 
 		return nil
 	}
 
 	excludeRepo := ""
-	if len(args) > 0 {
-		excludeRepo = args[0]
+	if len(args) > 1 {
+		excludeRepo = args[1]
 	}
 	vRepos, _ := repomgr.GetVirtualRepoIDsByOrigin(repoID)
 	for _, id := range vRepos {
@@ -51,7 +55,7 @@ func mergeVirtualRepo(repoID string, args ...string) error {
 		mergeRepo(id)
 	}
 
-	updateSizePool.AddTask(computeRepoSize, repoID)
+	updateSizePool.AddTask(repoID)
 
 	return nil
 }

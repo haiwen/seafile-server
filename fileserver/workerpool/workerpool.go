@@ -6,19 +6,21 @@ import (
 )
 
 type WorkPool struct {
-	jobs chan Job
+	jobs  chan Job
+	jobCB JobCB
 }
 
 // Job is the job object of workpool.
 type Job struct {
-	callback jobCB
+	callback JobCB
 	args     []string
 }
 
-type jobCB func(repoID string, args ...string) error
+type JobCB func(args ...string) error
 
-func CreateWorkerPool(n int) *WorkPool {
+func CreateWorkerPool(jobCB JobCB, n int) *WorkPool {
 	pool := new(WorkPool)
+	pool.jobCB = jobCB
 	pool.jobs = make(chan Job, 100)
 	for i := 0; i < n; i++ {
 		go worker(pool.jobs)
@@ -26,8 +28,8 @@ func CreateWorkerPool(n int) *WorkPool {
 	return pool
 }
 
-func (pool *WorkPool) AddTask(f jobCB, args ...string) {
-	job := Job{f, args}
+func (pool *WorkPool) AddTask(args ...string) {
+	job := Job{pool.jobCB, args}
 	pool.jobs <- job
 }
 
@@ -40,7 +42,7 @@ func worker(jobs chan Job) {
 
 	for job := range jobs {
 		if job.callback != nil {
-			err := job.callback(job.args[0], job.args[1:]...)
+			err := job.callback(job.args...)
 			if err != nil {
 				log.Printf("failed to call jobs: %v.\n", err)
 			}
