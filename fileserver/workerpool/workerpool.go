@@ -29,6 +29,11 @@ func CreateWorkerPool(jobCB JobCB, n int) *WorkPool {
 }
 
 func (pool *WorkPool) AddTask(args ...string) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v\n%s", err, debug.Stack())
+		}
+	}()
 	job := Job{pool.jobCB, args}
 	pool.jobs <- job
 }

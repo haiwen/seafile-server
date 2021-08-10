@@ -37,7 +37,7 @@ func mergeVirtualRepo(args ...string) error {
 	if virtual {
 		mergeRepo(repoID)
 
-		updateSizePool.AddTask(repoID)
+		go updateSizePool.AddTask(repoID)
 
 		return nil
 	}
@@ -55,7 +55,7 @@ func mergeVirtualRepo(args ...string) error {
 		mergeRepo(id)
 	}
 
-	updateSizePool.AddTask(repoID)
+	go updateSizePool.AddTask(repoID)
 
 	return nil
 }

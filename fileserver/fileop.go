@@ -1530,7 +1530,7 @@ func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPa
 		return "", err
 	}
 
-	mergeVirtualRepoPool.AddTask(repo.ID, "")
+	go mergeVirtualRepoPool.AddTask(repo.ID, "")
 
 	retJSON, err := formatJSONRet(names, ids, sizes)
 	if err != nil {
@@ -2754,7 +2754,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		rsp.Write([]byte(fileID))
 	}
 
-	mergeVirtualRepoPool.AddTask(repo.ID)
+	go mergeVirtualRepoPool.AddTask(repo.ID)
 
 	return nil
 }
@@ -3094,7 +3094,7 @@ func postBlocks(repoID, user string, fsm *recvData) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	updateSizePool.AddTask(repo.ID)
+	go updateSizePool.AddTask(repo.ID)
 
 	return nil
 }

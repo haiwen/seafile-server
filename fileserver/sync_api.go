@@ -923,9 +923,9 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	mergeVirtualRepoPool.AddTask(repoID, "")
+	go mergeVirtualRepoPool.AddTask(repoID, "")
 
-	updateSizePool.AddTask(repoID)
+	go updateSizePool.AddTask(repoID)
 
 	rsp.WriteHeader(http.StatusOK)
 	return nil
