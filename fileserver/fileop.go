@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -59,11 +60,11 @@ func (d Dirents) Len() int {
 
 func fileopInit() {
 	ticker := time.NewTicker(time.Second * fileopCleaningIntervalSec)
-	go func() {
+	go RecoverWrapper(func() {
 		for range ticker.C {
 			removeFileopExpireCache()
 		}
-	}()
+	})
 }
 
 func initUpload() {
@@ -1210,7 +1211,7 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 		return err
 	}
 
-	mergeVirtualRepoTasks <- repo.ID
+	go mergeVirtualRepoPool.AddTask(repo.ID, "")
 
 	return nil
 }
@@ -1529,7 +1530,7 @@ func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPa
 		return "", err
 	}
 
-	mergeVirtualRepoTasks <- repo.ID
+	go mergeVirtualRepoPool.AddTask(repo.ID, "")
 
 	retJSON, err := formatJSONRet(names, ids, sizes)
 	if err != nil {
@@ -1955,11 +1956,12 @@ func indexBlocks(ctx context.Context, repoID string, version int, filePath strin
 			case result := <-results:
 				if result.err != nil {
 					close(chunkJobs)
-					go func() {
+
+					go RecoverWrapper(func() {
 						for result := range results {
 							_ = result
 						}
-					}()
+					})
 					return "", -1, result.err
 				}
 				blkIDs[result.idx] = result.blkID
@@ -1968,11 +1970,11 @@ func indexBlocks(ctx context.Context, repoID string, version int, filePath strin
 			close(chunkJobs)
 			for result := range results {
 				if result.err != nil {
-					go func() {
+					go RecoverWrapper(func() {
 						for result := range results {
 							_ = result
 						}
-					}()
+					})
 					return "", -1, result.err
 				}
 				blkIDs[result.idx] = result.blkID
@@ -2021,6 +2023,11 @@ type chunkingResult struct {
 }
 
 func createChunkPool(ctx context.Context, n int, chunkJobs chan chunkingData, res chan chunkingResult) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v\n%s", err, debug.Stack())
+		}
+	}()
 	var wg sync.WaitGroup
 	for i := 0; i < n; i++ {
 		wg.Add(1)
@@ -2031,6 +2038,11 @@ func createChunkPool(ctx context.Context, n int, chunkJobs chan chunkingData, re
 }
 
 func chunkingWorker(ctx context.Context, wg *sync.WaitGroup, chunkJobs chan chunkingData, res chan chunkingResult) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v\n%s", err, debug.Stack())
+		}
+	}()
 	for job := range chunkJobs {
 		select {
 		case <-ctx.Done():
@@ -2354,7 +2366,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		return "", err
 	}
 
-	go updateRepoSize(repoID)
+	go updateSizePool.AddTask(repoID)
 
 	return newCommitID, nil
 }
@@ -2742,7 +2754,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		rsp.Write([]byte(fileID))
 	}
 
-	mergeVirtualRepoTasks <- repo.ID
+	go mergeVirtualRepoPool.AddTask(repo.ID)
 
 	return nil
 }
@@ -3082,7 +3094,7 @@ func postBlocks(repoID, user string, fsm *recvData) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	go updateRepoSize(repo.ID)
+	go updateSizePool.AddTask(repo.ID)
 
 	return nil
 }
