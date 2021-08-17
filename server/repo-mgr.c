@@ -2378,9 +2378,10 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
     switch (seaf_db_type(seaf->db)) {
     case SEAF_DB_TYPE_MYSQL:
         sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-            "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+            "i.version, i.is_encrypted, i.last_modifier, i.status, fc.file_count FROM "
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+            "LEFT JOIN RepoFileCount fc ON i.repo_id = fc.repo_id "
             "WHERE i.name COLLATE UTF8_GENERAL_CI LIKE ? AND "
             "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
             "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
@@ -2388,9 +2389,10 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
         break;
     case SEAF_DB_TYPE_PGSQL:
         sql = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
-            "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+            "i.version, i.is_encrypted, i.last_modifier, i.status, fc.file_count FROM "
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+            "LEFT JOIN RepoFileCount fc ON i.repo_id = fc.repo_id "
             "WHERE i.name ILIKE ? AND "
             "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
             "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
@@ -2398,9 +2400,10 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
         break;
     case SEAF_DB_TYPE_SQLITE:
         sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-            "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+            "i.version, i.is_encrypted, i.last_modifier, i.status, fc.file_count FROM "
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+            "LEFT JOIN RepoFileCount fc ON i.repo_id = fc.repo_id "
             "WHERE i.name LIKE ? COLLATE NOCASE AND "
             "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
             "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "

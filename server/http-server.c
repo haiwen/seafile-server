@@ -1100,8 +1100,6 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
                                                  repo->id, repo->version,
                                                  new_commit_id);
     if (!new_commit) {
-        seaf_warning ("Failed to get commit %s for repo %s.\n",
-                      new_commit_id, repo->id);
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
         goto out;
     }
@@ -1110,8 +1108,6 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
                                            repo->id, repo->version,
                                            new_commit->parent_id);
     if (!base) {
-        seaf_warning ("Failed to get commit %s for repo %s.\n",
-                      new_commit->parent_id, repo->id);
         evhtp_send_reply (req, EVHTP_RES_BADREQ);
         goto out;
     }
@@ -1427,8 +1423,6 @@ calculate_send_object_list (SeafRepo *repo,
                                                       repo->id, repo->version,
                                                       client_head);
         if (!remote_head) {
-            seaf_warning ("Remote head commit %s:%s not found.\n",
-                          repo->id, client_head);
             ret = -1;
             goto out;
         }

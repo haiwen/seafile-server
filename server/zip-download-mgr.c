@@ -197,6 +197,7 @@ start_zip_task (gpointer data, gpointer user_data)
 
     if (!validate_download_size (obj, NULL)) {
         ret = -1;
+        obj->progress->size_too_large = TRUE;
         goto out;
     }
 
@@ -214,7 +215,8 @@ out:
     if (crypt) {
         g_free (crypt);
     }
-    if (ret == -1) {
+    if (ret == -1 && !obj->progress->canceled &&
+        !obj->progress->size_too_large) {
         remove_progress_by_token (priv, obj->token);
     }
     free_download_obj (obj);
@@ -589,17 +591,27 @@ zip_download_mgr_query_zip_progress (ZipDownloadMgr *mgr,
     char *info;
 
     progress = get_progress_obj (mgr->priv, token);
-    if (!progress) {
-        seaf_warning ("Zip progress info not found for token %s: "
-                      "invalid token or related zip task failed.\n", token);
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "Zip progress info not found.");
+    if (!progress)
         return NULL;
-    }
 
     obj = json_object ();
     json_object_set_int_member (obj, "zipped", g_atomic_int_get (&progress->zipped));
     json_object_set_int_member (obj, "total", progress->total);
+    if (progress->size_too_large) {
+        json_object_set_int_member (obj, "failed", 1);
+        json_object_set_string_member (obj, "failed_reason", "size too large");
+    } else {
+        json_object_set_int_member (obj, "failed", 0);
+        json_object_set_string_member (obj, "failed_reason", "");
+    }
+    if (progress->canceled)
+        json_object_set_int_member (obj, "canceled", 1);
+    else
+        json_object_set_int_member (obj, "canceled", 0);
+    
+    if (progress->size_too_large || progress->canceled)
+        remove_progress_by_token(mgr->priv, token);
+        
     info = json_dumps (obj, JSON_COMPACT);
     json_decref (obj);
 
