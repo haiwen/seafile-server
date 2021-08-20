@@ -133,6 +133,17 @@ set_content_length_header (evhtp_request_t *req)
                              evhtp_header_new("Content-Length", lstr, 1, 1));
 }
 
+static char*
+truncate_file_name(const char *file_name)
+{
+    int len = strlen (file_name) + 6;
+    if (len < SEAF_DIR_NAME_LEN)
+        return NULL;
+    
+    glong utf8_len = g_utf8_strlen(file_name, -1);
+    return g_utf8_substring(file_name, utf8_len-8, utf8_len);
+}
+
 static gint64
 get_content_length (evhtp_request_t *req)
 {
@@ -985,9 +996,17 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
     }
 
     if (!temp_file) {
-        temp_file = g_strdup_printf ("%s/cluster-shared/%sXXXXXX",
-                                     seaf->http_server->http_temp_dir,
-                                     file_name);
+        char *truncated_name = truncate_file_name (file_name);
+        if (truncated_name == NULL)
+            temp_file = g_strdup_printf ("%s/cluster-shared/%sXXXXXX",
+                                        seaf->http_server->http_temp_dir,
+                                        file_name);
+        else {
+            temp_file = g_strdup_printf ("%s/cluster-shared/%sXXXXXX",
+                                        seaf->http_server->http_temp_dir,
+                                        truncated_name);
+            g_free (truncated_name);
+        }
         tmp_fd = g_mkstemp_full (temp_file, O_RDWR, cluster_shared_temp_file_mode);
         if (tmp_fd < 0) {
             seaf_warning ("Failed to create upload temp file: %s.\n", strerror(errno));
@@ -1933,8 +1952,15 @@ open_temp_file (RecvFSM *fsm)
     GString *temp_file = g_string_new (NULL);
     char *base_name = get_basename(fsm->file_name);
 
-    g_string_printf (temp_file, "%s/%sXXXXXX",
-                     seaf->http_server->http_temp_dir, base_name);
+    char *truncated_name = truncate_file_name (base_name);
+    if (truncated_name == NULL)
+        g_string_printf (temp_file, "%s/%sXXXXXX",
+                        seaf->http_server->http_temp_dir, base_name);
+    else {
+        g_string_printf (temp_file, "%s/%sXXXXXX",
+                        seaf->http_server->http_temp_dir, truncated_name);
+        g_free (truncated_name);
+    }
     g_free (base_name);
 
     fsm->fd = g_mkstemp (temp_file->str);
