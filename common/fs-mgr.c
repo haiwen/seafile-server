@@ -2769,7 +2769,6 @@ seaf_fs_manager_get_dirent_by_path (SeafFSManager *mgr,
                                                    root_id, parent_dir, error);
 
     if (!dir) {
-        seaf_warning ("dir %s doesn't exist in repo %.8s.\n", parent_dir, repo_id);
         goto out;
     }
 
