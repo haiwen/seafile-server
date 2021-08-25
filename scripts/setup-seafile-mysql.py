@@ -1209,7 +1209,6 @@ class SeafDavConfigurator(AbstractConfigurator):
 [WEBDAV]
 enabled = false
 port = 8080
-fastcgi = false
 share_name = /
 '''
 
