@@ -252,7 +252,7 @@ def test_ajax(repo):
     assert_resumable_upload_response(response, repo.id,
                                      resumable_file_name, True)
 
-    time.sleep (1.5)
+    time.sleep (2)
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size
 
