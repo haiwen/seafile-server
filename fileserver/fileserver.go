@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"syscall"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -370,8 +371,8 @@ func main() {
 	loadFileServerOptions()
 
 	if logFile == "" {
-		absLogFile = filepath.Join(absDataDir, "seafile.log")
-		fp, err := os.OpenFile(absLogFile, os.O_RDWR|os.O_CREATE, 0644)
+		absLogFile = filepath.Join(absDataDir, "filserver.log")
+		fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open or create log file: %v", err)
 		}
@@ -381,7 +382,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to convert log file path to absolute path: %v", err)
 		}
-		fp, err := os.OpenFile(absLogFile, os.O_RDWR|os.O_CREATE, 0644)
+		fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open or create log file: %v", err)
 		}
@@ -390,6 +391,15 @@ func main() {
 	// When logFile is "-", use default output (StdOut)
 
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
+	if absLogFile != "" {
+		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
+		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("Failed to open or create error log file: %v", err)
+		}
+		syscall.Dup2(int(fp.Fd()), int(os.Stderr.Fd()))
+	}
 
 	repomgr.Init(seafileDB)
 
