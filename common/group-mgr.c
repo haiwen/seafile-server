@@ -1455,7 +1455,7 @@ ccnet_group_manager_search_group_members (CcnetGroupManager *mgr,
 
     char *db_patt = g_strdup_printf ("%%%s%%", pattern);
 
-    sql = "SELECT DISTINCT user_name FROM GroupUser "
+    sql = "SELECT DISTINCT user_name FROM `GroupUser` "
           "WHERE group_id = ? AND user_name LIKE ? ORDER BY user_name";
     rc = seaf_db_statement_foreach_row (db, sql,
                                         get_groups_members_cb, &ret,
