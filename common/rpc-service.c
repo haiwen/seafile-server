@@ -4699,10 +4699,10 @@ ccnet_rpc_search_groups (const char *group_patt,
 GList *
 ccnet_rpc_search_group_members (int group_id, const char *pattern, GError **error)
 {
-    CcnetOrgManager *org_mgr = seaf->org_mgr;
+    CcnetGroupManager *group_mgr = seaf->group_mgr;
     GList *ret = NULL;
 
-    ret = ccnet_group_manager_search_group_members (org_mgr, group_id, pattern);
+    ret = ccnet_group_manager_search_group_members (group_mgr, group_id, pattern);
 
     return ret;
 }
