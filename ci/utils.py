@@ -50,6 +50,7 @@ def shell(cmd, inputdata=None, wait=True, **kw):
     kw['stdin'] = PIPE if inputdata else None
     p = Popen(cmd, **kw)
     if inputdata:
+        info(inputdata)
         p.communicate(inputdata)
     if wait:
         p.wait()

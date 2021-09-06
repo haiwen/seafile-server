@@ -175,6 +175,7 @@ connection_charset = utf8
 
            config_db_path = join(misc_dir, 'config.db')
            groupmgr_db_path = join(groupmgr_dir, 'groupmgr.db')
+           info ('%s', groupmgr_db_path)
            orgmgr_db_path = join(orgmgr_dir, 'orgmgr.db')
            usermgr_db_path = join(usermgr_dir, 'usermgr.db')
            seafile_db_path = join(self.seafile_conf_dir, 'seafile.db')

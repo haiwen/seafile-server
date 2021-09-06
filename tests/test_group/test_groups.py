@@ -3,6 +3,7 @@ from seaserv import seafile_api as api
 from seaserv import ccnet_api
 
 from tests.config import USER, USER2
+from tests.utils import randstring
 
 def test_multi_tier_groups(repo):
     id1 = ccnet_api.create_group('group1', USER, parent_group_id=-1)
@@ -20,6 +21,12 @@ def test_multi_tier_groups(repo):
     assert group2.parent_group_id == id1
     assert group3.parent_group_id == id1
     assert group4.parent_group_id == id3
+
+    members = ccnet_api.search_group_members (id1, 'randgroup{}'.format(randstring(6)))
+    assert len(members) == 0
+    members = ccnet_api.search_group_members (id1, USER)
+    assert len(members) == 1
+    assert members[0].user_name == USER
 
     ances_order = [id5, id4, id3, id2, id1]
     user2_groups_with_ancestors = ccnet_api.get_groups (USER2, return_ancestors = True)
