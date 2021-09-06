@@ -4696,6 +4696,17 @@ ccnet_rpc_search_groups (const char *group_patt,
     return groups;
 }
 
+GList *
+ccnet_rpc_search_group_members (int group_id, const char *pattern, GError **error)
+{
+    CcnetOrgManager *org_mgr = seaf->org_mgr;
+    GList *ret = NULL;
+
+    ret = ccnet_group_manager_search_group_members (org_mgr, group_id, pattern);
+
+    return ret;
+}
+
 GList*
 ccnet_rpc_get_top_groups (int including_org, GError **error)
 {

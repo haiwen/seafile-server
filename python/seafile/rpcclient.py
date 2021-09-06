@@ -978,6 +978,10 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def search_groups(self, group_patt, start, limit):
         pass
 
+    @searpc_func("objlist", ["int", "string"])
+    def search_group_members(self, group_id, pattern):
+        pass
+
     @searpc_func("objlist", ["string"])
     def get_groups_members(self, group_ids):
         pass
