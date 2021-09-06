@@ -1443,6 +1443,33 @@ ccnet_group_manager_get_groups_members (CcnetGroupManager *mgr, const char *grou
     return ret;
 }
 
+GList*
+ccnet_group_manager_search_group_members (CcnetGroupManager *mgr,
+                                          int group_id,
+                                          const char *pattern)
+{
+    CcnetDB *db = mgr->priv->db;
+    GList *ret = NULL;
+    char *sql;
+    int rc;
+
+    char *db_patt = g_strdup_printf ("%%%s%%", pattern);
+
+    sql = "SELECT DISTINCT user_name FROM GroupUser "
+          "WHERE group_id = ? AND user_name LIKE ? ORDER BY user_name";
+    rc = seaf_db_statement_foreach_row (db, sql,
+                                        get_groups_members_cb, &ret,
+                                        2, "int", group_id, "string", db_patt);
+
+    g_free (db_patt);
+    if (rc < 0) {
+        g_list_free_full (ret, g_object_unref);
+        return NULL;
+    }
+
+    return g_list_reverse (ret);
+}
+
 int
 ccnet_group_manager_update_group_user (CcnetGroupManager *mgr,
                                        const char *old_email,

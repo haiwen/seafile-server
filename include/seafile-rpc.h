@@ -1280,6 +1280,9 @@ ccnet_rpc_search_groups (const char *group_patt,
 GList *
 ccnet_rpc_get_groups_members (const char *group_ids, GError **error);
 
+GList *
+ccnet_rpc_search_group_members (int group_id, const char *pattern, GError **error);
+
 int
 ccnet_rpc_create_org (const char *org_name, const char *url_prefix,
                       const char *creator, GError **error);

@@ -130,6 +130,11 @@ ccnet_group_manager_search_groups (CcnetGroupManager *mgr,
                                    const char *keyword,
                                    int start, int limit);
 
+GList*
+ccnet_group_manager_search_group_members (CcnetGroupManager *mgr,
+                                          int group_id,
+                                          const char *pattern);
+
 GList *
 ccnet_group_manager_get_top_groups (CcnetGroupManager *mgr, gboolean including_org, GError **error);
 

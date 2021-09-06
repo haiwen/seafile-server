@@ -931,6 +931,10 @@ static void start_rpc_service (const char *seafile_dir,
                                      "search_groups",
                                      searpc_signature_objlist__string_int_int());
     searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     ccnet_rpc_search_group_members,
+                                     "search_group_members",
+                                     searpc_signature_objlist__int_string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      ccnet_rpc_get_top_groups,
                                      "get_top_groups",
                                      searpc_signature_objlist__int());
