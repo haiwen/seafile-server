@@ -299,6 +299,14 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 		}
 	}
 
+	if operation != "view" {
+		oper := "web-file-download"
+		if operation == "download-link" {
+			oper = "link-file-download"
+		}
+		sendStatisticMsg(repo.StoreID, user, oper, file.FileSize)
+	}
+
 	return nil
 }
 
@@ -445,6 +453,12 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 			start += blkSize[i]
 		}
 	}
+
+	oper := "web-file-download"
+	if operation == "download-link" {
+		oper = "link-file-download"
+	}
+	sendStatisticMsg(repo.StoreID, user, oper, file.FileSize)
 
 	return nil
 }
@@ -631,6 +645,8 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 	if err != nil {
 		log.Printf("fatild to write block %s to response: %v", blkID, err)
 	}
+
+	sendStatisticMsg(repo.StoreID, user, "web-file-download", uint64(size))
 
 	return nil
 }
@@ -1730,6 +1746,26 @@ func updateBranch(repoID, newCommitID, oldCommitID string) error {
 
 	trans.Commit()
 
+	if err := onBranchUpdated(repoID, newCommitID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func onBranchUpdated(repoID string, commitID string) error {
+	if err := repomgr.UpdateRepoInfo(repoID, commitID); err != nil {
+		return err
+	}
+
+	isVirtual, err := repomgr.IsVirtualRepo(repoID)
+	if err != nil {
+		return err
+	}
+	if isVirtual {
+		return nil
+	}
+	publishUpdateEvent(repoID, commitID)
 	return nil
 }
 

@@ -42,6 +42,7 @@ const (
 	permExpireTime             = 7200
 	virtualRepoExpireTime      = 7200
 	syncAPICleaningIntervalSec = 300
+	maxObjectPackSize          = 1 << 20 // 1MB
 )
 
 var (
@@ -473,6 +474,7 @@ func packFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, err.Error(), http.StatusBadRequest}
 	}
 
+	var totalSize int
 	var data bytes.Buffer
 	for i := 0; i < len(fsIDList); i++ {
 		if !isObjectIDValid(fsIDList[i]) {
@@ -489,6 +491,11 @@ func packFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		binary.BigEndian.PutUint32(tmpLen, uint32(tmp.Len()))
 		data.Write(tmpLen)
 		data.Write(tmp.Bytes())
+
+		totalSize += tmp.Len()
+		if totalSize >= maxObjectPackSize {
+			break
+		}
 	}
 
 	rsp.Header().Set("Content-Length", strconv.Itoa(data.Len()))
@@ -1123,6 +1130,13 @@ func publishRepoEvent(rData *repoEventData) {
 	buf := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s",
 		rData.eType, rData.user, rData.ip,
 		rData.clientName, rData.repoID, rData.path)
+	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, buf); err != nil {
+		log.Printf("Failed to publish event: %v", err)
+	}
+}
+
+func publishUpdateEvent(repoID string, commitID string) {
+	buf := fmt.Sprintf("repo-update\t%s\t%s", repoID, commitID)
 	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, buf); err != nil {
 		log.Printf("Failed to publish event: %v", err)
 	}
