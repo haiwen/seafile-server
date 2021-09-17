@@ -321,24 +321,12 @@ func editRepoNeedRetry(repoID, name, desc, user string) (bool, error) {
 		return false, err
 	}
 
-	err = updateBranch(repoID, commit.CommitID, parent.CommitID)
+	err = updateBranch(repoID, commit.CommitID, parent.CommitID, "")
 	if err != nil {
 		return true, nil
 	}
 
-	updateRepoInfo(repoID, commit.CommitID)
+	repomgr.UpdateRepoInfo(repoID, commit.CommitID)
 
 	return true, nil
-}
-
-func updateRepoInfo(repoID, commitID string) error {
-	head, err := commitmgr.Load(repoID, commitID)
-	if err != nil {
-		err := fmt.Errorf("failed to get commit %s:%s", repoID, commitID)
-		return err
-	}
-
-	repomgr.SetRepoCommitToDb(repoID, head.RepoName, head.Ctime, head.Version, head.Encrypted, head.CreatorName)
-
-	return nil
 }

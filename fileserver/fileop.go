@@ -299,6 +299,14 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 		}
 	}
 
+	if operation != "view" {
+		oper := "web-file-download"
+		if operation == "download-link" {
+			oper = "link-file-download"
+		}
+		sendStatisticMsg(repo.StoreID, user, oper, file.FileSize)
+	}
+
 	return nil
 }
 
@@ -445,6 +453,12 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 			start += blkSize[i]
 		}
 	}
+
+	oper := "web-file-download"
+	if operation == "download-link" {
+		oper = "link-file-download"
+	}
+	sendStatisticMsg(repo.StoreID, user, oper, file.FileSize)
 
 	return nil
 }
@@ -631,6 +645,8 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 	if err != nil {
 		log.Printf("fatild to write block %s to response: %v", blkID, err)
 	}
+
+	sendStatisticMsg(repo.StoreID, user, "web-file-download", uint64(size))
 
 	return nil
 }
@@ -1670,7 +1686,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		mergedCommit = commit
 	}
 
-	err = updateBranch(repoID, mergedCommit.CommitID, currentHead.CommitID)
+	err = updateBranch(repoID, mergedCommit.CommitID, currentHead.CommitID, commit.CommitID)
 	if err != nil {
 		return true, nil
 	}
@@ -1693,7 +1709,7 @@ func genMergeDesc(repo *repomgr.Repo, mergedRoot, p1Root, p2Root string) string 
 	return desc
 }
 
-func updateBranch(repoID, newCommitID, oldCommitID string) error {
+func updateBranch(repoID, newCommitID, oldCommitID, secondParentID string) error {
 	var commitID string
 	name := "master"
 	var sqlStr string
@@ -1730,6 +1746,34 @@ func updateBranch(repoID, newCommitID, oldCommitID string) error {
 
 	trans.Commit()
 
+	if secondParentID != "" {
+		if err := onBranchUpdated(repoID, secondParentID, false); err != nil {
+			return err
+		}
+	}
+
+	if err := onBranchUpdated(repoID, newCommitID, true); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error {
+	if updateRepoInfo {
+		if err := repomgr.UpdateRepoInfo(repoID, commitID); err != nil {
+			return err
+		}
+	}
+
+	isVirtual, err := repomgr.IsVirtualRepo(repoID)
+	if err != nil {
+		return err
+	}
+	if isVirtual {
+		return nil
+	}
+	publishUpdateEvent(repoID, commitID)
 	return nil
 }
 

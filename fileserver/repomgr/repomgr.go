@@ -427,8 +427,7 @@ func DelUploadTmpFile(repoID, filePath string) error {
 	return nil
 }
 
-// SetRepoCommitToDb updates the table of RepoInfo.
-func SetRepoCommitToDb(repoID, repoName string, updateTime int64, version int, isEncrypted string, lastModifier string) error {
+func setRepoCommitToDb(repoID, repoName string, updateTime int64, version int, isEncrypted string, lastModifier string) error {
 	var exists int
 	var encrypted int
 
@@ -640,4 +639,16 @@ func GetRepoOwner(repoID string) (string, error) {
 	}
 
 	return owner, nil
+}
+
+func UpdateRepoInfo(repoID, commitID string) error {
+	head, err := commitmgr.Load(repoID, commitID)
+	if err != nil {
+		err := fmt.Errorf("failed to get commit %s:%s", repoID, commitID)
+		return err
+	}
+
+	setRepoCommitToDb(repoID, head.RepoName, head.Ctime, head.Version, head.Encrypted, head.CreatorName)
+
+	return nil
 }
