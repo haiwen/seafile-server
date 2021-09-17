@@ -321,7 +321,7 @@ func editRepoNeedRetry(repoID, name, desc, user string) (bool, error) {
 		return false, err
 	}
 
-	err = updateBranch(repoID, commit.CommitID, parent.CommitID)
+	err = updateBranch(repoID, commit.CommitID, parent.CommitID, "")
 	if err != nil {
 		return true, nil
 	}
