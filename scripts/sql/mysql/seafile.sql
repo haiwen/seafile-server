@@ -220,7 +220,8 @@ CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo (
   peer_name VARCHAR(255),
   sync_time BIGINT,
   client_ver VARCHAR(20),
-  UNIQUE INDEX(token)
+  UNIQUE INDEX(token),
+  INDEX(peer_id)
 ) ENGINE=INNODB;
 
 CREATE TABLE IF NOT EXISTS RepoTrash (
@@ -243,6 +244,7 @@ CREATE TABLE IF NOT EXISTS RepoUserToken (
   email VARCHAR(255),
   token CHAR(41),
   UNIQUE INDEX(repo_id, token),
+  UNIQUE INDEX(token),
   INDEX (email)
 ) ENGINE=INNODB;
 
