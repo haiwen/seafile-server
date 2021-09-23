@@ -909,9 +909,9 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	base, err := commitmgr.Load(repoID, newCommit.ParentID)
+	base, err := commitmgr.Load(repoID, newCommit.ParentID.String)
 	if err != nil {
-		err := fmt.Errorf("Failed to get commit %s for repo %s", newCommit.ParentID, repoID)
+		err := fmt.Errorf("Failed to get commit %s for repo %s", newCommit.ParentID.String, repoID)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 

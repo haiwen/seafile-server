@@ -48,7 +48,7 @@ func TestCommit(t *testing.T) {
 	newCommit.CreatorID = commitID
 	newCommit.Desc = "This is a commit"
 	newCommit.Ctime = time.Now().Unix()
-	newCommit.ParentID = commitID
+	newCommit.ParentID.SetValid(commitID)
 	newCommit.DeviceName = "Linux"
 	err := Save(newCommit)
 	if err != nil {
