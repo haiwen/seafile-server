@@ -19,8 +19,8 @@ import (
 // Seafile is a file object
 type Seafile struct {
 	Version  int      `json:"version"`
-	FileType int      `json:"type,omitempty"`
-	FileID   string   `json:"file_id,omitempty"`
+	FileType int      `json:"type"`
+	FileID   string   `json:"file_id"`
 	FileSize uint64   `json:"size"`
 	BlkIDs   []string `json:"block_ids"`
 }
@@ -38,8 +38,8 @@ type SeafDirent struct {
 //SeafDir is a dir object
 type SeafDir struct {
 	Version int           `json:"version"`
-	DirType int           `json:"type,omitempty"`
-	DirID   string        `json:"dir_id,omitempty"`
+	DirType int           `json:"type"`
+	DirID   string        `json:"dir_id"`
 	Entries []*SeafDirent `json:"dirents"`
 }
 

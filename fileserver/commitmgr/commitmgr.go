@@ -22,8 +22,8 @@ type Commit struct {
 	CreatorID      string `json:"creator"`
 	Desc           string `json:"description"`
 	Ctime          int64  `json:"ctime"`
-	ParentID       string `json:"parent_id,omitempty"`
-	SecondParentID string `json:"second_parent_id,omitempty"`
+	ParentID       String `json:"parent_id"`
+	SecondParentID String `json:"second_parent_id"`
 	RepoName       string `json:"repo_name"`
 	RepoDesc       string `json:"repo_desc"`
 	RepoCategory   string `json:"repo_category"`
@@ -57,7 +57,7 @@ func NewCommit(repoID, parentID, newRoot, user, desc string) *Commit {
 	commit.CreatorID = "0000000000000000000000000000000000000000"
 	commit.Ctime = time.Now().Unix()
 	commit.CommitID = computeCommitID(commit)
-	commit.ParentID = parentID
+	commit.ParentID.SetValid(parentID)
 
 	return commit
 }

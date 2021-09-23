@@ -1671,7 +1671,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 
 		mergedCommit = commitmgr.NewCommit(repoID, currentHead.CommitID, opt.mergedRoot, user, mergeDesc)
 		repomgr.RepoToCommit(repo, mergedCommit)
-		mergedCommit.SecondParentID = commit.CommitID
+		mergedCommit.SecondParentID.SetValid(commit.CommitID)
 		mergedCommit.NewMerge = 1
 		if opt.conflict {
 			mergedCommit.Conflict = 1

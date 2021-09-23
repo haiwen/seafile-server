@@ -191,9 +191,9 @@ func cleanupVirtualRepos(repoID string) error {
 }
 
 func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo *repomgr.VRepoInfo) (string, error) {
-	parent, err := commitmgr.Load(head.RepoID, head.ParentID)
+	parent, err := commitmgr.Load(head.RepoID, head.ParentID.String)
 	if err != nil {
-		err := fmt.Errorf("failed to load commit %s/%s : %v", head.RepoID, head.ParentID, err)
+		err := fmt.Errorf("failed to load commit %s/%s : %v", head.RepoID, head.ParentID.String, err)
 		return "", err
 	}
 
