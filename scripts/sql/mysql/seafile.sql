@@ -244,7 +244,7 @@ CREATE TABLE IF NOT EXISTS RepoUserToken (
   email VARCHAR(255),
   token CHAR(41),
   UNIQUE INDEX(repo_id, token),
-  UNIQUE INDEX(token),
+  INDEX(token),
   INDEX (email)
 ) ENGINE=INNODB;
 
