@@ -983,7 +983,7 @@ create_tables_mysql (SeafRepoManager *mgr)
         "repo_id CHAR(37), "
         "email VARCHAR(255), "
         "token CHAR(41), "
-        "UNIQUE INDEX(repo_id, token), UNIQUE INDEX(token), INDEX (email))"
+        "UNIQUE INDEX(repo_id, token), INDEX(token), INDEX (email))"
         "ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
