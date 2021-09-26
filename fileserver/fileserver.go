@@ -371,7 +371,7 @@ func main() {
 	loadFileServerOptions()
 
 	if logFile == "" {
-		absLogFile = filepath.Join(absDataDir, "filserver.log")
+		absLogFile = filepath.Join(absDataDir, "fileserver.log")
 		fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open or create log file: %v", err)
