@@ -935,6 +935,9 @@ class CcnetAPI(object):
         Search for groups whose name contains @group_patt.
         """
         return ccnet_threaded_rpc.search_groups(group_patt, start, limit)
+    
+    def search_group_members(self, group_id, pattern):
+        return ccnet_threaded_rpc.search_group_members(group_id, pattern)
 
     def get_top_groups(self, including_org=False):
         return ccnet_threaded_rpc.get_top_groups(1 if including_org else 0)
