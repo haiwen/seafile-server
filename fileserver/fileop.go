@@ -1596,9 +1596,13 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	}
 	var commitID string
 
-	for retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, &commitID); retry || err != nil; {
+	for {
+		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, &commitID)
 		if err != nil {
 			return "", err
+		}
+		if !retry {
+			break
 		}
 
 		if retryCnt < 3 {
@@ -1621,9 +1625,13 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 
 func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commitmgr.Commit) error {
 	var retryCnt int
-	for retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, nil); retry || err != nil; {
+	for {
+		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, nil)
 		if err != nil {
 			return err
+		}
+		if !retry {
+			break
 		}
 
 		if retryCnt < 3 {
@@ -1631,7 +1639,7 @@ func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commit
 			time.Sleep(time.Duration(random*100) * time.Millisecond)
 			retryCnt++
 		} else {
-			err := fmt.Errorf("stop updating repo %s after 3 retries", repo.ID)
+			err = fmt.Errorf("stop updating repo %s after 3 retries", repo.ID)
 			return err
 		}
 	}
