@@ -1596,9 +1596,8 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	}
 	var commitID string
 
-	var retry = true
-	for retry {
-		retry, err = genCommitNeedRetry(repo, base, commit, newRoot, user, &commitID)
+	for {
+		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, &commitID)
 		if err != nil {
 			return "", err
 		}
@@ -1626,10 +1625,8 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 
 func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commitmgr.Commit) error {
 	var retryCnt int
-	var err error
-	var retry = true
-	for retry {
-		retry, err = genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, nil)
+	for {
+		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, nil)
 		if err != nil {
 			return err
 		}
