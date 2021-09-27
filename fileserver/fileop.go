@@ -1639,6 +1639,7 @@ func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commit
 }
 
 func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, commitID *string) (bool, error) {
+	var secondParentID string
 	repoID := repo.ID
 	var mergeDesc string
 	var mergedCommit *commitmgr.Commit
@@ -1669,6 +1670,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 			}
 		}
 
+		secondParentID = commit.CommitID
 		mergedCommit = commitmgr.NewCommit(repoID, currentHead.CommitID, opt.mergedRoot, user, mergeDesc)
 		repomgr.RepoToCommit(repo, mergedCommit)
 		mergedCommit.SecondParentID.SetValid(commit.CommitID)
@@ -1686,7 +1688,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		mergedCommit = commit
 	}
 
-	err = updateBranch(repoID, mergedCommit.CommitID, currentHead.CommitID, commit.CommitID)
+	err = updateBranch(repoID, mergedCommit.CommitID, currentHead.CommitID, secondParentID)
 	if err != nil {
 		return true, nil
 	}
