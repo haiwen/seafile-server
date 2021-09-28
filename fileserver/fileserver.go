@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
@@ -31,6 +32,7 @@ var dataDir, absDataDir string
 var centralDir string
 var logFile, absLogFile string
 var rpcPipePath string
+var pidFilePath string
 
 var dbType string
 var groupTableName string
@@ -73,6 +75,7 @@ func init() {
 	flag.StringVar(&dataDir, "d", "", "seafile data directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
 	flag.StringVar(&rpcPipePath, "p", "", "rpc pipe path")
+	flag.StringVar(&pidFilePath, "P", "", "pid file path")
 }
 
 func loadCcnetDB() {
@@ -344,11 +347,46 @@ func initDefaultOptions() {
 	options.defaultQuota = InfiniteQuota
 }
 
+func writePidFile(pid_file_path string) int {
+	if pid_file_path == "" {
+		return -1
+	}
+	file, err := os.OpenFile(pid_file_path, os.O_CREATE|os.O_WRONLY, 0664)
+	if err != nil {
+		return -1
+	}
+	defer file.Close()
+
+	pid := os.Getpid()
+	str := fmt.Sprintf("%d", pid)
+	_, err = file.Write([]byte(str))
+
+	if err != nil {
+		return -1
+	}
+	return 0
+}
+
+func removePidfile(pid_file_path string) int {
+	err := os.Remove(pid_file_path)
+	if err == nil {
+		return -1
+	}
+	return 0
+}
+
 func main() {
 	flag.Parse()
 
 	if centralDir == "" {
 		log.Fatal("central config directory must be specified.")
+	}
+
+	if pidFilePath == "" {
+		log.Fatal("pid file path must be specified.")
+	}
+	if writePidFile(pidFilePath) < 0 {
+		log.Fatal("write pid file failed.")
 	}
 	_, err := os.Stat(centralDir)
 	if os.IsNotExist(err) {
@@ -431,6 +469,16 @@ func main() {
 	err = http.ListenAndServe(addr, router)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
+	}
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	<-signalChan
+	Exit()
+}
+
+func Exit() {
+	if removePidfile(pidFilePath) < 0 {
+		log.Printf("faild to  remove pid file %s", pidFilePath)
 	}
 }
 
