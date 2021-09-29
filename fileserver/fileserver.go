@@ -390,7 +390,7 @@ func main() {
 	}
 	// When logFile is "-", use default output (StdOut)
 
-	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+	log.SetFlags(log.Ldate | log.Ltime)
 
 	if absLogFile != "" {
 		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
