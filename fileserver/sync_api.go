@@ -747,12 +747,12 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	blockLen := fmt.Sprintf("%d", blockSize)
 	rsp.Header().Set("Content-Length", blockLen)
-	rsp.WriteHeader(http.StatusOK)
 	if err := blockmgr.Read(storeID, blockID, rsp); err != nil {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
 	sendStatisticMsg(storeID, user, "sync-file-download", uint64(blockSize))
+	rsp.WriteHeader(http.StatusOK)
 	return nil
 }
 
