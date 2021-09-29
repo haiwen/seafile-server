@@ -448,7 +448,7 @@ func rpcClientInit() {
 
 func newHTTPRouter() *mux.Router {
 	r := mux.NewRouter()
-	r.HandleFunc("/protocol-version", handleProtocolVersion)
+	r.HandleFunc("/protocol-version{slash:\\/?}", handleProtocolVersion)
 	r.Handle("/files/{.*}/{.*}", appHandler(accessCB))
 	r.Handle("/blks/{.*}/{.*}", appHandler(accessBlksCB))
 	r.Handle("/zip/{.*}", appHandler(accessZipCB))
@@ -459,33 +459,33 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/upload-blks-api/{.*}", appHandler(uploadBlksAPICB))
 	r.Handle("/upload-raw-blks-api/{.*}", appHandler(uploadRawBlksAPICB))
 	// file syncing api
-	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check/",
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check{slash:\\/?}",
 		appHandler(permissionCheckCB))
-	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/commit/{HEAD:HEAD\\/?}",
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/commit/HEAD{slash:\\/?}",
 		appHandler(headCommitOperCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/commit/{id:[\\da-z]{40}}",
 		appHandler(commitOperCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/block/{id:[\\da-z]{40}}",
 		appHandler(blockOperCB))
-	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/fs-id-list/",
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/fs-id-list{slash:\\/?}",
 		appHandler(getFsObjIDCB))
-	r.Handle("/repo/head-commits-multi/",
+	r.Handle("/repo/head-commits-multi{slash:\\/?}",
 		appHandler(headCommitsMultiCB))
-	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/pack-fs/",
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/pack-fs{slash:\\/?}",
 		appHandler(packFSCB))
-	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/check-fs/",
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/check-fs{slash:\\/?}",
 		appHandler(checkFSCB))
-	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/check-blocks/",
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/check-blocks{slash:\\/?}",
 		appHandler(checkBlockCB))
-	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/recv-fs/",
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/recv-fs{slash:\\/?}",
 		appHandler(recvFSCB))
-	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/quota-check/",
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/quota-check{slash:\\/?}",
 		appHandler(getCheckQuotaCB))
 
 	// seadrive api
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/block-map/{id:[\\da-z]{40}}",
 		appHandler(getBlockMapCB))
-	r.Handle("/accessible-repos", appHandler(getAccessibleRepoListCB))
+	r.Handle("/accessible-repos{slash:\\/?}", appHandler(getAccessibleRepoListCB))
 	return r
 }
 
