@@ -705,6 +705,7 @@ mysql_db_get_connection (SeafDB *vdb)
     MySQLDB *db = (MySQLDB *)vdb;
     my_bool yes = 1;
     int conn_timeout = 1;
+    int read_write_timeout = 5;
     MYSQL *db_conn;
     MySQLDBConnection *conn = NULL;
 
@@ -722,6 +723,8 @@ mysql_db_get_connection (SeafDB *vdb)
 
     mysql_options(db_conn, MYSQL_OPT_CONNECT_TIMEOUT, (const char*)&conn_timeout);
     mysql_options(db_conn, MYSQL_OPT_RECONNECT, (const char*)&yes);
+    mysql_options(db_conn, MYSQL_OPT_READ_TIMEOUT, (const char*)&read_write_timeout);
+    mysql_options(db_conn, MYSQL_OPT_WRITE_TIMEOUT, (const char*)&read_write_timeout);
 
     if (!mysql_real_connect(db_conn, db->host, db->user, db->password,
                             db->db_name, db->port,
