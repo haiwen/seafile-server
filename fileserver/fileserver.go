@@ -347,13 +347,10 @@ func initDefaultOptions() {
 	options.defaultQuota = InfiniteQuota
 }
 
-func writePidFile(pid_file_path string) int {
-	if pid_file_path == "" {
-		return -1
-	}
+func writePidFile(pid_file_path string) error {
 	file, err := os.OpenFile(pid_file_path, os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
-		return -1
+		return err
 	}
 	defer file.Close()
 
@@ -362,9 +359,9 @@ func writePidFile(pid_file_path string) int {
 	_, err = file.Write([]byte(str))
 
 	if err != nil {
-		return -1
+		return err
 	}
-	return 0
+	return nil
 }
 
 func removePidfile(pid_file_path string) int {
@@ -385,7 +382,7 @@ func main() {
 	if pidFilePath == "" {
 		log.Fatal("pid file path must be specified.")
 	}
-	if writePidFile(pidFilePath) < 0 {
+	if writePidFile(pidFilePath) != nil {
 		log.Fatal("write pid file failed.")
 	}
 	_, err := os.Stat(centralDir)
@@ -466,20 +463,19 @@ func main() {
 	log.Print("Seafile file server started.")
 
 	addr := fmt.Sprintf("%s:%d", options.host, options.port)
+	go exitProg()
 	err = http.ListenAndServe(addr, router)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
+}
+
+func exitProg() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 	<-signalChan
-	Exit()
-}
-
-func Exit() {
-	if removePidfile(pidFilePath) < 0 {
-		log.Printf("faild to  remove pid file %s", pidFilePath)
-	}
+	removePidfile(pidFilePath)
+	os.Exit(0)
 }
 
 var rpcclient *searpc.Client

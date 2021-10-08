@@ -33,6 +33,7 @@ static char *controller_pidfile = NULL;
 char *bin_dir = NULL;
 char *installpath = NULL;
 char *topdir = NULL;
+gboolean enabled_go_fileserver = FALSE;
 
 char *seafile_ld_library_path = NULL;
 
@@ -213,9 +214,9 @@ start_seaf_server ()
 }
 
 static int
-start_go_server()
+start_go_fileserver()
 {
-    if (!ctl->config_dir || !ctl->seafile_dir)
+    if (!ctl->central_config_dir || !ctl->seafile_dir)
         return -1;
 
     static char *logfile = NULL;
@@ -233,9 +234,12 @@ start_go_server()
         NULL};
 
     int pid = spawn_process(argv, false);
+
     if (pid <= 0) {
         seaf_warning("Failed to spawn fileserver\n");
         return -1;
+    } else {
+        seaf_message ("starting go-fileserver ...");
     }
     return 0;
 }
@@ -472,21 +476,18 @@ which_start_go_server()
         goto out;
     }
     GError *err = NULL;
-    char *value = NULL;
-    value = g_key_file_get_string(key_file, "fileserver", "use_go_fileserver", &err);
+    gboolean enabled;
+    enabled = g_key_file_get_boolean(key_file, "fileserver", "use_go_fileserver", &err);
     if (err) {
         seaf_warning("Config [fileserver, use_go_fileserver] not set, default is FALSE.\n");
         ret = FALSE;
         g_clear_error(&err);
     } else {
-        value = g_strstrip(value);
-        if (strcmp("true", value) == 0) {
+        if (enabled) {
             ret = TRUE;
         } else {
             ret = FALSE;
         }
-        g_free(value);
-
     }
 out:
     g_key_file_free (key_file);
@@ -503,10 +504,10 @@ check_process (void *data)
         start_seaf_server();
     }
 
-    if (which_start_go_server()) {
+    if (enabled_go_fileserver) {
         if (need_restart(PID_FILESERVER)) {
             seaf_message("fileserver need restart...\n");
-            start_go_server();
+            start_go_fileserver();
         }
     }
 
@@ -628,8 +629,8 @@ seaf_controller_start ()
         return -1;
     }
 
-    if (which_start_go_server()) {
-        if (start_go_server() < 0) {
+    if (enabled_go_fileserver) {
+        if (start_go_fileserver() < 0) {
             seaf_warning ("Failed to start fileserver\n");
             return -1;
         }
@@ -966,6 +967,8 @@ int main (int argc, char **argv)
     }
 
     set_signal_handlers ();
+
+    enabled_go_fileserver = which_start_go_server();
 
     if (seaf_controller_start () < 0)
         controller_exit (1);
