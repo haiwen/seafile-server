@@ -21,8 +21,8 @@ export SEAFILE_CENTRAL_CONF_DIR=${default_conf_dir}
 export PYTHONPATH=${INSTALLPATH}/seafile/lib/python3.6/site-packages:${INSTALLPATH}/seafile/lib64/python3.6/site-packages:${INSTALLPATH}/seahub:${INSTALLPATH}/seahub/thirdpart:$PYTHONPATH
 export SEAFILE_LD_LIBRARY_PATH=${INSTALLPATH}/seafile/lib/:${INSTALLPATH}/seafile/lib64:${LD_LIBRARY_PATH}
 
-prev_version=7.1
-current_version=8.0
+prev_version=8.0
+current_version=9.0
 
 echo
 echo "-------------------------------------------------------------"
@@ -118,7 +118,7 @@ function update_database() {
     echo
 
     db_update_helper=${UPGRADE_DIR}/db_update_helper.py
-    if ! $PYTHON "${db_update_helper}" 8.0.0; then
+    if ! $PYTHON "${db_update_helper}" 9.0.0; then
         echo
         echo "Failed to upgrade your database"
         echo
@@ -189,6 +189,12 @@ function move_old_customdir_outside() {
     cp -rf "${old_customdir}" "${seahub_data_dir}/"
 }
 
+function update_seahub_settings () {
+    service_url=`awk -F '=' '/\[General\]/{a=1}a==1&&$1~/SERVICE_URL/{print $2;exit}' ${default_conf_dir}/ccnet.conf`
+    service_url=$(echo $service_url)
+    echo "SERVICE_URL = '${service_url}'">>${default_conf_dir}/seahub_settings.py
+}
+
 #################
 # The main execution flow of the script
 ################
@@ -199,6 +205,8 @@ ensure_server_not_running;
 
 update_database;
 migrate_avatars;
+
+update_seahub_settings;
 
 move_old_customdir_outside;
 make_media_custom_symlink;
