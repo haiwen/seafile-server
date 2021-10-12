@@ -43,17 +43,6 @@ config = configparser.ConfigParser()
 config.read(os.path.join(SEAFILE_CENTRAL_CONF_DIR if SEAFILE_CENTRAL_CONF_DIR else CCNET_CONF_PATH,
                          'ccnet.conf'))
 
-if config.has_option('General', 'SERVICE_URL'):
-    service_url = config.get('General', 'SERVICE_URL')
-    hostname = urlparse(service_url).hostname
-
-    SERVICE_URL = service_url
-    CCNET_SERVER_ADDR = hostname
-else:
-    print("Warning: SERVICE_URL not set in ccnet.conf")
-    CCNET_SERVER_ADDR = None
-    SERVICE_URL = None
-
 if config.has_option('LDAP', 'HOST'):
     LDAP_HOST = config.get('LDAP', 'HOST')
 else:
@@ -93,11 +82,7 @@ except ValueError:
     pass
 
 FILE_SERVER_PORT = get_fileserver_option('port', '8082')
-
-if CCNET_SERVER_ADDR:
-    FILE_SERVER_ROOT = 'http://' + CCNET_SERVER_ADDR + ':' + FILE_SERVER_PORT
-else:
-    FILE_SERVER_ROOT = None
+FILE_SERVER_ROOT = None
 
 CALC_SHARE_USAGE = False
 if config.has_option('quota', 'calc_share_usage'):
