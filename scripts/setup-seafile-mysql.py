@@ -806,7 +806,7 @@ class CcnetConfigurator(AbstractConfigurator):
     def generate(self):
         print('Generating ccnet configuration ...\n')
         with open(self.ccnet_conf, 'w') as fp:
-            fp.write('[General]\nSERVICE_URL = http://%s/\n' % self.ip_or_domain)
+            fp.write('[General]')
 
         self.generate_db_conf()
 

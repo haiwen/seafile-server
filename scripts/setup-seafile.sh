@@ -290,7 +290,6 @@ function gen_ccnet_conf () {
     ccnet_conf=${default_conf_dir}/ccnet.conf
     if ! $(cat > ${ccnet_conf} <<EOF
 [General]
-SERVICE_URL = http://$ip_or_domain
 EOF
 ); then
     echo "failed to generate ccnet.conf";
