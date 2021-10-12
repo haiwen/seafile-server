@@ -289,10 +289,10 @@ setup_python_path()
         g_build_filename (installpath, "seahub/seahub-extra/thirdparts", NULL));
 
     path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib/python3.6/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib/python3/site-packages", NULL));
 
     path_list = g_list_prepend (path_list,
-        g_build_filename (installpath, "seafile/lib64/python3.6/site-packages", NULL));
+        g_build_filename (installpath, "seafile/lib64/python3/site-packages", NULL));
 
     path_list = g_list_reverse (path_list);
 
