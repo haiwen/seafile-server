@@ -364,12 +364,12 @@ func writePidFile(pid_file_path string) error {
 	return nil
 }
 
-func removePidfile(pid_file_path string) int {
+func removePidfile(pid_file_path string) error {
 	err := os.Remove(pid_file_path)
-	if err == nil {
-		return -1
+	if err != nil {
+		return err
 	}
-	return 0
+	return nil
 }
 
 func main() {
@@ -379,11 +379,10 @@ func main() {
 		log.Fatal("central config directory must be specified.")
 	}
 
-	if pidFilePath == "" {
-		log.Fatal("pid file path must be specified.")
-	}
-	if writePidFile(pidFilePath) != nil {
-		log.Fatal("write pid file failed.")
+	if pidFilePath != "" {
+		if writePidFile(pidFilePath) != nil {
+			log.Fatal("write pid file failed.")
+		}
 	}
 	_, err := os.Stat(centralDir)
 	if os.IsNotExist(err) {
@@ -460,19 +459,20 @@ func main() {
 
 	router := newHTTPRouter()
 
+	go handleSignals()
+
 	log.Print("Seafile file server started.")
 
 	addr := fmt.Sprintf("%s:%d", options.host, options.port)
-	go exitProg()
 	err = http.ListenAndServe(addr, router)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
 }
 
-func exitProg() {
+func handleSignals() {
 	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-signalChan
 	removePidfile(pidFilePath)
 	os.Exit(0)

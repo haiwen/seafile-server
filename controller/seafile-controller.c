@@ -233,13 +233,12 @@ start_go_fileserver()
         "-P", ctl->pidfile[PID_FILESERVER],
         NULL};
 
+    seaf_message ("starting go-fileserver ...");
     int pid = spawn_process(argv, false);
 
     if (pid <= 0) {
         seaf_warning("Failed to spawn fileserver\n");
         return -1;
-    } else {
-        seaf_message ("starting go-fileserver ...");
     }
     return 0;
 }
@@ -463,7 +462,7 @@ need_restart (int which)
 }
 
 static gboolean
-which_start_go_server()
+should_start_go_fileserver()
 {
     char *seafile_conf = g_build_filename (ctl->central_config_dir, "seafile.conf", NULL);
     GKeyFile *key_file = g_key_file_new ();
@@ -968,7 +967,7 @@ int main (int argc, char **argv)
 
     set_signal_handlers ();
 
-    enabled_go_fileserver = which_start_go_server();
+    enabled_go_fileserver = should_start_go_fileserver();
 
     if (seaf_controller_start () < 0)
         controller_exit (1);
