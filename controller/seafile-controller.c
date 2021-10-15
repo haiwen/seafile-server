@@ -33,6 +33,7 @@ static char *controller_pidfile = NULL;
 char *bin_dir = NULL;
 char *installpath = NULL;
 char *topdir = NULL;
+gboolean enabled_go_fileserver = FALSE;
 
 char *seafile_ld_library_path = NULL;
 
@@ -209,6 +210,36 @@ start_seaf_server ()
         return -1;
     }
 
+    return 0;
+}
+
+static int
+start_go_fileserver()
+{
+    if (!ctl->central_config_dir || !ctl->seafile_dir)
+        return -1;
+
+    static char *logfile = NULL;
+    if (logfile == NULL) {
+        logfile = g_build_filename (ctl->logdir, "fileserver.log", NULL);
+    }
+
+    char *argv[] = {
+        "fileserver",
+        "-F", ctl->central_config_dir,
+        "-d", ctl->seafile_dir,
+        "-l", logfile,
+        "-p", ctl->rpc_pipe_path,
+        "-P", ctl->pidfile[PID_FILESERVER],
+        NULL};
+
+    seaf_message ("starting go-fileserver ...");
+    int pid = spawn_process(argv, false);
+
+    if (pid <= 0) {
+        seaf_warning("Failed to spawn fileserver\n");
+        return -1;
+    }
     return 0;
 }
 
@@ -431,11 +462,52 @@ need_restart (int which)
 }
 
 static gboolean
+should_start_go_fileserver()
+{
+    char *seafile_conf = g_build_filename (ctl->central_config_dir, "seafile.conf", NULL);
+    GKeyFile *key_file = g_key_file_new ();
+    gboolean ret = 0;
+
+    if (!g_key_file_load_from_file (key_file, seafile_conf,
+                                    G_KEY_FILE_KEEP_COMMENTS, NULL)) {
+        seaf_warning("Failed to load seafile.conf.\n");
+        ret = FALSE;
+        goto out;
+    }
+    GError *err = NULL;
+    gboolean enabled;
+    enabled = g_key_file_get_boolean(key_file, "fileserver", "use_go_fileserver", &err);
+    if (err) {
+        seaf_warning("Config [fileserver, use_go_fileserver] not set, default is FALSE.\n");
+        ret = FALSE;
+        g_clear_error(&err);
+    } else {
+        if (enabled) {
+            ret = TRUE;
+        } else {
+            ret = FALSE;
+        }
+    }
+out:
+    g_key_file_free (key_file);
+    g_free (seafile_conf);
+
+    return ret;
+}
+
+static gboolean
 check_process (void *data)
 {
     if (need_restart(PID_SERVER)) {
         seaf_message ("seaf-server need restart...\n");
         start_seaf_server();
+    }
+
+    if (enabled_go_fileserver) {
+        if (need_restart(PID_FILESERVER)) {
+            seaf_message("fileserver need restart...\n");
+            start_go_fileserver();
+        }
     }
 
     if (ctl->seafdav_config.enabled) {
@@ -468,6 +540,7 @@ stop_services ()
     seaf_message ("shutting down all services ...\n");
 
     kill_by_force(PID_SERVER);
+    kill_by_force(PID_FILESERVER);
     kill_by_force(PID_SEAFDAV);
     if (ctl->has_seafevents)
         kill_by_force(PID_SEAFEVENTS);
@@ -487,6 +560,7 @@ init_pidfile_path (SeafileController *ctl)
     ctl->pidfile[PID_SERVER] = g_build_filename (pid_dir, "seaf-server.pid", NULL);
     ctl->pidfile[PID_SEAFDAV] = g_build_filename (pid_dir, "seafdav.pid", NULL);
     ctl->pidfile[PID_SEAFEVENTS] = g_build_filename (pid_dir, "seafevents.pid", NULL);
+    ctl->pidfile[PID_FILESERVER] = g_build_filename (pid_dir, "fileserver.pid", NULL);
 }
 
 static int
@@ -552,6 +626,13 @@ seaf_controller_start ()
     if (start_seaf_server() < 0) {
         seaf_warning ("Failed to start seaf server\n");
         return -1;
+    }
+
+    if (enabled_go_fileserver) {
+        if (start_go_fileserver() < 0) {
+            seaf_warning ("Failed to start fileserver\n");
+            return -1;
+        }
     }
 
     start_process_monitor ();
@@ -781,6 +862,7 @@ out:
     return ret;
 }
 
+
 int main (int argc, char **argv)
 {
     if (argc <= 1) {
@@ -884,6 +966,8 @@ int main (int argc, char **argv)
     }
 
     set_signal_handlers ();
+
+    enabled_go_fileserver = should_start_go_fileserver();
 
     if (seaf_controller_start () < 0)
         controller_exit (1);
