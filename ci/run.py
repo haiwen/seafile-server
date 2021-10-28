@@ -216,7 +216,10 @@ def main():
 
 
 def start_and_test_with_db(db):
-    fileservers = ('go_fileserver', 'c_fileserver')
+    if db == 'sqlite3':
+        fileservers = ('c_fileserver')
+    else:
+        fileservers = ('go_fileserver', 'c_fileserver')
     for fileserver in fileservers:
         shell('rm -rf {}/*'.format(INSTALLDIR))
         info('Setting up seafile server with %s database, use %s', db, fileserver)
