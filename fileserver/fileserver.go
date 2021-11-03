@@ -274,9 +274,11 @@ func loadFileServerOptions() {
 	}
 
 	initDefaultOptions()
-	if section, err := config.GetSection("fileserver"); err == nil {
+
+	if section, err := config.GetSection("httpserver"); err == nil {
 		parseFileServerSection(section)
-	} else if section, err := config.GetSection("httpserver"); err == nil {
+	}
+	if section, err := config.GetSection("fileserver"); err == nil {
 		parseFileServerSection(section)
 	}
 
