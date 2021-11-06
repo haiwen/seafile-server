@@ -114,6 +114,14 @@ seafile_session_new(const char *central_config_dir,
     session->go_fileserver = g_key_file_get_boolean (config,
                                                      "fileserver", "use_go_fileserver",
                                                      NULL);
+    if (session->go_fileserver) {
+        char *type = NULL;
+        type = g_key_file_get_string (config, "database", "type", NULL);
+        if (!type || g_strcmp0 (type, "mysql") != 0) {
+            session->go_fileserver = FALSE;
+        }
+        g_free (type);
+    }
 
     if (load_database_config (session) < 0) {
         seaf_warning ("Failed to load database config.\n");

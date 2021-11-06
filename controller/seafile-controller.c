@@ -488,6 +488,17 @@ should_start_go_fileserver()
             ret = FALSE;
         }
     }
+
+    if (ret) {
+        char *type = NULL;
+        type = g_key_file_get_string (key_file, "database", "type", NULL);
+        if (!type || g_strcmp0 (type, "mysql") != 0) {
+            seaf_message ("Use C fileserver because go fileserver does not support sqlite.");
+            ret = FALSE;
+        }
+        g_free (type);
+    }
+
 out:
     g_key_file_free (key_file);
     g_free (seafile_conf);
