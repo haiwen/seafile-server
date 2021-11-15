@@ -347,6 +347,8 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 	conRange := fmt.Sprintf("bytes %d-%d/%d", start, end, file.FileSize)
 	rsp.Header().Set("Content-Range", conRange)
 
+	rsp.WriteHeader(http.StatusPartialContent)
+
 	var blkSize []uint64
 	if file.FileSize > cacheBlockMapThreshold {
 		if v, ok := blockMapCacheTable.Load(file.FileID); ok {
