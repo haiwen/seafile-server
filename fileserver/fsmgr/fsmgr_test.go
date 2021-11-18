@@ -25,6 +25,9 @@ func createFile() error {
 	}
 
 	seafile, err := NewSeafile(1, 100, blkIDs)
+	if err != nil {
+		return err
+	}
 
 	err = SaveSeafile(repoID, seafile)
 	if err != nil {

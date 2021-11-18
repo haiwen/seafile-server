@@ -18,11 +18,160 @@ import (
 
 // Seafile is a file object
 type Seafile struct {
+	data     []byte
 	Version  int      `json:"version"`
 	FileType int      `json:"type"`
 	FileID   string   `json:"file_id"`
 	FileSize uint64   `json:"size"`
 	BlkIDs   []string `json:"block_ids"`
+}
+
+func (file *Seafile) toJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	buf.WriteString("\"block_ids\": [")
+	for i, blkID := range file.BlkIDs {
+		data, err := json.Marshal(blkID)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(data)
+		if i < len(file.BlkIDs)-1 {
+			buf.WriteByte(',')
+			buf.WriteByte(' ')
+		}
+	}
+	buf.WriteByte(']')
+	buf.WriteByte(',')
+	buf.WriteByte(' ')
+
+	data, err := json.Marshal(file.FileSize)
+	if err != nil {
+		return nil, err
+	}
+	writeField(&buf, "\"size\"", data)
+	buf.WriteByte(',')
+	buf.WriteByte(' ')
+
+	data, err = json.Marshal(SeafMetadataTypeFile)
+	if err != nil {
+		return nil, err
+	}
+	writeField(&buf, "\"type\"", data)
+	buf.WriteByte(',')
+	buf.WriteByte(' ')
+
+	data, err = json.Marshal(file.Version)
+	if err != nil {
+		return nil, err
+	}
+	writeField(&buf, "\"version\"", data)
+
+	buf.WriteByte('}')
+
+	return buf.Bytes(), nil
+}
+
+func (dent *SeafDirent) toJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	data, err := json.Marshal(dent.ID)
+	if err != nil {
+		return nil, err
+	}
+	writeField(&buf, "\"id\"", data)
+	buf.WriteByte(',')
+	buf.WriteByte(' ')
+
+	data, err = json.Marshal(dent.Mode)
+	if err != nil {
+		return nil, err
+	}
+	writeField(&buf, "\"mode\"", data)
+	buf.WriteByte(',')
+	buf.WriteByte(' ')
+
+	if IsRegular(dent.Mode) {
+		data, err = json.Marshal(dent.Modifier)
+		if err != nil {
+			return nil, err
+		}
+		writeField(&buf, "\"modifier\"", data)
+		buf.WriteByte(',')
+		buf.WriteByte(' ')
+	}
+
+	data, err = json.Marshal(dent.Mtime)
+	if err != nil {
+		return nil, err
+	}
+	writeField(&buf, "\"mtime\"", data)
+	buf.WriteByte(',')
+	buf.WriteByte(' ')
+
+	data, err = json.Marshal(dent.Name)
+	if err != nil {
+		return nil, err
+	}
+	writeField(&buf, "\"name\"", data)
+
+	if IsRegular(dent.Mode) {
+		buf.WriteByte(',')
+		buf.WriteByte(' ')
+		data, err = json.Marshal(dent.Size)
+		if err != nil {
+			return nil, err
+		}
+		writeField(&buf, "\"size\"", data)
+	}
+	buf.WriteByte('}')
+
+	return buf.Bytes(), nil
+}
+
+func (dir *SeafDir) toJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	buf.WriteString("\"dirents\": [")
+	for i, entry := range dir.Entries {
+		data, err := entry.toJSON()
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(data)
+		if i < len(dir.Entries)-1 {
+			buf.WriteByte(',')
+			buf.WriteByte(' ')
+		}
+	}
+	buf.WriteByte(']')
+	buf.WriteByte(',')
+	buf.WriteByte(' ')
+
+	data, err := json.Marshal(SeafMetadataTypeDir)
+	if err != nil {
+		return nil, err
+	}
+	writeField(&buf, "\"type\"", data)
+	buf.WriteByte(',')
+	buf.WriteByte(' ')
+
+	data, err = json.Marshal(dir.Version)
+	if err != nil {
+		return nil, err
+	}
+	writeField(&buf, "\"version\"", data)
+
+	buf.WriteByte('}')
+
+	return buf.Bytes(), nil
+}
+
+func writeField(buf *bytes.Buffer, key string, value []byte) {
+	buf.WriteString(key)
+	buf.WriteByte(':')
+	buf.WriteByte(' ')
+	buf.Write(value)
 }
 
 // SeafDirent is a dir entry object
@@ -37,6 +186,7 @@ type SeafDirent struct {
 
 //SeafDir is a dir object
 type SeafDir struct {
+	data    []byte
 	Version int           `json:"version"`
 	DirType int           `json:"type"`
 	DirID   string        `json:"dir_id"`
@@ -93,11 +243,16 @@ func NewSeafdir(version int, entries []*SeafDirent) (*SeafDir, error) {
 	dir := new(SeafDir)
 	dir.Version = version
 	dir.Entries = entries
-	jsonstr, err := json.Marshal(dir)
+	if len(entries) == 0 {
+		dir.DirID = EmptySha1
+		return dir, nil
+	}
+	jsonstr, err := dir.toJSON()
 	if err != nil {
 		err := fmt.Errorf("failed to convert seafdir to json")
 		return nil, err
 	}
+	dir.data = jsonstr
 	checksum := sha1.Sum(jsonstr)
 	dir.DirID = hex.EncodeToString(checksum[:])
 
@@ -110,12 +265,17 @@ func NewSeafile(version int, fileSize int64, blkIDs []string) (*Seafile, error) 
 	seafile.Version = version
 	seafile.FileSize = uint64(fileSize)
 	seafile.BlkIDs = blkIDs
+	if len(blkIDs) == 0 {
+		seafile.FileID = EmptySha1
+		return seafile, nil
+	}
 
-	jsonstr, err := json.Marshal(seafile)
+	jsonstr, err := seafile.toJSON()
 	if err != nil {
 		err := fmt.Errorf("failed to convert seafile to json")
 		return nil, err
 	}
+	seafile.data = jsonstr
 	checkSum := sha1.Sum(jsonstr)
 	seafile.FileID = hex.EncodeToString(checkSum[:])
 
@@ -172,12 +332,7 @@ func (seafile *Seafile) FromData(p []byte) error {
 
 // ToData converts seafile to JSON-encoded data and writes to w.
 func (seafile *Seafile) ToData(w io.Writer) error {
-	jsonstr, err := json.Marshal(seafile)
-	if err != nil {
-		return err
-	}
-
-	buf, err := compress(jsonstr)
+	buf, err := compress(seafile.data)
 	if err != nil {
 		return err
 	}
@@ -192,12 +347,7 @@ func (seafile *Seafile) ToData(w io.Writer) error {
 
 // ToData converts seafdir to JSON-encoded data and writes to w.
 func (seafdir *SeafDir) ToData(w io.Writer) error {
-	jsonstr, err := json.Marshal(seafdir)
-	if err != nil {
-		return err
-	}
-
-	buf, err := compress(jsonstr)
+	buf, err := compress(seafdir.data)
 	if err != nil {
 		return err
 	}
@@ -277,6 +427,9 @@ func GetSeafile(repoID string, fileID string) (*Seafile, error) {
 // SaveSeafile saves seafile to storage backend.
 func SaveSeafile(repoID string, seafile *Seafile) error {
 	fileID := seafile.FileID
+	if fileID == EmptySha1 {
+		return nil
+	}
 
 	exist, _ := store.Exists(repoID, fileID)
 	if exist {
@@ -334,6 +487,9 @@ func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
 // SaveSeafdir saves seafdir to storage backend.
 func SaveSeafdir(repoID string, seafdir *SeafDir) error {
 	dirID := seafdir.DirID
+	if dirID == EmptySha1 {
+		return nil
+	}
 	exist, _ := store.Exists(repoID, dirID)
 	if exist {
 		return nil
@@ -365,10 +521,7 @@ func Exists(repoID string, objID string) (bool, error) {
 }
 
 func comp(c rune) bool {
-	if c == '/' {
-		return true
-	}
-	return false
+	return c == '/'
 }
 
 // IsDir check if the mode is dir.
