@@ -434,7 +434,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to open or create error log file: %v", err)
 		}
-		syscall.Dup2(int(fp.Fd()), int(os.Stderr.Fd()))
+		syscall.Dup3(int(fp.Fd()), int(os.Stderr.Fd()), 0)
 	}
 
 	repomgr.Init(seafileDB)
