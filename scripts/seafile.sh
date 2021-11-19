@@ -48,15 +48,6 @@ function validate_running_user () {
     fi
 }
 
-function validate_ccnet_conf_dir () {
-    if [[ ! -d ${default_ccnet_conf_dir} ]]; then
-        echo "Error: there is no ccnet config directory."
-        echo "Have you run setup-seafile.sh before this?"
-        echo ""
-        exit -1;
-    fi
-}
-
 function validate_central_conf_dir () {
     if [[ ! -d ${central_config_dir} ]]; then
         echo "Error: there is no conf/ directory."
@@ -104,7 +95,6 @@ function validate_already_running () {
 function start_seafile_server () {
     validate_already_running;
     validate_central_conf_dir;
-    validate_ccnet_conf_dir;
     validate_seafile_data_dir;
     validate_running_user;
 

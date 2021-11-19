@@ -22,15 +22,6 @@ function usage () {
 }
 
 
-function validate_ccnet_conf_dir () {
-    if [[ ! -d ${default_ccnet_conf_dir} ]]; then
-        echo "Error: there is no ccnet config directory."
-        echo "Have you run setup-seafile.sh before this?"
-        echo ""
-        exit -1;
-    fi
-}
-
 function validate_seafile_data_dir () {
     if [[ ! -d ${default_seafile_data_dir} ]]; then
         echo "Error: there is no seafile server data directory."
@@ -61,7 +52,6 @@ function validate_already_running () {
         exit 1;
     fi
 
-    check_component_running "ccnet-server" "ccnet-server -c ${default_ccnet_conf_dir}"
     check_component_running "seaf-server" "seaf-server -c ${default_ccnet_conf_dir}"
     check_component_running "fileserver" "fileserver -c ${default_ccnet_conf_dir}"
     check_component_running "seafdav" "wsgidav.server.server_cli"
@@ -69,7 +59,6 @@ function validate_already_running () {
 
 function run_seaf_gc () {
     validate_already_running;
-    validate_ccnet_conf_dir;
     validate_seafile_data_dir;
 
     echo "Starting seafserv-gc, please wait ..."

@@ -73,15 +73,6 @@ function check_python_executable() {
     fi
 }
 
-function validate_ccnet_conf_dir () {
-    if [[ ! -d ${default_ccnet_conf_dir} ]]; then
-        echo "Error: there is no ccnet config directory."
-        echo "Have you run setup-seafile.sh before this?"
-        echo ""
-        exit -1;
-    fi
-}
-
 function validate_seafile_data_dir () {
     if [[ ! -d ${default_seafile_data_dir} ]]; then
         echo "Error: there is no seafile server data directory."
@@ -198,7 +189,6 @@ function start_seahub_fastcgi () {
 
 function prepare_env() {
     check_python_executable;
-    validate_ccnet_conf_dir;
     validate_seafile_data_dir;
 
     if [[ -z "$LANG" ]]; then
