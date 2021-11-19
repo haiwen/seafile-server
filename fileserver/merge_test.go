@@ -59,7 +59,7 @@ func mergeTestCreateTestDir() error {
 	}
 	mergeTestTree5 = emptyDir
 
-	file1, err := fsmgr.NewSeafile(1, 1, nil)
+	file1, err := fsmgr.NewSeafile(1, 1, []string{"4f616f98d6a264f75abffe1bc150019c880be239"})
 	if err != nil {
 		err := fmt.Errorf("failed to new seafile: %v", err)
 		return err
@@ -93,7 +93,7 @@ func mergeTestCreateTestDir() error {
 	}
 	mergeTestTree1CommitID = commit1.CommitID
 
-	file2, err := fsmgr.NewSeafile(1, 10, nil)
+	file2, err := fsmgr.NewSeafile(1, 10, []string{"4f616f98d6a264f75abffe1bc150019c880be239"})
 	if err != nil {
 		err := fmt.Errorf("failed to new seafile: %v", err)
 		return err
@@ -151,7 +151,7 @@ func mergeTestCreateTestDir() error {
 	}
 	mergeTestTree3CommitID = commit3.CommitID
 
-	file3, err := fsmgr.NewSeafile(1, 100, nil)
+	file3, err := fsmgr.NewSeafile(1, 100, []string{"4f616f98d6a264f75abffe1bc150019c880be240"})
 	if err != nil {
 		err := fmt.Errorf("failed to new seafile: %v", err)
 		return err
