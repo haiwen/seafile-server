@@ -88,6 +88,15 @@ merge_entries (const char *store_id, int version,
 {
     SeafDirent *files[3];
     int i;
+    gint64 curr_time;
+
+    if (opt->start_time > 0 && opt->timeout > 0) {
+        curr_time = time(NULL);
+        if (curr_time - opt->start_time > opt->timeout) {
+            seaf_warning("Merge trees timeout for repo %s/%s.\n", store_id, basedir);
+            return -1;
+        }
+    }
 
     memset (files, 0, sizeof(files[0])*n);
     for (i = 0; i < n; ++i) {

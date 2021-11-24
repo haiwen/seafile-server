@@ -22,6 +22,7 @@ struct _HttpServerStruct {
     int worker_threads;
     int max_index_processing_threads;
     int cluster_shared_temp_file_mode;
+    int put_head_commit_request_timeout;
 };
 
 typedef struct _HttpServerStruct HttpServerStruct;

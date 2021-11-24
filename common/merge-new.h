@@ -25,6 +25,9 @@ typedef struct MergeOptions {
     char                merged_tree_root[41]; /* merge result */
     int                 visit_dirs;
     gboolean            conflict;
+    gint64              start_time;
+    gint64              timeout;
+
 } MergeOptions;
 
 int

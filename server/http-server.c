@@ -148,6 +148,7 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     char *encoding;
     int max_indexing_threads;
     int max_index_processing_threads;
+    int put_head_commit_request_timeout;
     char *cluster_shared_temp_file_mode = NULL;
 
     host = fileserver_config_get_string (session->config, HOST, &error);
@@ -283,6 +284,21 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
         /* No windows specific encoding is specified. Set the ZIP_UTF8 flag. */
         setlocale (LC_ALL, "en_US.UTF-8");
     }
+
+    put_head_commit_request_timeout = fileserver_config_get_integer (session->config,
+                                                "put_head_commit_request_timeout",
+                                                &error);
+    if (error){
+        htp_server->put_head_commit_request_timeout = 10; /* default 3600s */
+        g_clear_error(&error);
+    } else {
+        if (put_head_commit_request_timeout<= 0)
+            htp_server->put_head_commit_request_timeout= 10; /* default 3600s */
+        else
+            htp_server->put_head_commit_request_timeout= put_head_commit_request_timeout;
+    }
+    seaf_message ("fileserver: put_head_commit_request_timeout = %d\n",
+                  htp_server->put_head_commit_request_timeout);
 }
 
 static int
@@ -973,6 +989,8 @@ retry:
         memcpy (opt.remote_repo_id, repo_id, 36);
         memcpy (opt.remote_head, new_commit->commit_id, 40);
         opt.do_merge = TRUE;
+        opt.start_time = time(NULL);
+        opt.timeout = seaf->http_server->put_head_commit_request_timeout;
 
         roots[0] = base->root_id; /* base */
         roots[1] = current_head->root_id; /* head */
