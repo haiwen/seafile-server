@@ -1077,7 +1077,8 @@ class SeahubConfigurator(AbstractConfigurator):
         'USER': '%(username)s',
         'PASSWORD': '%(password)s',
         'HOST': '%(host)s',
-        'PORT': '%(port)s'
+        'PORT': '%(port)s',
+        'OPTIONS': {'charset': 'utf8mb4'},
     }
 }
 
