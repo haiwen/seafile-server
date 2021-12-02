@@ -167,7 +167,7 @@ Press ENTER to continue
     @staticmethod
     def read_config(fn):
         '''Return a case sensitive ConfigParser by reading the file "fn"'''
-        cp = ConfigParser()
+        cp = ConfigParser(interpolation=None)
         cp.optionxform = str
         cp.read(fn)
 
