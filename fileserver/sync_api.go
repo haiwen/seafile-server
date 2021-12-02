@@ -1034,7 +1034,11 @@ func validateToken(r *http.Request, repoID string, skipCache bool) (string, *app
 	}
 
 	if value, ok := tokenCache.Load(token); ok {
-		if info, ok := value.(*tokenInfo); ok && info.repoID == repoID {
+		if info, ok := value.(*tokenInfo); ok {
+			if info.repoID != repoID {
+				msg := "Invalid token"
+				return "", &appError{nil, msg, http.StatusForbidden}
+			}
 			return info.email, nil
 		}
 	}
