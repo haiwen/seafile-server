@@ -303,14 +303,16 @@ validate_token (HttpServer *htp_server, evhtp_request_t *req,
         pthread_mutex_lock (&htp_server->token_cache_lock);
 
         token_info = g_hash_table_lookup (htp_server->token_cache, token);
-        if (token_info && strcmp (token_info->repo_id, repo_id) == 0) {
+        if (token_info) {
+            if (strcmp (token_info->repo_id, repo_id) != 0) {
+                pthread_mutex_unlock (&htp_server->token_cache_lock);
+                return EVHTP_RES_FORBIDDEN;
+            }
+
             if (username)
                 *username = g_strdup(token_info->email);
             pthread_mutex_unlock (&htp_server->token_cache_lock);
             return EVHTP_RES_OK;
-        } else if (token_info && strcmp (token_info->repo_id, repo_id) != 0) {
-            pthread_mutex_unlock (&htp_server->token_cache_lock);
-            return EVHTP_RES_FORBIDDEN;
         }
 
         pthread_mutex_unlock (&htp_server->token_cache_lock);
