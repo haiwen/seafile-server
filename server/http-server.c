@@ -308,6 +308,9 @@ validate_token (HttpServer *htp_server, evhtp_request_t *req,
                 *username = g_strdup(token_info->email);
             pthread_mutex_unlock (&htp_server->token_cache_lock);
             return EVHTP_RES_OK;
+        } else if (token_info && strcmp (token_info->repo_id, repo_id) != 0) {
+            pthread_mutex_unlock (&htp_server->token_cache_lock);
+            return EVHTP_RES_FORBIDDEN;
         }
 
         pthread_mutex_unlock (&htp_server->token_cache_lock);
