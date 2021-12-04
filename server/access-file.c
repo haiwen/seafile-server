@@ -1168,15 +1168,15 @@ access_zip_cb (evhtp_request_t *req, void *arg)
     // then the token is valid, because it pass some validations in zip stage
     if (!info) {
         seaf_warning ("Token doesn't exist.\n");
-        error = "Invalid token\n";
-        error_code = EVHTP_RES_BADREQ;
+        error = "Invalid access token\n";
+        error_code = EVHTP_RES_FORBIDDEN;
         goto out;
     }
 
     g_object_get (info, "obj_id", &info_str, NULL);
     if (!info_str) {
         seaf_warning ("Invalid token.\n");
-        error = "Invalid token\n";
+        error = "Invalid obj_id for token\n";
         error_code = EVHTP_RES_BADREQ;
         goto out;
     }
@@ -1184,7 +1184,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
     info_obj = json_loadb (info_str, strlen(info_str), 0, &jerror);
     if (!info_obj) {
         seaf_warning ("Failed to parse obj_id field: %s.\n", jerror.text);
-        error = "Invalid token\n";
+        error = "Invalid obj_id field\n";
         error_code = EVHTP_RES_BADREQ;
         goto out;
     }
@@ -1200,7 +1200,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
         filename = g_strconcat (MULTI_DOWNLOAD_FILE_PREFIX, date_str, NULL);
     } else {
         seaf_warning ("Invalid token.\n");
-        error = "Invalid token\n";
+        error = "No dir_name or file_list in obj_id for token\n";
         error_code = EVHTP_RES_BADREQ;
         goto out;
     }
@@ -1210,7 +1210,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
         g_object_get (info, "repo_id", &repo_id, NULL);
         seaf_warning ("Failed to get zip file path for %s in repo %.8s, token:[%s].\n",
                       filename, repo_id, token);
-        error = "Invalid token\n";
+        error = "Invalid zip file path for token\n";
         error_code = EVHTP_RES_BADREQ;
         goto out;
     }
@@ -1265,6 +1265,7 @@ access_cb(evhtp_request_t *req, void *arg)
     const char *operation = NULL;
     const char *user = NULL;
     const char *byte_ranges = NULL;
+    int error_code = EVHTP_RES_BADREQ;
 
     SeafileCryptKey *key = NULL;
     SeafileWebAccess *webaccess = NULL;
@@ -1283,6 +1284,7 @@ access_cb(evhtp_request_t *req, void *arg)
     webaccess = seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
     if (!webaccess) {
         error = "Bad access token";
+        error_code = EVHTP_RES_FORBIDDEN;
         goto bad_req;
     }
 
@@ -1295,6 +1297,7 @@ access_cb(evhtp_request_t *req, void *arg)
         strcmp(operation, "download") != 0 &&
         strcmp(operation, "download-link") != 0) {
         error = "Bad access token";
+        error_code = EVHTP_RES_FORBIDDEN;
         goto bad_req;
     }
 
@@ -1328,10 +1331,12 @@ access_cb(evhtp_request_t *req, void *arg)
     if (!repo->encrypted && byte_ranges) {
         if (do_file_range (req, repo, data, filename, operation, byte_ranges, user) < 0) {
             error = "Internal server error\n";
+            error_code = EVHTP_RES_SERVERR;
             goto bad_req;
         }
     } else if (do_file(req, repo, data, filename, operation, key, user) < 0) {
         error = "Internal server error\n";
+        error_code = EVHTP_RES_SERVERR;
         goto bad_req;
     }
 
@@ -1461,6 +1466,7 @@ access_blks_cb(evhtp_request_t *req, void *arg)
     const char *id = NULL;
     const char *operation = NULL;
     const char *user = NULL;
+    int error_code = EVHTP_RES_BADREQ;
 
     char *repo_role = NULL;
     SeafileWebAccess *webaccess = NULL;
@@ -1479,6 +1485,7 @@ access_blks_cb(evhtp_request_t *req, void *arg)
     webaccess = seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
     if (!webaccess) {
         error = "Bad access token";
+        error_code = EVHTP_RES_FORBIDDEN;
         goto bad_req;
     }
 
@@ -1506,6 +1513,7 @@ access_blks_cb(evhtp_request_t *req, void *arg)
     if (strcmp(operation, "downloadblks") == 0) {
         if (do_block(req, repo, user, id, blkid) < 0) {
             error = "Internal server error\n";
+            error_code = EVHTP_RES_SERVERR;
             goto bad_req;
         }
     }

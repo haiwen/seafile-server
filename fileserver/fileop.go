@@ -150,7 +150,7 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	if op != "view" && op != "download" && op != "download-link" {
 		msg := "Bad access token"
-		return &appError{nil, msg, http.StatusBadRequest}
+		return &appError{nil, msg, http.StatusForbidden}
 	}
 
 	if _, ok := r.Header["If-Modified-Since"]; ok {
@@ -590,7 +590,7 @@ func accessBlksCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	if op != "downloadblks" {
 		msg := "Bad access token"
-		return &appError{nil, msg, http.StatusBadRequest}
+		return &appError{nil, msg, http.StatusForbidden}
 	}
 
 	if err := doBlock(rsp, r, repo, id, user, blkID); err != nil {
@@ -673,8 +673,8 @@ func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	if op != "download-dir" && op != "download-dir-link" &&
 		op != "download-multi" && op != "download-multi-link" {
-		err := fmt.Errorf("wrong operation of token: %s", op)
-		return &appError{err, "", http.StatusInternalServerError}
+		msg := "Bad access token"
+		return &appError{nil, msg, http.StatusForbidden}
 	}
 
 	if _, ok := r.Header["If-Modified-Since"]; ok {
@@ -948,7 +948,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	if replaceStr != "" {
 		replace, err := strconv.ParseInt(replaceStr, 10, 64)
 		if err != nil || (replace != 0 && replace != 1) {
-			msg := "Invalid argument.\n"
+			msg := "Invalid argument replace.\n"
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 		if replace == 1 {
@@ -958,7 +958,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 
 	parentDir := r.FormValue("parent_dir")
 	if parentDir == "" {
-		msg := "Invalid URL.\n"
+		msg := "No parent_dir given.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
@@ -1023,7 +1023,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	}
 
 	if fsm.fileNames == nil {
-		msg := "No file.\n"
+		msg := "No file uploaded.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
@@ -1032,7 +1032,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	}
 
 	if !isParentMatched(fsm.parentDir, parentDir) {
-		msg := "Permission denied."
+		msg := "Parent dir doesn't match."
 		return &appError{nil, msg, http.StatusForbidden}
 	}
 
@@ -1364,8 +1364,7 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 
 	accessInfo, appErr := parseWebaccessInfo(token)
 	if appErr != nil {
-		msg := "Access denied"
-		return nil, &appError{nil, msg, http.StatusBadRequest}
+		return nil, appErr
 	}
 
 	repoID := accessInfo.repoID
@@ -1379,7 +1378,7 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 		return nil, &appError{nil, msg, http.StatusInternalServerError}
 	}
 	if status != repomgr.RepoStatusNormal && status != -1 {
-		msg := "Access denied"
+		msg := "Unnormnal repo status"
 		return nil, &appError{nil, msg, http.StatusBadRequest}
 	}
 
@@ -1387,8 +1386,8 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 		op = "upload"
 	}
 	if strings.Index(urlOp, op) != 0 {
-		msg := "Access denied"
-		return nil, &appError{nil, msg, http.StatusBadRequest}
+		msg := "Invalid access token"
+		return nil, &appError{nil, msg, http.StatusForbidden}
 	}
 
 	fsm := new(recvData)
@@ -1397,12 +1396,12 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 		obj := make(map[string]interface{})
 		if err := json.Unmarshal([]byte(id), &obj); err != nil {
 			err := fmt.Errorf("failed to decode obj data : %v", err)
-			return nil, &appError{err, "", http.StatusBadRequest}
+			return nil, &appError{err, "", http.StatusInternalServerError}
 		}
 
 		parentDir, ok := obj["parent_dir"].(string)
 		if !ok || parentDir == "" {
-			msg := "Invalid URL"
+			msg := "No parent_dir"
 			return nil, &appError{nil, msg, http.StatusBadRequest}
 		}
 		fsm.parentDir = parentDir
@@ -2316,7 +2315,7 @@ func parseWebaccessInfo(token string) (*webaccessInfo, *appError) {
 	}
 	if webaccess == nil {
 		msg := "Bad access token"
-		return nil, &appError{err, msg, http.StatusBadRequest}
+		return nil, &appError{err, msg, http.StatusForbidden}
 	}
 
 	webaccessMap, ok := webaccess.(map[string]interface{})
@@ -2581,7 +2580,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 
 	targetFile := r.FormValue("target_file")
 	if targetFile == "" {
-		msg := "Invalid URL.\n"
+		msg := "No target_file given.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
@@ -2889,7 +2888,7 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 	if replaceStr != "" {
 		replace, err := strconv.ParseInt(replaceStr, 10, 64)
 		if err != nil || (replace != 0 && replace != 1) {
-			msg := "Invalid argument.\n"
+			msg := "Invalid argument replace.\n"
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 		if replace == 1 {
@@ -2899,13 +2898,13 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 
 	parentDir := r.FormValue("parent_dir")
 	if parentDir == "" {
-		msg := "Invalid URL.\n"
+		msg := "No parent_dir given.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
 	fileName := r.FormValue("file_name")
 	if fileName == "" {
-		msg := "Invalid URL.\n"
+		msg := "No file_name given.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
@@ -2914,14 +2913,14 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 	if fileSizeStr != "" {
 		size, err := strconv.ParseInt(fileSizeStr, 10, 64)
 		if err != nil {
-			msg := "Invalid argument.\n"
+			msg := "Invalid argument file_size.\n"
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 		fileSize = size
 	}
 
 	if fileSize < 0 {
-		msg := "Invalid URL.\n"
+		msg := "Invalid file size.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
@@ -2937,7 +2936,7 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 
 	blockIDsJSON := r.FormValue("blockids")
 	if blockIDsJSON == "" {
-		msg := "Invalid URL.\n"
+		msg := "No blockids given.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 

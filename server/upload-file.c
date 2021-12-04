@@ -463,7 +463,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
     if (!fsm->filenames) {
         seaf_debug ("[upload] No file uploaded.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No file uploaded.\n");
         return;
     }
 
@@ -472,7 +472,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         replace = atoi(replace_str);
         if (replace != 0 && replace != 1) {
             seaf_debug ("[Upload] Invalid argument replace: %s.\n", replace_str);
-            send_error_reply (req, EVHTP_RES_BADREQ, "Invalid argument.\n");
+            send_error_reply (req, EVHTP_RES_BADREQ, "Invalid argument replace.\n");
             return;
         }
     }
@@ -526,7 +526,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
     if (!fsm->files) {
         seaf_debug ("[upload] No file uploaded.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No file uploaded.\n");
         goto out;
     }
 
@@ -702,7 +702,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
         replace = atoi(replace_str);
         if (replace != 0 && replace != 1) {
             seaf_debug ("[Upload-blks] Invalid argument replace: %s.\n", replace_str);
-            send_error_reply (req, EVHTP_RES_BADREQ, "Invalid argument.\n");
+            send_error_reply (req, EVHTP_RES_BADREQ, "Invalid argument replace.\n");
             return;
         }
     }
@@ -715,7 +715,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
 
     if (!file_name || !parent_dir || !size_str || file_size < 0) {
         seaf_debug ("[upload-blks] No parent dir or file name given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No parent dir or file name.\n");
         return;
     }
     if (!commitonly_str) {
@@ -760,7 +760,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
     blockids_json = g_hash_table_lookup (fsm->form_kvs, "blockids");
     if (blockids_json == NULL) {
         seaf_debug ("[upload-blks] No blockids given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No blockids.\n");
         return;
     }
     rc = seaf_repo_manager_commit_file_blocks (seaf->repo_mgr,
@@ -1097,7 +1097,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
     if (!fsm->filenames) {
         seaf_debug ("[upload] No file uploaded.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No file uploaded.\n");
         return;
     }
 
@@ -1145,7 +1145,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
     if (!fsm->files) {
         seaf_debug ("[upload] No file uploaded.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No file uploaded.\n");
         goto out;
     }
 
@@ -1275,14 +1275,14 @@ update_api_cb(evhtp_request_t *req, void *arg)
 
     if (!fsm->filenames) {
         seaf_debug ("[Update] No file uploaded.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No file uploaded.\n");
         return;
     }
 
     target_file = g_hash_table_lookup (fsm->form_kvs, "target_file");
     if (!target_file) {
         seaf_debug ("[Update] No target file given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No target file.\n");
         return;
     }
 
@@ -1322,7 +1322,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
 
     if (!fsm->files) {
         seaf_debug ("[Update] No file uploaded.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No file uploaded.\n");
         goto out;
     }
 
@@ -1408,7 +1408,7 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
     if (size_str)  file_size = atoll(size_str);
     if (!target_file || !size_str || file_size < 0) {
         seaf_debug ("[Update-blks] No target file given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No target file.\n");
         return;
     }
     commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
@@ -1456,7 +1456,7 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
     blockids_json = g_hash_table_lookup (fsm->form_kvs, "blockids");
     if (blockids_json == NULL) {
         seaf_debug ("[upload-blks] No blockids given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No blockids.\n");
         goto out;
     }
     rc = seaf_repo_manager_commit_file_blocks (seaf->repo_mgr,
@@ -1676,14 +1676,14 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
 
     if (!fsm->files) {
         seaf_debug ("[update] No file uploaded.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "No file.\n");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No file uploaded.\n");
         return;
     }
 
     target_file = g_hash_table_lookup (fsm->form_kvs, "target_file");
     if (!target_file) {
         seaf_debug ("[Update] No target file given.\n");
-        send_error_reply (req, EVHTP_RES_BADREQ, "Invalid URL.");
+        send_error_reply (req, EVHTP_RES_BADREQ, "No target file.");
         return;
     }
 
@@ -2453,6 +2453,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     char *token_type = NULL;
     RecvFSM *fsm = NULL;
     Progress *progress = NULL;
+    int error_code = EVHTP_RES_BADREQ;
 
     if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
          return EVHTP_RES_OK;
@@ -2462,7 +2463,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     token = req->uri->path->file;
     if (!token) {
         seaf_debug ("[upload] No token in url.\n");
-        err_msg = "Invalid URL";
+        err_msg = "No token in url";
         goto err;
     }
 
@@ -2474,17 +2475,21 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     char *url_op = parts[0];
 
     if (check_access_token (token, url_op, &repo_id, &parent_dir, &user, &token_type) < 0) {
-        err_msg = "Access denied";
+        err_msg = "Invalid access token";
+        error_code = EVHTP_RES_FORBIDDEN;
         goto err;
     }
 
     boundary = get_boundary (hdr);
     if (!boundary) {
+        err_msg = "Wrong boundary in url";
         goto err;
     }
 
-    if (get_progress_info (req, hdr, &content_len, &progress_id) < 0)
+    if (get_progress_info (req, hdr, &content_len, &progress_id) < 0) {
+        err_msg = "No progress info";
         goto err;
+    }
 
     if (progress_id != NULL) {
         pthread_mutex_lock (&pg_lock);
@@ -2551,7 +2556,7 @@ err:
      * connection after sending the reply.
      */
     req->keepalive = 0;
-    send_error_reply (req, EVHTP_RES_BADREQ, err_msg);
+    send_error_reply (req, error_code, err_msg);
 
     g_free (repo_id);
     g_free (user);
