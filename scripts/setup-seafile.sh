@@ -659,7 +659,7 @@ if ! sqlite3 ${ccnet_user_db} ".read ${ccnet_user_sql}" 2>/dev/null 1>&2; then
     err_and_quit;
 fi
 
-seafile_db=${TOPDIR}/seafile-data/seafile.db
+seafile_db=${seafile_data_dir}/seafile-data/seafile.db
 seafile_sql=${INSTALLPATH}/sql/sqlite/seafile.sql
 if ! sqlite3 ${seafile_db} ".read ${seafile_sql}" 2>/dev/null 1>&2; then
     echo "Failed to sync seafile database."
