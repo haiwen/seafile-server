@@ -217,7 +217,7 @@ class Seahub(Project):
         ]
 
     def get_version(self):
-        return conf[CONF_SEAFILE_VERSION]
+        return conf[CONF_VERSION]
 
     def build(self):
         self.write_version_to_settings_py()
@@ -310,7 +310,7 @@ def validate_args(usage, options):
     srcdir = get_option(CONF_SRCDIR)
     check_targz_src('libsearpc', libsearpc_version, srcdir)
     check_targz_src('seafile', seafile_version, srcdir)
-    check_targz_src('seahub', seafile_version, srcdir)
+    check_targz_src('seahub', version, srcdir)
     check_targz_src_no_version('seafdav', srcdir)
     check_targz_src_no_version('seafobj', srcdir)
 
