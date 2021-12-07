@@ -2310,7 +2310,8 @@ check_access_token (const char *token,
                     char **repo_id,
                     char **parent_dir,
                     char **user,
-                    char **token_type)
+                    char **token_type,
+                    char **err_msg)
 {
     SeafileWebAccess *webaccess;
     const char *op;
@@ -2321,12 +2322,15 @@ check_access_token (const char *token,
 
     webaccess = (SeafileWebAccess *)
         seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
-    if (!webaccess)
+    if (!webaccess) {
+        *err_msg = "Access token not found.";
         return -1;
+    }
 
     _repo_id = seafile_web_access_get_repo_id (webaccess);
     int status = seaf_repo_manager_get_repo_status(seaf->repo_mgr, _repo_id);
     if (status != REPO_STATUS_NORMAL && status != -1) {
+        *err_msg = "Repo status not writable.";
         g_object_unref (webaccess);
         return -1;
     }
@@ -2342,6 +2346,7 @@ check_access_token (const char *token,
         op = "upload";
 
     if (strncmp (url_op, op, strlen(op)) != 0) {
+        *err_msg = "Operation does not match access token.";
         g_object_unref (webaccess);
         return -1;
     }
@@ -2450,6 +2455,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     gint64 content_len;
     char *progress_id = NULL;
     char *err_msg = NULL;
+    char *error = NULL;
     char *token_type = NULL;
     RecvFSM *fsm = NULL;
     Progress *progress = NULL;
@@ -2474,8 +2480,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     }
     char *url_op = parts[0];
 
-    if (check_access_token (token, url_op, &repo_id, &parent_dir, &user, &token_type) < 0) {
-        err_msg = "Invalid access token";
+    if (check_access_token (token, url_op, &repo_id, &parent_dir, &user, &token_type, &err_msg) < 0) {
         error_code = EVHTP_RES_FORBIDDEN;
         goto err;
     }

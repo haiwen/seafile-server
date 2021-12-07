@@ -1167,25 +1167,22 @@ access_zip_cb (evhtp_request_t *req, void *arg)
     // Here only check token exist, follow will get zip file path, if zip file path exist
     // then the token is valid, because it pass some validations in zip stage
     if (!info) {
-        seaf_warning ("Token doesn't exist.\n");
-        error = "Invalid access token\n";
+        error = "Access token not found\n";
         error_code = EVHTP_RES_FORBIDDEN;
         goto out;
     }
 
     g_object_get (info, "obj_id", &info_str, NULL);
     if (!info_str) {
-        seaf_warning ("Invalid token.\n");
-        error = "Invalid obj_id for token\n";
-        error_code = EVHTP_RES_BADREQ;
+        seaf_warning ("Invalid obj_id for token: %s.\n", token);
+        error_code = EVHTP_RES_SERVERR;
         goto out;
     }
 
     info_obj = json_loadb (info_str, strlen(info_str), 0, &jerror);
     if (!info_obj) {
-        seaf_warning ("Failed to parse obj_id field: %s.\n", jerror.text);
-        error = "Invalid obj_id field\n";
-        error_code = EVHTP_RES_BADREQ;
+        seaf_warning ("Failed to parse obj_id field: %s for token: %s.\n", jerror.text, token);
+        error_code = EVHTP_RES_SERVERR;
         goto out;
     }
 
@@ -1199,9 +1196,8 @@ access_zip_cb (evhtp_request_t *req, void *arg)
         strftime(date_str, sizeof(date_str), "%Y-%m-%d", localtime(&now));
         filename = g_strconcat (MULTI_DOWNLOAD_FILE_PREFIX, date_str, NULL);
     } else {
-        seaf_warning ("Invalid token.\n");
-        error = "No dir_name or file_list in obj_id for token\n";
-        error_code = EVHTP_RES_BADREQ;
+        seaf_warning ("No dir_name or file_list in obj_id for token: %s.\n", token);
+        error_code = EVHTP_RES_SERVERR;
         goto out;
     }
 
@@ -1210,8 +1206,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
         g_object_get (info, "repo_id", &repo_id, NULL);
         seaf_warning ("Failed to get zip file path for %s in repo %.8s, token:[%s].\n",
                       filename, repo_id, token);
-        error = "Invalid zip file path for token\n";
-        error_code = EVHTP_RES_BADREQ;
+        error_code = EVHTP_RES_SERVERR;
         goto out;
     }
 
@@ -1226,7 +1221,7 @@ access_zip_cb (evhtp_request_t *req, void *arg)
     g_object_get (info, "op", &token_type, NULL);
     int ret = start_download_zip_file (req, token, filename, zip_file_path, repo_id, user, token_type);
     if (ret < 0) {
-        error = "Internal server error\n";
+        seaf_warning ("Failed to start download zip file: %s for token: %s", filename, token);
         error_code = EVHTP_RES_SERVERR;
     }
 
@@ -1275,7 +1270,7 @@ access_cb(evhtp_request_t *req, void *arg)
     if (!parts || g_strv_length (parts) < 3 ||
         strcmp (parts[0], "files") != 0) {
         error = "Invalid URL";
-        goto bad_req;
+        goto on_error;
     }
 
     token = parts[1];
@@ -1283,9 +1278,9 @@ access_cb(evhtp_request_t *req, void *arg)
 
     webaccess = seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
     if (!webaccess) {
-        error = "Bad access token";
+        error = "Access token not found";
         error_code = EVHTP_RES_FORBIDDEN;
-        goto bad_req;
+        goto on_error;
     }
 
     repo_id = seafile_web_access_get_repo_id (webaccess);
@@ -1296,9 +1291,9 @@ access_cb(evhtp_request_t *req, void *arg)
     if (strcmp(operation, "view") != 0 &&
         strcmp(operation, "download") != 0 &&
         strcmp(operation, "download-link") != 0) {
-        error = "Bad access token";
+        error = "Operation does not match access token.";
         error_code = EVHTP_RES_FORBIDDEN;
-        goto bad_req;
+        goto on_error;
     }
 
     if (can_use_cached_content (req)) {
@@ -1310,7 +1305,7 @@ access_cb(evhtp_request_t *req, void *arg)
     repo = seaf_repo_manager_get_repo(seaf->repo_mgr, repo_id);
     if (!repo) {
         error = "Bad repo id\n";
-        goto bad_req;
+        goto on_error;
     }
 
     if (repo->encrypted) {
@@ -1318,26 +1313,26 @@ access_cb(evhtp_request_t *req, void *arg)
                                                    repo_id, user);
         if (!key) {
             error = "Repo is encrypted. Please provide password to view it.";
-            goto bad_req;
+            goto on_error;
         }
     }
 
     if (!seaf_fs_manager_object_exists (seaf->fs_mgr,
                                         repo->store_id, repo->version, data)) {
         error = "Invalid file id\n";
-        goto bad_req;
+        goto on_error;
     }
 
     if (!repo->encrypted && byte_ranges) {
         if (do_file_range (req, repo, data, filename, operation, byte_ranges, user) < 0) {
             error = "Internal server error\n";
             error_code = EVHTP_RES_SERVERR;
-            goto bad_req;
+            goto on_error;
         }
     } else if (do_file(req, repo, data, filename, operation, key, user) < 0) {
         error = "Internal server error\n";
         error_code = EVHTP_RES_SERVERR;
-        goto bad_req;
+        goto on_error;
     }
 
 success:
@@ -1351,7 +1346,7 @@ success:
 
     return;
 
-bad_req:
+on_error:
     g_strfreev (parts);
     if (repo != NULL)
         seaf_repo_unref (repo);
@@ -1361,7 +1356,7 @@ bad_req:
         g_object_unref (webaccess);
 
     evbuffer_add_printf(req->buffer_out, "%s\n", error);
-    evhtp_send_reply(req, EVHTP_RES_BADREQ);
+    evhtp_send_reply(req, error_code);
 }
 
 static int
@@ -1476,7 +1471,7 @@ access_blks_cb(evhtp_request_t *req, void *arg)
     if (!parts || g_strv_length (parts) < 3 ||
         strcmp (parts[0], "blks") != 0) {
         error = "Invalid URL";
-        goto bad_req;
+        goto on_error;
     }
 
     token = parts[1];
@@ -1484,9 +1479,9 @@ access_blks_cb(evhtp_request_t *req, void *arg)
 
     webaccess = seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
     if (!webaccess) {
-        error = "Bad access token";
+        error = "Access token not found";
         error_code = EVHTP_RES_FORBIDDEN;
-        goto bad_req;
+        goto on_error;
     }
 
     if (can_use_cached_content (req)) {
@@ -1501,20 +1496,20 @@ access_blks_cb(evhtp_request_t *req, void *arg)
     repo = seaf_repo_manager_get_repo(seaf->repo_mgr, repo_id);
     if (!repo) {
         error = "Bad repo id\n";
-        goto bad_req;
+        goto on_error;
     }
 
     if (!seaf_fs_manager_object_exists (seaf->fs_mgr,
                                         repo->store_id, repo->version, id)) {
         error = "Invalid file id\n";
-        goto bad_req;
+        goto on_error;
     }
 
     if (strcmp(operation, "downloadblks") == 0) {
         if (do_block(req, repo, user, id, blkid) < 0) {
-            error = "Internal server error\n";
+            seaf_warning ("Failed to download blocks for token: %s\n", token);
             error_code = EVHTP_RES_SERVERR;
-            goto bad_req;
+            goto on_error;
         }
     }
 
@@ -1527,7 +1522,7 @@ success:
 
     return;
 
-bad_req:
+on_error:
     g_strfreev (parts);
     if (repo != NULL)
         seaf_repo_unref (repo);
@@ -1536,7 +1531,7 @@ bad_req:
         g_object_unref (webaccess);
 
     evbuffer_add_printf(req->buffer_out, "%s\n", error);
-    evhtp_send_reply(req, EVHTP_RES_BADREQ);
+    evhtp_send_reply(req, error_code);
 }
 
 int

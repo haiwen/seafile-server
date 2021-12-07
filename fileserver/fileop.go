@@ -149,7 +149,7 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	objID := accessInfo.objID
 
 	if op != "view" && op != "download" && op != "download-link" {
-		msg := "Bad access token"
+		msg := "Operation does not match access token."
 		return &appError{nil, msg, http.StatusForbidden}
 	}
 
@@ -1374,11 +1374,10 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 
 	status, err := repomgr.GetRepoStatus(repoID)
 	if err != nil {
-		msg := "Internal error.\n"
-		return nil, &appError{nil, msg, http.StatusInternalServerError}
+		return nil, &appError{err, "", http.StatusInternalServerError}
 	}
 	if status != repomgr.RepoStatusNormal && status != -1 {
-		msg := "Unnormnal repo status"
+		msg := "Repo status not writable."
 		return nil, &appError{nil, msg, http.StatusBadRequest}
 	}
 
@@ -1386,7 +1385,7 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 		op = "upload"
 	}
 	if strings.Index(urlOp, op) != 0 {
-		msg := "Invalid access token"
+		msg := "Operation does not match access token."
 		return nil, &appError{nil, msg, http.StatusForbidden}
 	}
 
@@ -1401,8 +1400,8 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 
 		parentDir, ok := obj["parent_dir"].(string)
 		if !ok || parentDir == "" {
-			msg := "No parent_dir"
-			return nil, &appError{nil, msg, http.StatusBadRequest}
+			err := fmt.Errorf("no parent_dir in access token")
+			return nil, &appError{err, "", http.StatusInternalServerError}
 		}
 		fsm.parentDir = parentDir
 	}
@@ -2314,7 +2313,7 @@ func parseWebaccessInfo(token string) (*webaccessInfo, *appError) {
 		return nil, &appError{err, "", http.StatusInternalServerError}
 	}
 	if webaccess == nil {
-		msg := "Bad access token"
+		msg := "Access token not found"
 		return nil, &appError{err, msg, http.StatusForbidden}
 	}
 
