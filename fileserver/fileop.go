@@ -589,7 +589,7 @@ func accessBlksCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	if op != "downloadblks" {
-		msg := "Bad access token"
+		msg := "Operation does not match access token"
 		return &appError{nil, msg, http.StatusForbidden}
 	}
 
@@ -673,7 +673,7 @@ func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	if op != "download-dir" && op != "download-dir-link" &&
 		op != "download-multi" && op != "download-multi-link" {
-		msg := "Bad access token"
+		msg := "Operation does not match access token"
 		return &appError{nil, msg, http.StatusForbidden}
 	}
 
