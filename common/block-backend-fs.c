@@ -501,8 +501,8 @@ block_backend_fs_new (const char *seaf_dir, const char *tmp_dir)
     return bend;
 
 onerror:
-    g_free (bend);
     g_free (bend->be_priv);
+    g_free (bend);
 
     return NULL;
 }
