@@ -2593,6 +2593,7 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     g_list_free (repos);
 
 out:
+    g_free (user);
     g_hash_table_destroy (obtained_repos);
 
     if (db_err) {
