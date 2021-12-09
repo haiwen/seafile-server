@@ -304,6 +304,11 @@ validate_token (HttpServer *htp_server, evhtp_request_t *req,
 
         token_info = g_hash_table_lookup (htp_server->token_cache, token);
         if (token_info) {
+            if (strcmp (token_info->repo_id, repo_id) != 0) {
+                pthread_mutex_unlock (&htp_server->token_cache_lock);
+                return EVHTP_RES_FORBIDDEN;
+            }
+
             if (username)
                 *username = g_strdup(token_info->email);
             pthread_mutex_unlock (&htp_server->token_cache_lock);
@@ -2588,6 +2593,7 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
     g_list_free (repos);
 
 out:
+    g_free (user);
     g_hash_table_destroy (obtained_repos);
 
     if (db_err) {

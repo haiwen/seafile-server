@@ -2052,8 +2052,9 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
          * we have to add 4 bytes to the boundary size.
          */
         if (size >= strlen(fsm->boundary) + 4) {
-            char *buf = g_new (char, size);
+            char *buf = g_new0 (char, size + 1);
             evbuffer_remove (fsm->line, buf, size);
+            // strstr need a '\0'
             if (strstr(buf, fsm->boundary) != NULL) {
                 seaf_debug ("[upload] file data ends.\n");
                 evhtp_res res = add_uploaded_file (fsm);

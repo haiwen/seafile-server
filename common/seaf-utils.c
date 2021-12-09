@@ -350,5 +350,6 @@ load_ccnet_database_config (SeafileSession *session)
         session->ccnet_create_tables = create_tables;
     }
 
+    g_free (engine);
     return ret;
 }
