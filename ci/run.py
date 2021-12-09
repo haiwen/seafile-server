@@ -217,7 +217,7 @@ def main():
 
 def start_and_test_with_db(db):
     if db == 'sqlite3':
-        fileservers = ('c_fileserver')
+        fileservers = ('c_fileserver',)
     else:
         fileservers = ('go_fileserver', 'c_fileserver')
     for fileserver in fileservers:
