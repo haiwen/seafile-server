@@ -178,7 +178,11 @@ func getBlockMapCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	repoID := vars["repoid"]
 	fileID := vars["id"]
 
-	_, appErr := validateToken(r, repoID, false)
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+	appErr = checkPermission(repoID, user, "download", false)
 	if appErr != nil {
 		return appErr
 	}
@@ -405,7 +409,11 @@ func postCheckExistCB(rsp http.ResponseWriter, r *http.Request, existType checkE
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
 
-	_, appErr := validateToken(r, repoID, false)
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+	appErr = checkPermission(repoID, user, "download", false)
 	if appErr != nil {
 		return appErr
 	}
@@ -458,7 +466,11 @@ func packFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
 
-	_, appErr := validateToken(r, repoID, false)
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+	appErr = checkPermission(repoID, user, "download", false)
 	if appErr != nil {
 		return appErr
 	}
@@ -628,8 +640,13 @@ func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
-	if _, err := validateToken(r, repoID, false); err != nil {
-		return err
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+	appErr = checkPermission(repoID, user, "download", false)
+	if appErr != nil {
+		return appErr
 	}
 	repo := repomgr.Get(repoID)
 	if repo == nil {
@@ -726,6 +743,11 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	blockID := vars["id"]
 
 	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	appErr = checkPermission(repoID, user, "download", false)
 	if appErr != nil {
 		return appErr
 	}
@@ -854,8 +876,13 @@ func getCommitInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
 	commitID := vars["id"]
-	if _, err := validateToken(r, repoID, false); err != nil {
-		return err
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+	appErr = checkPermission(repoID, user, "download", false)
+	if appErr != nil {
+		return appErr
 	}
 	if exists, _ := commitmgr.Exists(repoID, commitID); !exists {
 		log.Printf("%s:%s is missing", repoID, commitID)
@@ -987,16 +1014,15 @@ func getHeadCommit(rsp http.ResponseWriter, r *http.Request) *appError {
 func checkPermission(repoID, user, op string, skipCache bool) *appError {
 	var info *permInfo
 	if !skipCache {
-		if value, ok := permCache.Load(fmt.Sprintf("%s:%s", repoID, user)); ok {
+		if value, ok := permCache.Load(fmt.Sprintf("%s:%s:%s", repoID, user, op)); ok {
 			info = value.(*permInfo)
 		}
 	}
 	if info != nil {
-		if info.perm == "r" && op == "upload" {
-			return &appError{nil, "", http.StatusForbidden}
-		}
 		return nil
 	}
+
+	permCache.Delete(fmt.Sprintf("%s:%s:%s", repoID, user, op))
 
 	if op == "upload" {
 		status, err := repomgr.GetRepoStatus(repoID)
@@ -1011,17 +1037,15 @@ func checkPermission(repoID, user, op string, skipCache bool) *appError {
 
 	perm := share.CheckPerm(repoID, user)
 	if perm != "" {
-		info = new(permInfo)
-		info.perm = perm
-		info.expireTime = time.Now().Unix() + permExpireTime
-		permCache.Store(fmt.Sprintf("%s:%s", repoID, user), info)
 		if perm == "r" && op == "upload" {
 			return &appError{nil, "", http.StatusForbidden}
 		}
+		info = new(permInfo)
+		info.perm = perm
+		info.expireTime = time.Now().Unix() + permExpireTime
+		permCache.Store(fmt.Sprintf("%s:%s:%s", repoID, user, op), info)
 		return nil
 	}
-
-	permCache.Delete(fmt.Sprintf("%s:%s", repoID, user))
 
 	return &appError{nil, "", http.StatusForbidden}
 }
