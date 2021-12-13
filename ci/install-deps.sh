@@ -8,10 +8,11 @@ SETUP_DIR=${TESTS_DIR}/ci
 
 cd $SETUP_DIR
 
+sudo systemctl start mysql.service
 sudo apt-get update
 sudo apt-get install -y intltool libarchive-dev libcurl4-openssl-dev libevent-dev \
 libfuse-dev libglib2.0-dev libjansson-dev libmysqlclient-dev libonig-dev \
-sqlite3 libsqlite3-dev libtool net-tools uuid-dev valac mysql-client
-sudo service mysql start
+sqlite3 libsqlite3-dev libtool net-tools uuid-dev valac
+sudo systemctl start mysql.service
 
 pip install -r requirements.txt
