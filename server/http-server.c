@@ -95,8 +95,11 @@ typedef struct TokenInfo {
     gint64 expire_time;
 } TokenInfo;
 
+// PermInfo caches the results from the last permission check for accessing a repo.
+// They're cached in a hash table having "repo_Id:username:op" as key.
+// The cached result is updated on the next call to get_check_permission_cb function, or when the cache expires.
+// The result is only cached if the permission check passed.
 typedef struct PermInfo {
-    char *perm;
     gint64 expire_time;
 } PermInfo;
 
@@ -342,25 +345,31 @@ validate_token (HttpServer *htp_server, evhtp_request_t *req,
 }
 
 static PermInfo *
-lookup_perm_cache (HttpServer *htp_server, const char *repo_id, const char *username)
+lookup_perm_cache (HttpServer *htp_server, const char *repo_id, const char *username, const char *op)
 {
     PermInfo *ret = NULL;
-    char *key = g_strdup_printf ("%s:%s", repo_id, username);
+    PermInfo *perm = NULL;
+    char *key = g_strdup_printf ("%s:%s:%s", repo_id, username, op);
 
     pthread_mutex_lock (&htp_server->perm_cache_lock);
     ret = g_hash_table_lookup (htp_server->perm_cache, key);
+    if (ret) {
+        perm = g_new0 (PermInfo, 1);
+        perm->expire_time = ret->expire_time;
+    }
     pthread_mutex_unlock (&htp_server->perm_cache_lock);
     g_free (key);
 
-    return ret;
+    return perm;
 }
 
 static void
 insert_perm_cache (HttpServer *htp_server,
                    const char *repo_id, const char *username,
+                   const char *op,
                    PermInfo *perm)
 {
-    char *key = g_strdup_printf ("%s:%s", repo_id, username);
+    char *key = g_strdup_printf ("%s:%s:%s", repo_id, username, op);
 
     pthread_mutex_lock (&htp_server->perm_cache_lock);
     g_hash_table_insert (htp_server->perm_cache, key, perm);
@@ -369,9 +378,10 @@ insert_perm_cache (HttpServer *htp_server,
 
 static void
 remove_perm_cache (HttpServer *htp_server,
-                   const char *repo_id, const char *username)
+                   const char *repo_id, const char *username,
+                   const char *op)
 {
-    char *key = g_strdup_printf ("%s:%s", repo_id, username);
+    char *key = g_strdup_printf ("%s:%s:%s", repo_id, username, op);
 
     pthread_mutex_lock (&htp_server->perm_cache_lock);
     g_hash_table_remove (htp_server->perm_cache, key);
@@ -380,6 +390,8 @@ remove_perm_cache (HttpServer *htp_server,
     g_free (key);
 }
 
+static void perm_cache_value_free (gpointer data);
+
 static int
 check_permission (HttpServer *htp_server, const char *repo_id, const char *username,
                   const char *op, gboolean skip_cache)
@@ -387,13 +399,14 @@ check_permission (HttpServer *htp_server, const char *repo_id, const char *usern
     PermInfo *perm_info = NULL;
 
     if (!skip_cache)
-        perm_info = lookup_perm_cache (htp_server, repo_id, username);
+        perm_info = lookup_perm_cache (htp_server, repo_id, username, op);
 
     if (perm_info) {
-        if (strcmp(perm_info->perm, "r") == 0 && strcmp(op, "upload") == 0)
-            return EVHTP_RES_FORBIDDEN;
+        perm_cache_value_free (perm_info);
         return EVHTP_RES_OK;
     }
+
+    remove_perm_cache (htp_server, repo_id, username, op);
 
     if (strcmp(op, "upload") == 0) {
         int status = seaf_repo_manager_get_repo_status(seaf->repo_mgr, repo_id);
@@ -404,19 +417,20 @@ check_permission (HttpServer *htp_server, const char *repo_id, const char *usern
     char *perm = seaf_repo_manager_check_permission (seaf->repo_mgr,
                                                      repo_id, username, NULL);
     if (perm) {
+        if ((strcmp (perm, "r") == 0 && strcmp (op, "upload") == 0)) {
+            g_free (perm);
+            return EVHTP_RES_FORBIDDEN;
+        }
+
+        g_free (perm);
         perm_info = g_new0 (PermInfo, 1);
         /* Take the reference of perm. */
-        perm_info->perm = perm;
         perm_info->expire_time = (gint64)time(NULL) + PERM_EXPIRE_TIME;
-        insert_perm_cache (htp_server, repo_id, username, perm_info);
-
-        if ((strcmp (perm, "r") == 0 && strcmp (op, "upload") == 0))
-            return EVHTP_RES_FORBIDDEN;
+        insert_perm_cache (htp_server, repo_id, username, op, perm_info);
         return EVHTP_RES_OK;
     }
 
     /* Invalidate cache if perm not found in db. */
-    remove_perm_cache (htp_server, repo_id, username);
     return EVHTP_RES_FORBIDDEN;
 }
 
@@ -1268,10 +1282,18 @@ get_commit_info_cb (evhtp_request_t *req, void *arg)
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     char *repo_id = parts[1];
     char *commit_id = parts[3];
+    char *username = NULL;
 
-    int token_status = validate_token (htp_server, req, repo_id, NULL, FALSE);
+    int token_status = validate_token (htp_server, req, repo_id, &username, FALSE);
     if (token_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, token_status);
+        goto out;
+    }
+
+    int perm_status = check_permission (htp_server, repo_id, username,
+                                        "download", FALSE);
+    if (perm_status != EVHTP_RES_OK) {
+        evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
         goto out;
     }
 
@@ -1291,6 +1313,7 @@ get_commit_info_cb (evhtp_request_t *req, void *arg)
     g_free (data);
 
 out:
+    g_free (username);
     g_strfreev (parts);
 }
 
@@ -1475,6 +1498,7 @@ get_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     char *repo_id;
     SeafRepo *repo = NULL;
     gboolean dir_only = FALSE;
+    char *username = NULL;
 
     const char *server_head = evhtp_kv_find (req->uri->query, "server-head");
     if (server_head == NULL || !is_object_id_valid (server_head)) {
@@ -1501,9 +1525,16 @@ get_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     repo_id = parts[1];
 
-    int token_status = validate_token (htp_server, req, repo_id, NULL, FALSE);
+    int token_status = validate_token (htp_server, req, repo_id, &username, FALSE);
     if (token_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, token_status);
+        goto out;
+    }
+
+    int perm_status = check_permission (htp_server, repo_id, username,
+                                        "download", FALSE);
+    if (perm_status != EVHTP_RES_OK) {
+        evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
         goto out;
     }
 
@@ -1537,6 +1568,7 @@ get_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     json_decref (obj_array);
 
 out:
+    g_free (username);
     g_strfreev (parts);
     seaf_repo_unref (repo);
 }
@@ -1848,6 +1880,13 @@ get_block_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
+    int perm_status = check_permission (htp_server, repo_id, username,
+                                        "download", FALSE);
+    if (perm_status != EVHTP_RES_OK) {
+        evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
+        goto out;
+    }
+
     store_id = get_repo_store_id (htp_server, repo_id);
     if (!store_id) {
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
@@ -2015,10 +2054,18 @@ post_check_exist_cb (evhtp_request_t *req, void *arg, CheckExistType type)
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     char *repo_id = parts[1];
     char *store_id = NULL;
+    char *username = NULL;
 
-    int token_status = validate_token (htp_server, req, repo_id, NULL, FALSE);
+    int token_status = validate_token (htp_server, req, repo_id, &username, FALSE);
     if (token_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, token_status);
+        goto out;
+    }
+
+    int perm_status = check_permission (htp_server, repo_id, username,
+                                        "download", FALSE);
+    if (perm_status != EVHTP_RES_OK) {
+        evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
         goto out;
     }
 
@@ -2088,6 +2135,7 @@ post_check_exist_cb (evhtp_request_t *req, void *arg, CheckExistType type)
     json_decref (obj_array);
 
 out:
+    g_free (username);
     g_free (store_id);
     g_strfreev (parts);
 }
@@ -2122,7 +2170,7 @@ post_recv_fs_cb (evhtp_request_t *req, void *arg)
 
     int perm_status = check_permission (htp_server, repo_id, username,
                                         "upload", FALSE);
-    if (perm_status == EVHTP_RES_FORBIDDEN) {
+    if (perm_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
         goto out;
     }
@@ -2208,13 +2256,20 @@ post_pack_fs_cb (evhtp_request_t *req, void *arg)
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     const char *repo_id = parts[1];
     char *store_id = NULL;
+    char *username = NULL;
 
-    int token_status = validate_token (htp_server, req, repo_id, NULL, FALSE);
+    int token_status = validate_token (htp_server, req, repo_id, &username, FALSE);
     if (token_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, token_status);
         goto out;
     }
 
+    int perm_status = check_permission (htp_server, repo_id, username,
+                                        "download", FALSE);
+    if (perm_status != EVHTP_RES_OK) {
+        evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
+        goto out;
+    }
     store_id = get_repo_store_id (htp_server, repo_id);
     if (!store_id) {
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
@@ -2290,6 +2345,7 @@ post_pack_fs_cb (evhtp_request_t *req, void *arg)
 
     json_decref (fs_id_array);
 out:
+    g_free (username);
     g_free (store_id);
     g_strfreev (parts);
 }
@@ -2306,14 +2362,22 @@ get_block_map_cb (evhtp_request_t *req, void *arg)
     BlockMetadata *blk_meta = NULL;
     json_t *array = NULL;
     char *data = NULL;
+    char *username = NULL;
 
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     repo_id = parts[1];
     file_id = parts[3];
 
-    int token_status = validate_token (htp_server, req, repo_id, NULL, FALSE);
+    int token_status = validate_token (htp_server, req, repo_id, &username, FALSE);
     if (token_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, token_status);
+        goto out;
+    }
+
+    int perm_status = check_permission (htp_server, repo_id, username,
+                                        "download", FALSE);
+    if (perm_status != EVHTP_RES_OK) {
+        evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
         goto out;
     }
 
@@ -2351,6 +2415,7 @@ get_block_map_cb (evhtp_request_t *req, void *arg)
     evhtp_send_reply (req, EVHTP_RES_OK);
 
 out:
+    g_free (username);
     g_free (store_id);
     seafile_unref (file);
     if (array)
@@ -2719,7 +2784,6 @@ static void
 perm_cache_value_free (gpointer data)
 {
     PermInfo *perm_info = data;
-    g_free (perm_info->perm);
     g_free (perm_info);
 }
 
