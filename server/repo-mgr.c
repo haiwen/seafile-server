@@ -2849,12 +2849,11 @@ seaf_repo_manager_restore_repo_from_trash (SeafRepoManager *mgr,
         head_id = seafile_trash_repo_get_head_id (repo);
         commit = seaf_commit_manager_get_commit_compatible (seaf->commit_mgr,
                                                             repo_id, head_id);
-        gint64 update_time = (gint64)time(NULL);
         ret = seaf_db_trans_query (trans,
                                    "INSERT INTO RepoInfo (repo_id, name, update_time, version, is_encrypted, last_modifier) VALUES (?, ?, ?, ?, ?, ?)",
                                    6, "string", repo_id,
                                    "string", seafile_trash_repo_get_repo_name (repo),
-                                   "int64", update_time,
+                                   "int64", commit->ctime,
                                    "int", commit->version,
                                    "int", commit->encrypted,
                                    "string", commit->creator_name);
