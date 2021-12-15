@@ -620,6 +620,10 @@ del_repo:
                              "WHERE origin_repo=?)",
                              1, "string", repo_id);
 
+    seaf_db_statement_query (mgr->seaf->db, "DELETE FROM RepoInfo "
+                             "WHERE repo_id=?",
+                             1, "string", repo_id);
+
     seaf_db_statement_query (mgr->seaf->db, "DELETE FROM VirtualRepo "
                              "WHERE repo_id=? OR origin_repo=?",
                              2, "string", repo_id, "string", repo_id);
@@ -2737,6 +2741,8 @@ seaf_repo_manager_restore_repo_from_trash (SeafRepoManager *mgr,
     int ret = 0;
     gboolean exists = FALSE;
     gboolean db_err;
+    const char *head_id = NULL;
+    SeafCommit *commit = NULL;
 
     repo = seaf_repo_manager_get_repo_from_trash (mgr, repo_id);
     if (!repo) {
@@ -2834,6 +2840,32 @@ seaf_repo_manager_restore_repo_from_trash (SeafRepoManager *mgr,
         }
     }
 
+    // Restore repo info
+    exists = seaf_db_trans_check_for_existence (trans,
+                                                "SELECT 1 FROM RepoInfo WHERE repo_id=?",
+                                                &db_err, 1, "string", repo_id);
+
+    if (!exists) {
+        head_id = seafile_trash_repo_get_head_id (repo);
+        commit = seaf_commit_manager_get_commit_compatible (seaf->commit_mgr,
+                                                            repo_id, head_id);
+        ret = seaf_db_trans_query (trans,
+                                   "INSERT INTO RepoInfo (repo_id, name, update_time, version, is_encrypted, last_modifier) VALUES (?, ?, ?, ?, ?, ?)",
+                                   6, "string", repo_id,
+                                   "string", seafile_trash_repo_get_repo_name (repo),
+                                   "int64", commit->ctime,
+                                   "int", commit->version,
+                                   "int", commit->encrypted,
+                                   "string", commit->creator_name);
+        if (ret < 0) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "DB error: Insert Repo Info.");
+            seaf_db_rollback (trans);
+            seaf_db_trans_close (trans);
+            goto out;
+        }
+    }
+
     ret = seaf_db_trans_query (trans,
                                "DELETE FROM RepoTrash WHERE repo_id = ?",
                                1, "string", repo_id);
@@ -2855,6 +2887,7 @@ seaf_repo_manager_restore_repo_from_trash (SeafRepoManager *mgr,
     seaf_db_trans_close (trans);
 
 out:
+    seaf_commit_unref (commit);
     g_object_unref (repo);
     return ret;
 }
