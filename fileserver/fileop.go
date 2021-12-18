@@ -886,6 +886,7 @@ type recvData struct {
 
 func uploadAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if r.Method == "OPTIONS" {
+		setAccessControl(rsp)
 		rsp.WriteHeader(http.StatusOK)
 		return nil
 	}
@@ -903,8 +904,16 @@ func uploadAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
+func setAccessControl(rsp http.ResponseWriter) {
+	rsp.Header().Set("Access-Control-Allow-Origin", "*")
+	rsp.Header().Set("Access-Control-Allow-Headers", "x-requested-with, content-type, content-range, content-disposition, accept, origin, authorization")
+	rsp.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+	rsp.Header().Set("Access-Control-Max-Age", "86400")
+}
+
 func uploadAjaxCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if r.Method == "OPTIONS" {
+		setAccessControl(rsp)
 		rsp.WriteHeader(http.StatusOK)
 		return nil
 	}
@@ -930,10 +939,7 @@ func formatJSONError(rsp http.ResponseWriter, err *appError) {
 }
 
 func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bool) *appError {
-	rsp.Header().Set("Access-Control-Allow-Origin", "*")
-	rsp.Header().Set("Access-Control-Allow-Headers", "x-requested-with, content-type, content-range, content-disposition, accept, origin, authorization")
-	rsp.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-	rsp.Header().Set("Access-Control-Max-Age", "86400")
+	setAccessControl(rsp)
 
 	if err := r.ParseMultipartForm(1 << 20); err != nil {
 		return &appError{nil, "", http.StatusBadRequest}
@@ -2527,6 +2533,7 @@ func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.S
 
 func updateAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if r.Method == "OPTIONS" {
+		setAccessControl(rsp)
 		rsp.WriteHeader(http.StatusOK)
 		return nil
 	}
@@ -2546,6 +2553,7 @@ func updateAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 func updateAjaxCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if r.Method == "OPTIONS" {
+		setAccessControl(rsp)
 		rsp.WriteHeader(http.StatusOK)
 		return nil
 	}
@@ -2564,10 +2572,7 @@ func updateAjaxCB(rsp http.ResponseWriter, r *http.Request) *appError {
 }
 
 func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bool) *appError {
-	rsp.Header().Set("Access-Control-Allow-Origin", "*")
-	rsp.Header().Set("Access-Control-Allow-Headers", "x-requested-with, content-type, content-range, content-disposition, accept, origin, authorization")
-	rsp.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-	rsp.Header().Set("Access-Control-Max-Age", "86400")
+	setAccessControl(rsp)
 
 	if err := r.ParseMultipartForm(1 << 20); err != nil {
 		return &appError{nil, "", http.StatusBadRequest}
