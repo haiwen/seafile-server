@@ -166,6 +166,7 @@ seaf_commit_free (SeafCommit *commit)
     if (commit->repo_desc) g_free (commit->repo_desc);
     if (commit->device_name) g_free (commit->device_name);
     if (commit->repo_category) g_free (commit->repo_category);
+    if (commit->salt) g_free (commit->salt);
     g_free (commit->client_version);
     g_free (commit->magic);
     g_free (commit->random_key);
