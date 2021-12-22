@@ -774,7 +774,6 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	sendStatisticMsg(storeID, user, "sync-file-download", uint64(blockSize))
-	rsp.WriteHeader(http.StatusOK)
 	return nil
 }
 
@@ -866,8 +865,6 @@ func putCommitCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		err := fmt.Errorf("Failed to add commit %s: %v", commitID, err)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
-
-	rsp.WriteHeader(http.StatusOK)
 
 	return nil
 }
@@ -1231,14 +1228,14 @@ func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead
 			FileCB: collectFileIDs,
 			DirCB:  collectDirIDs,
 			Ctx:    ctx,
-			RepoID: repo.ID}
+			RepoID: repo.StoreID}
 		opt.Data = &results
 	} else {
 		opt = &diff.DiffOptions{
 			FileCB: collectFileIDsNOp,
 			DirCB:  collectDirIDs,
 			Ctx:    ctx,
-			RepoID: repo.ID}
+			RepoID: repo.StoreID}
 		opt.Data = &results
 	}
 	trees := []string{masterHead.RootID, remoteHeadRoot}
