@@ -33,6 +33,7 @@ var centralDir string
 var logFile, absLogFile string
 var rpcPipePath string
 var pidFilePath string
+var logFp *os.File
 
 var dbType string
 var groupTableName string
@@ -412,6 +413,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to open or create log file: %v", err)
 		}
+		logFp = fp
 		log.SetOutput(fp)
 	} else if logFile != "-" {
 		absLogFile, err = filepath.Abs(logFile)
@@ -422,6 +424,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to open or create log file: %v", err)
 		}
+		logFp = fp
 		log.SetOutput(fp)
 	}
 	// When logFile is "-", use default output (StdOut)
@@ -462,6 +465,7 @@ func main() {
 	router := newHTTPRouter()
 
 	go handleSignals()
+	go handleUser1Singal()
 
 	log.Print("Seafile file server started.")
 
@@ -478,6 +482,32 @@ func handleSignals() {
 	<-signalChan
 	removePidfile(pidFilePath)
 	os.Exit(0)
+}
+
+func handleUser1Singal() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGUSR1)
+	<-signalChan
+
+	for {
+		select {
+		case <-signalChan:
+			logRotate()
+		}
+	}
+}
+
+func logRotate() {
+	// reopen fileserver log
+	fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("Failed to reopen fileserver log: %v", err)
+	}
+	log.SetOutput(fp)
+	if logFp != nil {
+		logFp.Close()
+		logFp = fp
+	}
 }
 
 var rpcclient *searpc.Client
