@@ -34,7 +34,9 @@ noinst_HEADERS = web-accesstoken-mgr.h  seafile-session.h \
 	../common/user-mgr.h \
 	../common/group-mgr.h \
 	../common/org-mgr.h \
-	index-blocks-mgr.h
+	index-blocks-mgr.h \
+	http-tx-mgr.h \
+	notif-mgr.h
 
 seaf_server_SOURCES = \
 	seaf-server.c \
@@ -54,6 +56,8 @@ seaf_server_SOURCES = \
 	access-file.c \
 	pack-dir.c \
 	fileserver-config.c \
+	http-tx-mgr.c \
+	notif-mgr.c \
 	../common/seaf-db.c \
 	../common/branch-mgr.c ../common/fs-mgr.c \
 	../common/config-mgr.c \
@@ -81,4 +85,5 @@ seaf_server_LDADD = $(top_builddir)/lib/libseafile_common.la \
 	$(top_builddir)/common/cdc/libcdc.la \
 	@SEARPC_LIBS@ @JANSSON_LIBS@ ${LIB_WS32} @ZLIB_LIBS@ \
 	@LIBARCHIVE_LIBS@ @LIB_ICONV@ \
-	@LDAP_LIBS@ @MYSQL_LIBS@ -lsqlite3
+	@LDAP_LIBS@ @MYSQL_LIBS@ -lsqlite3 \
+	@CURL_LIBS@ @JWT_LIBS@
