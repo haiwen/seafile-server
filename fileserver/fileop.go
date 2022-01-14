@@ -2187,6 +2187,9 @@ func writeChunk(repoID string, input []byte, blkSize int64, cryptKey *seafileCry
 		}
 		checkSum := sha1.Sum(encoded)
 		blkID = hex.EncodeToString(checkSum[:])
+		if blockmgr.Exists(repoID, blkID) {
+			return blkID, nil
+		}
 		reader := bytes.NewReader(encoded)
 		err = blockmgr.Write(repoID, blkID, reader)
 		if err != nil {
@@ -2196,6 +2199,9 @@ func writeChunk(repoID string, input []byte, blkSize int64, cryptKey *seafileCry
 	} else {
 		checkSum := sha1.Sum(input)
 		blkID = hex.EncodeToString(checkSum[:])
+		if blockmgr.Exists(repoID, blkID) {
+			return blkID, nil
+		}
 		reader := bytes.NewReader(input)
 		err := blockmgr.Write(repoID, blkID, reader)
 		if err != nil {
