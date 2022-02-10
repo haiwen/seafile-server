@@ -313,6 +313,12 @@ func parseFileServerSection(section *ini.Section) {
 			options.port = uint32(port)
 		}
 	}
+	if key, err := section.GetKey("max_upload_size"); err == nil {
+		size, err := key.Uint()
+		if err == nil {
+			options.maxUploadSize = uint64(size) * (1 << 20)
+		}
+	}
 	if key, err := section.GetKey("max_indexing_threads"); err == nil {
 		threads, err := key.Uint()
 		if err == nil {

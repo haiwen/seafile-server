@@ -610,6 +610,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         oper = "link-file-upload";
     send_statistic_msg(fsm->repo_id, fsm->user, oper, (guint64)content_len);
 
+out:
     if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
         // File upload success, try to remove tmp file from WebUploadTmpFile table
         char *abs_path;
@@ -619,8 +620,6 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, abs_path, NULL);
         g_free (abs_path);
     }
-
-out:
     g_free(new_parent_dir);
     send_reply_by_error_code (req, error_code);
 
@@ -1215,6 +1214,14 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     }
     g_free (ret_json);
 
+    send_success_reply_ie8_compatible (req, EVHTP_RES_OK);
+
+    char *oper = "web-file-upload";
+    if (g_strcmp0(fsm->token_type, "upload-link") == 0)
+        oper = "link-file-upload";
+    send_statistic_msg(fsm->repo_id, fsm->user, oper, (guint64)content_len);
+
+out:
     if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
         // File upload success, try to remove tmp file from WebUploadTmpFile table
         char *abs_path;
@@ -1225,14 +1232,6 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
         g_free (abs_path);
     }
 
-    send_success_reply_ie8_compatible (req, EVHTP_RES_OK);
-
-    char *oper = "web-file-upload";
-    if (g_strcmp0(fsm->token_type, "upload-link") == 0)
-        oper = "link-file-upload";
-    send_statistic_msg(fsm->repo_id, fsm->user, oper, (guint64)content_len);
-
-out:
     g_free (new_parent_dir);
     send_reply_by_error_code (req, error_code);
 
@@ -1370,6 +1369,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
     evbuffer_add(req->buffer_out, new_file_id, strlen(new_file_id));
     send_success_reply (req);
 
+out:
     if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
         // File upload success, try to remove tmp file from WebUploadTmpFile table
         char *abs_path;
@@ -1379,8 +1379,6 @@ update_api_cb(evhtp_request_t *req, void *arg)
         seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, abs_path, NULL);
         g_free (abs_path);
     }
-
-out:
     g_free (parent_dir);
     g_free (filename);
     g_free (new_file_id);
