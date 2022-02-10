@@ -142,6 +142,9 @@ func loadCcnetDB() {
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
 	}
+	if err := ccnetDB.Ping(); err != nil {
+		log.Fatalf("Failed to connected to mysql: %v", err)
+	}
 }
 
 func main() {
