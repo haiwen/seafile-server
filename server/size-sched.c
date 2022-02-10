@@ -324,7 +324,7 @@ compute_repo_size (void *vjob)
                                                    repo->id, repo->version,
                                                    info->head_id);
 
-    if (info && old_head){
+    if (info && (info->file_count != 0) && old_head){
         gint64 change_size = 0;
         gint64 change_file_count = 0;
         GList *diff_entries = NULL;
