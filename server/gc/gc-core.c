@@ -175,7 +175,7 @@ traverse_commit (SeafCommit *commit, void *vdata, gboolean *stop)
     return TRUE;
 }
 
-static int
+static gint64
 populate_gc_index_for_repo (SeafRepo *repo, Bloom *blocks_index, Bloom *fs_index, int verbose)
 {
     GList *branches, *ptr;
@@ -274,52 +274,26 @@ check_block_liveness (const char *store_id, int version,
 
 #define MAX_THREADS 10
 
-typedef struct CheckFSParam {
-    char *store_id;
-    int repo_version;
-    Bloom *index;
-    int dry_run;
-    GAsyncQueue *async_queue;
-    pthread_mutex_t counter_lock;
-    gint64 removed_fs;
-} CheckFSParam;
-
-static void
-check_fs_liveness (char *fs_id, CheckFSParam *param)
-{
-    if (!bloom_test (param->index, fs_id)) {
-        param->removed_fs ++;
-        if (!param->dry_run)
-            seaf_fs_manager_delete_object(seaf->fs_mgr,
-                                          param->store_id, param->repo_version,
-                                          fs_id);
-    }
-}
-
 static gint64
 check_existing_fs (char *store_id, int repo_version, GHashTable *exist_fs,
                    Bloom *fs_index, int dry_run)
 {
-    CheckFSParam *param = NULL;
     GHashTableIter iter;
     gpointer key, value;
     gint64 ret = 0;
 
-    param = g_new0 (CheckFSParam, 1);
-    param->store_id = store_id;
-    param->repo_version = repo_version;
-    param->index = fs_index;
-    param->dry_run = dry_run;
-
     g_hash_table_iter_init (&iter, exist_fs);
 
     while (g_hash_table_iter_next (&iter, &key, &value)) {
-        check_fs_liveness ((char *)key, param);
+        if (!bloom_test (fs_index, (char *)key)) {
+            ret++;
+            if (dry_run)
+                continue;
+            seaf_fs_manager_delete_object(seaf->fs_mgr,
+                                          store_id, repo_version,
+                                          (char *)key);
+        }
     }
-
-    ret = param->removed_fs;
-
-    g_free (param);
 
     return ret;
 }
@@ -336,13 +310,14 @@ collect_exist_fs (const char *store_id, int version,
     return TRUE;
 }
 
-static int
+static gint64
 populate_gc_index_for_virtual_repos (SeafRepo *repo, Bloom *blocks_index, Bloom *fs_index, int verbose)
 {
     GList *vrepo_ids = NULL, *ptr;
     char *repo_id;
     SeafRepo *vrepo;
-    int ret = 0;
+    gint64 ret = 0;
+    gint64 scan_ret = 0;
 
     vrepo_ids = seaf_repo_manager_get_virtual_repo_ids_by_origin (seaf->repo_mgr,
                                                                   repo->id);
@@ -355,10 +330,13 @@ populate_gc_index_for_virtual_repos (SeafRepo *repo, Bloom *blocks_index, Bloom 
             goto out;
         }
 
-        ret = populate_gc_index_for_repo (vrepo, blocks_index, fs_index, verbose);
+        scan_ret = populate_gc_index_for_repo (vrepo, blocks_index, fs_index, verbose);
         seaf_repo_unref (vrepo);
-        if (ret < 0)
+        if (scan_ret < 0) {
+            ret = -1;
             goto out;
+        }
+        ret += scan_ret;
     }
 
 out:
@@ -366,7 +344,7 @@ out:
     return ret;
 }
 
-int
+gint64
 gc_v1_repo (SeafRepo *repo, int dry_run, int verbose, int rm_fs)
 {
     Bloom *blocks_index = NULL;
@@ -377,7 +355,7 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int verbose, int rm_fs)
     guint64 reachable_blocks;
     guint64 total_fs = 0;
     gint64 removed_fs = 0;
-    int ret;
+    gint64 ret;
 
     total_blocks = seaf_block_manager_get_block_number (seaf->block_mgr,
                                                         repo->store_id, repo->version);
@@ -555,7 +533,7 @@ gc_core_run (GList *repo_id_list, int dry_run, int verbose, int rm_fs)
     GList *corrupt_repos = NULL;
     GList *del_block_repos = NULL;
     gboolean del_garbage = FALSE;
-    int gc_ret;
+    gint64 gc_ret;
     char *repo_id;
 
     if (repo_id_list == NULL) {
