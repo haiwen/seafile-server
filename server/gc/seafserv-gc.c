@@ -15,7 +15,7 @@ static char *central_config_dir = NULL;
 
 SeafileSession *seaf;
 
-static const char *short_opts = "hvc:d:VDrF:";
+static const char *short_opts = "hvc:d:VDrRF:";
 static const struct option long_opts[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
@@ -25,6 +25,7 @@ static const struct option long_opts[] = {
     { "verbose", no_argument, NULL, 'V' },
     { "dry-run", no_argument, NULL, 'D' },
     { "rm-deleted", no_argument, NULL, 'r' },
+    { "rm-fs", no_argument, NULL, 'R' },
     { 0, 0, 0, 0 },
 };
 
@@ -35,6 +36,7 @@ static void usage ()
              "[repo_id_1 [repo_id_2 ...]]\n"
              "Additional options:\n"
              "-r, --rm-deleted: remove garbaged repos\n"
+             "-R, --rm-fs: remove fs object\n"
              "-D, --dry-run: report blocks that can be remove, but not remove them\n"
              "-V, --verbose: verbose output messages\n");
 }
@@ -72,6 +74,7 @@ main(int argc, char *argv[])
     int verbose = 0;
     int dry_run = 0;
     int rm_garbage = 0;
+    int rm_fs = 0;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -105,6 +108,9 @@ main(int argc, char *argv[])
             break;
         case 'r':
             rm_garbage = 1;
+            break;
+        case 'R':
+            rm_fs = 1;
             break;
         default:
             usage();
@@ -140,7 +146,7 @@ main(int argc, char *argv[])
     for (i = optind; i < argc; i++)
         repo_id_list = g_list_append (repo_id_list, g_strdup(argv[i]));
 
-    gc_core_run (repo_id_list, dry_run, verbose);
+    gc_core_run (repo_id_list, dry_run, verbose, rm_fs);
 
     return 0;
 }
