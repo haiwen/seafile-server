@@ -69,9 +69,9 @@ typedef struct RecvFSM {
 
     gboolean recved_crlf; /* Did we recv a CRLF when write out the last line? */
     char *file_name;
-    char *tmp_file;
+    char *tmp_file; /* tmp file path for the currently uploading file */
     int fd;
-    char *tmp_file_path;        /* resumable upload tmp file path */
+    char *resumable_tmp_file;        /* resumable upload tmp file path. In resumable uploads, contents of the chunks are appended to this tmp file. */
 
     /* For upload progress. */
     char *progress_id;
@@ -511,8 +511,8 @@ upload_api_cb(evhtp_request_t *req, void *arg)
             goto out;
         }
 
-        if (!fsm->tmp_file_path)
-            fsm->tmp_file_path = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
+        if (!fsm->resumable_tmp_file)
+            fsm->resumable_tmp_file = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
 
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data) < 0) {
@@ -1122,8 +1122,8 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
             goto out;
         }
 
-        if (!fsm->tmp_file_path)
-            fsm->tmp_file_path = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
+        if (!fsm->resumable_tmp_file)
+            fsm->resumable_tmp_file = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
 
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data) < 0) {
@@ -1292,8 +1292,8 @@ update_api_cb(evhtp_request_t *req, void *arg)
             goto out;
         }
 
-        if (!fsm->tmp_file_path)
-            fsm->tmp_file_path = g_build_path ("/", parent_dir, filename, NULL);
+        if (!fsm->resumable_tmp_file)
+            fsm->resumable_tmp_file = g_build_path ("/", parent_dir, filename, NULL);
 
         if (write_block_data_to_tmp_file (fsm, parent_dir, filename) < 0) {
             send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
@@ -1768,11 +1768,11 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
     }
     g_free (fsm->tmp_file);
 
-    if (fsm->tmp_file_path) {
+    if (fsm->resumable_tmp_file) {
         if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
-            seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, fsm->tmp_file_path, NULL);
+            seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, fsm->resumable_tmp_file, NULL);
         }
-        g_free (fsm->tmp_file_path);
+        g_free (fsm->resumable_tmp_file);
     }
 
     g_free (fsm->repo_id);
