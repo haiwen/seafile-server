@@ -69,9 +69,9 @@ typedef struct RecvFSM {
 
     gboolean recved_crlf; /* Did we recv a CRLF when write out the last line? */
     char *file_name;
-    char *tmp_file;
+    char *tmp_file; /* tmp file path for the currently uploading file */
     int fd;
-    GList *tmp_files;           /* tmp files for each uploading file */
+    char *resumable_tmp_file;        /* resumable upload tmp file path. In resumable uploads, contents of the chunks are appended to this tmp file. */
 
     /* For upload progress. */
     char *progress_id;
@@ -511,6 +511,9 @@ upload_api_cb(evhtp_request_t *req, void *arg)
             goto out;
         }
 
+        if (!fsm->resumable_tmp_file)
+            fsm->resumable_tmp_file = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
+
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data) < 0) {
             error_code = ERROR_INTERNAL;
@@ -609,16 +612,6 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     if (g_strcmp0(fsm->token_type, "upload-link") == 0)
         oper = "link-file-upload";
     send_statistic_msg(fsm->repo_id, fsm->user, oper, (guint64)content_len);
-
-    if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
-        // File upload success, try to remove tmp file from WebUploadTmpFile table
-        char *abs_path;
-
-        abs_path = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
-
-        seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, abs_path, NULL);
-        g_free (abs_path);
-    }
 
 out:
     g_free(new_parent_dir);
@@ -1029,7 +1022,6 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
 
     if (fsm->rend == fsm->fsize - 1) {
         // For the last block, record tmp_files for upload to seafile and remove
-        fsm->tmp_files = g_list_prepend (fsm->tmp_files, g_strdup(temp_file)); // for cleaning up
         fsm->files = g_list_prepend (fsm->files, g_strdup(temp_file)); // for virus checking, indexing...
     }
 
@@ -1130,6 +1122,9 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
             goto out;
         }
 
+        if (!fsm->resumable_tmp_file)
+            fsm->resumable_tmp_file = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
+
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data) < 0) {
             error_code = ERROR_INTERNAL;
@@ -1215,16 +1210,6 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
     }
     g_free (ret_json);
 
-    if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
-        // File upload success, try to remove tmp file from WebUploadTmpFile table
-        char *abs_path;
-
-        abs_path = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
-
-        seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, abs_path, NULL);
-        g_free (abs_path);
-    }
-
     send_success_reply_ie8_compatible (req, EVHTP_RES_OK);
 
     char *oper = "web-file-upload";
@@ -1307,6 +1292,9 @@ update_api_cb(evhtp_request_t *req, void *arg)
             goto out;
         }
 
+        if (!fsm->resumable_tmp_file)
+            fsm->resumable_tmp_file = g_build_path ("/", parent_dir, filename, NULL);
+
         if (write_block_data_to_tmp_file (fsm, parent_dir, filename) < 0) {
             send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
             goto out;
@@ -1370,6 +1358,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
     evbuffer_add(req->buffer_out, new_file_id, strlen(new_file_id));
     send_success_reply (req);
 
+out:
     if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
         // File upload success, try to remove tmp file from WebUploadTmpFile table
         char *abs_path;
@@ -1379,8 +1368,6 @@ update_api_cb(evhtp_request_t *req, void *arg)
         seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, abs_path, NULL);
         g_free (abs_path);
     }
-
-out:
     g_free (parent_dir);
     g_free (filename);
     g_free (new_file_id);
@@ -1763,7 +1750,6 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
 
     /* Clean up FSM struct no matter upload succeed or not. */
 
-    g_free (fsm->repo_id);
     g_free (fsm->parent_dir);
     g_free (fsm->user);
     g_free (fsm->boundary);
@@ -1782,11 +1768,19 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
     }
     g_free (fsm->tmp_file);
 
+    if (fsm->resumable_tmp_file) {
+        if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
+            seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, fsm->resumable_tmp_file, NULL);
+        }
+        g_free (fsm->resumable_tmp_file);
+    }
+
+    g_free (fsm->repo_id);
+
     if (!fsm->need_idx_progress) {
-        for (ptr = fsm->tmp_files; ptr; ptr = ptr->next)
+        for (ptr = fsm->files; ptr; ptr = ptr->next)
             g_unlink ((char *)(ptr->data));
     }
-    string_list_free (fsm->tmp_files);
     string_list_free (fsm->filenames);
     string_list_free (fsm->files);
 
@@ -1947,7 +1941,7 @@ open_temp_file (RecvFSM *fsm)
     fsm->tmp_file = g_string_free (temp_file, FALSE);
     /* For clean up later. */
     if (fsm->rstart < 0) {
-        fsm->tmp_files = g_list_prepend (fsm->tmp_files, g_strdup(fsm->tmp_file));
+        fsm->files = g_list_prepend (fsm->files, g_strdup(fsm->tmp_file));
     }
 
     return 0;
@@ -2015,7 +2009,6 @@ add_uploaded_file (RecvFSM *fsm)
 
         fsm->filenames = g_list_prepend (fsm->filenames,
                                          get_basename(fsm->file_name));
-        fsm->files = g_list_prepend (fsm->files, g_strdup(fsm->tmp_file));
 
         g_free (fsm->file_name);
         g_free (fsm->tmp_file);
@@ -2456,7 +2449,6 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     gint64 content_len;
     char *progress_id = NULL;
     char *err_msg = NULL;
-    char *error = NULL;
     char *token_type = NULL;
     RecvFSM *fsm = NULL;
     Progress *progress = NULL;
