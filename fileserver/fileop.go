@@ -934,7 +934,7 @@ func uploadAjaxCB(rsp http.ResponseWriter, r *http.Request) *appError {
 func formatJSONError(rsp http.ResponseWriter, err *appError) {
 	if err.Message != "" {
 		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
-		err.Message = fmt.Sprintf("\"error\": \"%s\"", err.Message)
+		err.Message = fmt.Sprintf("{\"error\": \"%s\"}", err.Message)
 	}
 }
 
