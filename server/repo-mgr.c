@@ -615,9 +615,8 @@ del_repo:
         remove_virtual_repo_ondisk (mgr, (char *)ptr->data);
     string_list_free (vrepos);
 
-    seaf_db_statement_query (mgr->seaf->db, "DELETE FROM RepoInfo "
-                             "WHERE repo_id IN (SELECT repo_id FROM VirtualRepo "
-                             "WHERE origin_repo=?)",
+    seaf_db_statement_query (mgr->seaf->db, "DELETE r, v FROM RepoInfo r, VirtualRepo v "
+                             "WHERE r.repo_id=v.repo_id and v.origin_repo=?",
                              1, "string", repo_id);
 
     seaf_db_statement_query (mgr->seaf->db, "DELETE FROM RepoInfo "
