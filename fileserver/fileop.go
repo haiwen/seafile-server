@@ -722,7 +722,8 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 			return &appError{err, "", http.StatusInternalServerError}
 		}
 
-		setCommonHeaders(rsp, r, "download", dirName)
+		zipName := dirName + ".zip"
+		setCommonHeaders(rsp, r, "download", zipName)
 
 		err := packDir(ar, repo, objID, dirName)
 		if err != nil {
