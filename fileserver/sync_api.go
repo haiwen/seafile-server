@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"html"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -25,6 +24,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/share"
+	log "github.com/sirupsen/logrus"
 )
 
 type checkExistType int32
@@ -729,8 +729,6 @@ func putSendBlockCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		err := fmt.Errorf("Failed to close block %.8s:%s", storeID, blockID)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
-
-	rsp.WriteHeader(http.StatusOK)
 
 	sendStatisticMsg(storeID, user, "sync-file-upload", uint64(r.ContentLength))
 

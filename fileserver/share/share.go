@@ -5,12 +5,12 @@ package share
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
+	log "github.com/sirupsen/logrus"
 )
 
 type group struct {
