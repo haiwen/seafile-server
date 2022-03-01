@@ -602,28 +602,10 @@ type appHandler func(http.ResponseWriter, *http.Request) *appError
 func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := fn(w, r); e != nil {
 		if e.Error != nil && e.Code == http.StatusInternalServerError {
-			if need2PrintErr(e.Error) {
-				log.Printf("path %s internal server error: %v\n", r.URL.Path, e.Error)
-			}
+			log.Printf("path %s internal server error: %v\n", r.URL.Path, e.Error)
 		}
 		http.Error(w, e.Message, e.Code)
 	}
-}
-
-const (
-	ErrChunkWorkCanceled = "chunk work canceled"
-	ErrBrokenPipe        = "write: broken pipe"
-)
-
-func need2PrintErr(err error) bool {
-	if strings.Contains(err.Error(), ErrChunkWorkCanceled) {
-		return false
-	}
-	if strings.Contains(err.Error(), ErrBrokenPipe) {
-		return false
-	}
-
-	return true
 }
 
 func RecoverWrapper(f func()) {

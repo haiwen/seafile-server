@@ -768,7 +768,10 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	blockLen := fmt.Sprintf("%d", blockSize)
 	rsp.Header().Set("Content-Length", blockLen)
 	if err := blockmgr.Read(storeID, blockID, rsp); err != nil {
-		return &appError{err, "", http.StatusInternalServerError}
+		if !isNetWorkErr(err) {
+			log.Printf("failed to read block %s: %v", blockID, err)
+		}
+		return nil
 	}
 
 	sendStatisticMsg(storeID, user, "sync-file-download", uint64(blockSize))
