@@ -296,7 +296,7 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 	for _, blkID := range file.BlkIDs {
 		err := blockmgr.Read(repo.StoreID, blkID, rsp)
 		if err != nil {
-			if !isNetWorkErr(err) {
+			if !isNetworkErr(err) {
 				log.Printf("failed to read block %s: %v", blkID, err)
 			}
 			return nil
@@ -314,7 +314,7 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 	return nil
 }
 
-func isNetWorkErr(err error) bool {
+func isNetworkErr(err error) bool {
 	_, ok := err.(net.Error)
 	if ok {
 		return true
@@ -414,7 +414,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		if end-start+1 <= blkSize[i]-pos {
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
 			if err != nil {
-				if !isNetWorkErr(err) {
+				if !isNetworkErr(err) {
 					log.Printf("failed to read block %s: %v", blkID, err)
 				}
 				return nil
@@ -429,7 +429,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 
 		err := blockmgr.Read(repo.StoreID, blkID, &buf)
 		if err != nil {
-			if !isNetWorkErr(err) {
+			if !isNetworkErr(err) {
 				log.Printf("failed to read block %s: %v", blkID, err)
 			}
 			return nil
@@ -452,7 +452,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		if end-start+1 <= blkSize[i] {
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
 			if err != nil {
-				if !isNetWorkErr(err) {
+				if !isNetworkErr(err) {
 					log.Printf("failed to read block %s: %v", blkID, err)
 				}
 				return nil
@@ -467,7 +467,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		} else {
 			err := blockmgr.Read(repo.StoreID, blkID, rsp)
 			if err != nil {
-				if !isNetWorkErr(err) {
+				if !isNetworkErr(err) {
 					log.Printf("failed to read block %s: %v", blkID, err)
 				}
 				return nil
@@ -665,7 +665,7 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 
 	err = blockmgr.Read(repo.StoreID, blkID, rsp)
 	if err != nil {
-		if !isNetWorkErr(err) {
+		if !isNetworkErr(err) {
 			log.Printf("failed to read block %s: %v", blkID, err)
 		}
 	}
@@ -766,14 +766,14 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		for _, v := range dirList {
 			if fsmgr.IsDir(v.Mode) {
 				if err := packDir(ar, repo, v.ID, v.Name); err != nil {
-					if !isNetWorkErr(err) {
+					if !isNetworkErr(err) {
 						log.Printf("failed to pack dir %s: %v", v.Name, err)
 					}
 					return nil
 				}
 			} else {
 				if err := packFiles(ar, &v, repo, ""); err != nil {
-					if !isNetWorkErr(err) {
+					if !isNetworkErr(err) {
 						log.Printf("failed to pack file %s: %v", v.Name, err)
 					}
 					return nil

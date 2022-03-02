@@ -768,7 +768,7 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	blockLen := fmt.Sprintf("%d", blockSize)
 	rsp.Header().Set("Content-Length", blockLen)
 	if err := blockmgr.Read(storeID, blockID, rsp); err != nil {
-		if !isNetWorkErr(err) {
+		if !isNetworkErr(err) {
 			log.Printf("failed to read block %s: %v", blockID, err)
 		}
 		return nil
