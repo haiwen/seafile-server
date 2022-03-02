@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 
 	"gopkg.in/ini.v1"
@@ -14,6 +13,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/workerpool"
+	log "github.com/sirupsen/logrus"
 )
 
 var updateSizePool *workerpool.WorkPool

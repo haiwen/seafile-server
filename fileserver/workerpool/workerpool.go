@@ -1,7 +1,7 @@
 package workerpool
 
 import (
-	"log"
+	log "github.com/sirupsen/logrus"
 	"runtime/debug"
 )
 

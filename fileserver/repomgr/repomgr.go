@@ -4,12 +4,12 @@ package repomgr
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
 	// Change to non-blank imports when use
 	_ "github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
+	log "github.com/sirupsen/logrus"
 )
 
 // Repo status

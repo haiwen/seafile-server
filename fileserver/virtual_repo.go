@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 	"strings"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/workerpool"
+	log "github.com/sirupsen/logrus"
 )
 
 const mergeVirtualRepoWorkerNumber = 5

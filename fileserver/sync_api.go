@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"html"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -25,6 +24,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/share"
+	log "github.com/sirupsen/logrus"
 )
 
 type checkExistType int32
@@ -730,8 +730,6 @@ func putSendBlockCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	rsp.WriteHeader(http.StatusOK)
-
 	sendStatisticMsg(storeID, user, "sync-file-upload", uint64(r.ContentLength))
 
 	return nil
@@ -770,7 +768,10 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	blockLen := fmt.Sprintf("%d", blockSize)
 	rsp.Header().Set("Content-Length", blockLen)
 	if err := blockmgr.Read(storeID, blockID, rsp); err != nil {
-		return &appError{err, "", http.StatusInternalServerError}
+		if !isNetworkErr(err) {
+			log.Printf("failed to read block %s: %v", blockID, err)
+		}
+		return nil
 	}
 
 	sendStatisticMsg(storeID, user, "sync-file-download", uint64(blockSize))

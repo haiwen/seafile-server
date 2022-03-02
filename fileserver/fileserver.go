@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,6 +24,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/searpc"
 	"github.com/haiwen/seafile-server/fileserver/share"
 	_ "github.com/mattn/go-sqlite3"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
 )
 
@@ -77,6 +77,22 @@ func init() {
 	flag.StringVar(&logFile, "l", "", "log file path")
 	flag.StringVar(&rpcPipePath, "p", "", "rpc pipe path")
 	flag.StringVar(&pidFilePath, "P", "", "pid file path")
+
+	log.SetFormatter(&LogFormatter{})
+}
+
+const (
+	timestampFormat = "[2006-01-02 15:04:05] "
+)
+
+type LogFormatter struct{}
+
+func (f *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
+	buf := make([]byte, 0, len(timestampFormat)+len(entry.Message)+1)
+	buf = entry.Time.AppendFormat(buf, timestampFormat)
+	buf = append(buf, entry.Message...)
+	buf = append(buf, '\n')
+	return buf, nil
 }
 
 func loadCcnetDB() {
@@ -435,7 +451,7 @@ func main() {
 	}
 	// When logFile is "-", use default output (StdOut)
 
-	log.SetFlags(log.Ldate | log.Ltime)
+	log.SetLevel(log.InfoLevel)
 
 	if absLogFile != "" {
 		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")

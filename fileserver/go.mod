@@ -7,6 +7,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/mattn/go-sqlite3 v1.14.0
+	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
 	gopkg.in/ini.v1 v1.55.0
 )

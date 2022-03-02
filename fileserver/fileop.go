@@ -7,12 +7,13 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"mime"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -34,6 +35,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -294,7 +296,9 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 	for _, blkID := range file.BlkIDs {
 		err := blockmgr.Read(repo.StoreID, blkID, rsp)
 		if err != nil {
-			log.Printf("fatild to write block %s to response: %v", blkID, err)
+			if !isNetworkErr(err) {
+				log.Printf("failed to read block %s: %v", blkID, err)
+			}
 			return nil
 		}
 	}
@@ -308,6 +312,14 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 	}
 
 	return nil
+}
+
+func isNetworkErr(err error) bool {
+	_, ok := err.(net.Error)
+	if ok {
+		return true
+	}
+	return false
 }
 
 type blockMap struct {
@@ -402,7 +414,9 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		if end-start+1 <= blkSize[i]-pos {
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
 			if err != nil {
-				log.Printf("failed to read block %s: %v", blkID, err)
+				if !isNetworkErr(err) {
+					log.Printf("failed to read block %s: %v", blkID, err)
+				}
 				return nil
 			}
 			recvBuf := buf.Bytes()
@@ -415,7 +429,9 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 
 		err := blockmgr.Read(repo.StoreID, blkID, &buf)
 		if err != nil {
-			log.Printf("failed to read block %s: %v", blkID, err)
+			if !isNetworkErr(err) {
+				log.Printf("failed to read block %s: %v", blkID, err)
+			}
 			return nil
 		}
 		recvBuf := buf.Bytes()
@@ -436,7 +452,9 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		if end-start+1 <= blkSize[i] {
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
 			if err != nil {
-				log.Printf("failed to read block %s: %v", blkID, err)
+				if !isNetworkErr(err) {
+					log.Printf("failed to read block %s: %v", blkID, err)
+				}
 				return nil
 			}
 			recvBuf := buf.Bytes()
@@ -449,7 +467,9 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		} else {
 			err := blockmgr.Read(repo.StoreID, blkID, rsp)
 			if err != nil {
-				log.Printf("failed to write block %s to response: %v", blkID, err)
+				if !isNetworkErr(err) {
+					log.Printf("failed to read block %s: %v", blkID, err)
+				}
 				return nil
 			}
 			start += blkSize[i]
@@ -645,7 +665,9 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 
 	err = blockmgr.Read(repo.StoreID, blkID, rsp)
 	if err != nil {
-		log.Printf("fatild to write block %s to response: %v", blkID, err)
+		if !isNetworkErr(err) {
+			log.Printf("failed to read block %s: %v", blkID, err)
+		}
 	}
 
 	sendStatisticMsg(repo.StoreID, user, "web-file-download", uint64(size))
@@ -744,12 +766,16 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		for _, v := range dirList {
 			if fsmgr.IsDir(v.Mode) {
 				if err := packDir(ar, repo, v.ID, v.Name); err != nil {
-					log.Printf("failed to pack dir %s: %v", v.Name, err)
+					if !isNetworkErr(err) {
+						log.Printf("failed to pack dir %s: %v", v.Name, err)
+					}
 					return nil
 				}
 			} else {
 				if err := packFiles(ar, &v, repo, ""); err != nil {
-					log.Printf("failed to pack file %s: %v", v.Name, err)
+					if !isNetworkErr(err) {
+						log.Printf("failed to pack file %s: %v", v.Name, err)
+					}
 					return nil
 				}
 			}
@@ -1467,8 +1493,11 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		for _, filePath := range files {
 			id, size, err := indexBlocks(r.Context(), repo.StoreID, repo.Version, filePath, nil, cryptKey)
 			if err != nil {
-				err := fmt.Errorf("failed to index blocks: %v", err)
-				return &appError{err, "", http.StatusInternalServerError}
+				if !errors.Is(err, context.Canceled) {
+					err := fmt.Errorf("failed to index blocks: %v", err)
+					return &appError{err, "", http.StatusInternalServerError}
+				}
+				return &appError{nil, "", http.StatusInternalServerError}
 			}
 			ids = append(ids, id)
 			sizes = append(sizes, size)
@@ -1477,8 +1506,11 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		for _, handler := range fsm.fileHeaders {
 			id, size, err := indexBlocks(r.Context(), repo.StoreID, repo.Version, "", handler, cryptKey)
 			if err != nil {
-				err := fmt.Errorf("failed to index blocks: %v", err)
-				return &appError{err, "", http.StatusInternalServerError}
+				if !errors.Is(err, context.Canceled) {
+					err := fmt.Errorf("failed to index blocks: %v", err)
+					return &appError{err, "", http.StatusInternalServerError}
+				}
+				return &appError{nil, "", http.StatusInternalServerError}
 			}
 			ids = append(ids, id)
 			sizes = append(sizes, size)
@@ -2112,7 +2144,7 @@ func chunkingWorker(ctx context.Context, wg *sync.WaitGroup, chunkJobs chan chun
 	for job := range chunkJobs {
 		select {
 		case <-ctx.Done():
-			err := fmt.Errorf("chunk work canceled")
+			err := context.Canceled
 			result := chunkingResult{-1, "", err}
 			res <- result
 			wg.Done()
@@ -2769,8 +2801,11 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		filePath := files[0]
 		id, fileSize, err := indexBlocks(r.Context(), repo.StoreID, repo.Version, filePath, nil, cryptKey)
 		if err != nil {
-			err := fmt.Errorf("failed to index blocks: %v", err)
-			return &appError{err, "", http.StatusInternalServerError}
+			if !errors.Is(err, context.Canceled) {
+				err := fmt.Errorf("failed to index blocks: %w", err)
+				return &appError{err, "", http.StatusInternalServerError}
+			}
+			return &appError{nil, "", http.StatusInternalServerError}
 		}
 		fileID = id
 		size = fileSize
@@ -2778,8 +2813,11 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		handler := fsm.fileHeaders[0]
 		id, fileSize, err := indexBlocks(r.Context(), repo.StoreID, repo.Version, "", handler, cryptKey)
 		if err != nil {
-			err := fmt.Errorf("failed to index blocks: %v", err)
-			return &appError{err, "", http.StatusInternalServerError}
+			if !errors.Is(err, context.Canceled) {
+				err := fmt.Errorf("failed to index blocks: %w", err)
+				return &appError{err, "", http.StatusInternalServerError}
+			}
+			return &appError{nil, "", http.StatusInternalServerError}
 		}
 		fileID = id
 		size = fileSize
