@@ -118,20 +118,6 @@ func parseContentType(fileName string) string {
 	return contentType
 }
 
-func testFireFox(r *http.Request) bool {
-	userAgent, ok := r.Header["User-Agent"]
-	if !ok {
-		return false
-	}
-
-	userAgentStr := strings.Join(userAgent, "")
-	if strings.Index(userAgentStr, "firefox") != -1 {
-		return true
-	}
-
-	return false
-}
-
 func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) < 3 {
@@ -549,21 +535,15 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 	}
 
-	var contFileName string
+	var firstPart string
 	if operation == "download" || operation == "download-link" ||
 		operation == "downloadblks" {
-		if testFireFox(r) {
-			contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\"", fileName)
-		} else {
-			contFileName = fmt.Sprintf("attachment;filename=\"%s\"", fileName)
-		}
+		firstPart = "attachment"
 	} else {
-		if testFireFox(r) {
-			contFileName = fmt.Sprintf("inline;filename*=\"utf-8' '%s\"", fileName)
-		} else {
-			contFileName = fmt.Sprintf("inline;filename=\"%s\"", fileName)
-		}
+		firstPart = "inline"
 	}
+	encodedFileName := url.PathEscape(fileName)
+	contFileName := fmt.Sprintf("%s;filename=\"%s\";filename*=utf-8''%s", firstPart, encodedFileName, encodedFileName)
 	rsp.Header().Set("Content-Disposition", contFileName)
 
 	if fileType != "image/jpg" {
