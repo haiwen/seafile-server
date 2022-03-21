@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -88,7 +89,11 @@ func mergeRepo(repoID string) error {
 	}
 
 	var origRoot string
-	origRoot, _ = fsmgr.GetSeafdirIDByPath(origRepo.StoreID, origHead.RootID, vInfo.Path)
+	origRoot, err = fsmgr.GetSeafdirIDByPath(origRepo.StoreID, origHead.RootID, vInfo.Path)
+	if err != nil && !errors.Is(err, fsmgr.ErrPathNoExist) {
+		err := fmt.Errorf("failed to get seafdir id by path: %v", err)
+		return err
+	}
 	if origRoot == "" {
 		newPath, _ := handleMissingVirtualRepo(origRepo, origHead, vInfo)
 		if newPath != "" {
