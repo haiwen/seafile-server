@@ -13,7 +13,7 @@ See <http://manual.seafile.com/build_seafile/server.html>
 Contributing
 ===========
 
-For more informations read [Contribution](http://manual.seafile.com/contribution.html).
+For more informations read [Contribution](https://manual.seafile.com/contribution/).
 
 License
 =======
