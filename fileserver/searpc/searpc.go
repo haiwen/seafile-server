@@ -8,7 +8,14 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"context"
+	"log"
+	"time"
+	"sync"
 )
+
+const PoolSize = 10
+const TimeOut = 30
 
 // Client represents a connections to the RPC server.
 type Client struct {
@@ -16,6 +23,7 @@ type Client struct {
 	pipePath string
 	// RPC service name
 	Service string
+	pool *Pool
 }
 
 type request struct {
@@ -23,11 +31,87 @@ type request struct {
 	Request string `json:"request"`
 }
 
+type Pool struct {
+	m sync.Mutex
+	resource chan *net.UnixConn
+	capacity int
+	counter int
+	factory func() (*net.UnixConn, error)
+}
+
+func NewPool(fn func() (*net.UnixConn, error), size int) (*Pool) {
+	if size <= 0 {
+		return nil
+	}
+	return &Pool {
+		factory: fn,
+		resource: make(chan *net.UnixConn, size),
+		capacity: size,
+		counter: 0,
+	}
+}
+
+func (p *Pool) Get() (*net.UnixConn, error) {
+	p.m.Lock()
+	defer p.m.Unlock()
+
+	if p.counter >= PoolSize {
+		conn := <-p.resource
+		return conn, nil
+	}
+
+	select {
+	case conn := <-p.resource:
+		return conn, nil
+	default:
+		log.Printf("create new one")
+		p.counter++
+		return p.factory()
+	}
+}
+
+func (p *Pool) Put(conn *net.UnixConn, drop bool) {
+	if drop {
+		log.Printf("drop connection")
+		conn.Close()
+		p.counter--
+		return
+	}
+
+	select {
+	case p.resource <- conn:
+	default:
+		log.Printf("pool full, close it")
+		conn.Close()
+		p.counter--
+	}
+}
+
 // Init initializes rpc client.
 func Init(pipePath string, service string) *Client {
 	client := new(Client)
 	client.pipePath = pipePath
 	client.Service = service
+
+	client.pool = NewPool(func () (*net.UnixConn, error) {
+		var d net.Dialer
+		ctx, cancel := context.WithTimeout(context.Background(), TimeOut * time.Second)
+		defer cancel()
+
+		var unixAddr *net.UnixAddr
+		unixAddr, err := net.ResolveUnixAddr("unix", pipePath)
+		if err != nil {
+			err := fmt.Errorf("failed to resolve unix addr when calling rpc : %v", err)
+			return nil, err
+		}
+		d.LocalAddr = nil
+		conn, err := d.DialContext(ctx, "unix", unixAddr.String())
+		if err != nil {
+			err := fmt.Errorf("failed to dial unix when calling rpc : %v", err)
+			return nil, err
+		}
+		return conn.(*net.UnixConn), err
+	}, PoolSize)
 
 	return client
 }
@@ -37,19 +121,14 @@ func Init(pipePath string, service string) *Client {
 // The true returned type can be int32, int64, string, struct (object), list of struct (objects) or JSON
 func (c *Client) Call(funcname string, params ...interface{}) (interface{}, error) {
 	// TODO: use reflection to compose requests and parse results.
-	var unixAddr *net.UnixAddr
-	unixAddr, err := net.ResolveUnixAddr("unix", c.pipePath)
-	if err != nil {
-		err := fmt.Errorf("failed to resolve unix addr when calling rpc : %v", err)
-		return nil, err
-	}
 
-	conn, err := net.DialUnix("unix", nil, unixAddr)
+	conn, err := c.pool.Get()
 	if err != nil {
-		err := fmt.Errorf("failed to dial unix when calling rpc : %v", err)
-		return nil, err
+		err := fmt.Errorf("failed to get conn from pool: %v.", err)
+		return  nil, err
 	}
-	defer conn.Close()
+	var isDrop bool
+	defer c.pool.Put(conn, isDrop)
 
 	var req []interface{}
 	req = append(req, funcname)
@@ -72,22 +151,27 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 
 	header := make([]byte, 4)
 	binary.LittleEndian.PutUint32(header, uint32(len(jsonstr)))
+
+	conn.SetDeadline(time.Now().Add(TimeOut * time.Second))
 	_, err = conn.Write([]byte(header))
 	if err != nil {
+		isDrop = true
 		err := fmt.Errorf("Failed to write rpc request header : %v", err)
 		return nil, err
 	}
-
 	_, err = conn.Write([]byte(jsonstr))
 	if err != nil {
+		isDrop = true
 		err := fmt.Errorf("Failed to write rpc request body : %v", err)
 		return nil, err
 	}
 
+	conn.SetDeadline(time.Now().Add(TimeOut * time.Second))
 	reader := bufio.NewReader(conn)
 	buflen := make([]byte, 4)
 	_, err = io.ReadFull(reader, buflen)
 	if err != nil {
+		isDrop = true
 		err := fmt.Errorf("failed to read response header from rpc server : %v", err)
 		return nil, err
 	}
@@ -96,13 +180,18 @@ func (c *Client) Call(funcname string, params ...interface{}) (interface{}, erro
 	msg := make([]byte, retlen)
 	_, err = io.ReadFull(reader, msg)
 	if err != nil {
+		isDrop = true
 		err := fmt.Errorf("failed to read response body from rpc server : %v", err)
 		return nil, err
 	}
 
+	conn.SetDeadline(time.Time{})
+
 	retlist := make(map[string]interface{})
 	err = json.Unmarshal(msg, &retlist)
+
 	if err != nil {
+		isDrop = true
 		err := fmt.Errorf("failed to decode rpc response : %v", err)
 		return nil, err
 	}
