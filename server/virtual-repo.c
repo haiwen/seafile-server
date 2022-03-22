@@ -843,7 +843,7 @@ static void *merge_virtual_repo (void *vtask)
         !g_error_matches(error,
                          SEAFILE_DOMAIN,
                          SEAF_ERR_PATH_NO_EXIST)) {
-        seaf_warning ("Failed to get dir id by path: %s.\n", error->message);
+        seaf_warning ("Failed to get seafdir id by path in origin repo %.10s: %s.\n", orig_repo->store_id, error->message);
         ret = -1;
         goto out;
     }

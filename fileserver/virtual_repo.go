@@ -36,7 +36,10 @@ func mergeVirtualRepo(args ...string) error {
 	}
 
 	if virtual {
-		mergeRepo(repoID)
+		err := mergeRepo(repoID)
+		if err != nil {
+			log.Printf("%v", err)
+		}
 
 		go updateSizePool.AddTask(repoID)
 
@@ -53,7 +56,10 @@ func mergeVirtualRepo(args ...string) error {
 			continue
 		}
 
-		mergeRepo(id)
+		err := mergeRepo(id)
+		if err != nil {
+			log.Printf("%v", err)
+		}
 	}
 
 	go updateSizePool.AddTask(repoID)
@@ -91,7 +97,7 @@ func mergeRepo(repoID string) error {
 	var origRoot string
 	origRoot, err = fsmgr.GetSeafdirIDByPath(origRepo.StoreID, origHead.RootID, vInfo.Path)
 	if err != nil && !errors.Is(err, fsmgr.ErrPathNoExist) {
-		err := fmt.Errorf("failed to get seafdir id by path: %v", err)
+		err := fmt.Errorf("failed to get seafdir id by path in origin repo %.10s: %v", origRepo.StoreID, err)
 		return err
 	}
 	if origRoot == "" {
