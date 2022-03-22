@@ -793,6 +793,7 @@ static void *merge_virtual_repo (void *vtask)
     char *root = NULL, *orig_root = NULL, *base_root = NULL;
     char new_base_commit[41] = {0};
     int ret = 0;
+    GError *error = NULL;
 
     /* repos */
     repo = seaf_repo_manager_get_repo (mgr, repo_id);
@@ -837,7 +838,15 @@ static void *merge_virtual_repo (void *vtask)
                                                         orig_repo->version,
                                                         orig_head->root_id,
                                                         vinfo->path,
-                                                        NULL);
+                                                        &error);
+    if (error &&
+        !g_error_matches(error,
+                         SEAFILE_DOMAIN,
+                         SEAF_ERR_PATH_NO_EXIST)) {
+        seaf_warning ("Failed to get seafdir id by path in origin repo %.10s: %s.\n", orig_repo->store_id, error->message);
+        ret = -1;
+        goto out;
+    }
     if (!orig_root) {
         seaf_debug("Path %s not found in origin repo %.8s, delete or rename virtual repo %.8s\n",
                     vinfo->path, vinfo->origin_repo_id, repo_id);
@@ -997,6 +1006,8 @@ static void *merge_virtual_repo (void *vtask)
     }
 
 out:
+    if (error)
+        g_clear_error (&error);
     seaf_repo_unref (repo);
     seaf_repo_unref (orig_repo);
     seaf_commit_unref (head);

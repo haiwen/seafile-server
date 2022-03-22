@@ -577,7 +577,7 @@ func GetSeafdirByPath(repoID string, rootID string, path string) (*SeafDir, erro
 func GetSeafdirIDByPath(repoID, rootID, path string) (string, error) {
 	dirID, mode, err := GetObjIDByPath(repoID, rootID, path)
 	if err != nil {
-		err := fmt.Errorf("failed to get dir id by path: %s: %v", path, err)
+		err := fmt.Errorf("failed to get dir id by path: %s: %w", path, err)
 		return "", err
 	}
 	if dirID == "" || !IsDir(mode) {
