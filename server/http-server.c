@@ -648,12 +648,23 @@ get_client_ip_addr (evhtp_request_t *req)
     }
 
     evhtp_connection_t *conn = req->conn;
-    char ip_addr[17];
-    const char *ip = NULL;
-    struct sockaddr_in *addr_in = (struct sockaddr_in *)conn->saddr;
+    if (conn->saddr->sa_family == AF_INET) {
+        char ip_addr[17];
+        const char *ip = NULL;
+        struct sockaddr_in *addr_in = (struct sockaddr_in *)conn->saddr;
 
-    memset (ip_addr, '\0', 17);
-    ip = evutil_inet_ntop (AF_INET, &addr_in->sin_addr, ip_addr, 16);
+        memset (ip_addr, '\0', 17);
+        ip = evutil_inet_ntop (AF_INET, &addr_in->sin_addr, ip_addr, 16);
+
+        return g_strdup (ip);
+    }
+
+    char ip_addr[47];
+    const char *ip = NULL;
+    struct sockaddr_in6 *addr_in = (struct sockaddr_in6 *)conn->saddr;
+
+    memset (ip_addr, '\0', 47);
+    ip = evutil_inet_ntop (AF_INET6, &addr_in->sin6_addr, ip_addr, 46);
 
     return g_strdup (ip);
 }
