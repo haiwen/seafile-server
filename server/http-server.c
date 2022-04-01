@@ -644,6 +644,8 @@ get_client_ip_addr (evhtp_request_t *req)
             copy = g_strdup(xff);
         if (evutil_inet_pton (AF_INET, copy, &addr) == 1)
             return copy;
+        else if (evutil_inet_pton (AF_INET6, copy, &addr) == 1)
+            return copy;
         g_free (copy);
     }
 
