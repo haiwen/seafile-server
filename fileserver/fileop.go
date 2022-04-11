@@ -174,7 +174,7 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	var cryptKey *seafileCrypt
 	if repo.IsEncrypted {
-		key, err := parseCryptKey(rsp, repoID, user)
+		key, err := parseCryptKey(rsp, repoID, user, repo.EncVersion)
 		if err != nil {
 			return err
 		}
@@ -198,12 +198,7 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
-type seafileCrypt struct {
-	key []byte
-	iv  []byte
-}
-
-func parseCryptKey(rsp http.ResponseWriter, repoID string, user string) (*seafileCrypt, *appError) {
+func parseCryptKey(rsp http.ResponseWriter, repoID string, user string, version int) (*seafileCrypt, *appError) {
 	key, err := rpcclient.Call("seafile_get_decrypt_key", repoID, user)
 	if err != nil {
 		errMessage := "Repo is encrypted. Please provide password to view it."
@@ -217,6 +212,7 @@ func parseCryptKey(rsp http.ResponseWriter, repoID string, user string) (*seafil
 	}
 
 	seafileKey := new(seafileCrypt)
+	seafileKey.version = version
 
 	if cryptKey != nil {
 		key, ok := cryptKey["key"].(string)
@@ -252,12 +248,6 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	var encKey, encIv []byte
-	if cryptKey != nil {
-		encKey = cryptKey.key
-		encIv = cryptKey.iv
-	}
-
 	rsp.Header().Set("Access-Control-Allow-Origin", "*")
 
 	setCommonHeaders(rsp, r, operation, fileName)
@@ -279,7 +269,7 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 		for _, blkID := range file.BlkIDs {
 			var buf bytes.Buffer
 			blockmgr.Read(repo.StoreID, blkID, &buf)
-			decoded, err := decrypt(buf.Bytes(), encKey, encIv)
+			decoded, err := cryptKey.decrypt(buf.Bytes())
 			if err != nil {
 				err := fmt.Errorf("failed to decrypt block %s: %v", blkID, err)
 				return &appError{err, "", http.StatusInternalServerError}
@@ -1480,7 +1470,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 
 	var cryptKey *seafileCrypt
 	if repo.IsEncrypted {
-		key, err := parseCryptKey(rsp, repoID, user)
+		key, err := parseCryptKey(rsp, repoID, user, repo.EncVersion)
 		if err != nil {
 			return err
 		}
@@ -2211,9 +2201,7 @@ func chunkFile(job chunkingData) (string, error) {
 func writeChunk(repoID string, input []byte, blkSize int64, cryptKey *seafileCrypt) (string, error) {
 	var blkID string
 	if cryptKey != nil && blkSize > 0 {
-		encKey := cryptKey.key
-		encIv := cryptKey.iv
-		encoded, err := encrypt(input, encKey, encIv)
+		encoded, err := cryptKey.encrypt(input)
 		if err != nil {
 			err := fmt.Errorf("failed to encrypt block: %v", err)
 			return "", err
@@ -2788,7 +2776,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 
 	var cryptKey *seafileCrypt
 	if repo.IsEncrypted {
-		key, err := parseCryptKey(rsp, repoID, user)
+		key, err := parseCryptKey(rsp, repoID, user, repo.EncVersion)
 		if err != nil {
 			return err
 		}
