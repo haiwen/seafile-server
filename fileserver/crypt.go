@@ -15,7 +15,7 @@ type seafileCrypt struct {
 func (crypt *seafileCrypt) encrypt(input []byte) ([]byte, error) {
 	key := crypt.key
 	if crypt.version == 3 {
-		key = genKey(key)
+		key = to16Bytes(key)
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -41,7 +41,7 @@ func (crypt *seafileCrypt) encrypt(input []byte) ([]byte, error) {
 func (crypt *seafileCrypt) decrypt(input []byte) ([]byte, error) {
 	key := crypt.key
 	if crypt.version == 3 {
-		key = genKey(key)
+		key = to16Bytes(key)
 	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
@@ -51,6 +51,8 @@ func (crypt *seafileCrypt) decrypt(input []byte) ([]byte, error) {
 	size := block.BlockSize()
 
 	if crypt.version == 3 {
+		// Encryption repo v3 uses AES_128_ecb mode to encrypt and decrypt, each block is encrypted and decrypted independently,
+		// there is no relationship before and after, and iv is not required.
 		for bs, be := 0, size; bs < len(input); bs, be = bs+size, be+size {
 			block.Decrypt(out[bs:be], input[bs:be])
 		}
@@ -77,7 +79,7 @@ func pkcs7UnPadding(p []byte) []byte {
 	return p[:(length - paddLen)]
 }
 
-func genKey(input []byte) []byte {
+func to16Bytes(input []byte) []byte {
 	out := make([]byte, 16)
 	copy(out, input)
 
