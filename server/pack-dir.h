@@ -12,6 +12,7 @@ typedef struct Progress {
     gint64 expire_ts;
     gboolean canceled;
     gboolean size_too_large;
+    gboolean internal_error;
 } Progress;
 
 int

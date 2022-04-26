@@ -217,7 +217,7 @@ out:
     }
     if (ret == -1 && !obj->progress->canceled &&
         !obj->progress->size_too_large) {
-        remove_progress_by_token (priv, obj->token);
+        obj->progress->internal_error = TRUE;
     }
     free_download_obj (obj);
 }
@@ -600,6 +600,9 @@ zip_download_mgr_query_zip_progress (ZipDownloadMgr *mgr,
     if (progress->size_too_large) {
         json_object_set_int_member (obj, "failed", 1);
         json_object_set_string_member (obj, "failed_reason", "size too large");
+    } else if (progress->internal_error) {
+        json_object_set_int_member (obj, "failed", 1);
+        json_object_set_string_member (obj, "failed_reason", "internal error");
     } else {
         json_object_set_int_member (obj, "failed", 0);
         json_object_set_string_member (obj, "failed_reason", "");
@@ -609,7 +612,7 @@ zip_download_mgr_query_zip_progress (ZipDownloadMgr *mgr,
     else
         json_object_set_int_member (obj, "canceled", 0);
     
-    if (progress->size_too_large || progress->canceled)
+    if (progress->size_too_large || progress->canceled || progress->internal_error)
         remove_progress_by_token(mgr->priv, token);
         
     info = json_dumps (obj, JSON_COMPACT);
