@@ -501,21 +501,21 @@ seafile_decrypt_init (EVP_CIPHER_CTX **ctx,
     /* Prepare CTX for decryption. */
     *ctx = EVP_CIPHER_CTX_new ();
 
-    if (version >= 2)
-        ret = EVP_DecryptInit_ex (*ctx,
-                                  EVP_aes_256_cbc(), /* cipher mode */
-                                  NULL, /* engine, NULL for default */
-                                  key,  /* derived key */
-                                  iv);  /* initial vector */
-    else if (version == 1)
+    if (version == 1)
         ret = EVP_DecryptInit_ex (*ctx,
                                   EVP_aes_128_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   key,  /* derived key */
                                   iv);  /* initial vector */
-    else
+    else if (version == 3)
         ret = EVP_DecryptInit_ex (*ctx,
                                   EVP_aes_128_ecb(), /* cipher mode */
+                                  NULL, /* engine, NULL for default */
+                                  key,  /* derived key */
+                                  iv);  /* initial vector */
+    else
+        ret = EVP_DecryptInit_ex (*ctx,
+                                  EVP_aes_256_cbc(), /* cipher mode */
                                   NULL, /* engine, NULL for default */
                                   key,  /* derived key */
                                   iv);  /* initial vector */
