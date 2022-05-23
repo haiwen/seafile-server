@@ -26,6 +26,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
+
+	"net/http/pprof"
 )
 
 var dataDir, absDataDir string
@@ -67,6 +69,8 @@ type fileServerOptions struct {
 	// Timeout for fs-id-list requests.
 	fsIDListRequestTimeout uint32
 	defaultQuota           int64
+	// Profile password
+	profilePassword string
 }
 
 var options fileServerOptions
@@ -359,6 +363,9 @@ func parseFileServerSection(section *ini.Section) {
 			options.clusterSharedTempFileMode = uint32(fileMode)
 		}
 	}
+	if key, err := section.GetKey("password"); err == nil {
+		options.profilePassword = key.String()
+	}
 }
 
 func initDefaultOptions() {
@@ -370,6 +377,7 @@ func initDefaultOptions() {
 	options.webTokenExpireTime = 7200
 	options.clusterSharedTempFileMode = 0600
 	options.defaultQuota = InfiniteQuota
+	options.profilePassword = "8kcUz1I2sLaywQhCRtn2x1"
 }
 
 func writePidFile(pid_file_path string) error {
@@ -584,6 +592,16 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/block-map/{id:[\\da-z]{40}}",
 		appHandler(getBlockMapCB))
 	r.Handle("/accessible-repos{slash:\\/?}", appHandler(getAccessibleRepoListCB))
+
+	// pprof
+	r.Handle("/debug/pprof", &profileHandler{http.HandlerFunc(pprof.Index)})
+	r.Handle("/debug/pprof/cmdline", &profileHandler{http.HandlerFunc(pprof.Cmdline)})
+	r.Handle("/debug/pprof/profile", &profileHandler{http.HandlerFunc(pprof.Profile)})
+	r.Handle("/debug/pprof/symbol", &profileHandler{http.HandlerFunc(pprof.Symbol)})
+	r.Handle("/debug/pprof/heap", &profileHandler{pprof.Handler("heap")})
+	r.Handle("/debug/pprof/block", &profileHandler{pprof.Handler("block")})
+	r.Handle("/debug/pprof/goroutine", &profileHandler{pprof.Handler("goroutine")})
+	r.Handle("/debug/pprof/threadcreate", &profileHandler{pprof.Handler("threadcreate")})
 	return r
 }
 
@@ -616,4 +634,19 @@ func RecoverWrapper(f func()) {
 	}()
 
 	f()
+}
+
+type profileHandler struct {
+	pHandler http.Handler
+}
+
+func (p *profileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	queries := r.URL.Query()
+	password := queries.Get("password")
+	if password != options.profilePassword {
+		http.Error(w, "", http.StatusUnauthorized)
+		return
+	}
+
+	p.pHandler.ServeHTTP(w, r)
 }
