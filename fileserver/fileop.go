@@ -528,6 +528,7 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 	var contFileName string
 	if operation == "download" || operation == "download-link" ||
 		operation == "downloadblks" {
+		// Safari doesn't support 'utf8', 'utf-8' is compatible with most of browsers.
 		contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\"", url.PathEscape(fileName))
 	} else {
 		contFileName = fmt.Sprintf("inline;filename*=\"utf-8' '%s\"", url.PathEscape(fileName))
@@ -714,6 +715,8 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 
 		zipName := dirName + ".zip"
 		setCommonHeaders(rsp, r, "download", zipName)
+
+		// Safari doesn't support 'utf8', filename does not require encoding.
 		contFileName := fmt.Sprintf("attachment;filename=\"%s\"", zipName)
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
