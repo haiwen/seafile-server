@@ -118,20 +118,6 @@ func parseContentType(fileName string) string {
 	return contentType
 }
 
-func testFireFox(r *http.Request) bool {
-	userAgent, ok := r.Header["User-Agent"]
-	if !ok {
-		return false
-	}
-
-	userAgentStr := strings.Join(userAgent, "")
-	if strings.Index(userAgentStr, "firefox") != -1 {
-		return true
-	}
-
-	return false
-}
-
 func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) < 3 {
@@ -542,17 +528,11 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 	var contFileName string
 	if operation == "download" || operation == "download-link" ||
 		operation == "downloadblks" {
-		if testFireFox(r) {
-			contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\"", fileName)
-		} else {
-			contFileName = fmt.Sprintf("attachment;filename=\"%s\"", fileName)
-		}
+		// Since the file name downloaded by safari will be garbled, we need to encode the filename.
+		// Safari cannot parse unencoded utf8 characters.
+		contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\"", url.PathEscape(fileName))
 	} else {
-		if testFireFox(r) {
-			contFileName = fmt.Sprintf("inline;filename*=\"utf-8' '%s\"", fileName)
-		} else {
-			contFileName = fmt.Sprintf("inline;filename=\"%s\"", fileName)
-		}
+		contFileName = fmt.Sprintf("inline;filename*=\"utf-8' '%s\"", url.PathEscape(fileName))
 	}
 	rsp.Header().Set("Content-Disposition", contFileName)
 
@@ -737,6 +717,12 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		zipName := dirName + ".zip"
 		setCommonHeaders(rsp, r, "download", zipName)
 
+		// The zip name downloaded by safari will be garbled if we encode the zip name,
+		// because we download zip file using chunk encoding.
+		contFileName := fmt.Sprintf("attachment;filename=\"%s\"", zipName)
+		rsp.Header().Set("Content-Disposition", contFileName)
+		rsp.Header().Set("Content-Type", "application/octet-stream")
+
 		err := packDir(ar, repo, objID, dirName)
 		if err != nil {
 			log.Printf("failed to pack dir %s: %v", dirName, err)
@@ -752,6 +738,9 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		zipName := fmt.Sprintf("documents-export-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
 
 		setCommonHeaders(rsp, r, "download", zipName)
+		contFileName := fmt.Sprintf("attachment;filename=\"%s\"", zipName)
+		rsp.Header().Set("Content-Disposition", contFileName)
+		rsp.Header().Set("Content-Type", "application/octet-stream")
 
 		for _, v := range dirList {
 			if fsmgr.IsDir(v.Mode) {
