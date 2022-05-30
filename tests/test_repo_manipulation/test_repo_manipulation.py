@@ -73,6 +73,11 @@ def test_repo_manipulation():
     t_enc_repo_id = api.create_enc_repo (t_enc_repo_id, 'test_encrypted_repo', '', USER, t_magic, t_random_key, None, t_enc_version)
     assert t_enc_repo_id == '826d1b7b-f110-46f2-8d5e-7b5ac3e11f4d'
 
+    #test get_repos_by_id_prefix
+    t_id_prefix = '826d1b7b'
+    t_repo_list = api.get_repos_by_id_prefix(t_id_prefix, -1, -1)
+    assert t_repo_list[0].id == '826d1b7b-f110-46f2-8d5e-7b5ac3e11f4d'
+
     #test get_repo_list
     #test order by None
     order_by = None

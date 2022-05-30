@@ -5012,6 +5012,31 @@ ccnet_rpc_list_all_departments (GError **error)
     return ret;
 }
 
+GList*
+seafile_get_repos_by_id_prefix  (const char *id_prefix, int start,
+                                 int limit, GError **error)
+{
+    GList *ret = NULL;
+    GList *repos, *ptr;
+
+    if (!id_prefix) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return NULL;
+    }
+
+    repos = seaf_repo_manager_get_repos_by_id_prefix (seaf->repo_mgr, id_prefix,
+                                                      start, limit);
+
+    ret = convert_repo_list (repos);
+
+    for(ptr = repos; ptr; ptr = ptr->next) {
+        seaf_repo_unref ((SeafRepo *)ptr->data);
+    }
+    g_list_free (repos);
+
+    return ret;
+}
+
 GList *
 ccnet_rpc_get_all_groups (int start, int limit,
                           const char *source, GError **error)
