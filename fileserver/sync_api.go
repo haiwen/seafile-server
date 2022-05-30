@@ -160,12 +160,12 @@ func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
 			return &appError{err, "", http.StatusInternalServerError}
 		}
 		if !exists {
-			if err := repomgr.AddTokenPeerInfo(token, clientID, ip, clientName, clientVer, int64(time.Now().Second())); err != nil {
+			if err := repomgr.AddTokenPeerInfo(token, clientID, ip, clientName, clientVer, int64(time.Now().Unix())); err != nil {
 				err := fmt.Errorf("Failed to add token peer info: %v", err)
 				return &appError{err, "", http.StatusInternalServerError}
 			}
 		} else {
-			if err := repomgr.UpdateTokenPeerInfo(token, clientID, clientVer, int64(time.Now().Second())); err != nil {
+			if err := repomgr.UpdateTokenPeerInfo(token, clientID, clientVer, int64(time.Now().Unix())); err != nil {
 				err := fmt.Errorf("Failed to update token peer info: %v", err)
 				return &appError{err, "", http.StatusInternalServerError}
 			}
