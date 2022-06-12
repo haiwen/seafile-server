@@ -185,46 +185,53 @@ static int check_db_table (CcnetGroupManager *manager, CcnetDB *db)
             "`GroupStructure` (`path`)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
-
     } else if (db_type == SEAF_DB_TYPE_PGSQL) {
         g_string_printf (group_sql,
-            "CREATE TABLE IF NOT EXISTS \"%s\" (group_id SERIAL"
-            " PRIMARY KEY, group_name VARCHAR(255),"
-            " creator_name VARCHAR(255), timestamp BIGINT,"
-            " type VARCHAR(32), parent_group_id INTEGER)", table_name);
+                         "CREATE TABLE IF NOT EXISTS \"%s\" ("
+                         " group_id BIGSERIAL PRIMARY KEY,"
+                         " group_name VARCHAR(255),"
+                         " creator_name VARCHAR(255),"
+                         " timestamp BIGINT,"
+                         " type VARCHAR(32),"
+                         " parent_group_id INTEGER)", table_name);
         if (seaf_db_query (db, group_sql->str) < 0) {
             g_string_free (group_sql, TRUE);
             return -1;
         }
 
-        sql = "CREATE TABLE IF NOT EXISTS GroupUser (group_id INTEGER,"
-            " user_name VARCHAR(255), is_staff smallint, UNIQUE "
-            " (group_id, user_name))";
+        sql = "CREATE TABLE IF NOT EXISTS GroupUser ("
+              " id BIGSERIAL PRIMARY KEY,"
+              " group_id BIGINT,"
+              " user_name VARCHAR(255),"
+              " is_staff BOOLEAN)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS groupuser_group_id_user_name_key ON GroupUser (group_id, user_name)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE INDEX IF NOT EXISTS groupuser_username_idx ON GroupUser (user_name)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        //if (!pgsql_index_exists (db, "groupuser_username_idx")) {
-        //    sql = "CREATE INDEX groupuser_username_idx ON GroupUser (user_name)";
-        //    if (seaf_db_query (db, sql) < 0)
-        //        return -1;
-        //}
-
-        sql = "CREATE TABLE IF NOT EXISTS GroupDNPair (group_id INTEGER,"
-            " dn VARCHAR(255))";
+        sql = "CREATE TABLE IF NOT EXISTS GroupDNPair ("
+              " id BIGSERIAL PRIMARY KEY,"
+              " group_id INTEGER,"
+              " dn VARCHAR(255))";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS GroupStructure (group_id INTEGER PRIMARY KEY, "
-              "path VARCHAR(1024))";
+        sql = "CREATE TABLE IF NOT EXISTS GroupStructure ("
+              " id BIGSERIAL PRIMARY KEY,"
+              " group_id INTEGER,"
+              " path VARCHAR(1024));";
         if (seaf_db_query (db, sql) < 0)
             return -1;
-
-        //if (!pgsql_index_exists (db, "structure_path_idx")) {
-        //    sql = "CREATE INDEX structure_path_idx ON GroupStructure (path)";
-        //    if (seaf_db_query (db, sql) < 0)
-        //        return -1;
-        //}
-
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS groupstructure_groupid_idx ON GroupStructure (group_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE INDEX IF NOT EXISTS structure_path_idx ON GroupStructure (path)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
     }
     g_string_free (group_sql, TRUE);
 

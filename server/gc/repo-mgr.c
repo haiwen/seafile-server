@@ -428,21 +428,13 @@ seaf_repo_manager_set_repo_history_limit (SeafRepoManager *mgr,
     }
 
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
-        gboolean err;
-        snprintf(sql, sizeof(sql),
-                 "SELECT repo_id FROM RepoHistoryLimit "
-                 "WHERE repo_id='%s'", repo_id);
-        if (seaf_db_check_for_existence(db, sql, &err))
-            snprintf(sql, sizeof(sql),
-                     "UPDATE RepoHistoryLimit SET days=%d"
-                     "WHERE repo_id='%s'", days, repo_id);
-        else
-            snprintf(sql, sizeof(sql),
-                     "INSERT INTO RepoHistoryLimit (repo_id, days) VALUES "
-                     "('%s', %d)", repo_id, days);
-        if (err)
+        if (seaf_db_statement_query (db,
+                                     "INSERT INTO RepoHistoryLimit (repo_id, days)"
+                                     " VALUES (?, ?)"
+                                     " ON CONFLICT (repo_id)"
+                                     " DO UPDATE SET days=?",
+                                     2, "string", repo_id, "int", days, "int", days) < 0)
             return -1;
-        return seaf_db_query(db, sql);
     } else {
         snprintf (sql, sizeof(sql),
                   "REPLACE INTO RepoHistoryLimit (repo_id, days) VALUES ('%s', %d)",

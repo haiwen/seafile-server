@@ -136,14 +136,21 @@ mysql_db_start (SeafileSession *session)
 static int
 pgsql_db_start (SeafileSession *session)
 {
-    char *host, *user, *passwd, *db, *unix_socket;
-    unsigned int port;
+    char *host, *user, *passwd, *db, *unix_socket, *charset;
+    int port;
+    gboolean use_ssl = FALSE;
+    int max_connections = 0;
     GError *error = NULL;
 
     host = seaf_key_file_get_string (session->config, "database", "host", &error);
     if (!host) {
         seaf_warning ("DB host not set in config.\n");
         return -1;
+    }
+
+    port = g_key_file_get_integer (session->config, "database", "port", &error);
+    if (error) {
+        port = MYSQL_DEFAULT_PORT;
     }
 
     user = seaf_key_file_get_string (session->config, "database", "user", &error);
@@ -163,20 +170,26 @@ pgsql_db_start (SeafileSession *session)
         seaf_warning ("DB name not set in config.\n");
         return -1;
     }
-    port = g_key_file_get_integer (session->config,
-                                   "database", "port", &error);
-    if (error) {
-        port = 0;
-        g_clear_error (&error);
-    }
 
     unix_socket = seaf_key_file_get_string (session->config,
-                                         "database", "unix_socket", &error);
+                                         "database", "unix_socket", NULL);
 
-    session->db = seaf_db_new_pgsql (host, port, user, passwd, db, unix_socket,
-                                     DEFAULT_MAX_CONNECTIONS);
+    use_ssl = g_key_file_get_boolean (session->config,
+                                      "database", "use_ssl", NULL);
+
+    if (error)
+        g_clear_error (&error);
+    max_connections = g_key_file_get_integer (session->config,
+                                              "database", "max_connections",
+                                              &error);
+    if (error || max_connections < 0) {
+        g_clear_error (&error);
+        max_connections = DEFAULT_MAX_CONNECTIONS;
+    }
+
+    session->db = seaf_db_new_mpgql (host, port, user, passwd, db, unix_socket, use_ssl, max_connections);
     if (!session->db) {
-        seaf_warning ("Failed to start pgsql db.\n");
+        seaf_warning ("Failed to start mysql db.\n");
         return -1;
     }
 
@@ -185,6 +198,7 @@ pgsql_db_start (SeafileSession *session)
     g_free (passwd);
     g_free (db);
     g_free (unix_socket);
+    g_free (charset);
 
     return 0;
 }
@@ -316,6 +330,75 @@ ccnet_init_mysql_database (SeafileSession *session)
 
 #endif
 
+#ifdef HAVE_POSTGRES
+
+static int
+ccnet_init_pgsql_database (SeafileSession *session)
+{
+    char *host, *user, *passwd, *db, *unix_socket, *charset;
+    int port;
+    gboolean use_ssl = FALSE;
+    int max_connections = 0;
+
+    host = ccnet_key_file_get_string (session->ccnet_config, "Database", "HOST");
+    user = ccnet_key_file_get_string (session->ccnet_config, "Database", "USER");
+    passwd = ccnet_key_file_get_string (session->ccnet_config, "Database", "PASSWD");
+    db = ccnet_key_file_get_string (session->ccnet_config, "Database", "DB");
+
+    if (!host) {
+        seaf_warning ("DB host not set in config.\n");
+        return -1;
+    }
+    if (!user) {
+        seaf_warning ("DB user not set in config.\n");
+        return -1;
+    }
+    if (!passwd) {
+        seaf_warning ("DB passwd not set in config.\n");
+        return -1;
+    }
+    if (!db) {
+        seaf_warning ("DB name not set in config.\n");
+        return -1;
+    }
+
+    GError *error = NULL;
+    port = g_key_file_get_integer (session->ccnet_config, "Database", "PORT", &error);
+    if (error) {
+        g_clear_error (&error);
+        port = MYSQL_DEFAULT_PORT;
+    }
+
+    unix_socket = ccnet_key_file_get_string (session->ccnet_config,
+                                             "Database", "UNIX_SOCKET");
+    use_ssl = g_key_file_get_boolean (session->ccnet_config, "Database", "USE_SSL", NULL);
+
+    max_connections = g_key_file_get_integer (session->ccnet_config,
+                                              "Database", "MAX_CONNECTIONS",
+                                              &error);
+    if (error || max_connections < 0) {
+        max_connections = DEFAULT_MAX_CONNECTIONS;
+        g_clear_error (&error);
+    }
+
+    session->ccnet_db = seaf_db_new_pgsql (host, port, user, passwd, db, unix_socket, use_ssl, max_connections);
+    if (!session->ccnet_db) {
+        seaf_warning ("Failed to open ccnet database.\n");
+        return -1;
+    }
+
+    g_free (host);
+    g_free (user);
+    g_free (passwd);
+    g_free (db);
+    g_free (unix_socket);
+    g_free (charset);
+
+    return 0;
+}
+
+#endif
+
 int
 load_ccnet_database_config (SeafileSession *session)
 {
@@ -334,10 +417,10 @@ load_ccnet_database_config (SeafileSession *session)
         ret = ccnet_init_mysql_database (session);
     }
 #endif
-#if 0
-    else if (strncasecmp (engine, DB_PGSQL, sizeof(DB_PGSQL)) == 0) {
-        ccnet_debug ("Use database PostgreSQL\n");
-        ret = init_pgsql_database (session);
+#ifdef HAVE_POSTGRES
+        else if (strcasecmp (engine, "pgsql") == 0) {
+        seaf_message("Use database Postgres\n");
+        ret = ccnet_init_pgsql_database (session);
     }
 #endif
     else {
