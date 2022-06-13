@@ -153,7 +153,7 @@ open_db (SeafBranchManager *mgr)
             " commit_id CHAR(41));";
         if (seaf_db_query (mgr->seaf->db, sql) < 0)
             return -1;
-        sql = "CREATE UNIQUE INDEX branch_repoidname_idx ON Branch (repo_id, name);";
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS branch_repoidname_idx ON Branch (repo_id, name);";
         if (seaf_db_query (mgr->seaf->db, sql) < 0)
             return -1;
         break;
