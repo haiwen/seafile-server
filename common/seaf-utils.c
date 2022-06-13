@@ -131,7 +131,7 @@ mysql_db_start (SeafileSession *session)
 
 #endif
 
-#ifdef HAVE_POSTGRESQL
+#ifdef HAVE_POSTGRES
 
 static int
 pgsql_db_start (SeafileSession *session)
@@ -187,7 +187,7 @@ pgsql_db_start (SeafileSession *session)
         max_connections = DEFAULT_MAX_CONNECTIONS;
     }
 
-    session->db = seaf_db_new_mpgql (host, port, user, passwd, db, unix_socket, use_ssl, max_connections);
+    session->db = seaf_db_new_pgsql (host, port, user, passwd, db, unix_socket, use_ssl, max_connections);
     if (!session->db) {
         seaf_warning ("Failed to start mysql db.\n");
         return -1;
@@ -223,7 +223,7 @@ load_database_config (SeafileSession *session)
         ret = mysql_db_start (session);
     }
 #endif
-#ifdef HAVE_POSTGRESQL
+#ifdef HAVE_POSTGRES
     else if (strcasecmp (type, "pgsql") == 0) {
         ret = pgsql_db_start (session);
     }

@@ -798,7 +798,7 @@ save_branch_repo_map (SeafRepoManager *manager, SeafBranch *branch)
                                         " VALUES (?, ?)"
                                         " ON CONFLICT (repo_id)"
                                         " DO UPDATE SET branch_name=?",
-                                        2, "string", branch->repo_id,
+                                        3, "string", branch->repo_id,
                                         "string", branch->name,
                                         "string", branch->name);
     } else {
@@ -1925,7 +1925,7 @@ seaf_repo_manager_set_repo_history_limit (SeafRepoManager *mgr,
                                      " VALUES (?, ?)"
                                      " ON CONFLICT (repo_id)"
                                      " DO UPDATE SET days=?",
-                                     2, "string", repo_id, "int", days, "int", days) < 0)
+                                     3, "string", repo_id, "int", days, "int", days) < 0)
             return -1;
     } else {
         if (seaf_db_statement_query (db,
@@ -1993,7 +1993,7 @@ seaf_repo_manager_set_repo_valid_since (SeafRepoManager *mgr,
                            " VALUES (?, ?)"
                            " ON CONFLICT (repo_id)"
                            " DO UPDATE SET timestamp=?",
-                           2, "string", repo_id, "int64", timestamp, "int64", timestamp) < 0)
+                           3, "string", repo_id, "int64", timestamp, "int64", timestamp) < 0)
             return -1;
     } else {
         if (seaf_db_statement_query (db,
@@ -2047,7 +2047,6 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
                                   const char *email)
 {
     SeafDB *db = mgr->seaf->db;
-    char sql[256];
     char *orig_owner = NULL;
     int ret = 0;
 
@@ -2060,7 +2059,7 @@ seaf_repo_manager_set_repo_owner (SeafRepoManager *mgr,
                                          " VALUES (?, ?)"
                                          " ON CONFLICT (repo_id)"
                                          " DO UPDATE SET owner_id=?",
-                                     2, "string", repo_id, "string", email, "string", email) < 0) {
+                                     3, "string", repo_id, "string", email, "string", email) < 0) {
             ret = -1;
             goto out;
         }
@@ -2337,7 +2336,6 @@ seaf_repo_manager_get_repos_by_id_prefix (SeafRepoManager *mgr,
 {
     GList *repo_list = NULL, *ptr;
     char *sql;
-    SeafRepo *repo = NULL;
     int len = strlen(id_prefix);
 
     if (len >= 37)
@@ -3449,7 +3447,6 @@ seaf_repo_manager_set_inner_pub_repo (SeafRepoManager *mgr,
                                       const char *permission)
 {
     SeafDB *db = mgr->seaf->db;
-    char sql[256];
 
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
         return seaf_db_statement_query (db,
@@ -3457,7 +3454,7 @@ seaf_repo_manager_set_inner_pub_repo (SeafRepoManager *mgr,
                                         " VALUES (?, ?)"
                                         " ON CONFLICT (repo_id)"
                                         " DO UPDATE SET permission=?",
-                                        2, "string", repo_id, "string", permission, "string", permission);
+                                        3, "string", repo_id, "string", permission, "string", permission);
     } else {
         return seaf_db_statement_query (db,
                                         "REPLACE INTO InnerPubRepo (repo_id, permission) VALUES (?, ?)",

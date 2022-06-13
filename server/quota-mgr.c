@@ -238,7 +238,7 @@ seaf_quota_manager_set_org_quota (SeafQuotaManager *mgr,
                                           " VALUES (?, ?)"
                                           " ON CONFLICT (org_id)"
                                           " DO UPDATE SET quota=?",
-                                          2, "int", org_id, "int64", quota, "int64", quota);
+                                          3, "int", org_id, "int64", quota, "int64", quota);
     } else {
         int rc = seaf_db_statement_query (db,
                                           "REPLACE INTO OrgQuota (org_id, quota) VALUES (?, ?)",

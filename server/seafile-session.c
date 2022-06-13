@@ -435,7 +435,7 @@ void
 schedule_create_system_default_repo (SeafileSession *session)
 {
     int db_type = seaf_db_type (session->db);
-    char *sql;
+    char *sql = NULL;
 
     switch (db_type) {
         case SEAF_DB_TYPE_MYSQL:
@@ -455,7 +455,7 @@ schedule_create_system_default_repo (SeafileSession *session)
             break;
     }
 
-    if ((session->create_tables || db_type == SEAF_DB_TYPE_PGSQL)
+    if (sql && (session->create_tables || db_type == SEAF_DB_TYPE_PGSQL)
         && seaf_db_query (session->db, sql) < 0)
         return;
 

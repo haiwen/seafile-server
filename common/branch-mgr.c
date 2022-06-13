@@ -198,7 +198,6 @@ seaf_branch_manager_add_branch (SeafBranchManager *mgr, SeafBranch *branch)
 
     return 0;
 #else
-    char *sql;
     SeafDB *db = mgr->seaf->db;
 
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {

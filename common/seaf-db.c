@@ -10,9 +10,7 @@
 #include <mysql.h>
 #endif
 #ifdef HAVE_POSTGRES
-#include <postgres.h>
 #include <libpq-fe.h>
-#include <catalog/pg_type.h>
 #endif
 #include <sqlite3.h>
 #include <pthread.h>
@@ -374,12 +372,11 @@ seaf_db_new_pgsql (const char *host,
                    const char *db_name,
                    const char *unix_socket,
                    gboolean use_ssl,
-                   const char *charset,
                    int max_connections)
 {
     SeafDB *db;
 
-    db = pgsql_db_new (host, port, user, passwd, db_name, unix_socket, use_ssl, charset);
+    db = pgsql_db_new (host, port, user, passwd, db_name, unix_socket, use_ssl);
     if (!db)
         return NULL;
     db->type = SEAF_DB_TYPE_PGSQL;
@@ -1346,37 +1343,36 @@ static DBConnection *
 pgsql_db_get_connection (SeafDB *vdb)
 {
     PostgresDB *db = (PostgresDB *)vdb;
-    int conn_timeout = 1;
-    int read_write_timeout = 5;
     PGconn *db_conn;
     PostgresDBConnection *conn = NULL;
 
+    GString *buf = g_string_new (NULL);
     g_string_append_printf (buf, "user='%s' ", db->user);
 
-    esc_password = _pgsql_escape_connect_string (db->password);
+    char* esc_password = _pgsql_escape_connect_string (db->password);
     g_string_append_printf (buf, "password='%s' ", esc_password);
     g_free (esc_password);
 
-    if (pool->unix_socket) {
+    if (db->unix_socket) {
         g_string_append_printf (buf, "host='%s' ", db->unix_socket);
     } else {
         g_string_append_printf (buf, "host='%s' ", db->host);
     }
 
-    if (pool->port > 0) {
+    if (db->port > 0) {
         g_string_append_printf (buf, "port=%u ", db->port);
     }
 
     g_string_append_printf (buf, "dbname='%s' ", db->db_name);
 
-    if (pool->use_ssl) {
+    if (db->use_ssl) {
         g_string_append_printf (buf, "sslmode=require");
     }
 
     db_conn = PQconnectdb (buf->str);
-    if (PQstatus (db) != CONNECTION_OK) {
+    if (PQstatus (db_conn) != CONNECTION_OK) {
         seaf_warning ("Failed to init pgsql connection object.\n");
-        PQfinish (db);
+        PQfinish (db_conn);
         return NULL;
     }
 
@@ -1399,26 +1395,12 @@ pgsql_db_release_connection (DBConnection *vconn)
     g_free (conn);
 }
 
-static PQResult*
-_pgsql_db_execute(PostgresDBConnection *conn, const char *sql, int n, va_list args) {
-    PQResult *res;
-    if (n == 0) {
-        res = PQexec(conn->db_conn, sql);
-    }
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
-        seaf_warning ("Failed to execute sql %s: %s\n", sql, PQresultErrorMessage(res));
-        PQclear (res);
-        return NULL;
-    }
-    return res;
-}
-
 static int
 pgsql_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql)
 {
     PostgresDBConnection *conn = (PostgresDBConnection *)vconn;
 
-    res = PQexec(conn->db_conn, sql);
+    PGresult* res = PQexec(conn->db_conn, sql);
     if (PQresultStatus(res) != PGRES_COMMAND_OK) {
         seaf_warning ("Failed to execute sql %s: %s\n", sql, PQresultErrorMessage(res));
         PQclear (res);
@@ -1450,36 +1432,40 @@ _pgsql_db_format_query_string (const char *sql)
     return g_string_free (buf, FALSE);
 }
 
-static *PGResult
+#define 	INT4OID   23
+#define 	INT8OID   20
+#define 	TEXTOID   25
+
+static PGresult*
 _pgsql_db_execute_stmt(PGconn *db, const char *sql, int n, va_list args)
 {
-    Oid *paramTypes;
-    const char* paramValues;
+    Oid *paramTypes = g_new0(Oid, n);
+    const char** paramValues = g_new0(const char*, n);
     if (n > 0) {
         paramTypes = g_new0(Oid, n);
         for (int i = 0; i < n; i++) {
-            type = va_arg (args, const char *);
+            const char* type = va_arg (args, const char *);
             if (strcmp(type, "int") == 0) {
                 int value = va_arg (args, int);
                 paramTypes[i] = INT4OID;
-                paramValues[i] = g_strdup_printf("%d", x);
+                paramValues[i] = g_strdup_printf("%d", value);
             } else if (strcmp (type, "int64") == 0) {
                 gint64 value = va_arg (args, gint64);
                 paramTypes[i] = INT8OID;
-                paramValues[i] = g_strdup_printf("%"G_GINT64_FORMAT, x);
+                paramValues[i] = g_strdup_printf("%"G_GINT64_FORMAT, value);
             } else if (strcmp (type, "string") == 0) {
                 const char* value = va_arg (args, const char *);
                 paramTypes[i] = TEXTOID;
                 paramValues[i] = g_strdup(value);
             } else {
                 seaf_warning ("BUG: invalid prep stmt parameter type %s.\n", type);
-                g_return_val_if_reached (-1);
+                g_return_val_if_reached (NULL);
             }
         }
     }
 
     return PQexecParams (
-            conn->db,
+            db,
             _pgsql_db_format_query_string(sql),
             n,
             paramTypes,
@@ -1495,11 +1481,12 @@ pgsql_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args)
 {
     PostgresDBConnection *conn = (PostgresDBConnection *)vconn;
 
-    PGResult *res = _pgsql_db_execute_stmt(conn->db, sql, n, args);
+    PGresult *res = _pgsql_db_execute_stmt(conn->db_conn, sql, n, args);
     if (!res) {
         seaf_warning ("Failed to execute sql %s: unknown error\n", sql);
         return -1;
     }
+    ExecStatusType status = PQresultStatus(res);
     if (status != PGRES_EMPTY_QUERY && status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
         seaf_warning ("Failed to execute sql %s: %s\n", sql, PQresultErrorMessage(res));
         PQclear (res);
@@ -1524,11 +1511,12 @@ pgsql_db_query_foreach_row (DBConnection *vconn, const char *sql,
 {
     PostgresDBConnection *conn = (PostgresDBConnection *)vconn;
 
-    PGResult *res = _pgsql_db_execute_stmt(conn->db, sql, n, args);
+    PGresult *res = _pgsql_db_execute_stmt(conn->db_conn, sql, n, args);
     if (!res) {
         seaf_warning ("Failed to execute sql %s: unknown error\n", sql);
         return -1;
     }
+    ExecStatusType status = PQresultStatus(res);
     if (status != PGRES_EMPTY_QUERY && status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
         seaf_warning ("Failed to execute sql %s: %s\n", sql, PQresultErrorMessage(res));
         PQclear (res);
@@ -1541,7 +1529,7 @@ pgsql_db_query_foreach_row (DBConnection *vconn, const char *sql,
     row.results = res;
     int row_count = PQntuples(res);
     for (int i = 0; i < row_count; i++) {
-        row->row_index = i;
+        row.row_index = i;
         if (callback && !callback((SeafDBRow *) &row, data)) {
             break;
         }
@@ -1558,11 +1546,11 @@ pgsql_db_row_get_column_count (SeafDBRow *vrow)
 }
 
 static const char *
-pgsql_db_row_get_column_string (SeafDBRow *vrow, int i)
+pgsql_db_row_get_column_string (SeafDBRow *vrow, int idx)
 {
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
-    return PQgetvalue(r->res, r->row_index, i);
+    return PQgetvalue(row->results, row->row_index, idx);
 }
 
 static int
@@ -1570,15 +1558,15 @@ pgsql_db_row_get_column_int (SeafDBRow *vrow, int idx)
 {
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
-    const char* data = PQgetvalue(r->res, r->row_index, i);
+    const char* data = PQgetvalue(row->results, row->row_index, idx);
     if (!data) {
         return 0;
     }
 
     char *e;
     errno = 0;
-    int ret = strtol (str, &e, 10);
-    if (errno || (e == str)) {
+    int ret = strtol (data, &e, 10);
+    if (errno || (e == data)) {
         seaf_warning ("Number conversion failed.\n");
         return -1;
     }
@@ -1591,15 +1579,15 @@ pgsql_db_row_get_column_int64 (SeafDBRow *vrow, int idx)
 {
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
-    const char* data = PQgetvalue(r->res, r->row_index, i);
+    const char* data = PQgetvalue(row->results, row->row_index, idx);
     if (!data) {
         return 0;
     }
 
     char *e;
     errno = 0;
-    int ret = strtoll (str, &e, 10);
-    if (errno || (e == str)) {
+    int ret = strtoll (data, &e, 10);
+    if (errno || (e == data)) {
         seaf_warning ("Number conversion failed.\n");
         return -1;
     }
