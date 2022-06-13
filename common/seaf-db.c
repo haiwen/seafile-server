@@ -1525,7 +1525,7 @@ pgsql_db_query_foreach_row (DBConnection *vconn, const char *sql,
 
     PgSQLDBRow row;
     memset(&row, 0, sizeof(row));
-    row.column_count = PQntuples(res);
+    row.column_count = PQnfields(res);
     row.results = res;
     int row_count = PQntuples(res);
     for (int i = 0; i < row_count; i++) {
@@ -1559,7 +1559,7 @@ pgsql_db_row_get_column_int (SeafDBRow *vrow, int idx)
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
     const char* data = PQgetvalue(row->results, row->row_index, idx);
-    if (!data) {
+    if (!data || 0 == strlen(data)) {
         return 0;
     }
 
@@ -1580,7 +1580,7 @@ pgsql_db_row_get_column_int64 (SeafDBRow *vrow, int idx)
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
     const char* data = PQgetvalue(row->results, row->row_index, idx);
-    if (!data) {
+    if (!data || 0 == strlen(data)) {
         return 0;
     }
 
