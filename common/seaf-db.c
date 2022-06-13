@@ -10,7 +10,9 @@
 #include <mysql.h>
 #endif
 #ifdef HAVE_POSTGRES
+#include <postgres.h>
 #include <libpq-fe.h>
+#include <catalog/pg_type.h>
 #endif
 #include <sqlite3.h>
 #include <pthread.h>
@@ -1397,6 +1399,20 @@ pgsql_db_release_connection (DBConnection *vconn)
     g_free (conn);
 }
 
+static PQResult*
+_pgsql_db_execute(PostgresDBConnection *conn, const char *sql, int n, va_list args) {
+    PQResult *res;
+    if (n == 0) {
+        res = PQexec(conn->db_conn, sql);
+    }
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        seaf_warning ("Failed to execute sql %s: %s\n", sql, PQresultErrorMessage(res));
+        PQclear (res);
+        return NULL;
+    }
+    return res;
+}
+
 static int
 pgsql_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql)
 {
@@ -1413,17 +1429,92 @@ pgsql_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql)
     return 0;
 }
 
+/* Convert '?' in the query string to $1, $2, etc. */
+static char *
+_pgsql_db_format_query_string (const char *sql)
+{
+    GString *buf = g_string_new (NULL);
+    const char *p;
+    int i = 0;
+
+    for (p = sql; *p != '\0'; ++p) {
+        if (*p == '?') {
+            ++i;
+            g_string_append_c (buf, '$');
+            g_string_append_printf (buf, "%d", i);
+        } else {
+            g_string_append_c (buf, *p);
+        }
+    }
+
+    return g_string_free (buf, FALSE);
+}
+
+static *PGResult
+_pgsql_db_execute_stmt(PGconn *db, const char *sql, int n, va_list args)
+{
+    Oid *paramTypes;
+    const char* paramValues;
+    if (n > 0) {
+        paramTypes = g_new0(Oid, n);
+        for (int i = 0; i < n; i++) {
+            type = va_arg (args, const char *);
+            if (strcmp(type, "int") == 0) {
+                int value = va_arg (args, int);
+                paramTypes[i] = INT4OID;
+                paramValues[i] = g_strdup_printf("%d", x);
+            } else if (strcmp (type, "int64") == 0) {
+                gint64 value = va_arg (args, gint64);
+                paramTypes[i] = INT8OID;
+                paramValues[i] = g_strdup_printf("%"G_GINT64_FORMAT, x);
+            } else if (strcmp (type, "string") == 0) {
+                const char* value = va_arg (args, const char *);
+                paramTypes[i] = TEXTOID;
+                paramValues[i] = g_strdup(value);
+            } else {
+                seaf_warning ("BUG: invalid prep stmt parameter type %s.\n", type);
+                g_return_val_if_reached (-1);
+            }
+        }
+    }
+
+    return PQexecParams (
+            conn->db,
+            _pgsql_db_format_query_string(sql),
+            n,
+            paramTypes,
+            paramValues,
+            NULL,
+            NULL,
+            0
+    );
+}
+
 static int
 pgsql_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args)
 {
-    // TODO
-    return -1;
+    PostgresDBConnection *conn = (PostgresDBConnection *)vconn;
+
+    PGResult *res = _pgsql_db_execute_stmt(conn->db, sql, n, args);
+    if (!res) {
+        seaf_warning ("Failed to execute sql %s: unknown error\n", sql);
+        return -1;
+    }
+    if (status != PGRES_EMPTY_QUERY && status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+        seaf_warning ("Failed to execute sql %s: %s\n", sql, PQresultErrorMessage(res));
+        PQclear (res);
+        return -1;
+    }
+
+    PQclear (res);
+    return 0;
 }
 
 typedef struct PgSQLDBRow {
     SeafDBRow parent;
     int column_count;
-    // TODO
+    int row_index;
+    PGresult *results;
 } PgSQLDBRow;
 
 static int
@@ -1431,8 +1522,32 @@ pgsql_db_query_foreach_row (DBConnection *vconn, const char *sql,
                             SeafDBRowFunc callback, void *data,
                             int n, va_list args)
 {
-    // TODO
-    return 0;
+    PostgresDBConnection *conn = (PostgresDBConnection *)vconn;
+
+    PGResult *res = _pgsql_db_execute_stmt(conn->db, sql, n, args);
+    if (!res) {
+        seaf_warning ("Failed to execute sql %s: unknown error\n", sql);
+        return -1;
+    }
+    if (status != PGRES_EMPTY_QUERY && status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+        seaf_warning ("Failed to execute sql %s: %s\n", sql, PQresultErrorMessage(res));
+        PQclear (res);
+        return -1;
+    }
+
+    PgSQLDBRow row;
+    memset(&row, 0, sizeof(row));
+    row.column_count = PQntuples(res);
+    row.results = res;
+    int row_count = PQntuples(res);
+    for (int i = 0; i < row_count; i++) {
+        row->row_index = i;
+        if (callback && !callback((SeafDBRow *) &row, data)) {
+            break;
+        }
+    };
+    PQclear(res);
+    return row_count;
 }
 
 static int
@@ -1447,8 +1562,7 @@ pgsql_db_row_get_column_string (SeafDBRow *vrow, int i)
 {
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
-    // TODO
-    return NULL;
+    return PQgetvalue(r->res, r->row_index, i);
 }
 
 static int
@@ -1456,8 +1570,20 @@ pgsql_db_row_get_column_int (SeafDBRow *vrow, int idx)
 {
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
-    // TODO
-    return 0;
+    const char* data = PQgetvalue(r->res, r->row_index, i);
+    if (!data) {
+        return 0;
+    }
+
+    char *e;
+    errno = 0;
+    int ret = strtol (str, &e, 10);
+    if (errno || (e == str)) {
+        seaf_warning ("Number conversion failed.\n");
+        return -1;
+    }
+
+    return ret;
 }
 
 static gint64
@@ -1465,8 +1591,20 @@ pgsql_db_row_get_column_int64 (SeafDBRow *vrow, int idx)
 {
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
-    // TODO
-    return 0;
+    const char* data = PQgetvalue(r->res, r->row_index, i);
+    if (!data) {
+        return 0;
+    }
+
+    char *e;
+    errno = 0;
+    int ret = strtoll (str, &e, 10);
+    if (errno || (e == str)) {
+        seaf_warning ("Number conversion failed.\n");
+        return -1;
+    }
+
+    return ret;
 }
 
 #endif  /* HAVE_POSTGRES */
