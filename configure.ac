@@ -242,7 +242,7 @@ else
     AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 if MySQL support is enabled])
 fi
 
-PKG_CHECK_MODULES(LIBPQ, [libpq], [have_pgsql="yes"], [have_pgsql="no"])
+PKG_CHECK_MODULES(LIBPQ, [libpq], [have_libpq="yes"], [have_libpq="no"])
 if test "x${have_libpq}" = "xyes"; then
     AC_SUBST(LIBPQ_CFLAGS)
     AC_SUBST(LIBPQ_LIBS)
