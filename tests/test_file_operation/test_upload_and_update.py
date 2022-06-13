@@ -98,10 +98,10 @@ def write_file(file_path, file_content):
     fp.close()
 
 def del_repo_files(repo_id):
-    api.del_file(repo_id, '/', file_name, USER)
-    api.del_file(repo_id, '/', file_name_not_replaced, USER)
-    api.del_file(repo_id, '/', 'subdir', USER)
-    api.del_file(repo_id, '/', resumable_file_name, USER)
+    api.del_file(repo_id, '/', '[\"'+file_name+'\"]', USER)
+    api.del_file(repo_id, '/', '[\"'+file_name_not_replaced+'\"]', USER)
+    api.del_file(repo_id, '/', '[\"subdir\"]', USER)
+    api.del_file(repo_id, '/', '[\"'+resumable_file_name+'\"]', USER)
 
 def del_local_files():
     os.remove(file_path)

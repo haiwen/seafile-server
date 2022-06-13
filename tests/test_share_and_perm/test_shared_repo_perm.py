@@ -112,7 +112,7 @@ def test_share_dir_to_user(repo, permission):
     users = api.get_shared_users_for_subdir(repo.id, '/dir1', USER)
     assert len(users) == 1 and users[0].user == USER2
 
-    assert api.del_file(repo.id, '/', 'dir1', USER) == 0
+    assert api.del_file(repo.id, '/', '[\"dir1\"]', USER) == 0
     assert api.unshare_subdir_for_user(repo.id, '/dir2', USER, USER2) == 0
 
     time.sleep(2)
@@ -135,7 +135,7 @@ def test_share_dir_to_group(repo, group, permission):
     users = api.get_shared_groups_for_subdir(repo.id, '/dir1', USER)
     assert len(users) == 1
 
-    assert api.del_file(repo.id, '/', 'dir1', USER) == 0
+    assert api.del_file(repo.id, '/', '[\"dir1\"]', USER) == 0
     assert api.unshare_subdir_for_group(repo.id, '/dir2', USER, group.id) == 0
 
     time.sleep(2)
