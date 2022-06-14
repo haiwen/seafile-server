@@ -339,10 +339,10 @@ seaf_branch_manager_test_and_update_branch (SeafBranchManager *mgr,
 
     switch (seaf_db_type (mgr->seaf->db)) {
     case SEAF_DB_TYPE_MYSQL:
-    case SEAF_DB_TYPE_PGSQL:
         sql = "SELECT commit_id FROM Branch WHERE name=? "
             "AND repo_id=? FOR UPDATE";
         break;
+    case SEAF_DB_TYPE_PGSQL:
     case SEAF_DB_TYPE_SQLITE:
         sql = "SELECT commit_id FROM Branch WHERE name=? "
             "AND repo_id=?";

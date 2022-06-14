@@ -1401,7 +1401,12 @@ pgsql_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql)
     PostgresDBConnection *conn = (PostgresDBConnection *)vconn;
 
     PGresult* res = PQexec(conn->db_conn, sql);
-    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+    if (!res) {
+        seaf_warning ("Failed to execute sql %s: unknown error\n", sql);
+        return -1;
+    }
+    ExecStatusType status = PQresultStatus(res);
+    if (status != PGRES_EMPTY_QUERY && status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
         seaf_warning ("Failed to execute sql %s: %s\n", sql, PQresultErrorMessage(res));
         PQclear (res);
         return -1;
@@ -1432,9 +1437,14 @@ _pgsql_db_format_query_string (const char *sql)
     return g_string_free (buf, FALSE);
 }
 
-#define 	INT4OID   23
-#define 	INT8OID   20
-#define 	TEXTOID   25
+#define 	INT2OID    21
+#define 	INT4OID    23
+#define 	INT8OID    20
+#define 	TEXTOID    25
+#define     VARCHAROID 1043
+#define     BPCHAROID  1042
+#define     TIMESTAMPOID  1114
+#define     TIMESTAMPTZOID  1184
 
 static PGresult*
 _pgsql_db_execute_stmt(PGconn *db, const char *sql, int n, va_list args)
@@ -1550,6 +1560,15 @@ pgsql_db_row_get_column_string (SeafDBRow *vrow, int idx)
 {
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
+    if (idx >= row->column_count) {
+        seaf_warning("Tried retrieving column %d but only have %d columns\n", idx, row->column_count);
+        return NULL;
+    }
+
+    if (PQgetisnull(row->results, row->row_index, idx)) {
+        return NULL;
+    }
+
     return PQgetvalue(row->results, row->row_index, idx);
 }
 
@@ -1558,7 +1577,7 @@ pgsql_db_row_get_column_int (SeafDBRow *vrow, int idx)
 {
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
-    const char* data = PQgetvalue(row->results, row->row_index, idx);
+    const char* data = pgsql_db_row_get_column_string(row, idx);
     if (!data || 0 == strlen(data)) {
         return 0;
     }
@@ -1579,7 +1598,7 @@ pgsql_db_row_get_column_int64 (SeafDBRow *vrow, int idx)
 {
     PgSQLDBRow *row = (PgSQLDBRow *)vrow;
 
-    const char* data = PQgetvalue(row->results, row->row_index, idx);
+    const char* data = pgsql_db_row_get_column_string(row, idx);
     if (!data || 0 == strlen(data)) {
         return 0;
     }

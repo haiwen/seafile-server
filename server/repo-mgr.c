@@ -604,9 +604,17 @@ del_repo:
         remove_virtual_repo_ondisk (mgr, (char *)ptr->data);
     string_list_free (vrepos);
 
-    seaf_db_statement_query (mgr->seaf->db, "DELETE r, v FROM RepoInfo r, VirtualRepo v "
-                             "WHERE r.repo_id=v.repo_id and v.origin_repo=?",
-                             1, "string", repo_id);
+    int db_type = seaf_db_type(mgr->seaf->db);
+    if (db_type == SEAF_DB_TYPE_PGSQL) {
+        seaf_db_statement_query (mgr->seaf->db, "DELETE FROM RepoInfo r "
+                                "USING VirtualRepo v "
+                                "WHERE r.repo_id=v.repo_id and v.origin_repo=?",
+                                1, "string", repo_id);
+    } else {
+        seaf_db_statement_query (mgr->seaf->db, "DELETE r, v FROM RepoInfo r, VirtualRepo v "
+                                "WHERE r.repo_id=v.repo_id and v.origin_repo=?",
+                                1, "string", repo_id);
+    }
 
     seaf_db_statement_query (mgr->seaf->db, "DELETE FROM RepoInfo "
                              "WHERE repo_id=?",
