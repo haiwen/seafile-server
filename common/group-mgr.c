@@ -203,7 +203,7 @@ static int check_db_table (CcnetGroupManager *manager, CcnetDB *db)
               " id BIGSERIAL PRIMARY KEY,"
               " group_id BIGINT,"
               " user_name VARCHAR(255),"
-              " is_staff BOOLEAN)";
+              " is_staff SMALLINT)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
         sql = "CREATE UNIQUE INDEX IF NOT EXISTS groupuser_group_id_user_name_key ON GroupUser (group_id, user_name)";

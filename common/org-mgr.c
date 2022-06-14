@@ -189,7 +189,7 @@ static int check_db_table (CcnetDB *db)
               " id BIGSERIAL PRIMARY KEY,"
               " org_id INTEGER,"
               " email VARCHAR(255),"
-              " is_staff BOOLEAN NOT NULL);";
+              " is_staff SMALLINT NOT NULL);";
         if (seaf_db_query (db, sql) < 0)
             return -1;
         sql = "CREATE UNIQUE INDEX IF NOT EXISTS orguser_org_id_email_key ON OrgUser (org_id, email)";

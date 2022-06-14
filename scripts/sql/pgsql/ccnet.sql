@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS EmailUser (
  id BIGSERIAL PRIMARY KEY,
  email VARCHAR(255),
  passwd VARCHAR(256),
- is_staff BOOLEAN NOT NULL,
- is_active BOOLEAN NOT NULL,
+ is_staff SMALLINT NOT NULL,
+ is_active SMALLINT NOT NULL,
  ctime BIGINT,
  reference_id VARCHAR(255));
 -- existing index, reuse old name
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS GroupUser (
  id BIGSERIAL PRIMARY KEY,
  group_id BIGINT,
  user_name VARCHAR(255),
- is_staff BOOLEAN);
+ is_staff SMALLINT);
 -- existing index, reuse old name
 CREATE UNIQUE INDEX IF NOT EXISTS groupuser_group_id_user_name_key ON GroupUser (group_id, user_name);
 -- existing index, reuse old name
@@ -60,8 +60,8 @@ CREATE TABLE IF NOT EXISTS LDAPUsers (
  id BIGSERIAL PRIMARY KEY,
  email VARCHAR(255) NOT NULL,
  password varchar(255) NOT NULL,
- is_staff BOOLEAN NOT NULL,
- is_active BOOLEAN NOT NULL,
+ is_staff SMALLINT NOT NULL,
+ is_active SMALLINT NOT NULL,
  extra_attrs TEXT,
  reference_id VARCHAR(255));
 -- existing index, reuse old name
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS OrgUser (
  id BIGSERIAL PRIMARY KEY,
  org_id INTEGER,
  email VARCHAR(255),
- is_staff BOOLEAN NOT NULL);
+ is_staff SMALLINT NOT NULL);
 -- existing index, reuse old name
 CREATE UNIQUE INDEX IF NOT EXISTS orguser_org_id_email_key ON OrgUser (org_id, email);
 -- existing index, reuse old name
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS UserRole (
  id BIGSERIAL PRIMARY KEY,
  email VARCHAR(255),
  "role" VARCHAR(255),
- is_manual_set BOOLEAN DEFAULT false);
+ is_manual_set smallint DEFAULT 0);
 -- existing index, reuse old name
 CREATE UNIQUE INDEX IF NOT EXISTS userrole_email_role_key ON UserRole (email, role);
 -- existing index, reuse old name

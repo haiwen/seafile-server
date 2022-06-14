@@ -661,8 +661,8 @@ static int check_db_table (SeafDB *db)
               " id BIGSERIAL PRIMARY KEY,"
               " email VARCHAR(255),"
               " passwd VARCHAR(256),"
-              " is_staff BOOLEAN NOT NULL,"
-              " is_active BOOLEAN NOT NULL,"
+              " is_staff SMALLINT NOT NULL,"
+              " is_active SMALLINT NOT NULL,"
               " ctime BIGINT,"
               " reference_id VARCHAR(255))";
         if (seaf_db_query (db, sql) < 0)
@@ -691,7 +691,7 @@ static int check_db_table (SeafDB *db)
               " id BIGSERIAL PRIMARY KEY,"
               " email VARCHAR(255),"
               " \"role\" VARCHAR(255),"
-              " is_manual_set BOOLEAN DEFAULT false)";
+              " is_manual_set smallint DEFAULT 0)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
         sql = "CREATE UNIQUE INDEX IF NOT EXISTS userrole_email_role_key ON UserRole (email, role)";
@@ -705,8 +705,8 @@ static int check_db_table (SeafDB *db)
               " id BIGSERIAL PRIMARY KEY,"
               " email VARCHAR(255) NOT NULL,"
               " password varchar(255) NOT NULL,"
-              " is_staff BOOLEAN NOT NULL,"
-              " is_active BOOLEAN NOT NULL,"
+              " is_staff SMALLINT NOT NULL,"
+              " is_active SMALLINT NOT NULL,"
               " extra_attrs TEXT,"
               " reference_id VARCHAR(255))";
         if (seaf_db_query (db, sql) < 0)
