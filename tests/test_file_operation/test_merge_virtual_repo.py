@@ -183,7 +183,7 @@ def test_merge_virtual_repo(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size + file_size
 
-    api.del_file(v_repo_id, '/', file_name, USER2)
+    api.del_file(v_repo_id, '/', '[\"'+file_name+'\"]', USER2)
 
     time.sleep (1.5)
     v_repo_size = api.get_repo_size (v_repo_id)
@@ -192,7 +192,7 @@ def test_merge_virtual_repo(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size
 
-    api.del_file(v_repo_id, '/', resumable_file_name, USER2)
+    api.del_file(v_repo_id, '/', '[\"'+resumable_file_name+'\"]', USER2)
 
     time.sleep (1.5)
     v_repo_size = api.get_repo_size (v_repo_id)
@@ -201,7 +201,7 @@ def test_merge_virtual_repo(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == 0
 
-    api.del_file(repo.id, '/dir1', 'subdir1', USER)
-    api.del_file(repo.id, '/dir2', 'subdir1', USER)
+    api.del_file(repo.id, '/dir1', '[\"subdir1\"]', USER)
+    api.del_file(repo.id, '/dir2', '[\"subdir1\"]', USER)
     assert api.unshare_subdir_for_user(repo.id, '/dir1', USER, USER2) == 0
     del_local_files()
