@@ -190,9 +190,9 @@ seaf_quota_manager_set_user_quota (SeafQuotaManager *mgr,
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
         int rc;
         rc = seaf_db_statement_query (db,
-                                      "INSERT INTO UserQuota (user, quota)"
+                                      "INSERT INTO UserQuota (\"user\", quota)"
                                       " VALUES (?, ?)"
-                                      " ON CONFLICT (user)"
+                                      " ON CONFLICT (\"user\")"
                                       " DO UPDATE SET quota=?",
                                       3, "string", user, "int64", quota, "int64", quota);
         return rc;
@@ -273,9 +273,9 @@ seaf_quota_manager_set_org_user_quota (SeafQuotaManager *mgr,
 
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
         rc = seaf_db_statement_query (db,
-                                      "INSERT INTO OrgUserQuota (org_id, user, quota)"
+                                      "INSERT INTO OrgUserQuota (org_id, \"user\", quota)"
                                       " VALUES (?, ?, ?)"
-                                      " ON CONFLICT (org_id, user)"
+                                      " ON CONFLICT (org_id, \"user\")"
                                       " DO UPDATE SET quota=?",
                                       3, "int", org_id, "string", user, "int64", quota, "int64", quota);
         return rc;

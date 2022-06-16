@@ -1605,7 +1605,7 @@ pgsql_db_row_get_column_int64 (SeafDBRow *vrow, int idx)
 
     char *e;
     errno = 0;
-    int ret = strtoll (data, &e, 10);
+    gint64 ret = strtoll (data, &e, 10);
     if (errno || (e == data)) {
         seaf_warning ("Number conversion failed.\n");
         return -1;
