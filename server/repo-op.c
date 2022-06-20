@@ -30,6 +30,8 @@
 #define PREFIX_DEL_DIR "Removed directory \""
 #define PREFIX_DEL_DIRS "Removed \""
 
+#define DUPLICATE_NAMES_COUNT 1000
+
 gboolean
 should_ignore_file(const char *filename, void *data);
 
@@ -116,7 +118,7 @@ generate_unique_filename (const char *file, GList *entries)
 
     unique_name = g_strdup(file);
     split_filename (unique_name, &name, &ext);
-    while (filename_exists (entries, unique_name) && i <= 100) {
+    while (filename_exists (entries, unique_name) && i <= DUPLICATE_NAMES_COUNT) {
         g_free (unique_name);
         if (ext)
             unique_name = g_strdup_printf ("%s (%d).%s", name, i, ext);
@@ -128,7 +130,7 @@ generate_unique_filename (const char *file, GList *entries)
     g_free (name);
     g_free (ext);
 
-    if (i <= 100)
+    if (i <= DUPLICATE_NAMES_COUNT)
         return unique_name;
     else {
         g_free (unique_name);
