@@ -115,16 +115,20 @@ generate_unique_filename (const char *file, GList *entries)
 {
     int i = 1;
     char *name, *ext, *unique_name;
+    char *random_str = NULL;
 
     unique_name = g_strdup(file);
     split_filename (unique_name, &name, &ext);
     while (filename_exists (entries, unique_name) && i <= DUPLICATE_NAMES_COUNT) {
         g_free (unique_name);
+        random_str = gen_uuid ();
+        *(random_str + 4) = '\0';
         if (ext)
-            unique_name = g_strdup_printf ("%s (%d).%s", name, i, ext);
+            unique_name = g_strdup_printf ("%s (%d)%s.%s", name, i, random_str, ext);
         else
-            unique_name = g_strdup_printf ("%s (%d)", name, i);
+            unique_name = g_strdup_printf ("%s (%d)%s", name, i, random_str);
         i++;
+        g_free (random_str);
     }
 
     g_free (name);
