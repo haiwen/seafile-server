@@ -71,6 +71,7 @@ type fileServerOptions struct {
 	defaultQuota           int64
 	// Profile password
 	profilePassword string
+	enableProfiling bool
 }
 
 var options fileServerOptions
@@ -363,8 +364,15 @@ func parseFileServerSection(section *ini.Section) {
 			options.clusterSharedTempFileMode = uint32(fileMode)
 		}
 	}
-	if key, err := section.GetKey("password"); err == nil {
-		options.profilePassword = key.String()
+	if key, err := section.GetKey("enable_profiling"); err == nil {
+		options.enableProfiling, _ = key.Bool()
+	}
+	if options.enableProfiling {
+		if key, err := section.GetKey("password"); err == nil {
+			options.profilePassword = key.String()
+		} else {
+			log.Fatal("password of profiling must be specified.")
+		}
 	}
 }
 
@@ -377,7 +385,6 @@ func initDefaultOptions() {
 	options.webTokenExpireTime = 7200
 	options.clusterSharedTempFileMode = 0600
 	options.defaultQuota = InfiniteQuota
-	options.profilePassword = "8kcUz1I2sLaywQhCRtn2x1"
 }
 
 func writePidFile(pid_file_path string) error {
@@ -643,7 +650,7 @@ type profileHandler struct {
 func (p *profileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	queries := r.URL.Query()
 	password := queries.Get("password")
-	if password != options.profilePassword {
+	if !options.enableProfiling || password != options.profilePassword {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}
