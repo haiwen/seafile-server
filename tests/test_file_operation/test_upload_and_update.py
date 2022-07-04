@@ -8,6 +8,7 @@ from requests_toolbelt import MultipartEncoder
 
 file_name = 'file.txt'
 file_name_not_replaced = 'file (1).txt'
+file_prefix = 'file (1)'
 file_path = os.getcwd() + '/' + file_name
 file_content = 'File content.\r\n'
 file_size = len(file_content)
@@ -44,7 +45,7 @@ def assert_upload_response(response, replace, file_exist):
     assert response_json[0]['size'] == 0
     assert response_json[0]['id'] == file_id
     if file_exist and not replace:
-        assert response_json[0]['name'] == file_name_not_replaced
+        assert response_json[0]['name'].startswith(file_prefix)
     else:
         assert response_json[0]['name'] == file_name
 
