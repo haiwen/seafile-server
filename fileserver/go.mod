@@ -9,5 +9,6 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.0
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/ini.v1 v1.55.0
 )

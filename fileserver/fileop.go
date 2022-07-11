@@ -36,6 +36,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -944,6 +945,11 @@ func formatJSONError(rsp http.ResponseWriter, err *appError) {
 	}
 }
 
+func normalizeUTF8Path(p string) string {
+	newPath := norm.NFC.Bytes([]byte(p))
+	return string(newPath)
+}
+
 func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bool) *appError {
 	setAccessControl(rsp)
 
@@ -1029,7 +1035,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		}
 		for _, handler := range fileHeaders {
 			fileName := filepath.Base(handler.Filename)
-			fsm.fileNames = append(fsm.fileNames, fileName)
+			fsm.fileNames = append(fsm.fileNames, normalizeUTF8Path(fileName))
 			fsm.fileHeaders = append(fsm.fileHeaders, handler)
 		}
 	}
@@ -1158,7 +1164,7 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 
 	if fsm.rend == fsm.fsize-1 {
 		fileName := filepath.Base(filename)
-		fsm.fileNames = append(fsm.fileNames, fileName)
+		fsm.fileNames = append(fsm.fileNames, normalizeUTF8Path(fileName))
 		fsm.files = append(fsm.files, tmpFile)
 	}
 
