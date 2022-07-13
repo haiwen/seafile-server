@@ -36,6 +36,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -944,6 +945,11 @@ func formatJSONError(rsp http.ResponseWriter, err *appError) {
 	}
 }
 
+func normalizeUTF8Path(p string) string {
+	newPath := norm.NFC.Bytes([]byte(p))
+	return string(newPath)
+}
+
 func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bool) *appError {
 	setAccessControl(rsp)
 
@@ -968,13 +974,13 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		}
 	}
 
-	parentDir := r.FormValue("parent_dir")
+	parentDir := normalizeUTF8Path(r.FormValue("parent_dir"))
 	if parentDir == "" {
 		msg := "No parent_dir given.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	relativePath := r.FormValue("relative_path")
+	relativePath := normalizeUTF8Path(r.FormValue("relative_path"))
 	if relativePath != "" {
 		if relativePath[0] == '/' || relativePath[0] == '\\' {
 			msg := "Invalid relative path"
@@ -1029,7 +1035,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		}
 		for _, handler := range fileHeaders {
 			fileName := filepath.Base(handler.Filename)
-			fsm.fileNames = append(fsm.fileNames, fileName)
+			fsm.fileNames = append(fsm.fileNames, normalizeUTF8Path(fileName))
 			fsm.fileHeaders = append(fsm.fileHeaders, handler)
 		}
 	}
@@ -1158,7 +1164,7 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 
 	if fsm.rend == fsm.fsize-1 {
 		fileName := filepath.Base(filename)
-		fsm.fileNames = append(fsm.fileNames, fileName)
+		fsm.fileNames = append(fsm.fileNames, normalizeUTF8Path(fileName))
 		fsm.files = append(fsm.files, tmpFile)
 	}
 
@@ -2598,7 +2604,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	repoID := fsm.repoID
 	user := fsm.user
 
-	targetFile := r.FormValue("target_file")
+	targetFile := normalizeUTF8Path(r.FormValue("target_file"))
 	if targetFile == "" {
 		msg := "No target_file given.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
@@ -2922,13 +2928,13 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 		}
 	}
 
-	parentDir := r.FormValue("parent_dir")
+	parentDir := normalizeUTF8Path(r.FormValue("parent_dir"))
 	if parentDir == "" {
 		msg := "No parent_dir given.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	fileName := r.FormValue("file_name")
+	fileName := normalizeUTF8Path(r.FormValue("file_name"))
 	if fileName == "" {
 		msg := "No file_name given.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
