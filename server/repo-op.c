@@ -455,7 +455,7 @@ gen_new_commit (const char *repo_id,
                 const char *user,
                 const char *desc,
                 char *new_commit_id,
-                gboolean is_retry,
+                gboolean retry_on_conflict,
                 GError **error)
 {
 #define MAX_RETRY_COUNT 3
@@ -505,11 +505,6 @@ retry:
         MergeOptions opt;
         const char *roots[3];
         char *desc = NULL;
-
-        if (!is_retry) {
-            ret = -1;
-            goto out;
-        }
 
         memset (&opt, 0, sizeof(opt));
         opt.n_ways = 3;
@@ -574,6 +569,11 @@ retry:
                                                    repo->head,
                                                    current_head->commit_id) < 0)
     {
+        if (!retry_on_conflict) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_CONCURRENT_UPLOAD, "Concurrent upload");
+            ret = -1;
+            goto out;
+        }
         seaf_repo_unref (repo);
         repo = NULL;
         seaf_commit_unref (current_head);
@@ -717,7 +717,7 @@ retry:
     snprintf(buf, SEAF_PATH_MAX, "Added \"%s\"", file_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
                         user, buf, NULL, FALSE, error) < 0) {
-        if (*error != NULL) {
+        if (*error == NULL || (*error)->code != SEAF_ERR_CONCURRENT_UPLOAD) {
             ret = -1;
             goto out;
         }
@@ -1189,7 +1189,7 @@ retry:
 
     if (gen_new_commit (repo->id, head_commit, root_id,
                         user, buf->str, NULL, FALSE, error) < 0) {
-        if (*error != NULL) {
+        if (*error == NULL || (*error)->code != SEAF_ERR_CONCURRENT_UPLOAD) {
             ret = -1;
             goto out;
         }
