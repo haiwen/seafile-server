@@ -171,7 +171,7 @@ start_index_task (gpointer data, gpointer user_data)
     id_list = g_list_reverse (id_list);
     size_list = g_list_reverse (size_list);
     ret = post_files_and_gen_commit (idx_para->filenames,
-                                     idx_para->repo,
+                                     idx_para->repo->id,
                                      idx_para->user,
                                      idx_para->ret_json ? &ret_json : NULL,
                                      idx_para->replace_existed,

@@ -900,7 +900,7 @@ seaf_repo_manager_set_subdir_group_perm_by_path (SeafRepoManager *mgr,
 
 int
 post_files_and_gen_commit (GList *filenames,
-                          SeafRepo *repo,
+                          const char *repo_id,
                           const char *user,
                           char **ret_json,
                           int replace_existed,
