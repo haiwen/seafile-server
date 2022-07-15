@@ -368,7 +368,7 @@ func parseFileServerSection(section *ini.Section) {
 		options.enableProfiling, _ = key.Bool()
 	}
 	if options.enableProfiling {
-		if key, err := section.GetKey("password"); err == nil {
+		if key, err := section.GetKey("profile_password"); err == nil {
 			options.profilePassword = key.String()
 		} else {
 			log.Fatal("password of profiling must be specified.")
