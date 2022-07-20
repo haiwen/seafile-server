@@ -43,6 +43,7 @@ const (
 	cacheBlockMapThreshold          = 1 << 23
 	blockMapCacheExpiretime   int64 = 3600 * 24
 	fileopCleaningIntervalSec       = 3600
+	duplicateNamesCount             = 1000
 )
 
 var blockMapCacheTable sync.Map
@@ -1246,7 +1247,7 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 	}
 
 	buf := fmt.Sprintf("Added directory \"%s\"", relativeDirCan)
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf)
+	_, err = genNewCommit(repo, headCommit, rootID, user, buf, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return err
@@ -1502,7 +1503,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		}
 	}
 
-	retStr, err := postFilesAndGenCommit(fileNames, repo, user, canonPath, replace, ids, sizes)
+	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes)
 	if err != nil {
 		err := fmt.Errorf("failed to post files and gen commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -1537,13 +1538,19 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 	return nil
 }
 
-func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPath string, replace bool, ids []string, sizes []int64) (string, error) {
+func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64) (string, error) {
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		err := fmt.Errorf("failed to get repo %s", repoID)
+		return "", err
+	}
 	headCommit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
 		err := fmt.Errorf("failed to get head commit for repo %s", repo.ID)
 		return "", err
 	}
 	var names []string
+	var retryCnt int
 
 	var dents []*fsmgr.SeafDirent
 	for i, name := range fileNames {
@@ -1556,6 +1563,7 @@ func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPa
 		dents = append(dents, dent)
 	}
 
+retry:
 	rootID, err := doPostMultiFiles(repo, headCommit.RootID, canonPath, dents, user, replace, &names)
 	if err != nil {
 		err := fmt.Errorf("failed to post files to %s in repo %s", canonPath, repo.ID)
@@ -1569,10 +1577,24 @@ func postFilesAndGenCommit(fileNames []string, repo *repomgr.Repo, user, canonPa
 		buf = fmt.Sprintf("Added \"%s\".", fileNames[0])
 	}
 
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf)
+	_, err = genNewCommit(repo, headCommit, rootID, user, buf, false)
 	if err != nil {
-		err := fmt.Errorf("failed to generate new commit: %v", err)
-		return "", err
+		if err != ErrConflict {
+			err := fmt.Errorf("failed to generate new commit: %v", err)
+			return "", err
+		}
+		retryCnt++
+		repo = repomgr.Get(repoID)
+		if repo == nil {
+			err := fmt.Errorf("failed to get repo %s", repoID)
+			return "", err
+		}
+		headCommit, err = commitmgr.Load(repo.ID, repo.HeadCommitID)
+		if err != nil {
+			err := fmt.Errorf("failed to get head commit for repo %s", repo.ID)
+			return "", err
+		}
+		goto retry
 	}
 
 	go mergeVirtualRepoPool.AddTask(repo.ID, "")
@@ -1613,7 +1635,9 @@ func getCanonPath(p string) string {
 	return filepath.Join(formatPath)
 }
 
-func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string) (string, error) {
+var ErrConflict = fmt.Errorf("Concurent upload conflict")
+
+func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string, retryOnConflict bool) (string, error) {
 	var retryCnt int
 	repoID := repo.ID
 	commit := commitmgr.NewCommit(repoID, base.CommitID, newRoot, user, desc)
@@ -1632,6 +1656,9 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 		}
 		if !retry {
 			break
+		}
+		if !retryOnConflict {
+			return "", ErrConflict
 		}
 
 		if retryCnt < 3 {
@@ -1947,7 +1974,7 @@ func genUniqueName(fileName string, entries []*fsmgr.SeafDirent) string {
 		name = fileName[:dot]
 	}
 	uniqueName = fileName
-	for nameExists(entries, uniqueName) && i <= 100 {
+	for nameExists(entries, uniqueName) && i <= duplicateNamesCount {
 		if dot < 0 {
 			uniqueName = fmt.Sprintf("%s (%d)", name, i)
 		} else {
@@ -1956,7 +1983,7 @@ func genUniqueName(fileName string, entries []*fsmgr.SeafDirent) string {
 		i++
 	}
 
-	if i <= 100 {
+	if i <= duplicateNamesCount {
 		return uniqueName
 	}
 
@@ -2403,7 +2430,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		if commitDesc == "" {
 			commitDesc = fmt.Sprintf("Auto merge by system")
 		}
-		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc)
+		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc, true)
 		if err != nil {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
 			return "", err
@@ -2447,7 +2474,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		commitDesc = fmt.Sprintf("Auto merge by system")
 	}
 
-	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc)
+	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", err
@@ -2834,7 +2861,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 	}
 
 	desc := fmt.Sprintf("Modified \"%s\"", fileName)
-	_, err = genNewCommit(repo, headCommit, rootID, user, desc)
+	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -3053,7 +3080,7 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 	}
 
 	desc := fmt.Sprintf("Added \"%s\"", fileName)
-	_, err = genNewCommit(repo, headCommit, rootID, user, desc)
+	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", &appError{err, "", http.StatusInternalServerError}
