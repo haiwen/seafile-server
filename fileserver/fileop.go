@@ -1587,7 +1587,7 @@ retry:
 		/* Sleep random time between 0 and 3 seconds. */
 		random := rand.Intn(30) + 1
 		log.Debugf("concurrent upload retry :%d", retryCnt)
-		time.Sleep(time.Duration(random) * 100 * time.Millisecond)
+		time.Sleep(time.Duration(random*100) * time.Millisecond)
 		repo = repomgr.Get(repoID)
 		if repo == nil {
 			err := fmt.Errorf("failed to get repo %s", repoID)
