@@ -1584,6 +1584,9 @@ retry:
 			return "", err
 		}
 		retryCnt++
+		/* Sleep random time between 0 and 3 seconds. */
+		random := rand.Intn(3) + 1
+		time.Sleep(time.Duration(random) * time.Second)
 		repo = repomgr.Get(repoID)
 		if repo == nil {
 			err := fmt.Errorf("failed to get repo %s", repoID)

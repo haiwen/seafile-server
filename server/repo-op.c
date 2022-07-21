@@ -727,6 +727,9 @@ retry:
         /* Sleep random time between 0 and 3 seconds. */
         usleep (g_random_int_range(0, 3) * 1000 * 1000);
 
+        g_free (root_id);
+        g_clear_error (error);
+
         seaf_repo_unref (repo);
         seaf_commit_unref(head_commit);
 
@@ -1199,6 +1202,9 @@ retry:
 
         /* Sleep random time between 0 and 3 seconds. */
         usleep (g_random_int_range(0, 3) * 1000 * 1000);
+
+        g_free (root_id);
+        g_clear_error (error);
 
         seaf_repo_unref (repo);
         seaf_commit_unref(head_commit);
