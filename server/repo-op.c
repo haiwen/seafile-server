@@ -723,9 +723,9 @@ retry:
         }
 
         retry_cnt++;
-        seaf_debug ("[post file] Concurrency upload retry :%d\n", retry_cnt);
+        seaf_debug ("[post file] Concurrent upload retry :%d\n", retry_cnt);
         /* Sleep random time between 0 and 3 seconds. */
-        usleep (g_random_int_range(0, 3) * 1000 * 1000);
+        usleep (g_random_int_range(0, 30) * 100 * 1000);
 
         g_free (root_id);
         g_clear_error (error);
@@ -1198,10 +1198,10 @@ retry:
         }
 
         retry_cnt++;
-        seaf_debug ("[post multi-file] Concurrency upload retry :%d\n", retry_cnt);
+        seaf_debug ("[post multi-file] Concurrent upload retry :%d\n", retry_cnt);
 
         /* Sleep random time between 0 and 3 seconds. */
-        usleep (g_random_int_range(0, 3) * 1000 * 1000);
+        usleep (g_random_int_range(0, 30) * 100 * 1000);
 
         g_free (root_id);
         g_clear_error (error);

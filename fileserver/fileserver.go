@@ -72,6 +72,8 @@ type fileServerOptions struct {
 	// Profile password
 	profilePassword string
 	enableProfiling bool
+	// Go log level
+	logLevel string
 }
 
 var options fileServerOptions
@@ -374,6 +376,9 @@ func parseFileServerSection(section *ini.Section) {
 			log.Fatal("password of profiling must be specified.")
 		}
 	}
+	if key, err := section.GetKey("go_log_level"); err == nil {
+		options.logLevel = key.String()
+	}
 }
 
 func initDefaultOptions() {
@@ -466,7 +471,13 @@ func main() {
 	}
 	// When logFile is "-", use default output (StdOut)
 
-	log.SetLevel(log.InfoLevel)
+	level, err := log.ParseLevel(options.logLevel)
+	if err != nil {
+		log.Info("use the default log level: info")
+		log.SetLevel(log.InfoLevel)
+	} else {
+		log.SetLevel(level)
+	}
 
 	if absLogFile != "" {
 		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
