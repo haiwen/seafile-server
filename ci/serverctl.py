@@ -49,6 +49,8 @@ class ServerCtl(object):
     def setup(self):
         if self.db == 'mysql':
             create_mysql_dbs()
+        elif self.db == 'pgsql':
+            create_pgsql_dbs()
 
         os.mkdir (self.central_conf_dir, 0o755)
         os.mkdir (self.seafile_conf_dir, 0o755)
@@ -59,7 +61,9 @@ class ServerCtl(object):
 
     def init_ccnet(self):
         if self.db == 'mysql':
-            self.add_ccnet_db_conf()
+            self.add_ccnet_mysql_db_conf()
+        elif self.db == 'pgsql':
+            self.add_ccnet_pgsql_db_conf()
         else:
             self.add_ccnet_sqlite_db_conf()
 
@@ -72,7 +76,7 @@ class ServerCtl(object):
             fp.write('\n')
             fp.write(ccnet_db_conf)
 
-    def add_ccnet_db_conf(self):
+    def add_ccnet_mysql_db_conf(self):
         ccnet_conf = join(self.central_conf_dir, 'ccnet.conf')
         ccnet_db_conf = '''\
 [Database]
@@ -83,6 +87,21 @@ USER = seafile
 PASSWD = seafile
 DB = ccnet
 CONNECTION_CHARSET = utf8
+'''
+        with open(ccnet_conf, 'a+') as fp:
+            fp.write('\n')
+            fp.write(ccnet_db_conf)
+
+    def add_ccnet_pgsql_db_conf(self):
+        ccnet_conf = join(self.central_conf_dir, 'ccnet.conf')
+        ccnet_db_conf = '''\
+[Database]
+ENGINE = pgsql
+HOST = 127.0.0.1
+PORT = 5432
+USER = seafile
+PASSWD = seafile
+DB = ccnet
 '''
         with open(ccnet_conf, 'a+') as fp:
             fp.write('\n')
@@ -119,7 +138,7 @@ port=8082
             fp.write('\n')
             fp.write(seafile_db_conf)
 
-    def add_seafile_db_conf(self):
+    def add_seafile_mysql_db_conf(self):
         seafile_conf = join(self.central_conf_dir, 'seafile.conf')
         seafile_db_conf = '''\
 [database]
@@ -130,6 +149,21 @@ user = seafile
 password = seafile
 db_name = seafile
 connection_charset = utf8
+'''
+        with open(seafile_conf, 'a+') as fp:
+            fp.write('\n')
+            fp.write(seafile_db_conf)
+
+    def add_seafile_pgsql_db_conf(self):
+        seafile_conf = join(self.central_conf_dir, 'seafile.conf')
+        seafile_db_conf = '''\
+[database]
+type = pgsql
+host = 127.0.0.1
+port = 5432
+user = seafile
+password = seafile
+db_name = seafile
 '''
         with open(seafile_conf, 'a+') as fp:
             fp.write('\n')
@@ -169,6 +203,11 @@ connection_charset = utf8
            seafile_sql_path = join(self.sql_dir, 'mysql', 'seafile.sql')
            sql = f'USE ccnet; source {ccnet_sql_path}; USE seafile; source {seafile_sql_path};'.encode()
            shell('sudo mysql -u root -proot', inputdata=sql, wait=False)
+        elif self.db == 'pgsql':
+           ccnet_sql_path = join(self.sql_dir, 'pgsql', 'ccnet.sql')
+           seafile_sql_path = join(self.sql_dir, 'pgsql', 'seafile.sql')
+           shell(f'sudo psql "postgres://seafile:seafile@localhost/ccnet" -f {ccnet_sql_path}', wait=False)
+           shell(f'sudo psql "postgres://seafile:seafile@localhost/ccnet" -f {seafile_sql_path}', wait=False)
         else:
            config_sql_path = join(self.sql_dir, 'sqlite', 'config.sql')
            groupmgr_sql_path = join(self.sql_dir, 'sqlite', 'groupmgr.sql')
@@ -257,6 +296,8 @@ connection_charset = utf8
             self.fileserver_proc.kill()
         if self.db == 'mysql':
             del_mysql_dbs()
+        if self.db == 'pgsql':
+            del_pgsql_dbs()
 
     def get_seaserv_envs(self):
         envs = dict(os.environ)
@@ -289,3 +330,22 @@ drop user 'seafile'@'localhost';
     '''
 
     shell('sudo mysql -u root -proot', inputdata=sql)
+
+
+def create_pgsql_dbs():
+    sql = b'''\
+create user "seafile" with password 'seafile';
+create database "ccnet" with owner "seafile" encoding 'utf8';
+create database "seafile" with owner "seafile" encoding 'utf8';
+    '''
+
+    shell('sudo psql -u root -proot', inputdata=sql)
+
+def del_pgsql_dbs():
+    sql = b'''\
+drop database "ccnet";
+drop database "seafile";
+drop user "seafile";
+    '''
+
+    shell('sudo psql -u root -proot', inputdata=sql)

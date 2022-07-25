@@ -242,6 +242,13 @@ else
     AC_DEFINE([HAVE_MYSQL], 1, [Define to 1 if MySQL support is enabled])
 fi
 
+PKG_CHECK_MODULES(LIBPQ, [libpq], [have_libpq="yes"], [have_libpq="no"])
+if test "x${have_libpq}" = "xyes"; then
+    AC_SUBST(LIBPQ_CFLAGS)
+    AC_SUBST(LIBPQ_LIBS)
+    AC_DEFINE([HAVE_POSTGRES], 1, [Define to 1 if PostgreSQL support is enabled])
+fi
+
 if test "${compile_ldap}" = "yes"; then
    if test "$bwin32" != true; then
       AC_CHECK_LIB(ldap, ldap_init, [have_ldap="yes"],

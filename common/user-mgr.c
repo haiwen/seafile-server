@@ -658,57 +658,72 @@ static int check_db_table (SeafDB *db)
 
     } else if (db_type == SEAF_DB_TYPE_PGSQL) {
         sql = "CREATE TABLE IF NOT EXISTS EmailUser ("
-            "id SERIAL PRIMARY KEY, "
-            "email VARCHAR(255), passwd VARCHAR(256), "
-            "is_staff INTEGER NOT NULL, is_active INTEGER NOT NULL, "
-            "ctime BIGINT, reference_id VARCHAR(255), UNIQUE (email))";
+              " id BIGSERIAL PRIMARY KEY,"
+              " email VARCHAR(255),"
+              " passwd VARCHAR(256),"
+              " is_staff SMALLINT NOT NULL,"
+              " is_active SMALLINT NOT NULL,"
+              " ctime BIGINT,"
+              " reference_id VARCHAR(255))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS emailuser_email_key ON EmailUser (email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS emailuser_reference_id_idx ON EmailUser (reference_id)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        //if (!pgsql_index_exists (db, "emailuser_reference_id_idx")) {
-        //    sql = "CREATE UNIQUE INDEX emailuser_reference_id_idx ON EmailUser (reference_id)";
-        //    if (seaf_db_query (db, sql) < 0)
-        //        return -1;
-        //}
-
-        sql = "CREATE TABLE IF NOT EXISTS Binding (email VARCHAR(255), peer_id CHAR(41),"
-            "UNIQUE (peer_id))";
+        sql = "CREATE TABLE IF NOT EXISTS Binding ("
+              " id BIGSERIAL PRIMARY KEY,"
+              " email VARCHAR(255),"
+              " peer_id CHAR(41))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS binding_peerid_idx ON Binding (peer_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE INDEX IF NOT EXISTS binding_email_idx ON Binding (email)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS UserRole (email VARCHAR(255), "
-          " role VARCHAR(255), UNIQUE (email, role))";
+        sql = "CREATE TABLE IF NOT EXISTS UserRole ("
+              " id BIGSERIAL PRIMARY KEY,"
+              " email VARCHAR(255),"
+              " \"role\" VARCHAR(255),"
+              " is_manual_set smallint DEFAULT 0)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
-
-        //if (!pgsql_index_exists (db, "userrole_email_idx")) {
-        //    sql = "CREATE INDEX userrole_email_idx ON UserRole (email)";
-        //    if (seaf_db_query (db, sql) < 0)
-        //        return -1;
-        //}
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS userrole_email_role_key ON UserRole (email, role)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE INDEX IF NOT EXISTS userrole_email_idx ON UserRole (email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
 
         sql = "CREATE TABLE IF NOT EXISTS LDAPUsers ("
-          "id SERIAL PRIMARY KEY, "
-          "email VARCHAR(255) NOT NULL, password VARCHAR(255) NOT NULL, "
-          "is_staff SMALLINT NOT NULL, is_active SMALLINT NOT NULL, extra_attrs TEXT,"
-          "reference_id VARCHAR(255))";
+              " id BIGSERIAL PRIMARY KEY,"
+              " email VARCHAR(255) NOT NULL,"
+              " password varchar(255) NOT NULL,"
+              " is_staff SMALLINT NOT NULL,"
+              " is_active SMALLINT NOT NULL,"
+              " extra_attrs TEXT,"
+              " reference_id VARCHAR(255))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS ldapusers_email_idx ON LDAPUsers (email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS ldapusers_reference_id_idx ON LDAPUsers (reference_id)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        //if (!pgsql_index_exists (db, "ldapusers_email_idx")) {
-        //    sql = "CREATE UNIQUE INDEX ldapusers_email_idx ON LDAPUsers (email)";
-        //    if (seaf_db_query (db, sql) < 0)
-        //        return -1;
-        //}
-
-        //if (!pgsql_index_exists (db, "ldapusers_reference_id_idx")) {
-        //    sql = "CREATE UNIQUE INDEX ldapusers_reference_id_idx ON LDAPUsers (reference_id)";
-        //    if (seaf_db_query (db, sql) < 0)
-        //        return -1;
-        //}
-
-        sql = "CREATE TABLE IF NOT EXISTS LDAPConfig (cfg_group VARCHAR(255) NOT NULL,"
-          "cfg_key VARCHAR(255) NOT NULL, value VARCHAR(255), property INTEGER)";
+        sql = "CREATE TABLE IF NOT EXISTS LDAPConfig ("
+              " id BIGSERIAL PRIMARY KEY,"
+              " cfg_group VARCHAR(255) NOT NULL,"
+              " cfg_key VARCHAR(255) NOT NULL,"
+              " value VARCHAR(255),"
+              " property INTEGER)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
     }

@@ -85,23 +85,44 @@ seaf_quota_manager_init (SeafQuotaManager *mgr)
 
     switch (seaf_db_type(db)) {
     case SEAF_DB_TYPE_PGSQL:
-        sql = "CREATE TABLE IF NOT EXISTS UserQuota (\"user\" VARCHAR(255) PRIMARY KEY,"
-            "quota BIGINT)";
+        sql = "CREATE TABLE IF NOT EXISTS UserQuota ("
+            " id BIGSERIAL PRIMARY KEY,"
+            " \"user\" VARCHAR(255),"
+            " quota BIGINT)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS userquota_user_idx ON UserQuota (\"user\");";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS UserShareQuota (\"user\" VARCHAR(255) PRIMARY KEY,"
-            "quota BIGINT)";
+        sql = "CREATE TABLE IF NOT EXISTS UserShareQuota ("
+              " id BIGSERIAL PRIMARY KEY,"
+              " \"user\" VARCHAR(255),"
+              " quota  BIGINT)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS usersharequota_user_idx ON UserShareQuota (\"user\")";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS OrgQuota (org_id INTEGER PRIMARY KEY,"
-            "quota BIGINT)";
+        sql = "CREATE TABLE IF NOT EXISTS OrgQuota ("
+              " id BIGSERIAL PRIMARY KEY,"
+              " org_id INTEGER,"
+              " quota BIGINT)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS orgquota_orgid_idx ON OrgQuota (org_id)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS OrgUserQuota (org_id INTEGER,"
-            "\"user\" VARCHAR(255), quota BIGINT, PRIMARY KEY (org_id, \"user\"))";
+        sql = "CREATE TABLE IF NOT EXISTS OrgUserQuota ("
+              " id BIGSERIAL PRIMARY KEY,"
+              " org_id INTEGER,"
+              " \"user\" VARCHAR(255),"
+              " quota BIGINT)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS orguserquota_orgid_user_idx ON OrgUserQuota (org_id, \"user\")";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
@@ -167,25 +188,13 @@ seaf_quota_manager_set_user_quota (SeafQuotaManager *mgr,
 {
     SeafDB *db = mgr->session->db;
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
-        gboolean exists, err;
         int rc;
-
-        exists = seaf_db_statement_exists (db,
-                                           "SELECT 1 FROM UserQuota WHERE \"user\"=?",
-                                           &err, 1, "string", user);
-        if (err)
-            return -1;
-
-        if (exists)
-            rc = seaf_db_statement_query (db,
-                                          "UPDATE UserQuota SET quota=? "
-                                          "WHERE \"user\"=?",
-                                          2, "int64", quota, "string", user);
-        else
-            rc = seaf_db_statement_query (db,
-                                          "INSERT INTO UserQuota (\"user\", quota) VALUES "
-                                          "(?, ?)",
-                                          2, "string", user, "int64", quota);
+        rc = seaf_db_statement_query (db,
+                                      "INSERT INTO UserQuota (\"user\", quota)"
+                                      " VALUES (?, ?)"
+                                      " ON CONFLICT (\"user\")"
+                                      " DO UPDATE SET quota=?",
+                                      3, "string", user, "int64", quota, "int64", quota);
         return rc;
     } else {
         int rc;
@@ -224,24 +233,12 @@ seaf_quota_manager_set_org_quota (SeafQuotaManager *mgr,
     SeafDB *db = mgr->session->db;
 
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
-        gboolean exists, err;
-        int rc;
-
-        exists = seaf_db_statement_exists (db,
-                                           "SELECT 1 FROM OrgQuota WHERE org_id=?",
-                                           &err, 1, "int", org_id);
-        if (err)
-            return -1;
-
-        if (exists)
-            rc = seaf_db_statement_query (db,
-                                          "UPDATE OrgQuota SET quota=? WHERE org_id=?",
-                                          2, "int64", quota, "int", org_id);
-        else
-            rc = seaf_db_statement_query (db,
-                                          "INSERT INTO OrgQuota (org_id, quota) VALUES (?, ?)",
-                                          2, "int", org_id, "int64", quota);
-        return rc;
+        int rc = seaf_db_statement_query (db,
+                                          "INSERT INTO OrgQuota (org_id, quota)"
+                                          " VALUES (?, ?)"
+                                          " ON CONFLICT (org_id)"
+                                          " DO UPDATE SET quota=?",
+                                          3, "int", org_id, "int64", quota, "int64", quota);
     } else {
         int rc = seaf_db_statement_query (db,
                                           "REPLACE INTO OrgQuota (org_id, quota) VALUES (?, ?)",
@@ -275,27 +272,12 @@ seaf_quota_manager_set_org_user_quota (SeafQuotaManager *mgr,
     int rc;
 
     if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
-        gboolean exists, err;
-
-        exists = seaf_db_statement_exists (db,
-                                           "SELECT 1 FROM OrgUserQuota "
-                                           "WHERE org_id=? AND \"user\"=?",
-                                           &err, 2, "int", org_id, "string", user);
-        if (err)
-            return -1;
-
-        if (exists)
-            rc = seaf_db_statement_query (db,
-                                          "UPDATE OrgUserQuota SET quota=?"
-                                          " WHERE org_id=? AND \"user\"=?",
-                                          3, "int64", quota, "int", org_id,
-                                          "string", user);
-        else
-            rc = seaf_db_statement_query (db,
-                                          "INSERT INTO OrgUserQuota (org_id, \"user\", quota) VALUES "
-                                          "(?, ?, ?)",
-                                          3, "int", org_id, "string", user,
-                                          "int64", quota);
+        rc = seaf_db_statement_query (db,
+                                      "INSERT INTO OrgUserQuota (org_id, \"user\", quota)"
+                                      " VALUES (?, ?, ?)"
+                                      " ON CONFLICT (org_id, \"user\")"
+                                      " DO UPDATE SET quota=?",
+                                      3, "int", org_id, "string", user, "int64", quota, "int64", quota);
         return rc;
     } else {
         rc = seaf_db_statement_query (db,
