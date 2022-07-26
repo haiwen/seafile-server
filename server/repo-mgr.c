@@ -490,6 +490,10 @@ remove_virtual_repo_ondisk (SeafRepoManager *mgr,
                              "DELETE FROM RepoSize WHERE repo_id = ?",
                              1, "string", repo_id);
 
+    seaf_db_statement_query (mgr->seaf->db,
+                             "DELETE FROM RepoInfo WHERE repo_id = ?",
+                             1, "string", repo_id);
+
     /* For GC commit objects for this virtual repo. Fs and blocks are GC
      * from the parent repo.
      */
@@ -614,10 +618,6 @@ del_repo:
     for (ptr = vrepos; ptr != NULL; ptr = ptr->next)
         remove_virtual_repo_ondisk (mgr, (char *)ptr->data);
     string_list_free (vrepos);
-
-    seaf_db_statement_query (mgr->seaf->db, "DELETE r, v FROM RepoInfo r, VirtualRepo v "
-                             "WHERE r.repo_id=v.repo_id and v.origin_repo=?",
-                             1, "string", repo_id);
 
     seaf_db_statement_query (mgr->seaf->db, "DELETE FROM RepoInfo "
                              "WHERE repo_id=?",
