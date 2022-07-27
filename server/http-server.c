@@ -2663,7 +2663,7 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
             continue;
         }
         json_object_set_new (obj, "type", json_string ("grepo"));
-        json_object_set (obj, "owner", json_string ("Organization"));
+        json_object_set_new (obj, "owner", json_string ("Organization"));
 
         json_array_append_new (repo_array, obj);
         g_object_unref (srepo);
