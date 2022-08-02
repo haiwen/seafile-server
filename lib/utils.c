@@ -885,6 +885,7 @@ int copy_file (const char *dst, const char *src, int mode)
 char*
 ccnet_expand_path (const char *src)
 {
+    int total_len = 0;
 #ifdef WIN32
     char new_path[SEAF_PATH_MAX + 1];
     char *p = new_path;
@@ -893,9 +894,17 @@ ccnet_expand_path (const char *src)
     memset(new_path, 0, sizeof(new_path));
     if (*src == '~') {
         const char *home = g_get_home_dir();
+        total_len += strlen(home);
+        if (total_len > SEAF_PATH_MAX) {
+            return NULL;
+        }
         memcpy(new_path, home, strlen(home));
         p += strlen(new_path);
         q++;
+    }
+    total_len += strlen(q);
+    if (total_len > SEAF_PATH_MAX) {
+        return NULL;
     }
     memcpy(p, q, strlen(q));
 
@@ -933,6 +942,9 @@ ccnet_expand_path (const char *src)
             pw = getpwuid (geteuid());
         } else {
             /* copy '~<user>' to new_path */
+            if (len > SEAF_PATH_MAX) {
+                return NULL;
+            }
             memcpy (new_path, src, len);
             new_path[len] = '\0';
             pw = getpwnam (new_path + 1);
@@ -941,6 +953,10 @@ ccnet_expand_path (const char *src)
             return NULL;
        
         len = strlen (pw->pw_dir);
+        total_len += len;
+        if (total_len > SEAF_PATH_MAX) {
+            return NULL;
+        }
         memcpy (new_path, pw->pw_dir, len);
         next_out = new_path + len;
         *next_out = '\0';
@@ -977,6 +993,10 @@ ccnet_expand_path (const char *src)
         } else if (ntoken[0] != '.' || len != 1) {
             /* not '.' */
             *next_out++ = '/';
+            total_len += len;
+            if (total_len > SEAF_PATH_MAX) {
+                return NULL;
+            }
             memcpy (next_out, ntoken, len);
             next_out += len;
             *next_out = '\0';
