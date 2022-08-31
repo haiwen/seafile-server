@@ -284,25 +284,6 @@ func NewSeafile(version int, fileSize int64, blkIDs []string) (*Seafile, error) 
 	return seafile, nil
 }
 
-func uncompress(p []byte) ([]byte, error) {
-	b := bytes.NewReader(p)
-	var out bytes.Buffer
-	r, err := zlib.NewReader(b)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = io.Copy(&out, r)
-	if err != nil {
-		r.Close()
-		return nil, err
-	}
-
-	r.Close()
-
-	return out.Bytes(), nil
-}
-
 func compress(p []byte) ([]byte, error) {
 	var out bytes.Buffer
 	w := zlib.NewWriter(&out)
@@ -324,7 +305,7 @@ func (seafile *Seafile) FromData(p []byte) error {
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(b, seafile)
+	err = seafile.unmarshal(b)
 	if err != nil {
 		return err
 	}
@@ -368,7 +349,7 @@ func (seafdir *SeafDir) FromData(p []byte) error {
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(b, seafdir)
+	err = seafdir.unmarshal(b)
 	if err != nil {
 		return err
 	}
