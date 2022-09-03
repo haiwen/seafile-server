@@ -24,6 +24,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/share"
+	"github.com/haiwen/seafile-server/fileserver/workerpool"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -43,12 +44,14 @@ const (
 	virtualRepoExpireTime      = 7200
 	syncAPICleaningIntervalSec = 300
 	maxObjectPackSize          = 1 << 20 // 1MB
+	fsIdWorkers                = 10
 )
 
 var (
 	tokenCache           sync.Map
 	permCache            sync.Map
 	virtualRepoInfoCache sync.Map
+	calFsIdPool          *workerpool.WorkPool
 )
 
 type tokenInfo struct {
@@ -90,6 +93,95 @@ func syncAPIInit() {
 			removeSyncAPIExpireCache()
 		}
 	})
+
+	calFsIdPool = workerpool.CreateWorkerPool(getFsId, fsIdWorkers)
+}
+
+type calResult struct {
+	user string
+	err  *appError
+}
+
+func getFsId(args ...interface{}) error {
+	if len(args) < 3 {
+		return nil
+	}
+
+	resChan := args[0].(chan *calResult)
+	rsp := args[1].(http.ResponseWriter)
+	r := args[2].(*http.Request)
+
+	queries := r.URL.Query()
+
+	serverHead := queries.Get("server-head")
+	if !isObjectIDValid(serverHead) {
+		msg := "Invalid server-head parameter."
+		appErr := &appError{nil, msg, http.StatusBadRequest}
+		resChan <- &calResult{"", appErr}
+		return nil
+	}
+
+	clientHead := queries.Get("client-head")
+	if clientHead != "" && !isObjectIDValid(clientHead) {
+		msg := "Invalid client-head parameter."
+		appErr := &appError{nil, msg, http.StatusBadRequest}
+		resChan <- &calResult{"", appErr}
+		return nil
+	}
+
+	dirOnlyArg := queries.Get("dir-only")
+	var dirOnly bool
+	if dirOnlyArg != "" {
+		dirOnly = true
+	}
+
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		resChan <- &calResult{user, appErr}
+		return nil
+	}
+	appErr = checkPermission(repoID, user, "download", false)
+	if appErr != nil {
+		resChan <- &calResult{user, appErr}
+		return nil
+	}
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		err := fmt.Errorf("Failed to find repo %.8s", repoID)
+		appErr := &appError{err, "", http.StatusInternalServerError}
+		resChan <- &calResult{user, appErr}
+		return nil
+	}
+	ret, err := calculateSendObjectList(r.Context(), repo, serverHead, clientHead, dirOnly)
+	if err != nil {
+		err := fmt.Errorf("Failed to get fs id list: %v", err)
+		appErr := &appError{err, "", http.StatusInternalServerError}
+		resChan <- &calResult{user, appErr}
+		return nil
+	}
+
+	var objList []byte
+	if ret != nil {
+		objList, err = json.Marshal(ret)
+		if err != nil {
+			appErr := &appError{err, "", http.StatusInternalServerError}
+			resChan <- &calResult{user, appErr}
+			return nil
+		}
+	} else {
+		// when get obj list is nil, return []
+		objList = []byte{'[', ']'}
+	}
+
+	rsp.Header().Set("Content-Length", strconv.Itoa(len(objList)))
+	rsp.WriteHeader(http.StatusOK)
+	rsp.Write(objList)
+
+	resChan <- &calResult{user, nil}
+
+	return nil
 }
 
 func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
@@ -618,63 +710,11 @@ func isValidUUID(u string) bool {
 }
 
 func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
-	queries := r.URL.Query()
+	recvChan := make(chan *calResult)
 
-	serverHead := queries.Get("server-head")
-	if !isObjectIDValid(serverHead) {
-		msg := "Invalid server-head parameter."
-		return &appError{nil, msg, http.StatusBadRequest}
-	}
-
-	clientHead := queries.Get("client-head")
-	if clientHead != "" && !isObjectIDValid(clientHead) {
-		msg := "Invalid client-head parameter."
-		return &appError{nil, msg, http.StatusBadRequest}
-	}
-
-	dirOnlyArg := queries.Get("dir-only")
-	var dirOnly bool
-	if dirOnlyArg != "" {
-		dirOnly = true
-	}
-
-	vars := mux.Vars(r)
-	repoID := vars["repoid"]
-	user, appErr := validateToken(r, repoID, false)
-	if appErr != nil {
-		return appErr
-	}
-	appErr = checkPermission(repoID, user, "download", false)
-	if appErr != nil {
-		return appErr
-	}
-	repo := repomgr.Get(repoID)
-	if repo == nil {
-		err := fmt.Errorf("Failed to find repo %.8s", repoID)
-		return &appError{err, "", http.StatusInternalServerError}
-	}
-	ret, err := calculateSendObjectList(r.Context(), repo, serverHead, clientHead, dirOnly)
-	if err != nil {
-		err := fmt.Errorf("Failed to get fs id list: %v", err)
-		return &appError{err, "", http.StatusInternalServerError}
-	}
-
-	var objList []byte
-	if ret != nil {
-		objList, err = json.Marshal(ret)
-		if err != nil {
-			return &appError{err, "", http.StatusInternalServerError}
-		}
-	} else {
-		// when get obj list is nil, return []
-		objList = []byte{'[', ']'}
-	}
-
-	rsp.Header().Set("Content-Length", strconv.Itoa(len(objList)))
-	rsp.WriteHeader(http.StatusOK)
-	rsp.Write(objList)
-
-	return nil
+	calFsIdPool.AddTask(recvChan, rsp, r)
+	result := <-recvChan
+	return result.err
 }
 
 func headCommitOperCB(rsp http.ResponseWriter, r *http.Request) *appError {
