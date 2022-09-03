@@ -13,10 +13,10 @@ type WorkPool struct {
 // Job is the job object of workpool.
 type Job struct {
 	callback JobCB
-	args     []string
+	args     []interface{}
 }
 
-type JobCB func(args ...string) error
+type JobCB func(args ...interface{}) error
 
 func CreateWorkerPool(jobCB JobCB, n int) *WorkPool {
 	pool := new(WorkPool)
@@ -28,7 +28,7 @@ func CreateWorkerPool(jobCB JobCB, n int) *WorkPool {
 	return pool
 }
 
-func (pool *WorkPool) AddTask(args ...string) {
+func (pool *WorkPool) AddTask(args ...interface{}) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Printf("panic: %v\n%s", err, debug.Stack())

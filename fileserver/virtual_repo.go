@@ -25,11 +25,11 @@ func virtualRepoInit() {
 	mergeVirtualRepoPool = workerpool.CreateWorkerPool(mergeVirtualRepo, mergeVirtualRepoWorkerNumber)
 }
 
-func mergeVirtualRepo(args ...string) error {
+func mergeVirtualRepo(args ...interface{}) error {
 	if len(args) < 1 {
 		return nil
 	}
-	repoID := args[0]
+	repoID := args[0].(string)
 	virtual, err := repomgr.IsVirtualRepo(repoID)
 	if err != nil {
 		return err
@@ -48,7 +48,7 @@ func mergeVirtualRepo(args ...string) error {
 
 	excludeRepo := ""
 	if len(args) > 1 {
-		excludeRepo = args[1]
+		excludeRepo = args[1].(string)
 	}
 	vRepos, _ := repomgr.GetVirtualRepoIDsByOrigin(repoID)
 	for _, id := range vRepos {

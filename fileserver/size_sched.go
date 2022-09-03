@@ -41,11 +41,11 @@ func sizeSchedulerInit() {
 	updateSizePool = workerpool.CreateWorkerPool(computeRepoSize, n)
 }
 
-func computeRepoSize(args ...string) error {
+func computeRepoSize(args ...interface{}) error {
 	if len(args) < 1 {
 		return nil
 	}
-	repoID := args[0]
+	repoID := args[0].(string)
 	var size int64
 	var fileCount int64
 
