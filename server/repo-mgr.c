@@ -1714,6 +1714,7 @@ seaf_repo_manager_delete_repo_tokens_by_peer_id (SeafRepoManager *mgr,
     const char *template;
     GList *token_list = NULL;
     int rc = 0;
+    int db_type = seaf_db_type (mgr->seaf->db);
 
     template = "SELECT u.token "
         "FROM RepoUserToken u, RepoTokenPeerInfo p "
@@ -1730,14 +1731,61 @@ seaf_repo_manager_delete_repo_tokens_by_peer_id (SeafRepoManager *mgr,
     if (rc == 0)
         goto out;
 
-    rc = seaf_db_statement_query (mgr->seaf->db, "DELETE u.*, p.* "
-                                  "FROM RepoUserToken u, RepoTokenPeerInfo p "
-                                  "WHERE u.token=p.token AND "
-                                  "u.email = ? AND p.peer_id = ?",
-                                  2, "string", email, "string", peer_id);
-    if (rc < 0) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_INTERNAL, "DB error");
-        goto out;
+    if (db_type == SEAF_DB_TYPE_MYSQL) {
+        rc = seaf_db_statement_query (mgr->seaf->db, "DELETE u.*, p.* "
+                                      "FROM RepoUserToken u, RepoTokenPeerInfo p "
+                                      "WHERE u.token=p.token AND "
+                                      "u.email = ? AND p.peer_id = ?",
+                                      2, "string", email, "string", peer_id);
+        if (rc < 0) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_INTERNAL, "DB error");
+            goto out;
+        }
+    } else if (db_type == SEAF_DB_TYPE_SQLITE) {
+        GString *sql = g_string_new ("");
+        GList *iter;
+        int i = 0;
+        char *token;
+
+        g_string_append_printf (sql, "DELETE FROM RepoUserToken WHERE email = '%s' AND token IN (", email);
+        for (iter = token_list; iter; iter = iter->next) {
+            token = iter->data;
+            if (i == 0)
+                g_string_append_printf (sql, "'%s'", token);
+            else
+                g_string_append_printf (sql, ", '%s'", token);
+            ++i;
+        }
+        g_string_append (sql, ")");
+
+        rc = seaf_db_statement_query (mgr->seaf->db, sql->str, 0);
+        if (rc < 0) {
+            g_string_free (sql, TRUE);
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_INTERNAL, "DB error");
+            goto out;
+        }
+        g_string_free (sql, TRUE);
+
+        sql = g_string_new ("");
+        g_string_append_printf (sql, "DELETE FROM RepoTokenPeerInfo WHERE peer_id = '%s' AND token IN (", peer_id);
+        i = 0;
+        for (iter = token_list; iter; iter = iter->next) {
+            token = iter->data;
+            if (i == 0)
+                g_string_append_printf (sql, "'%s'", token);
+            else
+                g_string_append_printf (sql, ", '%s'", token);
+            ++i;
+        }
+        g_string_append (sql, ")");
+
+        rc = seaf_db_statement_query (mgr->seaf->db, sql->str, 0);
+        if (rc < 0) {
+            g_string_free (sql, TRUE);
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_INTERNAL, "DB error");
+            goto out;
+        }
+        g_string_free (sql, TRUE);
     }
 
 out:
