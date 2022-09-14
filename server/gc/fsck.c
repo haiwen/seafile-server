@@ -146,6 +146,9 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
     gboolean is_corrupted = FALSE;
 
     dir = seaf_fs_manager_get_seafdir (mgr, store_id, version, id);
+    if (!dir) {
+        goto out;
+    }
 
     for (p = dir->entries; p; p = p->next) {
         seaf_dent = p->data;
