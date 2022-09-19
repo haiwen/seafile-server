@@ -627,6 +627,8 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
     /* HEAD Request */
     if (evhtp_request_get_method(req) == htp_method_HEAD) {
         evhtp_send_reply (req, EVHTP_RES_OK);
+        seafile_unref (file);
+        g_free (crypt);
         return 0;
     }
 
@@ -634,6 +636,7 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
     if (file->n_blocks == 0) {
         evhtp_send_reply (req, EVHTP_RES_OK);
         seafile_unref (file);
+        g_free (crypt);
         return 0;
     }
 
