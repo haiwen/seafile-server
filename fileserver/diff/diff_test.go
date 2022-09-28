@@ -255,8 +255,7 @@ func diffTestFileCB(ctx context.Context, baseDir string, files []*fsmgr.SeafDire
 	}
 
 	if file1 != nil &&
-		(file2 == nil || file1.ID != file2.ID) &&
-		file1.ID != emptySHA1 {
+		(file2 == nil || file1.ID != file2.ID) {
 		*results = append(*results, file1.ID)
 	}
 
@@ -273,8 +272,7 @@ func diffTestDirCB(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent
 	}
 
 	if dir1 != nil &&
-		(dir2 == nil || dir1.ID != dir2.ID) &&
-		dir1.ID != emptySHA1 {
+		(dir2 == nil || dir1.ID != dir2.ID) {
 		*results = append(*results, dir1.ID)
 	}
 

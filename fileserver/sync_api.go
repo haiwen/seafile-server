@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
@@ -24,6 +23,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/share"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 	"github.com/haiwen/seafile-server/fileserver/workerpool"
 	log "github.com/sirupsen/logrus"
 )
@@ -114,7 +114,7 @@ func getFsId(args ...interface{}) error {
 	queries := r.URL.Query()
 
 	serverHead := queries.Get("server-head")
-	if !isObjectIDValid(serverHead) {
+	if !utils.IsObjectIDValid(serverHead) {
 		msg := "Invalid server-head parameter."
 		appErr := &appError{nil, msg, http.StatusBadRequest}
 		resChan <- &calResult{"", appErr}
@@ -122,7 +122,7 @@ func getFsId(args ...interface{}) error {
 	}
 
 	clientHead := queries.Get("client-head")
-	if clientHead != "" && !isObjectIDValid(clientHead) {
+	if clientHead != "" && !utils.IsObjectIDValid(clientHead) {
 		msg := "Invalid client-head parameter."
 		appErr := &appError{nil, msg, http.StatusBadRequest}
 		resChan <- &calResult{"", appErr}
@@ -323,7 +323,7 @@ func getAccessibleRepoListCB(rsp http.ResponseWriter, r *http.Request) *appError
 	queries := r.URL.Query()
 	repoID := queries.Get("repo_id")
 
-	if repoID == "" || !isValidUUID(repoID) {
+	if repoID == "" || !utils.IsValidUUID(repoID) {
 		msg := "Invalid repo id."
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
@@ -457,7 +457,7 @@ func recvFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	for len(fsBuf) > 44 {
 		objID := string(fsBuf[:40])
-		if !isObjectIDValid(objID) {
+		if !utils.IsObjectIDValid(objID) {
 			msg := fmt.Sprintf("Fs obj id %s is invalid", objID)
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
@@ -524,7 +524,7 @@ func postCheckExistCB(rsp http.ResponseWriter, r *http.Request, existType checkE
 	var neededObjs []string
 	var ret bool
 	for i := 0; i < len(objIDList); i++ {
-		if !isObjectIDValid(objIDList[i]) {
+		if !utils.IsObjectIDValid(objIDList[i]) {
 			continue
 		}
 		if existType == checkFSExist {
@@ -581,7 +581,7 @@ func packFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	var totalSize int
 	var data bytes.Buffer
 	for i := 0; i < len(fsIDList); i++ {
-		if !isObjectIDValid(fsIDList[i]) {
+		if !utils.IsObjectIDValid(fsIDList[i]) {
 			msg := fmt.Sprintf("Invalid fs id %s", fsIDList[i])
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
@@ -619,7 +619,7 @@ func headCommitsMultiCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	var repoIDs strings.Builder
 	for i := 0; i < len(repoIDList); i++ {
-		if !isValidUUID(repoIDList[i]) {
+		if !utils.IsValidUUID(repoIDList[i]) {
 			return &appError{nil, "", http.StatusBadRequest}
 		}
 		if i == 0 {
@@ -702,11 +702,6 @@ func getCheckQuotaCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	return nil
-}
-
-func isValidUUID(u string) bool {
-	_, err := uuid.Parse(u)
-	return err == nil
 }
 
 func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
@@ -945,7 +940,7 @@ func getCommitInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	queries := r.URL.Query()
 	newCommitID := queries.Get("head")
-	if newCommitID == "" || !isObjectIDValid(newCommitID) {
+	if newCommitID == "" || !utils.IsObjectIDValid(newCommitID) {
 		msg := fmt.Sprintf("commit id %s is invalid", newCommitID)
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
@@ -1337,18 +1332,4 @@ func collectDirIDs(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent
 	}
 
 	return nil
-}
-
-func isObjectIDValid(objID string) bool {
-	if len(objID) != 40 {
-		return false
-	}
-	for i := 0; i < len(objID); i++ {
-		c := objID[i]
-		if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') {
-			continue
-		}
-		return false
-	}
-	return true
 }

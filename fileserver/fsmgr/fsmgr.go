@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/haiwen/seafile-server/fileserver/objstore"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 )
 
 // Seafile is a file object
@@ -21,7 +22,7 @@ type Seafile struct {
 	data     []byte
 	Version  int      `json:"version"`
 	FileType int      `json:"type"`
-	FileID   string   `json:"file_id"`
+	FileID   string   `json:"-"`
 	FileSize uint64   `json:"size"`
 	BlkIDs   []string `json:"block_ids"`
 }
@@ -153,7 +154,7 @@ type SeafDir struct {
 	data    []byte
 	Version int           `json:"version"`
 	DirType int           `json:"type"`
-	DirID   string        `json:"dir_id"`
+	DirID   string        `json:"-"`
 	Entries []*SeafDirent `json:"dirents"`
 }
 
@@ -329,6 +330,21 @@ func (seafile *Seafile) FromData(p []byte) error {
 		return err
 	}
 
+	if seafile.FileType != SeafMetadataTypeFile {
+		return fmt.Errorf("object %s is not a file", seafile.FileID)
+	}
+	if seafile.Version < 1 {
+		return fmt.Errorf("seafile object %s version should be > 0, version is %d", seafile.FileID, seafile.Version)
+	}
+	if seafile.BlkIDs == nil {
+		return fmt.Errorf("no block id array in seafile object %s", seafile.FileID)
+	}
+	for _, blkID := range seafile.BlkIDs {
+		if !utils.IsObjectIDValid(blkID) {
+			return fmt.Errorf("block id %s is invalid", blkID)
+		}
+	}
+
 	return nil
 }
 
@@ -372,6 +388,20 @@ func (seafdir *SeafDir) FromData(p []byte) error {
 	if err != nil {
 		return err
 	}
+	if seafdir.DirType != SeafMetadataTypeDir {
+		return fmt.Errorf("object %s is not a dir", seafdir.DirID)
+	}
+	if seafdir.Version < 1 {
+		return fmt.Errorf("dir object %s version should be > 0, version is %d", seafdir.DirID, seafdir.Version)
+	}
+	if seafdir.Entries == nil {
+		return fmt.Errorf("no dirents in dir object %s", seafdir.DirID)
+	}
+	for _, dent := range seafdir.Entries {
+		if !utils.IsObjectIDValid(dent.ID) {
+			return fmt.Errorf("dirent id %s is invalid", dent.ID)
+		}
+	}
 
 	return nil
 }
@@ -404,6 +434,8 @@ func GetSeafile(repoID string, fileID string) (*Seafile, error) {
 		return seafile, nil
 	}
 
+	seafile.FileID = fileID
+
 	err := ReadRaw(repoID, fileID, &buf)
 	if err != nil {
 		errors := fmt.Errorf("failed to read seafile object from storage : %v", err)
@@ -420,8 +452,6 @@ func GetSeafile(repoID string, fileID string) (*Seafile, error) {
 		errors := fmt.Errorf("seafile object %s/%s version should be > 0", repoID, fileID)
 		return nil, errors
 	}
-
-	seafile.FileID = fileID
 
 	return seafile, nil
 }
@@ -464,6 +494,8 @@ func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
 		return seafdir, nil
 	}
 
+	seafdir.DirID = dirID
+
 	err := ReadRaw(repoID, dirID, &buf)
 	if err != nil {
 		errors := fmt.Errorf("failed to read seafdir object from storage : %v", err)
@@ -480,8 +512,6 @@ func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
 		errors := fmt.Errorf("seadir object %s/%s version should be > 0", repoID, dirID)
 		return nil, errors
 	}
-
-	seafdir.DirID = dirID
 
 	return seafdir, nil
 }
