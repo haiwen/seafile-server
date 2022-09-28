@@ -2461,11 +2461,8 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		err := fmt.Errorf("directory %s doesn't exist in repo %s", dirName, repo.StoreID)
 		return "", err
 	}
-	newDent := new(fsmgr.SeafDirent)
-	newDent.ID = newDirID
-	newDent.Mode = (syscall.S_IFDIR | 0644)
-	newDent.Mtime = time.Now().Unix()
-	newDent.Name = dirName
+
+	newDent := fsmgr.NewDirent(newDirID, dirName, (syscall.S_IFDIR | 0644), time.Now().Unix(), "", 0)
 
 	rootID, err := doPutFile(repo, headCommit.RootID, canonPath, newDent)
 	if err != nil || rootID == "" {

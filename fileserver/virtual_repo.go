@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"math/rand"
@@ -21,6 +22,9 @@ const mergeVirtualRepoWorkerNumber = 5
 
 var mergeVirtualRepoPool *workerpool.WorkPool
 
+var runningRepo = make(map[string]struct{})
+var runningRepoMutex sync.Mutex
+
 func virtualRepoInit() {
 	mergeVirtualRepoPool = workerpool.CreateWorkerPool(mergeVirtualRepo, mergeVirtualRepoWorkerNumber)
 }
@@ -36,10 +40,23 @@ func mergeVirtualRepo(args ...interface{}) error {
 	}
 
 	if virtual {
+		runningRepoMutex.Lock()
+		if _, ok := runningRepo[repoID]; ok {
+			log.Debugf("a task for repo %s is already running", repoID)
+			go mergeVirtualRepoPool.AddTask(repoID)
+			runningRepoMutex.Unlock()
+			return nil
+		}
+		runningRepo[repoID] = struct{}{}
+		runningRepoMutex.Unlock()
+
 		err := mergeRepo(repoID)
 		if err != nil {
 			log.Printf("%v", err)
 		}
+		runningRepoMutex.Lock()
+		delete(runningRepo, repoID)
+		runningRepoMutex.Unlock()
 
 		go updateSizePool.AddTask(repoID)
 
@@ -55,11 +72,23 @@ func mergeVirtualRepo(args ...interface{}) error {
 		if id == excludeRepo {
 			continue
 		}
+		runningRepoMutex.Lock()
+		if _, ok := runningRepo[id]; ok {
+			log.Debugf("a task for repo %s is already running", id)
+			go mergeVirtualRepoPool.AddTask(id)
+			runningRepoMutex.Unlock()
+			continue
+		}
+		runningRepo[id] = struct{}{}
+		runningRepoMutex.Unlock()
 
 		err := mergeRepo(id)
 		if err != nil {
 			log.Printf("%v", err)
 		}
+		runningRepoMutex.Lock()
+		delete(runningRepo, id)
+		runningRepoMutex.Unlock()
 	}
 
 	go updateSizePool.AddTask(repoID)

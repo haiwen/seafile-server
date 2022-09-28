@@ -9,6 +9,7 @@ import (
 
 const (
 	commitID        = "0401fc662e3bc87a41f299a907c056aaf8322a27"
+	rootID          = "6a1608dc2a1248838464e9b194800d35252e2ce3"
 	repoID          = "b1f2ad61-9164-418a-a47f-ab805dbd5694"
 	seafileConfPath = "/tmp/conf"
 	seafileDataDir  = "/tmp/conf/seafile-data"
@@ -44,6 +45,7 @@ func TestCommit(t *testing.T) {
 	newCommit := new(Commit)
 	newCommit.CommitID = commitID
 	newCommit.RepoID = repoID
+	newCommit.RootID = rootID
 	newCommit.CreatorName = "seafile"
 	newCommit.CreatorID = commitID
 	newCommit.Desc = "This is a commit"
@@ -57,11 +59,11 @@ func TestCommit(t *testing.T) {
 
 	commit, err := Load(repoID, commitID)
 	if err != nil {
-		t.Errorf("Failed to load commit.\n")
+		t.Errorf("Failed to load commit: %v.\n", err)
 	}
 	assertEqual(t, commit.CommitID, commitID)
 	assertEqual(t, commit.RepoID, repoID)
 	assertEqual(t, commit.CreatorName, "seafile")
 	assertEqual(t, commit.CreatorID, commitID)
-	assertEqual(t, commit.ParentID, commitID)
+	assertEqual(t, commit.ParentID.String, commitID)
 }

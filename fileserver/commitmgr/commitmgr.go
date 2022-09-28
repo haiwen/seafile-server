@@ -7,10 +7,12 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"time"
 
 	"github.com/haiwen/seafile-server/fileserver/objstore"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 )
 
 // Commit is a commit object
@@ -57,7 +59,9 @@ func NewCommit(repoID, parentID, newRoot, user, desc string) *Commit {
 	commit.CreatorID = "0000000000000000000000000000000000000000"
 	commit.Ctime = time.Now().Unix()
 	commit.CommitID = computeCommitID(commit)
-	commit.ParentID.SetValid(parentID)
+	if parentID != "" {
+		commit.ParentID.SetValid(parentID)
+	}
 
 	return commit
 }
@@ -83,6 +87,22 @@ func (commit *Commit) FromData(p []byte) error {
 	err := json.Unmarshal(p, commit)
 	if err != nil {
 		return err
+	}
+
+	if !utils.IsValidUUID(commit.RepoID) {
+		return fmt.Errorf("repo id %s is invalid", commit.RepoID)
+	}
+	if !utils.IsObjectIDValid(commit.RootID) {
+		return fmt.Errorf("root id %s is invalid", commit.RootID)
+	}
+	if len(commit.CreatorID) != 40 {
+		return fmt.Errorf("creator id %s is invalid", commit.CreatorID)
+	}
+	if commit.ParentID.Valid && !utils.IsObjectIDValid(commit.ParentID.String) {
+		return fmt.Errorf("parent id %s is invalid", commit.ParentID.String)
+	}
+	if commit.SecondParentID.Valid && !utils.IsObjectIDValid(commit.SecondParentID.String) {
+		return fmt.Errorf("second parent id %s is invalid", commit.SecondParentID.String)
 	}
 
 	return nil
