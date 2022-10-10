@@ -119,14 +119,14 @@ func mergeRepo(repoID string) error {
 	}
 	origHead, err := commitmgr.Load(origRepo.ID, origRepo.HeadCommitID)
 	if err != nil {
-		err := fmt.Errorf("failed to get commit %s:%.8s", origRepo.ID, origRepo.HeadCommitID)
+		err := fmt.Errorf("merge repo %.8s failed: failed to get origin repo commit %s:%.8s", repoID, origRepo.ID, origRepo.HeadCommitID)
 		return err
 	}
 
 	var origRoot string
 	origRoot, err = fsmgr.GetSeafdirIDByPath(origRepo.StoreID, origHead.RootID, vInfo.Path)
 	if err != nil && !errors.Is(err, fsmgr.ErrPathNoExist) {
-		err := fmt.Errorf("failed to get seafdir id by path in origin repo %.10s: %v", origRepo.StoreID, err)
+		err := fmt.Errorf("merge repo %.10s failed: failed to get seafdir id by path in origin repo %.10s: %v", repoID, origRepo.StoreID, err)
 		return err
 	}
 	if origRoot == "" {
@@ -141,14 +141,14 @@ func mergeRepo(repoID string) error {
 
 	base, err := commitmgr.Load(origRepo.ID, vInfo.BaseCommitID)
 	if err != nil {
-		err := fmt.Errorf("failed to get commit %s:%.8s", origRepo.ID, vInfo.BaseCommitID)
+		err := fmt.Errorf("merge repo %.8s failed: failed to get origin repo commit %s:%.8s", repoID, origRepo.ID, vInfo.BaseCommitID)
 		return err
 	}
 
 	root := head.RootID
 	baseRoot, _ := fsmgr.GetSeafdirIDByPath(origRepo.StoreID, base.RootID, vInfo.Path)
 	if baseRoot == "" {
-		err := fmt.Errorf("cannot find seafdir for repo %.10s path %s", vInfo.OriginRepoID, vInfo.Path)
+		err := fmt.Errorf("merge repo %.10s failed: cannot find seafdir for origin repo %.10s path %s", repoID, vInfo.OriginRepoID, vInfo.Path)
 		return err
 	}
 
@@ -163,7 +163,7 @@ func mergeRepo(repoID string) error {
 	} else if baseRoot == origRoot {
 		newBaseCommit, err := updateDir(vInfo.OriginRepoID, vInfo.Path, root, head.CreatorName, origHead.CommitID)
 		if err != nil {
-			err := fmt.Errorf("failed to update origin repo%.10s path %s", vInfo.OriginRepoID, vInfo.Path)
+			err := fmt.Errorf("merge repo %.8s failed: failed to update origin repo%.10s path %s", repoID, vInfo.OriginRepoID, vInfo.Path)
 			return err
 		}
 		repomgr.SetVirtualRepoBaseCommitPath(repo.ID, newBaseCommit, vInfo.Path)
@@ -189,7 +189,7 @@ func mergeRepo(repoID string) error {
 
 		newBaseCommit, err := updateDir(vInfo.OriginRepoID, vInfo.Path, opt.mergedRoot, head.CreatorName, origHead.CommitID)
 		if err != nil {
-			err := fmt.Errorf("failed to update origin repo %.10s path %s", vInfo.OriginRepoID, vInfo.Path)
+			err := fmt.Errorf("merge repo %.10s failed: failed to update origin repo %.10s path %s", repoID, vInfo.OriginRepoID, vInfo.Path)
 			return err
 		}
 		repomgr.SetVirtualRepoBaseCommitPath(repo.ID, newBaseCommit, vInfo.Path)

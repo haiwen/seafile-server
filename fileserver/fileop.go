@@ -264,7 +264,6 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 			}
 			_, err = rsp.Write(decoded)
 			if err != nil {
-				log.Printf("failed to write block %s to response: %v", blkID, err)
 				return nil
 			}
 		}
@@ -398,10 +397,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 				return nil
 			}
 			recvBuf := buf.Bytes()
-			_, err = rsp.Write(recvBuf[pos : pos+end-start+1])
-			if err != nil {
-				log.Printf("failed to write block %s to response: %v", blkID, err)
-			}
+			rsp.Write(recvBuf[pos : pos+end-start+1])
 			return nil
 		}
 
@@ -415,7 +411,6 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		recvBuf := buf.Bytes()
 		_, err = rsp.Write(recvBuf[pos:])
 		if err != nil {
-			log.Printf("failed to write block %s to response: %v", blkID, err)
 			return nil
 		}
 		start += blkSize[i] - pos
@@ -438,7 +433,6 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 			recvBuf := buf.Bytes()
 			_, err = rsp.Write(recvBuf[:end-start+1])
 			if err != nil {
-				log.Printf("failed to write block %s to response: %v", blkID, err)
 				return nil
 			}
 			break

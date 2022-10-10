@@ -154,7 +154,7 @@ func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions
 	recurse := true
 	err := opt.DirCB(opt.Ctx, baseDir, dirs, opt.Data, &recurse)
 	if err != nil {
-		err := fmt.Errorf("failed to call dir callback: %v", err)
+		err := fmt.Errorf("failed to call dir callback: %w", err)
 		return err
 	}
 

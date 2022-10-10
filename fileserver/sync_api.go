@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"io/ioutil"
@@ -156,8 +157,13 @@ func getFsId(args ...interface{}) error {
 	}
 	ret, err := calculateSendObjectList(r.Context(), repo, serverHead, clientHead, dirOnly)
 	if err != nil {
-		err := fmt.Errorf("Failed to get fs id list: %v", err)
-		appErr := &appError{err, "", http.StatusInternalServerError}
+		if !errors.Is(err, context.Canceled) {
+			err := fmt.Errorf("Failed to get fs id list: %w", err)
+			appErr := &appError{err, "", http.StatusInternalServerError}
+			resChan <- &calResult{user, appErr}
+			return nil
+		}
+		appErr := &appError{nil, "", http.StatusInternalServerError}
 		resChan <- &calResult{user, appErr}
 		return nil
 	}
@@ -1285,7 +1291,7 @@ func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead
 func collectFileIDs(ctx context.Context, baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("request canceled")
+		return context.Canceled
 	default:
 	}
 
@@ -1313,7 +1319,7 @@ func collectFileIDsNOp(ctx context.Context, baseDir string, files []*fsmgr.SeafD
 func collectDirIDs(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent, data interface{}, recurse *bool) error {
 	select {
 	case <-ctx.Done():
-		return fmt.Errorf("request canceled")
+		return context.Canceled
 	default:
 	}
 
