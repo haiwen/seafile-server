@@ -216,7 +216,7 @@ CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo (
   id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
   token CHAR(41),
   peer_id CHAR(41),
-  peer_ip VARCHAR(41),
+  peer_ip VARCHAR(50),
   peer_name VARCHAR(255),
   sync_time BIGINT,
   client_ver VARCHAR(20),

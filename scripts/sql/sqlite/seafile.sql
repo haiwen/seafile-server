@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS OrgInnerPubRepo (org_id INTEGER, repo_id CHAR(37), pe
 CREATE TABLE IF NOT EXISTS RepoUserToken (repo_id CHAR(37), email VARCHAR(255), token CHAR(41));
 CREATE UNIQUE INDEX IF NOT EXISTS repo_token_indx on RepoUserToken (repo_id, token);
 CREATE INDEX IF NOT EXISTS repo_token_email_indx on RepoUserToken (email);
-CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo (token CHAR(41) PRIMARY KEY, peer_id CHAR(41), peer_ip VARCHAR(41), peer_name VARCHAR(255), sync_time BIGINT, client_ver VARCHAR(20));
+CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo (token CHAR(41) PRIMARY KEY, peer_id CHAR(41), peer_ip VARCHAR(50), peer_name VARCHAR(255), sync_time BIGINT, client_ver VARCHAR(20));
 CREATE TABLE IF NOT EXISTS RepoSyncError (token CHAR(41) PRIMARY KEY, error_time BIGINT, error_con VARCHAR(1024));
 CREATE TABLE IF NOT EXISTS RepoHead (repo_id CHAR(37) PRIMARY KEY, branch_name VARCHAR(10));
 CREATE TABLE IF NOT EXISTS RepoSize (repo_id CHAR(37) PRIMARY KEY, size BIGINT UNSIGNED, head_id CHAR(41));
