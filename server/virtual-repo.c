@@ -138,7 +138,8 @@ do_create_virtual_repo (SeafRepoManager *mgr,
     }
 
     if (set_repo_commit_to_db (repo_id, repo_name, commit->ctime,
-                               repo->version, repo->encrypted, user) < 0) {
+                               repo->version, repo->encrypted, user,
+                               repo->enc_version, repo->salt) < 0) {
         seaf_warning("Failed to add repo info.\n");
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to add repo info");

@@ -170,6 +170,7 @@ seaf_commit_free (SeafCommit *commit)
     g_free (commit->client_version);
     g_free (commit->magic);
     g_free (commit->random_key);
+    g_free (commit->salt);
     g_free (commit);
 }
 
