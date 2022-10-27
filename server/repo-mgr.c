@@ -2280,8 +2280,9 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
+                "LEFT JOIN VirtualRepo v ON o.repo_id = v.repo_id "
                 "WHERE owner_id=? AND "
-                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "v.repo_id IS NULL "
                 "ORDER BY i.update_time DESC, o.repo_id";
         else
             sql = "SELECT o.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
@@ -2307,8 +2308,9 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
+                "LEFT JOIN VirtualRepo v ON o.repo_id = v.repo_id "
                 "WHERE owner_id=? AND "
-                "o.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "v.repo_id IS NULL "
                 "ORDER BY i.update_time DESC, o.repo_id "
                 "LIMIT ? OFFSET ?";
         else
@@ -2392,8 +2394,9 @@ seaf_repo_manager_get_repos_by_id_prefix (SeafRepoManager *mgr,
                 "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
                 "WHERE i.repo_id LIKE ? AND "
-                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "v.repo_id IS NULL "
                 "ORDER BY i.update_time DESC, i.repo_id";
         else
             sql = "SELECT i.repo_id, s.\"size\", b.commit_id, i.name, i.update_time, "
@@ -2416,8 +2419,9 @@ seaf_repo_manager_get_repos_by_id_prefix (SeafRepoManager *mgr,
                 "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
+                "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
                 "WHERE i.repo_id LIKE ? AND "
-                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+                "v.repo_id IS NULL "
                 "ORDER BY i.update_time DESC, i.repo_id "
                 "LIMIT ? OFFSET ?";
         else
@@ -2461,9 +2465,11 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
             "LEFT JOIN RepoFileCount fc ON i.repo_id = fc.repo_id "
+            "LEFT JOIN Repo r ON i.repo_id = r.repo_id "
+            "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
             "WHERE i.name COLLATE UTF8_GENERAL_CI LIKE ? AND "
-            "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
-            "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+            "r.repo_id IS NOT NULL AND "
+            "v.repo_id IS NULL "
             "ORDER BY i.update_time DESC, i.repo_id";
         break;
     case SEAF_DB_TYPE_PGSQL:
@@ -2483,9 +2489,11 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
             "LEFT JOIN RepoFileCount fc ON i.repo_id = fc.repo_id "
+            "LEFT JOIN Repo r ON i.repo_id = r.repo_id "
+            "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
             "WHERE i.name LIKE ? COLLATE NOCASE AND "
-            "i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
-            "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) "
+            "r.repo_id IS NOT NULL AND "
+            "v.repo_id IS NULL "
             "ORDER BY i.update_time DESC, i.repo_id";
         break;
     default:
@@ -2535,8 +2543,10 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
-                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
-                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
+                "LEFT JOIN Repo r ON i.repo_id = r.repo_id "
+                "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
+                "WHERE r.repo_id IS NOT NULL AND "
+                "v.repo_id IS NULL ";
             if (g_strcmp0 (order_by, "size") == 0)
                 snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id", sql_base);
             else if (g_strcmp0 (order_by, "file_count") == 0)
@@ -2550,8 +2560,10 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
-                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
-                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
+                "LEFT JOIN Repo r ON i.repo_id = r.repo_id "
+                "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
+                "WHERE r.repo_id IS NOT NULL AND "
+                "v.repo_id IS NULL ";
             if (g_strcmp0 (order_by, "size") == 0)
                 snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id", sql_base);
             else if (g_strcmp0 (order_by, "file_count") == 0)
@@ -2574,8 +2586,10 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
-                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
-                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
+                "LEFT JOIN Repo r ON i.repo_id = r.repo_id "
+                "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
+                "WHERE r.repo_id IS NOT NULL AND "
+                "v.repo_id IS NULL ";
             if (g_strcmp0 (order_by, "size") == 0)
                 snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
             else if (g_strcmp0 (order_by, "file_count") == 0)
@@ -2589,8 +2603,10 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
-                "WHERE i.repo_id IN (SELECT r.repo_id FROM Repo r) AND "
-                "i.repo_id NOT IN (SELECT v.repo_id FROM VirtualRepo v) ";
+                "LEFT JOIN Repo r ON i.repo_id = r.repo_id "
+                "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
+                "WHERE r.repo_id IS NOT NULL AND "
+                "v.repo_id IS NULL ";
             if (g_strcmp0 (order_by, "size") == 0)
                 snprintf (sql, sizeof(sql), "%sORDER BY s.size DESC, i.repo_id LIMIT ? OFFSET ?", sql_base);
             else if (g_strcmp0 (order_by, "file_count") == 0)
@@ -3367,11 +3383,11 @@ seaf_repo_manager_get_repos_by_group (SeafRepoManager *mgr,
     sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
         "v.origin_repo, v.path, i.name, "
-        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
-        "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
         "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
         "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoInfo i ON RepoGroup.repo_id = i.repo_id "
+        "LEFT JOIN RepoInfo i2 ON v.origin_repo = i2.repo_id "
         "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
         "Branch WHERE group_id = ? AND "
         "RepoGroup.repo_id = Branch.repo_id AND "
@@ -3405,11 +3421,11 @@ seaf_repo_manager_get_group_repos_by_owner (SeafRepoManager *mgr,
     sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
         "v.origin_repo, v.path, i.name, "
-        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
-        "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
         "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
         "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoInfo i ON RepoGroup.repo_id = i.repo_id "
+        "LEFT JOIN RepoInfo i2 ON v.origin_repo = i2.repo_id "
         "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
         "Branch WHERE user_name = ? AND "
         "RepoGroup.repo_id = Branch.repo_id AND "
@@ -4467,11 +4483,11 @@ seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
         sql = "SELECT RepoGroup.repo_id, v.repo_id, "
               "group_id, user_name, permission, commit_id, s.size, "
               "v.origin_repo, v.path, i.name, "
-              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
-              "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
               "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
               "RepoGroup.repo_id = v.repo_id "
               "LEFT JOIN RepoInfo i ON RepoGroup.repo_id = i.repo_id "
+              "LEFT JOIN RepoInfo i2 ON v.origin_repo = i2.repo_id "
               "LEFT JOIN RepoSize s ON RepoGroup.repo_id = s.repo_id, "
               "Branch WHERE group_id = ? AND "
               "RepoGroup.repo_id = Branch.repo_id AND "
@@ -4481,11 +4497,11 @@ seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
         sql = "SELECT OrgGroupRepo.repo_id, v.repo_id, "
               "group_id, owner, permission, commit_id, s.size, "
               "v.origin_repo, v.path, i.name, "
-              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
-              "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo) "
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
               "FROM OrgGroupRepo LEFT JOIN VirtualRepo v ON "
               "OrgGroupRepo.repo_id = v.repo_id "
               "LEFT JOIN RepoInfo i ON OrgRepoGroup.repo_id = i.repo_id "
+              "LEFT JOIN RepoInfo i2 ON v.origin_repo = i2.repo_id "
               "LEFT JOIN RepoSize s ON OrgGroupRepo.repo_id = s.repo_id, "
               "Branch WHERE group_id = ? AND "
               "OrgGroupRepo.repo_id = Branch.repo_id AND "
@@ -4540,11 +4556,11 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
     g_string_printf (sql, "SELECT g.repo_id, v.repo_id, "
                           "group_id, %s, permission, commit_id, s.size, "
                           "v.origin_repo, v.path, i.name, "
-                          "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, "
-                          "(SELECT name FROM RepoInfo WHERE repo_id=v.origin_repo)"
+                          "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
                           "FROM %s g LEFT JOIN VirtualRepo v ON "
                           "g.repo_id = v.repo_id "
                           "LEFT JOIN RepoInfo i ON g.repo_id = i.repo_id "
+                          "LEFT JOIN RepoInfo i2 ON v.origin_repo = i2.repo_id "
                           "LEFT JOIN RepoSize s ON g.repo_id = s.repo_id, "
                           "Branch b WHERE g.repo_id = b.repo_id AND "
                           "b.name = 'master' AND group_id IN (",
