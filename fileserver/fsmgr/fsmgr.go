@@ -6,16 +6,23 @@ import (
 	"compress/zlib"
 	"crypto/sha1"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
+	"time"
+	"unsafe"
 
 	"github.com/haiwen/seafile-server/fileserver/objstore"
 	"github.com/haiwen/seafile-server/fileserver/utils"
+	jsoniter "github.com/json-iterator/go"
+
+	"github.com/dgraph-io/ristretto"
 )
+
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // Seafile is a file object
 type Seafile struct {
@@ -149,7 +156,7 @@ func (dent *SeafDirent) toJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-//SeafDir is a dir object
+// SeafDir is a dir object
 type SeafDir struct {
 	data    []byte
 	Version int           `json:"version"`
@@ -218,9 +225,115 @@ const (
 	EmptySha1 = "0000000000000000000000000000000000000000"
 )
 
+// Since zlib library allocates a large amount of memory every time a new reader is created, when the number of calls is too large,
+// the GC will be executed frequently, resulting in high CPU usage.
+var zlibReaders []io.ReadCloser
+var zlibLock sync.Mutex
+
+// Add fs cache, on the one hand to avoid repeated creation and destruction of repeatedly accessed objects,
+// on the other hand it will also slow down the speed at which objects are released.
+var fsCache *ristretto.Cache
+
 // Init initializes fs manager and creates underlying object store.
-func Init(seafileConfPath string, seafileDataDir string) {
+func Init(seafileConfPath string, seafileDataDir string, fsCacheLimit int64) {
 	store = objstore.New(seafileConfPath, seafileDataDir, "fs")
+	fsCache, _ = ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7,          // number of keys to track frequency of (10M).
+		MaxCost:     fsCacheLimit, // maximum cost of cache.
+		BufferItems: 64,           // number of keys per Get buffer.
+		Cost:        calCost,
+	})
+}
+
+func calCost(value interface{}) int64 {
+	return sizeOf(value)
+}
+
+const (
+	sizeOfString     = int64(unsafe.Sizeof(string("")))
+	sizeOfPointer    = int64(unsafe.Sizeof(uintptr(0)))
+	sizeOfSeafile    = int64(unsafe.Sizeof(Seafile{}))
+	sizeOfSeafDir    = int64(unsafe.Sizeof(SeafDir{}))
+	sizeOfSeafDirent = int64(unsafe.Sizeof(SeafDirent{}))
+)
+
+func sizeOf(a interface{}) int64 {
+	var size int64
+	switch x := a.(type) {
+	case string:
+		return sizeOfString + int64(len(x))
+	case []string:
+		for _, s := range x {
+			size += sizeOf(s)
+		}
+		return size
+	case *Seafile:
+		size = sizeOfPointer
+		size += sizeOfSeafile
+		size += int64(len(x.FileID))
+		size += sizeOf(x.BlkIDs)
+		return size
+	case *SeafDir:
+		size = sizeOfPointer
+		size += sizeOfSeafDir
+		size += int64(len(x.DirID))
+		for _, dent := range x.Entries {
+			size += sizeOf(dent)
+		}
+		return size
+	case *SeafDirent:
+		size = sizeOfPointer
+		size += sizeOfSeafDirent
+		size += int64(len(x.ID))
+		size += int64(len(x.Name))
+		size += int64(len(x.Modifier))
+		return size
+
+	}
+	return 0
+}
+
+func initZlibReader() (io.ReadCloser, error) {
+	var buf bytes.Buffer
+
+	// Since the corresponding reader has not been obtained when zlib is initialized,
+	// an io.Reader needs to be built to initialize zlib.
+	w := zlib.NewWriter(&buf)
+	w.Close()
+
+	r, err := zlib.NewReader(&buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
+// GetOneZlibReader gets a zlib reader from zlibReaders.
+func GetOneZlibReader() io.ReadCloser {
+	zlibLock.Lock()
+	defer zlibLock.Unlock()
+	var reader io.ReadCloser
+	if len(zlibReaders) == 0 {
+		reader, err := initZlibReader()
+		if err != nil {
+			return nil
+		}
+		return reader
+	}
+	reader = zlibReaders[0]
+	zlibReaders = zlibReaders[1:]
+
+	return reader
+}
+
+func ReturnOneZlibReader(reader io.ReadCloser) {
+	if reader == nil {
+		return
+	}
+	zlibLock.Lock()
+	defer zlibLock.Unlock()
+	zlibReaders = append(zlibReaders, reader)
 }
 
 // NewDirent initializes a SeafDirent object
@@ -285,21 +398,37 @@ func NewSeafile(version int, fileSize int64, blkIDs []string) (*Seafile, error) 
 	return seafile, nil
 }
 
-func uncompress(p []byte) ([]byte, error) {
+func uncompress(p []byte, reader io.ReadCloser) ([]byte, error) {
 	b := bytes.NewReader(p)
 	var out bytes.Buffer
-	r, err := zlib.NewReader(b)
-	if err != nil {
-		return nil, err
-	}
 
-	_, err = io.Copy(&out, r)
-	if err != nil {
+	if reader == nil {
+		r, err := zlib.NewReader(b)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = io.Copy(&out, r)
+		if err != nil {
+			r.Close()
+			return nil, err
+		}
+
 		r.Close()
+		return out.Bytes(), nil
+	}
+
+	// resue the old zlib reader.
+	resetter, _ := reader.(zlib.Resetter)
+	err := resetter.Reset(b, nil)
+	if err != nil {
 		return nil, err
 	}
 
-	r.Close()
+	_, err = io.Copy(&out, reader)
+	if err != nil {
+		return nil, err
+	}
 
 	return out.Bytes(), nil
 }
@@ -320,8 +449,8 @@ func compress(p []byte) ([]byte, error) {
 }
 
 // FromData reads from p and converts JSON-encoded data to Seafile.
-func (seafile *Seafile) FromData(p []byte) error {
-	b, err := uncompress(p)
+func (seafile *Seafile) FromData(p []byte, reader io.ReadCloser) error {
+	b, err := uncompress(p, reader)
 	if err != nil {
 		return err
 	}
@@ -379,8 +508,8 @@ func (seafdir *SeafDir) ToData(w io.Writer) error {
 }
 
 // FromData reads from p and converts JSON-encoded data to SeafDir.
-func (seafdir *SeafDir) FromData(p []byte) error {
-	b, err := uncompress(p)
+func (seafdir *SeafDir) FromData(p []byte, reader io.ReadCloser) error {
+	b, err := uncompress(p, reader)
 	if err != nil {
 		return err
 	}
@@ -427,6 +556,16 @@ func WriteRaw(repoID string, objID string, r io.Reader) error {
 
 // GetSeafile gets seafile from storage backend.
 func GetSeafile(repoID string, fileID string) (*Seafile, error) {
+	return getSeafile(repoID, fileID, nil)
+}
+
+// GetSeafileWithZlibReader gets seafile from storage backend with a zlib reader.
+func GetSeafileWithZlibReader(repoID string, fileID string, reader io.ReadCloser) (*Seafile, error) {
+	return getSeafile(repoID, fileID, reader)
+}
+
+func getSeafile(repoID string, fileID string, reader io.ReadCloser) (*Seafile, error) {
+
 	var buf bytes.Buffer
 	seafile := new(Seafile)
 	if fileID == EmptySha1 {
@@ -442,7 +581,7 @@ func GetSeafile(repoID string, fileID string) (*Seafile, error) {
 		return nil, errors
 	}
 
-	err = seafile.FromData(buf.Bytes())
+	err = seafile.FromData(buf.Bytes(), reader)
 	if err != nil {
 		errors := fmt.Errorf("failed to parse seafile object %s/%s : %v", repoID, fileID, err)
 		return nil, errors
@@ -487,8 +626,24 @@ func SaveSeafile(repoID string, seafile *Seafile) error {
 
 // GetSeafdir gets seafdir from storage backend.
 func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
+	return getSeafdir(repoID, dirID, nil, false)
+}
+
+// GetSeafdir gets seafdir from storage backend with a zlib reader.
+func GetSeafdirWithZlibReader(repoID string, dirID string, reader io.ReadCloser) (*SeafDir, error) {
+	return getSeafdir(repoID, dirID, reader, true)
+}
+
+func getSeafdir(repoID string, dirID string, reader io.ReadCloser, useCache bool) (*SeafDir, error) {
+	var seafdir *SeafDir
+	if useCache {
+		seafdir = getSeafdirFromCache(repoID, dirID)
+		if seafdir != nil {
+			return seafdir, nil
+		}
+	}
 	var buf bytes.Buffer
-	seafdir := new(SeafDir)
+	seafdir = new(SeafDir)
 	if dirID == EmptySha1 {
 		seafdir.DirID = EmptySha1
 		return seafdir, nil
@@ -502,7 +657,7 @@ func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
 		return nil, errors
 	}
 
-	err = seafdir.FromData(buf.Bytes())
+	err = seafdir.FromData(buf.Bytes(), reader)
 	if err != nil {
 		errors := fmt.Errorf("failed to parse seafdir object %s/%s : %v", repoID, dirID, err)
 		return nil, errors
@@ -513,7 +668,32 @@ func GetSeafdir(repoID string, dirID string) (*SeafDir, error) {
 		return nil, errors
 	}
 
+	if useCache {
+		setSeafdirToCache(repoID, seafdir)
+	}
+
 	return seafdir, nil
+}
+
+func getSeafdirFromCache(repoID string, dirID string) *SeafDir {
+	key := repoID + dirID
+	v, ok := fsCache.Get(key)
+	if !ok {
+		return nil
+	}
+	seafdir, ok := v.(*SeafDir)
+	if ok {
+		return seafdir
+	}
+
+	return nil
+}
+
+func setSeafdirToCache(repoID string, seafdir *SeafDir) error {
+	key := repoID + seafdir.DirID
+	fsCache.SetWithTTL(key, seafdir, 0, time.Duration(1*time.Hour))
+
+	return nil
 }
 
 // SaveSeafdir saves seafdir to storage backend.

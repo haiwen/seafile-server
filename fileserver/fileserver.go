@@ -73,7 +73,9 @@ type fileServerOptions struct {
 	profilePassword string
 	enableProfiling bool
 	// Go log level
-	logLevel string
+	logLevel               string
+	fsCacheLimit           int64
+	fsIdListRequestTimeout int64
 }
 
 var options fileServerOptions
@@ -379,6 +381,18 @@ func parseFileServerSection(section *ini.Section) {
 	if key, err := section.GetKey("go_log_level"); err == nil {
 		options.logLevel = key.String()
 	}
+	if key, err := section.GetKey("fs_cache_limit"); err == nil {
+		fsCacheLimit, err := key.Int64()
+		if err == nil {
+			options.fsCacheLimit = fsCacheLimit * 1024 * 1024
+		}
+	}
+	if key, err := section.GetKey("fs_id_list_request_timeout"); err == nil {
+		fsIdListRequestTimeout, err := key.Int64()
+		if err == nil {
+			options.fsIdListRequestTimeout = fsIdListRequestTimeout
+		}
+	}
 }
 
 func initDefaultOptions() {
@@ -390,6 +404,8 @@ func initDefaultOptions() {
 	options.webTokenExpireTime = 7200
 	options.clusterSharedTempFileMode = 0600
 	options.defaultQuota = InfiniteQuota
+	options.fsCacheLimit = 2 << 30
+	options.fsIdListRequestTimeout = -1
 }
 
 func writePidFile(pid_file_path string) error {
@@ -490,7 +506,7 @@ func main() {
 
 	repomgr.Init(seafileDB)
 
-	fsmgr.Init(centralDir, dataDir)
+	fsmgr.Init(centralDir, dataDir, options.fsCacheLimit)
 
 	blockmgr.Init(centralDir, dataDir)
 

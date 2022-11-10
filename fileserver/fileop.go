@@ -76,7 +76,7 @@ func initUpload() {
 	os.MkdirAll(objDir, os.ModePerm)
 }
 
-//contentType = "application/octet-stream"
+// contentType = "application/octet-stream"
 func parseContentType(fileName string) string {
 	var contentType string
 
