@@ -141,6 +141,10 @@ func Get(id string) *Repo {
 			repo.Magic = commit.Magic
 			repo.RandomKey = commit.RandomKey
 			repo.Salt = commit.Salt
+		} else if repo.EncVersion == 4 {
+			repo.Magic = commit.Magic
+			repo.RandomKey = commit.RandomKey
+			repo.Salt = commit.Salt
 		}
 	}
 
@@ -160,6 +164,10 @@ func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
 			commit.Magic = repo.Magic
 			commit.RandomKey = repo.RandomKey
 		} else if repo.EncVersion == 3 {
+			commit.Magic = repo.Magic
+			commit.RandomKey = repo.RandomKey
+			commit.Salt = repo.Salt
+		} else if repo.EncVersion == 4 {
 			commit.Magic = repo.Magic
 			commit.RandomKey = repo.RandomKey
 			commit.Salt = repo.Salt
