@@ -1503,6 +1503,8 @@ out:
     return ret;
 }
 
+#define MAX_DIR_OBJECT 1000
+
 typedef struct CalResult {
     int num;
     GList *results;
@@ -1533,7 +1535,7 @@ get_fs_id_list_recursive (SeafRepo *repo,
 
     for (ptr = root->entries; ptr; ptr = ptr->next) {
         dent = ptr->data;
-        if (result->num < 10) {
+        if (result->num < MAX_DIR_OBJECT) {
             if (S_ISDIR(dent->mode)) {
                 ret = get_fs_id_list_recursive (repo, dent->id, result);
                 if (ret < 0) {
