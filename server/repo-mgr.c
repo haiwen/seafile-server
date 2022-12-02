@@ -995,7 +995,7 @@ create_tables_mysql (SeafRepoManager *mgr)
         "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
         "token CHAR(41), "
         "peer_id CHAR(41), "
-        "peer_ip VARCHAR(41), "
+        "peer_ip VARCHAR(50), "
         "peer_name VARCHAR(255), "
         "sync_time BIGINT, "
         "client_ver VARCHAR(20), UNIQUE INDEX(token), INDEX(peer_id))"
@@ -1154,7 +1154,7 @@ create_tables_sqlite (SeafRepoManager *mgr)
     sql = "CREATE TABLE IF NOT EXISTS RepoTokenPeerInfo ("
         "token CHAR(41) PRIMARY KEY, "
         "peer_id CHAR(41), "
-        "peer_ip VARCHAR(41), "
+        "peer_ip VARCHAR(50), "
         "peer_name VARCHAR(255), "
         "sync_time BIGINT, "
         "client_ver VARCHAR(20))";
