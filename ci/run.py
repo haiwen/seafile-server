@@ -54,8 +54,8 @@ def make_build_env():
 
     _env_add('PATH', join(PREFIX, 'bin'))
     if on_github_actions():
-        _env_add('PYTHONPATH', join(os.environ.get('RUNNER_TOOL_CACHE'), 'Python/3.6.9/x64/lib/python3.6/site-packages'))
-    _env_add('PYTHONPATH', join(PREFIX, 'lib/python3.6/site-packages'))
+        _env_add('PYTHONPATH', join(os.environ.get('RUNNER_TOOL_CACHE'), 'Python/3.8.14/x64/lib/python3.8/site-packages'))
+    _env_add('PYTHONPATH', join(PREFIX, 'lib/python3.8/site-packages'))
     _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib', 'pkgconfig'))
     _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib64', 'pkgconfig'))
     _env_add('PKG_CONFIG_PATH', libsearpc_dir)
