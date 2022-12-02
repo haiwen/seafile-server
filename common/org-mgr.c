@@ -509,15 +509,15 @@ ccnet_org_manager_get_org_emailusers (CcnetOrgManager *mgr,
     int rc;
 
     if (start == -1 && limit == -1) {
-        sql = "SELECT u.email FROM OrgUser u "
-            "LEFT JOIN Organization o ON u.org_id = o.org_id "
+        sql = "SELECT u.email FROM OrgUser u, Organization o "
+            "WHERE u.org_id = o.org_id AND "
             "WHERE o.url_prefix = ? "
             "ORDER BY email";
         rc = seaf_db_statement_foreach_row (db, sql, get_org_emailusers, &ret,
                                              1, "string", url_prefix);
     } else {
-        sql = "SELECT u.email FROM OrgUser u "
-            "LEFT JOIN Organization o ON u.org_id = o.org_id "
+        sql = "SELECT u.email FROM OrgUser u, Organization o "
+            "WHERE u.org_id = o.org_id AND "
             "WHERE o.url_prefix = ? "
             " ORDER BY email LIMIT ? OFFSET ?";
         rc = seaf_db_statement_foreach_row (db, sql, get_org_emailusers, &ret,
