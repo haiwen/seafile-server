@@ -342,6 +342,7 @@ seaf_db_query (SeafDB *db, const char *sql)
             break;
         }
         retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
     }
 
     return ret;
@@ -425,6 +426,7 @@ seaf_db_statement_query (SeafDB *db, const char *sql, int n, ...)
             break;
         }
         retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
     }
 
     return ret;
@@ -455,6 +457,7 @@ seaf_db_statement_exists (SeafDB *db, const char *sql, gboolean *db_err, int n, 
             break;
         }
         retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
     }
 
     if (n_rows < 0) {
@@ -491,6 +494,7 @@ seaf_db_statement_foreach_row (SeafDB *db, const char *sql,
             break;
         }
         retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
     }
 
     return ret;
@@ -530,6 +534,7 @@ seaf_db_statement_get_int (SeafDB *db, const char *sql, int n, ...)
             break;
         }
         retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
     }
 
     return ret;
@@ -569,6 +574,7 @@ seaf_db_statement_get_int64 (SeafDB *db, const char *sql, int n, ...)
             break;
         }
         retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
     }
 
     return ret;
@@ -608,6 +614,7 @@ seaf_db_statement_get_string (SeafDB *db, const char *sql, int n, ...)
             break;
         }
         retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
     }
 
     return ret;
