@@ -82,6 +82,10 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
 
     seafile = seaf_fs_manager_get_seafile (seaf->fs_mgr, store_id,
                                            version, file_id);
+    if (!seafile) {
+        seaf_warning ("Failed to get seafile: %s/%s\n", store_id, file_id);
+        return -1;
+    }
 
     for (i = 0; i < seafile->n_blocks; ++i) {
         block_id = seafile->blk_sha1s[i];
