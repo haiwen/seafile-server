@@ -1180,20 +1180,22 @@ ccnet_group_manager_get_top_groups (CcnetGroupManager *mgr,
                                   "creator_name, timestamp, parent_group_id FROM \"%s\" "
                                   "WHERE parent_group_id=-1 ORDER BY timestamp DESC", table_name);
         else
-            g_string_printf (sql, "SELECT group_id, group_name, "
-                                  "creator_name, timestamp, parent_group_id FROM \"%s\" "
-                                  "WHERE parent_group_id=-1 AND group_id NOT IN "
-                                  "(SELECT group_id FROM OrgGroup) ORDER BY timestamp DESC", table_name);
+            g_string_printf (sql, "SELECT g.group_id, g.group_name, "
+                                  "g.creator_name, g.timestamp, g.parent_group_id FROM \"%s\" g "
+                                  "LEFT JOIN OrgGroup o ON g.group_id = o.group_id "
+                                  "WHERE g.parent_group_id=-1 AND o.group_id is NULL "
+                                  "ORDER BY timestamp DESC", table_name);
     } else {
         if (including_org)
             g_string_printf (sql, "SELECT group_id, group_name, "
                                   "creator_name, timestamp, parent_group_id FROM `%s` "
                                   "WHERE parent_group_id=-1 ORDER BY timestamp DESC", table_name);
         else
-            g_string_printf (sql, "SELECT group_id, group_name, "
-                                  "creator_name, timestamp, parent_group_id FROM `%s` "
-                                  "WHERE parent_group_id=-1 AND group_id NOT IN "
-                                  "(SELECT group_id FROM OrgGroup) ORDER BY timestamp DESC", table_name);
+            g_string_printf (sql, "SELECT g.group_id, g.group_name, "
+                                  "g.creator_name, g.timestamp, g.parent_group_id FROM `%s` g "
+                                  "LEFT JOIN OrgGroup o ON g.group_id = o.group_id "
+                                  "WHERE g.parent_group_id=-1 AND o.group_id is NULL "
+                                  "ORDER BY timestamp DESC", table_name);
     }
     rc = seaf_db_statement_foreach_row (db, sql->str,
                                          get_all_ccnetgroups_cb, &ret, 0);
