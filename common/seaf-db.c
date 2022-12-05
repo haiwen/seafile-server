@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #ifdef HAVE_MYSQL
 #include <mysql.h>
+#include <errmsg.h>
 #endif
 #include <sqlite3.h>
 #include <pthread.h>
@@ -26,6 +27,7 @@ struct SeafDB {
 
 typedef struct DBConnection {
     gboolean is_available;
+    gboolean delete_pending;
     DBConnPool *pool;
 } DBConnection;
 
@@ -41,12 +43,12 @@ struct SeafDBTrans {
 typedef struct DBOperations {
     DBConnection* (*get_connection)(SeafDB *db);
     void (*release_connection)(DBConnection *conn, gboolean need_close);
-    int (*execute_sql_no_stmt)(DBConnection *conn, const char *sql);
+    int (*execute_sql_no_stmt)(DBConnection *conn, const char *sql, gboolean *retry);
     int (*execute_sql)(DBConnection *conn, const char *sql,
-                       int n, va_list args);
+                       int n, va_list args, gboolean *retry);
     int (*query_foreach_row)(DBConnection *conn,
                              const char *sql, SeafDBRowFunc callback, void *data,
-                             int n, va_list args);
+                             int n, va_list args, gboolean *retry);
     int (*row_get_column_count)(SeafDBRow *row);
     const char* (*row_get_column_string)(SeafDBRow *row, int idx);
     int (*row_get_column_int)(SeafDBRow *row, int idx);
@@ -72,13 +74,13 @@ mysql_db_get_connection (SeafDB *db);
 static void
 mysql_db_release_connection (DBConnection *vconn);
 static int
-mysql_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql);
+mysql_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql, gboolean *retry);
 static int
-mysql_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args);
+mysql_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args, gboolean *retry);
 static int
 mysql_db_query_foreach_row (DBConnection *vconn, const char *sql,
                             SeafDBRowFunc callback, void *data,
-                            int n, va_list args);
+                            int n, va_list args, gboolean *retry);
 static int
 mysql_db_row_get_column_count (SeafDBRow *row);
 static const char *
@@ -106,6 +108,7 @@ mysql_conn_pool_get_connection (SeafDB *db)
 {
     DBConnPool *pool = db->pool;
     DBConnection *conn = NULL;
+    DBConnection *d_conn = NULL;
 
     if (pool->max_connections == 0) {
         conn = mysql_db_get_connection (db);
@@ -118,10 +121,15 @@ mysql_conn_pool_get_connection (SeafDB *db)
     guint i, size = pool->connections->len;
     for (i = 0; i < size; ++i) {
         conn = g_ptr_array_index (pool->connections, i);
-        if (conn->is_available && mysql_db_connection_ping (conn)) {
+        if (!conn->is_available) {
+            continue;
+        }
+        if (mysql_db_connection_ping (conn)) {
             conn->is_available = FALSE;
             goto out;
         }
+        conn->is_available = FALSE;
+        conn->delete_pending = TRUE;
     }
     conn = NULL;
     if (size < pool->max_connections) {
@@ -134,6 +142,17 @@ mysql_conn_pool_get_connection (SeafDB *db)
     }
 
 out:
+    size = pool->connections->len;
+    if (size > 0) {
+        int index;
+        for (index = size - 1; index >= 0; index--) {
+            d_conn = g_ptr_array_index (pool->connections, index);
+            if (d_conn->delete_pending) {
+                g_ptr_array_remove (conn->pool->connections, d_conn);
+                mysql_db_release_connection (d_conn);
+            }
+        }
+    }
     pthread_mutex_unlock (&pool->lock);
     return conn;
 }
@@ -168,6 +187,10 @@ mysql_conn_keepalive (void *arg)
 {
     DBConnPool *pool = arg;
     DBConnection *conn = NULL;
+    DBConnection *d_conn = NULL;
+    char *sql = "SELECT 1;";
+    int rc = 0;
+    va_list args;
 
     while (1) {
         pthread_mutex_lock (&pool->lock);
@@ -176,9 +199,25 @@ mysql_conn_keepalive (void *arg)
         for (i = 0; i < size; ++i) {
             conn = g_ptr_array_index (pool->connections, i);
             if (conn->is_available) {
-                mysql_db_connection_ping (conn);
+                rc = db_ops.execute_sql (conn, sql, 0, args, NULL);
+                if (rc < 0) {
+                    conn->is_available = FALSE;
+                    conn->delete_pending = TRUE;
+                }
             }
         }
+
+        if (size > 0) {
+            int index;
+            for (index = size - 1; index >= 0; index--) {
+                d_conn = g_ptr_array_index (pool->connections, index);
+                if (d_conn->delete_pending) {
+                    g_ptr_array_remove (pool->connections, d_conn);
+                    mysql_db_release_connection (d_conn);
+                }
+            }
+        }
+
         pthread_mutex_unlock (&pool->lock);
 
         sleep (KEEPALIVE_INTERVAL);
@@ -238,13 +277,13 @@ sqlite_db_get_connection (SeafDB *db);
 static void
 sqlite_db_release_connection (DBConnection *vconn, gboolean need_close);
 static int
-sqlite_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql);
+sqlite_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql, gboolean *retry);
 static int
-sqlite_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args);
+sqlite_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args, gboolean *retry);
 static int
 sqlite_db_query_foreach_row (DBConnection *vconn, const char *sql,
                              SeafDBRowFunc callback, void *data,
-                             int n, va_list args);
+                             int n, va_list args, gboolean *retry);
 static int
 sqlite_db_row_get_column_count (SeafDBRow *row);
 static const char *
@@ -286,14 +325,26 @@ seaf_db_type (SeafDB *db)
 int
 seaf_db_query (SeafDB *db, const char *sql)
 {
-    DBConnection *conn = db_ops.get_connection (db);
-    if (!conn)
-        return -1;
+    int ret = -1; 
+    int retry_count = 0;
 
-    int ret;
-    ret = db_ops.execute_sql_no_stmt (conn, sql);
+    while (ret < 0) {
+        gboolean retry = FALSE;
+        DBConnection *conn = db_ops.get_connection (db);
+        if (!conn)
+            return -1;
 
-    db_ops.release_connection (conn, ret < 0);
+        ret = db_ops.execute_sql_no_stmt (conn, sql, &retry);
+
+        db_ops.release_connection (conn, ret < 0);
+
+        if (!retry || retry_count >= 3) {
+            break;
+        }
+        retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
+    }
+
     return ret;
 }
 
@@ -355,19 +406,28 @@ seaf_db_get_string (SeafDB *db, const char *sql)
 int
 seaf_db_statement_query (SeafDB *db, const char *sql, int n, ...)
 {
-    int ret;
-    DBConnection *conn = NULL;
+    int ret = -1;
+    int retry_count = 0;
 
-    conn = db_ops.get_connection (db);
-    if (!conn)
-        return -1;
+    while (ret < 0) {
+        gboolean retry = FALSE;
+        DBConnection *conn = db_ops.get_connection (db);
+        if (!conn)
+            return -1;
 
-    va_list args;
-    va_start (args, n);
-    ret = db_ops.execute_sql (conn, sql, n, args);
-    va_end (args);
+        va_list args;
+        va_start (args, n);
+        ret = db_ops.execute_sql (conn, sql, n, args, &retry);
+        va_end (args);
 
-    db_ops.release_connection (conn, ret < 0);
+        db_ops.release_connection (conn, ret < 0);
+
+        if (!retry || retry_count >= 3) {
+            break;
+        }
+        retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
+    }
 
     return ret;
 }
@@ -375,21 +435,30 @@ seaf_db_statement_query (SeafDB *db, const char *sql, int n, ...)
 gboolean
 seaf_db_statement_exists (SeafDB *db, const char *sql, gboolean *db_err, int n, ...)
 {
-    int n_rows;
-    DBConnection *conn = NULL;
+    int n_rows = -1;
+    int retry_count = 0;
 
-    conn = db_ops.get_connection(db);
-    if (!conn) {
-        *db_err = TRUE;
-        return FALSE;
+    while (n_rows < 0) {
+        gboolean retry = FALSE;
+        DBConnection *conn = db_ops.get_connection(db);
+        if (!conn) {
+            *db_err = TRUE;
+            return FALSE;
+        }
+
+        va_list args;
+        va_start (args, n);
+        n_rows = db_ops.query_foreach_row (conn, sql, NULL, NULL, n, args, &retry);
+        va_end (args);
+
+        db_ops.release_connection(conn, n_rows < 0);
+
+        if (!retry || retry_count >= 3) {
+            break;
+        }
+        retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
     }
-
-    va_list args;
-    va_start (args, n);
-    n_rows = db_ops.query_foreach_row (conn, sql, NULL, NULL, n, args);
-    va_end (args);
-
-    db_ops.release_connection(conn, n_rows < 0);
 
     if (n_rows < 0) {
         *db_err = TRUE;
@@ -405,19 +474,28 @@ seaf_db_statement_foreach_row (SeafDB *db, const char *sql,
                                SeafDBRowFunc callback, void *data,
                                int n, ...)
 {
-    int ret;
-    DBConnection *conn = NULL;
+    int ret = -1;
+    int retry_count = 0;
 
-    conn = db_ops.get_connection (db);
-    if (!conn)
-        return -1;
+    while (ret < 0) {
+        gboolean retry = FALSE;
+        DBConnection *conn = db_ops.get_connection (db);
+        if (!conn)
+            return -1;
 
-    va_list args;
-    va_start (args, n);
-    ret = db_ops.query_foreach_row (conn, sql, callback, data, n, args);
-    va_end (args);
+        va_list args;
+        va_start (args, n);
+        ret = db_ops.query_foreach_row (conn, sql, callback, data, n, args, &retry);
+        va_end (args);
 
-    db_ops.release_connection (conn, ret < 0);
+        db_ops.release_connection (conn, ret < 0);
+
+        if (!retry || retry_count >= 3) {
+            break;
+        }
+        retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
+    }
 
     return ret;
 }
@@ -436,22 +514,28 @@ int
 seaf_db_statement_get_int (SeafDB *db, const char *sql, int n, ...)
 {
     int ret = -1;
-    int rc;
-    DBConnection *conn = NULL;
+    int rc = -1;
+    int retry_count = 0;
 
-    conn = db_ops.get_connection (db);
-    if (!conn)
-        return -1;
+    while (rc < 0) {
+        gboolean retry = FALSE;
+        DBConnection *conn = db_ops.get_connection (db);
+        if (!conn)
+            return -1;
 
-    va_list args;
-    va_start (args, n);
-    rc = db_ops.query_foreach_row (conn, sql, get_int_cb, &ret, n, args);
-    va_end (args);
+        va_list args;
+        va_start (args, n);
+        rc = db_ops.query_foreach_row (conn, sql, get_int_cb, &ret, n, args, &retry);
+        va_end (args);
 
-    db_ops.release_connection (conn, rc < 0);
+        db_ops.release_connection (conn, rc < 0);
 
-    if (rc < 0)
-        return -1;
+        if (!retry || retry_count >= 3) {
+            break;
+        }
+        retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
+    }
 
     return ret;
 }
@@ -470,22 +554,28 @@ gint64
 seaf_db_statement_get_int64 (SeafDB *db, const char *sql, int n, ...)
 {
     gint64 ret = -1;
-    int rc;
-    DBConnection *conn = NULL;
+    int rc = -1;
+    int retry_count = 0;
 
-    conn = db_ops.get_connection (db);
-    if (!conn)
-        return -1;
+    while (rc < 0) {
+        gboolean retry = FALSE;
+        DBConnection *conn = db_ops.get_connection (db);
+        if (!conn)
+            return -1;
 
-    va_list args;
-    va_start (args, n);
-    rc = db_ops.query_foreach_row (conn, sql, get_int64_cb, &ret, n, args);
-    va_end(args);
+        va_list args;
+        va_start (args, n);
+        rc = db_ops.query_foreach_row (conn, sql, get_int64_cb, &ret, n, args, &retry);
+        va_end(args);
 
-    db_ops.release_connection (conn, rc < 0);
+        db_ops.release_connection (conn, rc < 0);
 
-    if (rc < 0)
-        return -1;
+        if (!retry || retry_count >= 3) {
+            break;
+        }
+        retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
+    }
 
     return ret;
 }
@@ -504,22 +594,28 @@ char *
 seaf_db_statement_get_string (SeafDB *db, const char *sql, int n, ...)
 {
     char *ret = NULL;
-    int rc;
-    DBConnection *conn = NULL;
+    int rc = -1;
+    int retry_count = 0;
 
-    conn = db_ops.get_connection (db);
-    if (!conn)
-        return NULL;
+    while (rc < 0) {
+        gboolean retry = FALSE;
+        DBConnection *conn = db_ops.get_connection (db);
+        if (!conn)
+            return NULL;
 
-    va_list args;
-    va_start (args, n);
-    rc = db_ops.query_foreach_row (conn, sql, get_string_cb, &ret, n, args);
-    va_end(args);
+        va_list args;
+        va_start (args, n);
+        rc = db_ops.query_foreach_row (conn, sql, get_string_cb, &ret, n, args, &retry);
+        va_end(args);
 
-    db_ops.release_connection (conn, rc < 0);
+        db_ops.release_connection (conn, rc < 0);
 
-    if (rc < 0)
-        return NULL;
+        if (!retry || retry_count >= 3) {
+            break;
+        }
+        retry_count++;
+        seaf_warning ("The mysql connection has expired, creating a new connection to re-query.\n");
+    }
 
     return ret;
 }
@@ -535,7 +631,7 @@ seaf_db_begin_transaction (SeafDB *db)
         return trans;
     }
 
-    if (db_ops.execute_sql_no_stmt (conn, "BEGIN") < 0) {
+    if (db_ops.execute_sql_no_stmt (conn, "BEGIN", NULL) < 0) {
         db_ops.release_connection (conn, TRUE);
         return trans;
     }
@@ -558,7 +654,7 @@ seaf_db_commit (SeafDBTrans *trans)
 {
     DBConnection *conn = trans->conn;
 
-    if (db_ops.execute_sql_no_stmt (conn, "COMMIT") < 0) {
+    if (db_ops.execute_sql_no_stmt (conn, "COMMIT", NULL) < 0) {
         trans->need_close = TRUE;
         return -1;
     }
@@ -571,7 +667,7 @@ seaf_db_rollback (SeafDBTrans *trans)
 {
     DBConnection *conn = trans->conn;
 
-    if (db_ops.execute_sql_no_stmt (conn, "ROLLBACK") < 0) {
+    if (db_ops.execute_sql_no_stmt (conn, "ROLLBACK", NULL) < 0) {
         trans->need_close = TRUE;
         return -1;
     }
@@ -586,7 +682,7 @@ seaf_db_trans_query (SeafDBTrans *trans, const char *sql, int n, ...)
 
     va_list args;
     va_start (args, n);
-    ret = db_ops.execute_sql (trans->conn, sql, n, args);
+    ret = db_ops.execute_sql (trans->conn, sql, n, args, NULL);
     va_end (args);
 
     if (ret < 0)
@@ -605,7 +701,7 @@ seaf_db_trans_check_for_existence (SeafDBTrans *trans,
 
     va_list args;
     va_start (args, n);
-    n_rows = db_ops.query_foreach_row (trans->conn, sql, NULL, NULL, n, args);
+    n_rows = db_ops.query_foreach_row (trans->conn, sql, NULL, NULL, n, args, NULL);
     va_end (args);
 
     if (n_rows < 0) {
@@ -627,7 +723,7 @@ seaf_db_trans_foreach_selected_row (SeafDBTrans *trans, const char *sql,
 
     va_list args;
     va_start (args, n);
-    ret = db_ops.query_foreach_row (trans->conn, sql, callback, data, n, args);
+    ret = db_ops.query_foreach_row (trans->conn, sql, callback, data, n, args, NULL);
     va_end (args);
 
     if (ret < 0)
@@ -703,7 +799,6 @@ static DBConnection *
 mysql_db_get_connection (SeafDB *vdb)
 {
     MySQLDB *db = (MySQLDB *)vdb;
-    my_bool yes = 1;
     int conn_timeout = 1;
     int read_write_timeout = 5;
     MYSQL *db_conn;
@@ -722,7 +817,6 @@ mysql_db_get_connection (SeafDB *vdb)
         mysql_options(db_conn, MYSQL_SET_CHARSET_NAME, db->charset);
 
     mysql_options(db_conn, MYSQL_OPT_CONNECT_TIMEOUT, (const char*)&conn_timeout);
-    mysql_options(db_conn, MYSQL_OPT_RECONNECT, (const char*)&yes);
     mysql_options(db_conn, MYSQL_OPT_READ_TIMEOUT, (const char*)&read_write_timeout);
     mysql_options(db_conn, MYSQL_OPT_WRITE_TIMEOUT, (const char*)&read_write_timeout);
 
@@ -754,20 +848,27 @@ mysql_db_release_connection (DBConnection *vconn)
 }
 
 static int
-mysql_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql)
+mysql_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql, gboolean *retry)
 {
     MySQLDBConnection *conn = (MySQLDBConnection *)vconn;
+    int rc;
 
-    if (mysql_query (conn->db_conn, sql) != 0) {
-        seaf_warning ("Failed to execute sql %s: %s\n", sql, mysql_error(conn->db_conn));
-        return -1;
+    rc = mysql_query (conn->db_conn, sql);
+    if (rc == 0) {
+        return 0;
     }
 
-    return 0;
+    if (rc == CR_SERVER_GONE_ERROR || rc == CR_SERVER_LOST) {
+        if (retry)
+            *retry = TRUE;
+    }
+
+    seaf_warning ("Failed to execute sql %s: %s\n", sql, mysql_error(conn->db_conn));
+    return -1;
 }
 
 static MYSQL_STMT *
-_prepare_stmt_mysql (MYSQL *db, const char *sql)
+_prepare_stmt_mysql (MYSQL *db, const char *sql, gboolean *retry)
 {
     MYSQL_STMT *stmt;
 
@@ -778,6 +879,11 @@ _prepare_stmt_mysql (MYSQL *db, const char *sql)
     }
 
     if (mysql_stmt_prepare (stmt, sql, strlen(sql)) != 0) {
+        int err_code = mysql_stmt_errno (stmt);
+        if (err_code == CR_SERVER_GONE_ERROR || err_code == CR_SERVER_LOST) {
+            if (retry)
+                *retry = TRUE;
+        }
         seaf_warning ("Failed to prepare sql %s: %s\n", sql, mysql_stmt_error(stmt));
         mysql_stmt_close (stmt);
         return NULL;
@@ -838,7 +944,7 @@ _bind_params_mysql (MYSQL_STMT *stmt, MYSQL_BIND *params, int n, va_list args)
 }
 
 static int
-mysql_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args)
+mysql_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args, gboolean *retry)
 {
     MySQLDBConnection *conn = (MySQLDBConnection *)vconn;
     MYSQL *db = conn->db_conn;
@@ -846,7 +952,7 @@ mysql_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args)
     MYSQL_BIND *params = NULL;
     int ret = 0;
 
-    stmt = _prepare_stmt_mysql (db, sql);
+    stmt = _prepare_stmt_mysql (db, sql, retry);
     if (!stmt) {
         return -1;
     }
@@ -868,6 +974,13 @@ mysql_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args)
     }
 
 out:
+    if (ret < 0) {
+        int err_code = mysql_stmt_errno (stmt);
+        if (err_code == CR_SERVER_GONE_ERROR || err_code == CR_SERVER_LOST) {
+            if (retry)
+                *retry = TRUE;
+        }
+    }
     if (stmt)
         mysql_stmt_close (stmt);
     if (params) {
@@ -895,19 +1008,20 @@ typedef struct MySQLDBRow {
 static int
 mysql_db_query_foreach_row (DBConnection *vconn, const char *sql,
                             SeafDBRowFunc callback, void *data,
-                            int n, va_list args)
+                            int n, va_list args, gboolean *retry)
 {
     MySQLDBConnection *conn = (MySQLDBConnection *)vconn;
     MYSQL *db = conn->db_conn;
     MYSQL_STMT *stmt = NULL;
     MYSQL_BIND *params = NULL;
     MySQLDBRow row;
+    int err_code;
     int nrows = 0;
     int i;
 
     memset (&row, 0, sizeof(row));
 
-    stmt = _prepare_stmt_mysql (db, sql);
+    stmt = _prepare_stmt_mysql (db, sql, retry);
     if (!stmt) {
         return -1;
     }
@@ -916,6 +1030,11 @@ mysql_db_query_foreach_row (DBConnection *vconn, const char *sql,
         params = g_new0 (MYSQL_BIND, n);
         if (_bind_params_mysql (stmt, params, n, args) < 0) {
             nrows = -1;
+            err_code = mysql_stmt_errno (stmt);
+            if (err_code == CR_SERVER_GONE_ERROR || err_code == CR_SERVER_LOST) {
+                if (retry)
+                    *retry = TRUE;
+            }
             goto out;
         }
     }
@@ -923,6 +1042,11 @@ mysql_db_query_foreach_row (DBConnection *vconn, const char *sql,
     if (mysql_stmt_execute (stmt) != 0) {
         seaf_warning ("Failed to execute sql %s: %s\n", sql, mysql_stmt_error(stmt));
         nrows = -1;
+        err_code = mysql_stmt_errno (stmt);
+        if (err_code == CR_SERVER_GONE_ERROR || err_code == CR_SERVER_LOST) {
+            if (retry)
+                *retry = TRUE;
+        }
         goto out;
     }
 
@@ -944,6 +1068,11 @@ mysql_db_query_foreach_row (DBConnection *vconn, const char *sql,
     if (mysql_stmt_bind_result (stmt, row.results) != 0) {
         seaf_warning ("Failed to bind result for sql %s: %s\n", sql, mysql_stmt_error(stmt));
         nrows = -1;
+        err_code = mysql_stmt_errno (stmt);
+        if (err_code == CR_SERVER_GONE_ERROR || err_code == CR_SERVER_LOST) {
+            if (retry)
+                *retry = TRUE;
+        }
         goto out;
     }
 
@@ -955,6 +1084,7 @@ mysql_db_query_foreach_row (DBConnection *vconn, const char *sql,
             seaf_warning ("Failed to fetch result for sql %s: %s\n",
                           sql, mysql_stmt_error(stmt));
             nrows = -1;
+            // Don't need to retry, some rows may have been fetched.
             goto out;
         }
         if (rc == MYSQL_NO_DATA)
@@ -1236,7 +1366,7 @@ sqlite_db_release_connection (DBConnection *vconn, gboolean need_close)
 }
 
 static int
-sqlite_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql)
+sqlite_db_execute_sql_no_stmt (DBConnection *vconn, const char *sql, gboolean *retry)
 {
     SQLiteDBConnection *conn = (SQLiteDBConnection *)vconn;
     char *errmsg = NULL;
@@ -1289,7 +1419,7 @@ _bind_parameters_sqlite (sqlite3 *db, sqlite3_stmt *stmt, int n, va_list args)
 }
 
 static int
-sqlite_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args)
+sqlite_db_execute_sql (DBConnection *vconn, const char *sql, int n, va_list args, gboolean *retry)
 {
     SQLiteDBConnection *conn = (SQLiteDBConnection *)vconn;
     sqlite3 *db = conn->db_conn;
@@ -1331,7 +1461,7 @@ typedef struct SQLiteDBRow {
 static int
 sqlite_db_query_foreach_row (DBConnection *vconn, const char *sql,
                              SeafDBRowFunc callback, void *data,
-                             int n, va_list args)
+                             int n, va_list args, gboolean *retry)
 {
     SQLiteDBConnection *conn = (SQLiteDBConnection *)vconn;
     sqlite3 *db = conn->db_conn;
