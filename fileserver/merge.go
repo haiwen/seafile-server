@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -17,7 +16,6 @@ type mergeOptions struct {
 	remoteHead   string
 	mergedRoot   string
 	conflict     bool
-	reader       io.ReadCloser
 }
 
 func mergeTrees(storeID string, roots []string, opt *mergeOptions) error {
@@ -28,7 +26,7 @@ func mergeTrees(storeID string, roots []string, opt *mergeOptions) error {
 
 	var trees []*fsmgr.SeafDir
 	for i := 0; i < 3; i++ {
-		dir, err := fsmgr.GetSeafdirWithZlibReader(storeID, roots[i], opt.reader)
+		dir, err := fsmgr.GetSeafdir(storeID, roots[i])
 		if err != nil {
 			err := fmt.Errorf("failed to get dir: %v", err)
 			return err
@@ -290,7 +288,7 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 
 	for i := 0; i < n; i++ {
 		if dents[i] != nil && fsmgr.IsDir(dents[i].Mode) {
-			dir, err := fsmgr.GetSeafdirWithZlibReader(storeID, dents[i].ID, opt.reader)
+			dir, err := fsmgr.GetSeafdir(storeID, dents[i].ID)
 			if err != nil {
 				err := fmt.Errorf("failed to get seafdir %s/%s", storeID, dents[i].ID)
 				return nil, err
