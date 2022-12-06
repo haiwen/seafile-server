@@ -1928,6 +1928,10 @@ func postMultiFilesRecursive(repo *repomgr.Repo, dirID, toPath, user string, den
 			return "", err
 		}
 		ret = newdir.DirID
+	} else {
+		// The ret will be an empty string when failed to find parent dir, an error should be returned in such case.
+		err := fmt.Errorf("failed to find parent dir for %s", toPath)
+		return "", err
 	}
 
 	return ret, nil
@@ -2576,6 +2580,9 @@ func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.S
 			return "", err
 		}
 		ret = newdir.DirID
+	} else {
+		err := fmt.Errorf("failed to find parent dir for %s", toPath)
+		return "", err
 	}
 
 	return ret, nil
