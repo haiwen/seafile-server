@@ -213,7 +213,7 @@ func mergeTestDelFile() error {
 
 func TestMergeTrees(t *testing.T) {
 	commitmgr.Init(mergeTestSeafileConfPath, mergeTestSeafileDataDir)
-	fsmgr.Init(mergeTestSeafileConfPath, mergeTestSeafileDataDir)
+	fsmgr.Init(mergeTestSeafileConfPath, mergeTestSeafileDataDir, options.fsCacheLimit)
 	err := mergeTestCreateTestDir()
 	if err != nil {
 		fmt.Printf("failed to create test dir: %v", err)

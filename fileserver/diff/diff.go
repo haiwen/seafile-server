@@ -3,6 +3,7 @@ package diff
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 
@@ -25,6 +26,7 @@ type DiffOptions struct {
 	RepoID string
 	Ctx    context.Context
 	Data   interface{}
+	Reader io.ReadCloser
 }
 
 type diffData struct {
@@ -33,6 +35,10 @@ type diffData struct {
 }
 
 func DiffTrees(roots []string, opt *DiffOptions) error {
+	reader := fsmgr.GetOneZlibReader()
+	defer fsmgr.ReturnOneZlibReader(reader)
+	opt.Reader = reader
+
 	n := len(roots)
 	if n != 2 && n != 3 {
 		err := fmt.Errorf("the number of commit trees is illegal")
@@ -40,7 +46,7 @@ func DiffTrees(roots []string, opt *DiffOptions) error {
 	}
 	trees := make([]*fsmgr.SeafDir, n)
 	for i := 0; i < n; i++ {
-		root, err := fsmgr.GetSeafdir(opt.RepoID, roots[i])
+		root, err := fsmgr.GetSeafdirWithZlibReader(opt.RepoID, roots[i], opt.Reader)
 		if err != nil {
 			err := fmt.Errorf("Failed to find dir %s:%s", opt.RepoID, roots[i])
 			return err
@@ -165,7 +171,7 @@ func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions
 	var dirName string
 	for i := 0; i < n; i++ {
 		if dents[i] != nil && fsmgr.IsDir(dents[i].Mode) {
-			dir, err := fsmgr.GetSeafdir(opt.RepoID, dents[i].ID)
+			dir, err := fsmgr.GetSeafdirWithZlibReader(opt.RepoID, dents[i].ID, opt.Reader)
 			if err != nil {
 				err := fmt.Errorf("Failed to find dir %s:%s", opt.RepoID, dents[i].ID)
 				return err

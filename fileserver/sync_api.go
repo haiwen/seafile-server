@@ -1242,6 +1242,14 @@ func removeSyncAPIExpireCache() {
 	virtualRepoInfoCache.Range(deleteVirtualRepoInfo)
 }
 
+type collectFsInfo struct {
+	startTime int64
+	isTimeout bool
+	results   []interface{}
+}
+
+var ErrTimeout = fmt.Errorf("get fs id list timeout")
+
 func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead string, clientHead string, dirOnly bool) ([]interface{}, error) {
 	masterHead, err := commitmgr.Load(repo.ID, serverHead)
 	if err != nil {
@@ -1259,9 +1267,10 @@ func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead
 		remoteHeadRoot = remoteHead.RootID
 	}
 
-	var results []interface{}
+	info := new(collectFsInfo)
+	info.startTime = time.Now().Unix()
 	if remoteHeadRoot != masterHead.RootID && masterHead.RootID != emptySHA1 {
-		results = append(results, masterHead.RootID)
+		info.results = append(info.results, masterHead.RootID)
 	}
 
 	var opt *diff.DiffOptions
@@ -1271,21 +1280,24 @@ func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead
 			DirCB:  collectDirIDs,
 			Ctx:    ctx,
 			RepoID: repo.StoreID}
-		opt.Data = &results
+		opt.Data = info
 	} else {
 		opt = &diff.DiffOptions{
 			FileCB: collectFileIDsNOp,
 			DirCB:  collectDirIDs,
 			Ctx:    ctx,
 			RepoID: repo.StoreID}
-		opt.Data = &results
+		opt.Data = info
 	}
 	trees := []string{masterHead.RootID, remoteHeadRoot}
 
 	if err := diff.DiffTrees(trees, opt); err != nil {
+		if info.isTimeout {
+			return nil, ErrTimeout
+		}
 		return nil, err
 	}
-	return results, nil
+	return info.results, nil
 }
 
 func collectFileIDs(ctx context.Context, baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
@@ -1297,7 +1309,7 @@ func collectFileIDs(ctx context.Context, baseDir string, files []*fsmgr.SeafDire
 
 	file1 := files[0]
 	file2 := files[1]
-	results, ok := data.(*[]interface{})
+	info, ok := data.(*collectFsInfo)
 	if !ok {
 		err := fmt.Errorf("failed to assert results")
 		return err
@@ -1306,7 +1318,7 @@ func collectFileIDs(ctx context.Context, baseDir string, files []*fsmgr.SeafDire
 	if file1 != nil &&
 		(file2 == nil || file1.ID != file2.ID) &&
 		file1.ID != emptySHA1 {
-		*results = append(*results, file1.ID)
+		info.results = append(info.results, file1.ID)
 	}
 
 	return nil
@@ -1323,18 +1335,26 @@ func collectDirIDs(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent
 	default:
 	}
 
-	dir1 := dirs[0]
-	dir2 := dirs[1]
-	results, ok := data.(*[]interface{})
+	info, ok := data.(*collectFsInfo)
 	if !ok {
-		err := fmt.Errorf("failed to assert results")
+		err := fmt.Errorf("failed to assert fs info")
 		return err
 	}
+	dir1 := dirs[0]
+	dir2 := dirs[1]
 
 	if dir1 != nil &&
 		(dir2 == nil || dir1.ID != dir2.ID) &&
 		dir1.ID != emptySHA1 {
-		*results = append(*results, dir1.ID)
+		info.results = append(info.results, dir1.ID)
+	}
+
+	if options.fsIdListRequestTimeout > 0 {
+		now := time.Now().Unix()
+		if now-info.startTime > options.fsIdListRequestTimeout {
+			info.isTimeout = true
+			return ErrTimeout
+		}
 	}
 
 	return nil
