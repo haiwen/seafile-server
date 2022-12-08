@@ -424,7 +424,7 @@ func GetReposByOwner(email string) ([]*SharedRepo, error) {
 		"LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id " +
 		"LEFT JOIN VirtualRepo v ON o.repo_id = v.repo_id " +
 		"WHERE owner_id=? AND " +
-		"v.repo_Id IS NULL " +
+		"v.repo_id IS NULL " +
 		"ORDER BY i.update_time DESC, o.repo_id"
 
 	stmt, err := seafileDB.Prepare(query)
