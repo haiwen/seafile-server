@@ -40,6 +40,7 @@ var logFp *os.File
 var dbType string
 var groupTableName string
 var cloudMode bool
+var privateKey string
 var seafileDB, ccnetDB *sql.DB
 
 // when SQLite is used, user and group db are separated.
@@ -296,6 +297,12 @@ func loadFileServerOptions() {
 	if section, err := config.GetSection("general"); err == nil {
 		if key, err := section.GetKey("cloud_mode"); err == nil {
 			cloudMode, _ = key.Bool()
+		}
+	}
+
+	if section, err := config.GetSection("notification"); err == nil {
+		if key, err := section.GetKey("private_key"); err == nil {
+			privateKey = key.String()
 		}
 	}
 
@@ -621,6 +628,8 @@ func newHTTPRouter() *mux.Router {
 		appHandler(recvFSCB))
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/quota-check{slash:\\/?}",
 		appHandler(getCheckQuotaCB))
+	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/jwt-token{slash:\\/?}",
+		appHandler(getJWTTokenCB))
 
 	// seadrive api
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/block-map/{id:[\\da-z]{40}}",

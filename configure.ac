@@ -260,6 +260,14 @@ if test "${compile_ldap}" = "yes"; then
 
 fi
 
+PKG_CHECK_MODULES(CURL, [libcurl >= $CURL_REQUIRED])
+AC_SUBST(CURL_CFLAGS)
+AC_SUBST(CURL_LIBS)
+
+PKG_CHECK_MODULES(JWT, [libjwt])
+AC_SUBST(JWT_CFLAGS)
+AC_SUBST(JWT_LIBS)
+
 if test x${compile_python} = xyes; then
     AM_PATH_PYTHON([2.6])
     if test "$bwin32" = true; then

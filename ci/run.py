@@ -178,17 +178,43 @@ class Libevhtp(Project):
         for cmd in cmds:
             shell(cmd)
 
+class Libjwt(Project):
+    def __init__(self):
+        super(Libjwt, self).__init__('libjwt')
+
+    def branch(self):
+        return 'v1.13.1'
+
+    @property
+    def url(self):
+        return 'https://www.github.com/benmcollins/libjwt.git'
+
+    @chdir
+    def compile_and_install(self):
+        cmds = [
+            'autoreconf -i',
+            './configure',
+            'sudo make all',
+            'sudo make install',
+        ]
+
+        for cmd in cmds:
+            shell(cmd)
+
 def fetch_and_build():
     libsearpc = Libsearpc()
+    libjwt = Libjwt()
     libevhtp = Libevhtp()
     ccnet = CcnetServer()
     seafile = SeafileServer()
 
     libsearpc.clone()
+    libjwt.clone()
     libevhtp.clone()
     ccnet.clone()
 
     libsearpc.compile_and_install()
+    libjwt.compile_and_install()
     libevhtp.compile_and_install()
     seafile.compile_and_install()
 

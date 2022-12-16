@@ -10,6 +10,10 @@
 
 #include "seafile-session.h"
 
+#ifdef FULL_FEATURE
+#include "notif-mgr.h"
+#endif
+
 #include "branch-mgr.h"
 
 #define BRANCH_DB "branch.db"
@@ -323,16 +327,44 @@ publish_repo_update_event (const char *repo_id, const char *commit_id)
     seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf);
 }
 
- static void
- on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)
- {
-     seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id);
- 
-     if (seaf_repo_manager_is_virtual_repo (seaf->repo_mgr, branch->repo_id))
-         return;
+static void
+notify_repo_update (const char *repo_id, const char *commit_id)
+{
+    json_t *event = NULL;
+    json_t *content = NULL;
+    char *msg = NULL;
 
-     publish_repo_update_event (branch->repo_id, branch->commit_id);
- }
+    event = json_object ();
+    content = json_object ();
+
+    json_object_set_new (event, "type", json_string("repo-update"));
+
+    json_object_set_new (content, "repo_id", json_string(repo_id));
+    json_object_set_new (content, "commit_id", json_string(commit_id));
+
+    json_object_set_new (event, "content", content);
+
+    msg = json_dumps (event, JSON_COMPACT);
+
+    if (seaf->notif_mgr)
+        seaf_notif_manager_send_event (seaf->notif_mgr, msg);
+
+    json_decref (event);
+    g_free (msg);
+}
+
+static void
+on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)
+{
+    seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id);
+
+    notify_repo_update(branch->repo_id, branch->commit_id);
+
+    if (seaf_repo_manager_is_virtual_repo (seaf->repo_mgr, branch->repo_id))
+        return;
+
+    publish_repo_update_event (branch->repo_id, branch->commit_id);
+}
 
 int
 seaf_branch_manager_test_and_update_branch (SeafBranchManager *mgr,
