@@ -198,6 +198,7 @@ func newHTTPRouter() *mux.Router {
 	r := mux.NewRouter()
 	r.Handle("/", appHandler(messageCB))
 	r.Handle("/events{slash:\\/?}", appHandler(eventCB))
+	r.Handle("/ping{slash:\\/?}", appHandler(pingCB))
 
 	return r
 }
@@ -266,6 +267,11 @@ func newUpgrader() *websocket.Upgrader {
 	}
 
 	return upgrader
+}
+
+func pingCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	fmt.Fprintln(rsp, "{\"ret\": \"pong\"}")
+	return nil
 }
 
 type appError struct {
