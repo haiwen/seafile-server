@@ -2049,7 +2049,7 @@ func indexBlocks(ctx context.Context, repoID string, version int, filePath strin
 	var blkSize int64
 	var offset int64
 
-	jobNum := uint64(size)/options.fixedBlockSize + 1
+	jobNum := (uint64(size) + options.fixedBlockSize - 1) / options.fixedBlockSize
 	blkIDs := make([]string, jobNum)
 
 	left := size
