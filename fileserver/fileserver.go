@@ -360,7 +360,7 @@ func parseFileServerSection(section *ini.Section) {
 	if key, err := section.GetKey("fixed_block_size"); err == nil {
 		blkSize, err := key.Uint64()
 		if err == nil {
-			options.fixedBlockSize = blkSize
+			options.fixedBlockSize = blkSize * (1 << 20)
 		}
 	}
 	if key, err := section.GetKey("web_token_expire_time"); err == nil {
