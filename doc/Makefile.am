@@ -1,1 +1,1 @@
-EXTRA_DIST = seafile-tutorial.doc
+EXTRA_DIST = seafile-tutorial.pdf
