@@ -1012,12 +1012,12 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		}
 
 		if fsm.rend != fsm.fsize-1 {
+			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 			success := "{\"success\": true}"
 			_, err := rsp.Write([]byte(success))
 			if err != nil {
 				log.Printf("failed to write data to response")
 			}
-			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 			return nil
 		}
@@ -1090,8 +1090,6 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		replaceExisted, isAjax); err != nil {
 		return err
 	}
-
-	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	oper := "web-file-upload"
 	if fsm.tokenType == "upload-link" {
@@ -1502,6 +1500,8 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		err := fmt.Errorf("failed to post files and gen commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
+
+	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	_, ok := r.Form["ret-json"]
 	if ok || isAjax {
@@ -2670,12 +2670,12 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		}
 
 		if fsm.rend != fsm.fsize-1 {
+			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 			success := "{\"success\": true}"
 			_, err := rsp.Write([]byte(success))
 			if err != nil {
 				log.Printf("failed to write data to response.\n")
 			}
-			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 			return nil
 		}
@@ -2751,8 +2751,6 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 
 	oper := "web-file-upload"
 	sendStatisticMsg(repoID, user, oper, uint64(contentLen))
-
-	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	return nil
 }
@@ -2875,8 +2873,10 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 			err := fmt.Errorf("failed to format json data")
 			return &appError{err, "", http.StatusInternalServerError}
 		}
+		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write(retJSON)
 	} else {
+		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write([]byte(fileID))
 	}
 
@@ -3015,14 +3015,14 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 			err := fmt.Errorf("failed to convert array to json: %v", err)
 			return &appError{err, "", http.StatusInternalServerError}
 		}
+		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write([]byte(jsonstr))
 	} else {
+		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write([]byte("\""))
 		rsp.Write([]byte(fileID))
 		rsp.Write([]byte("\""))
 	}
-
-	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	return nil
 }
@@ -3199,8 +3199,8 @@ func doUploadRawBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *a
 	oper := "web-file-upload"
 	sendStatisticMsg(repoID, user, oper, uint64(contentLen))
 
-	rsp.Write([]byte("\"OK\""))
 	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	rsp.Write([]byte("\"OK\""))
 
 	return nil
 }
