@@ -1501,10 +1501,9 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
-
 	_, ok := r.Form["ret-json"]
 	if ok || isAjax {
+		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write([]byte(retStr))
 	} else {
 		var array []map[string]interface{}
@@ -2876,7 +2875,6 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write(retJSON)
 	} else {
-		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write([]byte(fileID))
 	}
 
