@@ -272,7 +272,7 @@ func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo 
 					returnPath = newPath
 					if subPath == "" {
 						newName := filepath.Base(newPath)
-						err := editRepo(repo.ID, newName, "Changed library name", "")
+						err := editRepo(vInfo.RepoID, newName, "Changed library name", "")
 						if err != nil {
 							log.Printf("falied to rename repo %s.\n", newName)
 						}
