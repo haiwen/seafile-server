@@ -35,14 +35,14 @@ func init() {
 }
 
 func loadNotifConfig() {
-	notifyConfPath := filepath.Join(configDir, "notification.conf")
+	notifyConfPath := filepath.Join(configDir, "seafile.conf")
 
 	config, err := ini.Load(notifyConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load notification.conf: %v", err)
 	}
 
-	section, err := config.GetSection("general")
+	section, err := config.GetSection("notification")
 	if err != nil {
 		log.Fatal("No general section in seafile.conf.")
 	}
@@ -65,11 +65,11 @@ func loadNotifConfig() {
 		logLevel = key.String()
 	}
 
-	if key, err := section.GetKey("private_key"); err == nil {
+	if key, err := section.GetKey("jwt_private_key"); err == nil {
 		privateKey = key.String()
 	}
 
-	if key, err := section.GetKey("notification_token"); err == nil {
+	if key, err := section.GetKey("seafile_auth_token"); err == nil {
 		notifToken = key.String()
 	}
 
