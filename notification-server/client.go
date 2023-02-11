@@ -206,7 +206,7 @@ func (client *Client) writeMessages() {
 			return
 		}
 		m, _ := msg.(*Message)
-		log.Debugf("send %s event %s to client %s:%d", m.Type, string(m.Content), client.User, client.ID)
+		log.Debugf("send %s event to client %s(%d): %s", m.Type, client.User, client.ID, string(m.Content))
 	}
 }
 
