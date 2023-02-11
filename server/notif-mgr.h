@@ -10,7 +10,7 @@ struct _NotifManager {
 typedef struct _NotifManager NotifManager;
 
 NotifManager *
-seaf_notif_manager_new (struct _SeafileSession *seaf, char *url, char *token);
+seaf_notif_manager_new (struct _SeafileSession *seaf, char *url);
 
 void
 seaf_notif_manager_send_event (NotifManager *mgr,
