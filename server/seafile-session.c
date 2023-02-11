@@ -47,7 +47,6 @@ seafile_session_new(const char *central_config_dir,
     gboolean notif_enabled = FALSE;
     char *notif_server = NULL;
     int notif_port = 8083;
-    char *notif_token = NULL;
     char *private_key = NULL;
 
     abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
@@ -139,10 +138,6 @@ seafile_session_new(const char *central_config_dir,
                                              "notification", "port",
                                               NULL);
 
-        notif_token = g_key_file_get_string (config,
-                                             "notification", "seafile_auth_token",
-                                             NULL);
-
         private_key = g_key_file_get_string (config,
                                              "notification", "jwt_private_key",
                                              NULL);
@@ -230,10 +225,10 @@ seafile_session_new(const char *central_config_dir,
     if (!session->org_mgr)
         goto onerror;
 
-    if (notif_enabled && notif_server != NULL && notif_token != NULL) {
+    if (notif_enabled && notif_server != NULL) {
         char notif_url[128];
         g_sprintf (notif_url, "%s:%d", notif_server, notif_port);
-        session->notif_mgr = seaf_notif_manager_new (session, g_strdup (notif_url), notif_token);
+        session->notif_mgr = seaf_notif_manager_new (session, g_strdup (notif_url));
         if (!session->notif_mgr) {
             g_free (notif_url);
             goto onerror;
@@ -244,7 +239,6 @@ seafile_session_new(const char *central_config_dir,
 
 onerror:
     g_free (notif_server);
-    g_free (notif_token);
     g_free (private_key);
     free (abs_seafile_dir);
     free (abs_ccnet_dir);

@@ -10,7 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -21,7 +23,6 @@ import (
 var configDir string
 var logFile, absLogFile string
 var privateKey string
-var notifToken string
 var host string
 var port uint32
 
@@ -67,10 +68,6 @@ func loadNotifConfig() {
 
 	if key, err := section.GetKey("jwt_private_key"); err == nil {
 		privateKey = key.String()
-	}
-
-	if key, err := section.GetKey("seafile_auth_token"); err == nil {
-		notifToken = key.String()
 	}
 
 	level, err := log.ParseLevel(logLevel)
@@ -230,7 +227,7 @@ func eventCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	msg := Message{}
 
 	token := r.Header.Get("Seafile-Repo-Token")
-	if token != notifToken {
+	if !checkAuthToken(token) {
 		return &appError{Error: nil,
 			Message: "Notification token not match",
 			Code:    http.StatusBadRequest,
@@ -255,6 +252,27 @@ func eventCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	Notify(&msg)
 
 	return nil
+}
+
+func checkAuthToken(tokenString string) bool {
+	if len(tokenString) == 0 {
+		return false
+	}
+	claims := new(myClaims)
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return []byte(privateKey), nil
+	})
+	if err != nil {
+		return false
+	}
+
+	if !token.Valid {
+		return false
+	}
+
+	now := time.Now()
+
+	return claims.Exp > now.Unix()
 }
 
 func newUpgrader() *websocket.Upgrader {
