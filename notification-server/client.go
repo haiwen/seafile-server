@@ -205,6 +205,8 @@ func (client *Client) writeMessages() {
 			log.Debugf("failed to send notification to client: %v", err)
 			return
 		}
+		m, _ := msg.(*Message)
+		log.Debugf("send %s event to client %s:%d", m.Type, client.User, client.ID)
 	}
 }
 

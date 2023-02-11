@@ -35,6 +35,7 @@ func Notify(msg *Message) {
 	var userList map[string]struct{}
 
 	content := msg.Content
+	log.Debugf("recv message from seafile server: %s", string(content))
 	switch msg.Type {
 	case "repo-update":
 		var event RepoUpdateEvent
