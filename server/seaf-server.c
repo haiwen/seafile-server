@@ -344,6 +344,11 @@ static void start_rpc_service (const char *seafile_dir,
                                      "search_files",
                                      searpc_signature_objlist__string_string());
 
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_search_files_by_path,
+                                     "search_files_by_path",
+                                     searpc_signature_objlist__string_string_string());
+
     /* share repo to user */
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_add_share,
