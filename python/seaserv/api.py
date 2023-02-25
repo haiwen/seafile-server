@@ -856,6 +856,9 @@ class SeafileAPI(object):
 
     def search_files(self, repo_id, search_str):
         return seafserv_threaded_rpc.search_files(repo_id, search_str)
+
+    def search_files_by_path (self, repo_id, path, search_str):
+        return seafserv_threaded_rpc.search_files_by_path(repo_id, path, search_str)
     
 seafile_api = SeafileAPI()
 

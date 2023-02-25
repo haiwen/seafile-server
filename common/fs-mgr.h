@@ -437,8 +437,9 @@ seaf_fs_manager_get_file_count_info_by_path (SeafFSManager *mgr,
                                              GError **error);
 
 GList *
-seaf_fs_manager_search_files (SeafFSManager *mgr,
-                              const char *repo_id,
-                              const char *str);
+seaf_fs_manager_search_files_by_path (SeafFSManager *mgr,
+                                      const char *repo_id,
+                                      const char *path,
+                                      const char *str);
 
 #endif

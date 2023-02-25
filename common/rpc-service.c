@@ -4517,12 +4517,18 @@ seafile_get_repo_status(const char *repo_id, GError **error)
 GList *
 seafile_search_files (const char *repo_id, const char *str, GError **error)
 {
+    return seafile_search_files_by_path (repo_id, NULL, str, error);
+}
+
+GList *
+seafile_search_files_by_path (const char *repo_id, const char *path, const char *str, GError **error)
+{
     if (!is_uuid_valid (repo_id)) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
         return NULL;
     }
 
-    GList *file_list = seaf_fs_manager_search_files (seaf->fs_mgr, repo_id, str);
+    GList *file_list = seaf_fs_manager_search_files_by_path (seaf->fs_mgr, repo_id, path, str);
     GList *ret = NULL, *ptr;
 
     for (ptr = file_list; ptr; ptr=ptr->next) {

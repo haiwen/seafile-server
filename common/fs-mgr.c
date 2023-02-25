@@ -3174,9 +3174,10 @@ search_files_recursive (SeafFSManager *mgr,
 }
 
 GList *
-seaf_fs_manager_search_files (SeafFSManager *mgr,
-                              const char *repo_id,
-                              const char *str)
+seaf_fs_manager_search_files_by_path  (SeafFSManager *mgr,
+                                       const char *repo_id,
+                                       const char *path,
+                                       const char *str)
 {
     GList *file_list = NULL;
     SeafCommit *head = NULL;
@@ -3193,8 +3194,20 @@ seaf_fs_manager_search_files (SeafFSManager *mgr,
         goto out;
     }
 
-    search_files_recursive (mgr, repo->store_id, "", head->root_id,
-                            str, repo->version, &file_list);
+    if (!path || g_strcmp0 (path, "/") == 0) {
+        search_files_recursive (mgr, repo->store_id, "", head->root_id,
+                                str, repo->version, &file_list);
+    } else {
+        char *dir_id = seaf_fs_manager_get_seafdir_id_by_path (mgr, repo->store_id, repo->version,
+                                                               head->root_id, path, NULL);
+        if (!dir_id) {
+            seaf_warning ("Path %s doesn't exist or is not a dir in repo %.10s.\n", path, repo->store_id);
+            goto out;
+        }
+        search_files_recursive (mgr, repo->store_id, path, dir_id,
+                                str, repo->version, &file_list);
+        g_free (dir_id);
+    }
 
 out:
     seaf_repo_unref (repo);
