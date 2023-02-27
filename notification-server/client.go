@@ -30,7 +30,7 @@ type SubList struct {
 }
 
 type UnsubList struct {
-	Repos []string `json:"repos"`
+	Repos []Repo `json:"repos"`
 }
 
 type Repo struct {
@@ -143,8 +143,8 @@ func (client *Client) handleMessage(msg *Message) error {
 		if err != nil {
 			return err
 		}
-		for _, id := range list.Repos {
-			client.unsubscribe(id)
+		for _, r := range list.Repos {
+			client.unsubscribe(r.RepoID)
 		}
 	} else {
 		err := fmt.Errorf("recv unexpected type of message: %s", msg.Type)
