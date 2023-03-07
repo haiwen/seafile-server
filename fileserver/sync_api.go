@@ -727,7 +727,8 @@ func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	repoID := vars["repoid"]
 
 	if privateKey == "" {
-		return nil
+		err := fmt.Errorf("no private key is configured for generating jwt token\n")
+		return &appError{err, "", http.StatusInternalServerError}
 	}
 
 	user, appErr := validateToken(r, repoID, false)
@@ -735,6 +736,19 @@ func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return appErr
 	}
 
+	tokenString, err := genJWTToken(repoID, user)
+	if err != nil {
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	data := fmt.Sprintf("{\"jwt_token\":\"%s\"}", tokenString)
+
+	rsp.Write([]byte(data))
+
+	return nil
+}
+
+func genJWTToken(repoID, user string) (string, error) {
 	claims := MyClaims{
 		time.Now().Add(time.Hour * 72).Unix(),
 		repoID,
@@ -745,14 +759,10 @@ func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	tokenString, err := token.SignedString([]byte(privateKey))
 	if err != nil {
 		err := fmt.Errorf("failed to gen jwt token for repo %s", repoID)
-		return &appError{err, "", http.StatusInternalServerError}
+		return "", err
 	}
 
-	data := fmt.Sprintf("{\"jwt_token\":\"%s\"}", tokenString)
-
-	rsp.Write([]byte(data))
-
-	return nil
+	return tokenString, nil
 }
 
 func isValidUUID(u string) bool {

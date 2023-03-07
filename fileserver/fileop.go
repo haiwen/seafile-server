@@ -1829,6 +1829,10 @@ func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error 
 		}
 	}
 
+	if privateKey != "" {
+		notifRepoUpdate(repoID, commitID)
+	}
+
 	isVirtual, err := repomgr.IsVirtualRepo(repoID)
 	if err != nil {
 		return err
@@ -1838,6 +1842,71 @@ func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error 
 	}
 	publishUpdateEvent(repoID, commitID)
 	return nil
+}
+
+type notifEvent struct {
+	Content *repoUpdateEvent `json:"content"`
+}
+type repoUpdateEvent struct {
+	Type     string `json:"type"`
+	RepoID   string `json:"repo_id"`
+	CommitID string `json:"commit_id"`
+}
+
+func notifRepoUpdate(repoID string, commitID string) error {
+	content := new(repoUpdateEvent)
+	content.Type = "repo-update"
+	content.RepoID = repoID
+	content.CommitID = commitID
+	event := new(notifEvent)
+	event.Content = content
+	msg, err := json.Marshal(event)
+	if err != nil {
+		log.Printf("failed to encode repo update event: %v", err)
+		return err
+	}
+
+	url := fmt.Sprintf("http://%s/events", notifURL)
+	token, err := genJWTToken(repoID, "")
+	if err != nil {
+		log.Printf("failed to generate jwt token: %v", err)
+		return err
+	}
+	header := map[string][]string{
+		"Seafile-Repo-Token": {token},
+		"Content-Type":       {"application/json"},
+	}
+	_, _, err = httpCommon("POST", url, header, bytes.NewReader(msg))
+	if err != nil {
+		log.Printf("failed to send repo update event: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func httpCommon(method, url string, header map[string][]string, reader io.Reader) (int, []byte, error) {
+	req, err := http.NewRequest(method, url, reader)
+	if err != nil {
+		return -1, nil, err
+	}
+	req.Header = header
+
+	rsp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return -1, nil, err
+	}
+	defer rsp.Body.Close()
+
+	if rsp.StatusCode == http.StatusNotFound {
+		return rsp.StatusCode, nil, fmt.Errorf("url %s not found", url)
+	}
+	body, err := io.ReadAll(rsp.Body)
+	if err != nil {
+		return rsp.StatusCode, nil, err
+	}
+
+	return rsp.StatusCode, body, nil
 }
 
 func doPostMultiFiles(repo *repomgr.Repo, rootID, parentDir string, dents []*fsmgr.SeafDirent, user string, replace bool, names *[]string) (string, error) {

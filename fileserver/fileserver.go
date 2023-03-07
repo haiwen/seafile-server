@@ -40,6 +40,7 @@ var logFp *os.File
 var dbType string
 var groupTableName string
 var cloudMode bool
+var notifURL string
 var privateKey string
 var seafileDB, ccnetDB *sql.DB
 
@@ -300,10 +301,35 @@ func loadFileServerOptions() {
 		}
 	}
 
+	notifEnabled := false
 	if section, err := config.GetSection("notification"); err == nil {
-		if key, err := section.GetKey("private_key"); err == nil {
-			privateKey = key.String()
+		if key, err := section.GetKey("enabled"); err == nil {
+			notifEnabled, _ = key.Bool()
 		}
+	}
+
+	if notifEnabled {
+		var notifServer string
+		var notifPort uint32
+		if section, err := config.GetSection("notification"); err == nil {
+			if key, err := section.GetKey("jwt_private_key"); err == nil {
+				privateKey = key.String()
+			}
+		}
+		if section, err := config.GetSection("notification"); err == nil {
+			if key, err := section.GetKey("host"); err == nil {
+				notifServer = key.String()
+			}
+		}
+		if section, err := config.GetSection("notification"); err == nil {
+			if key, err := section.GetKey("port"); err == nil {
+				port, err := key.Uint()
+				if err == nil {
+					notifPort = uint32(port)
+				}
+			}
+		}
+		notifURL = fmt.Sprintf("%s:%d", notifServer, notifPort)
 	}
 
 	initDefaultOptions()
