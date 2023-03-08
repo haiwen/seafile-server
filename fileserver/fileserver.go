@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -20,6 +19,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/searpc"
 	"github.com/haiwen/seafile-server/fileserver/share"
@@ -38,49 +38,10 @@ var pidFilePath string
 var logFp *os.File
 
 var dbType string
-var groupTableName string
-var cloudMode bool
-var notifURL string
-var privateKey string
 var seafileDB, ccnetDB *sql.DB
 
 // when SQLite is used, user and group db are separated.
 var userDB, groupDB *sql.DB
-
-// Storage unit.
-const (
-	KB = 1000
-	MB = 1000000
-	GB = 1000000000
-	TB = 1000000000000
-)
-
-type fileServerOptions struct {
-	host               string
-	port               uint32
-	maxUploadSize      uint64
-	maxDownloadDirSize uint64
-	// Block size for indexing uploaded files
-	fixedBlockSize uint64
-	// Maximum number of goroutines to index uploaded files
-	maxIndexingThreads uint32
-	webTokenExpireTime uint32
-	// File mode for temp files
-	clusterSharedTempFileMode uint32
-	windowsEncoding           string
-	// Timeout for fs-id-list requests.
-	fsIDListRequestTimeout uint32
-	defaultQuota           int64
-	// Profile password
-	profilePassword string
-	enableProfiling bool
-	// Go log level
-	logLevel               string
-	fsCacheLimit           int64
-	fsIdListRequestTimeout int64
-}
-
-var options fileServerOptions
 
 func init() {
 	flag.StringVar(&centralDir, "F", "", "central config directory")
@@ -245,202 +206,6 @@ func loadSeafileDB() {
 	dbType = dbEngine
 }
 
-func parseQuota(quotaStr string) int64 {
-	var quota int64
-	var multiplier int64 = GB
-	if end := strings.Index(quotaStr, "kb"); end > 0 {
-		multiplier = KB
-		quotaInt, err := strconv.ParseInt(quotaStr[:end], 10, 0)
-		if err != nil {
-			return InfiniteQuota
-		}
-		quota = quotaInt * multiplier
-	} else if end := strings.Index(quotaStr, "mb"); end > 0 {
-		multiplier = MB
-		quotaInt, err := strconv.ParseInt(quotaStr[:end], 10, 0)
-		if err != nil {
-			return InfiniteQuota
-		}
-		quota = quotaInt * multiplier
-	} else if end := strings.Index(quotaStr, "gb"); end > 0 {
-		multiplier = GB
-		quotaInt, err := strconv.ParseInt(quotaStr[:end], 10, 0)
-		if err != nil {
-			return InfiniteQuota
-		}
-		quota = quotaInt * multiplier
-	} else if end := strings.Index(quotaStr, "tb"); end > 0 {
-		multiplier = TB
-		quotaInt, err := strconv.ParseInt(quotaStr[:end], 10, 0)
-		if err != nil {
-			return InfiniteQuota
-		}
-		quota = quotaInt * multiplier
-	} else {
-		quotaInt, err := strconv.ParseInt(quotaStr, 10, 0)
-		if err != nil {
-			return InfiniteQuota
-		}
-		quota = quotaInt * multiplier
-	}
-
-	return quota
-}
-
-func loadFileServerOptions() {
-	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
-
-	config, err := ini.Load(seafileConfPath)
-	if err != nil {
-		log.Fatalf("Failed to load seafile.conf: %v", err)
-	}
-	cloudMode = false
-	if section, err := config.GetSection("general"); err == nil {
-		if key, err := section.GetKey("cloud_mode"); err == nil {
-			cloudMode, _ = key.Bool()
-		}
-	}
-
-	notifEnabled := false
-	if section, err := config.GetSection("notification"); err == nil {
-		if key, err := section.GetKey("enabled"); err == nil {
-			notifEnabled, _ = key.Bool()
-		}
-	}
-
-	if notifEnabled {
-		var notifServer string
-		var notifPort uint32
-		if section, err := config.GetSection("notification"); err == nil {
-			if key, err := section.GetKey("jwt_private_key"); err == nil {
-				privateKey = key.String()
-			}
-		}
-		if section, err := config.GetSection("notification"); err == nil {
-			if key, err := section.GetKey("host"); err == nil {
-				notifServer = key.String()
-			}
-		}
-		if section, err := config.GetSection("notification"); err == nil {
-			if key, err := section.GetKey("port"); err == nil {
-				port, err := key.Uint()
-				if err == nil {
-					notifPort = uint32(port)
-				}
-			}
-		}
-		notifURL = fmt.Sprintf("%s:%d", notifServer, notifPort)
-	}
-
-	initDefaultOptions()
-
-	if section, err := config.GetSection("httpserver"); err == nil {
-		parseFileServerSection(section)
-	}
-	if section, err := config.GetSection("fileserver"); err == nil {
-		parseFileServerSection(section)
-	}
-
-	if section, err := config.GetSection("quota"); err == nil {
-		if key, err := section.GetKey("default"); err == nil {
-			quotaStr := key.String()
-			options.defaultQuota = parseQuota(quotaStr)
-		}
-	}
-
-	ccnetConfPath := filepath.Join(centralDir, "ccnet.conf")
-	config, err = ini.Load(ccnetConfPath)
-	if err != nil {
-		log.Fatalf("Failed to load ccnet.conf: %v", err)
-	}
-	groupTableName = "Group"
-	if section, err := config.GetSection("GROUP"); err == nil {
-		if key, err := section.GetKey("TABLE_NAME"); err == nil {
-			groupTableName = key.String()
-		}
-	}
-}
-
-func parseFileServerSection(section *ini.Section) {
-	if key, err := section.GetKey("host"); err == nil {
-		options.host = key.String()
-	}
-	if key, err := section.GetKey("port"); err == nil {
-		port, err := key.Uint()
-		if err == nil {
-			options.port = uint32(port)
-		}
-	}
-	if key, err := section.GetKey("max_upload_size"); err == nil {
-		size, err := key.Uint()
-		if err == nil {
-			options.maxUploadSize = uint64(size) * (1 << 20)
-		}
-	}
-	if key, err := section.GetKey("max_indexing_threads"); err == nil {
-		threads, err := key.Uint()
-		if err == nil {
-			options.maxIndexingThreads = uint32(threads)
-		}
-	}
-	if key, err := section.GetKey("fixed_block_size"); err == nil {
-		blkSize, err := key.Uint64()
-		if err == nil {
-			options.fixedBlockSize = blkSize * (1 << 20)
-		}
-	}
-	if key, err := section.GetKey("web_token_expire_time"); err == nil {
-		expire, err := key.Uint()
-		if err == nil {
-			options.webTokenExpireTime = uint32(expire)
-		}
-	}
-	if key, err := section.GetKey("cluster_shared_temp_file_mode"); err == nil {
-		fileMode, err := key.Uint()
-		if err == nil {
-			options.clusterSharedTempFileMode = uint32(fileMode)
-		}
-	}
-	if key, err := section.GetKey("enable_profiling"); err == nil {
-		options.enableProfiling, _ = key.Bool()
-	}
-	if options.enableProfiling {
-		if key, err := section.GetKey("profile_password"); err == nil {
-			options.profilePassword = key.String()
-		} else {
-			log.Fatal("password of profiling must be specified.")
-		}
-	}
-	if key, err := section.GetKey("go_log_level"); err == nil {
-		options.logLevel = key.String()
-	}
-	if key, err := section.GetKey("fs_cache_limit"); err == nil {
-		fsCacheLimit, err := key.Int64()
-		if err == nil {
-			options.fsCacheLimit = fsCacheLimit * 1024 * 1024
-		}
-	}
-	if key, err := section.GetKey("fs_id_list_request_timeout"); err == nil {
-		fsIdListRequestTimeout, err := key.Int64()
-		if err == nil {
-			options.fsIdListRequestTimeout = fsIdListRequestTimeout
-		}
-	}
-}
-
-func initDefaultOptions() {
-	options.host = "0.0.0.0"
-	options.port = 8082
-	options.maxDownloadDirSize = 100 * (1 << 20)
-	options.fixedBlockSize = 1 << 23
-	options.maxIndexingThreads = 1
-	options.webTokenExpireTime = 7200
-	options.clusterSharedTempFileMode = 0600
-	options.defaultQuota = InfiniteQuota
-	options.fsCacheLimit = 2 << 30
-	options.fsIdListRequestTimeout = -1
-}
-
 func writePidFile(pid_file_path string) error {
 	file, err := os.OpenFile(pid_file_path, os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
@@ -496,7 +261,7 @@ func main() {
 		log.Fatalf("Failed to convert seafile data dir to absolute path: %v.", err)
 	}
 	loadSeafileDB()
-	loadFileServerOptions()
+	option.LoadFileServerOptions(centralDir)
 
 	if logFile == "" {
 		absLogFile = filepath.Join(absDataDir, "fileserver.log")
@@ -520,7 +285,7 @@ func main() {
 	}
 	// When logFile is "-", use default output (StdOut)
 
-	level, err := log.ParseLevel(options.logLevel)
+	level, err := log.ParseLevel(option.LogLevel)
 	if err != nil {
 		log.Info("use the default log level: info")
 		log.SetLevel(log.InfoLevel)
@@ -539,13 +304,13 @@ func main() {
 
 	repomgr.Init(seafileDB)
 
-	fsmgr.Init(centralDir, dataDir, options.fsCacheLimit)
+	fsmgr.Init(centralDir, dataDir, option.FsCacheLimit)
 
 	blockmgr.Init(centralDir, dataDir)
 
 	commitmgr.Init(centralDir, dataDir)
 
-	share.Init(ccnetDB, seafileDB, groupTableName, cloudMode)
+	share.Init(ccnetDB, seafileDB, option.GroupTableName, option.CloudMode)
 
 	rpcClientInit()
 
@@ -566,7 +331,7 @@ func main() {
 
 	log.Print("Seafile file server started.")
 
-	addr := fmt.Sprintf("%s:%d", options.host, options.port)
+	addr := fmt.Sprintf("%s:%d", option.Host, option.Port)
 	err = http.ListenAndServe(addr, router)
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
@@ -712,7 +477,7 @@ type profileHandler struct {
 func (p *profileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	queries := r.URL.Query()
 	password := queries.Get("password")
-	if !options.enableProfiling || password != options.profilePassword {
+	if !option.EnableProfiling || password != option.ProfilePassword {
 		http.Error(w, "", http.StatusUnauthorized)
 		return
 	}

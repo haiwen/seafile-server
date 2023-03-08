@@ -24,6 +24,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/share"
 	"github.com/haiwen/seafile-server/fileserver/utils"
@@ -726,8 +727,8 @@ func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
 
-	if privateKey == "" {
-		err := fmt.Errorf("no private key is configured for generating jwt token\n")
+	if !option.EnableNotification {
+		err := fmt.Errorf("notification server is not enabled")
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
@@ -756,7 +757,7 @@ func genJWTToken(repoID, user string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
-	tokenString, err := token.SignedString([]byte(privateKey))
+	tokenString, err := token.SignedString([]byte(option.PrivateKey))
 	if err != nil {
 		err := fmt.Errorf("failed to gen jwt token for repo %s", repoID)
 		return "", err
@@ -1409,9 +1410,9 @@ func collectDirIDs(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent
 		info.results = append(info.results, dir1.ID)
 	}
 
-	if options.fsIdListRequestTimeout > 0 {
+	if option.FsIdListRequestTimeout > 0 {
 		now := time.Now().Unix()
-		if now-info.startTime > options.fsIdListRequestTimeout {
+		if now-info.startTime > option.FsIdListRequestTimeout {
 			info.isTimeout = true
 			return ErrTimeout
 		}
