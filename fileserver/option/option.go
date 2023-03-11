@@ -76,6 +76,8 @@ func initDefaultOptions() {
 }
 
 func LoadFileServerOptions(centralDir string) {
+	initDefaultOptions()
+
 	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
 
 	config, err := ini.Load(seafileConfPath)
@@ -118,8 +120,6 @@ func LoadFileServerOptions(centralDir string) {
 		}
 		NotificationURL = fmt.Sprintf("%s:%d", notifServer, notifPort)
 	}
-
-	initDefaultOptions()
 
 	if section, err := config.GetSection("httpserver"); err == nil {
 		parseFileServerSection(section)
