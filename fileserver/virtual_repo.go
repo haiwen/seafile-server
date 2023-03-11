@@ -13,6 +13,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/workerpool"
 	log "github.com/sirupsen/logrus"
@@ -254,7 +255,7 @@ func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo 
 		if err != nil || oldDirID == "" {
 
 			if err == fsmgr.ErrPathNoExist {
-				repomgr.DelVirtualRepo(vInfo.RepoID, cloudMode)
+				repomgr.DelVirtualRepo(vInfo.RepoID, option.CloudMode)
 			}
 			err := fmt.Errorf("failed to find %s under commit %s in repo %s", parPath, parent.CommitID, repo.StoreID)
 			return "", err
@@ -296,7 +297,7 @@ func handleMissingVirtualRepo(repo *repomgr.Repo, head *commitmgr.Commit, vInfo 
 	}
 
 	if !isRenamed {
-		repomgr.DelVirtualRepo(vInfo.RepoID, cloudMode)
+		repomgr.DelVirtualRepo(vInfo.RepoID, option.CloudMode)
 	}
 
 	return returnPath, nil

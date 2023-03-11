@@ -34,6 +34,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/unicode/norm"
@@ -1829,6 +1830,10 @@ func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error 
 		}
 	}
 
+	if option.EnableNotification {
+		notifRepoUpdate(repoID, commitID)
+	}
+
 	isVirtual, err := repomgr.IsVirtualRepo(repoID)
 	if err != nil {
 		return err
@@ -1838,6 +1843,71 @@ func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error 
 	}
 	publishUpdateEvent(repoID, commitID)
 	return nil
+}
+
+type notifEvent struct {
+	Content *repoUpdateEvent `json:"content"`
+}
+type repoUpdateEvent struct {
+	Type     string `json:"type"`
+	RepoID   string `json:"repo_id"`
+	CommitID string `json:"commit_id"`
+}
+
+func notifRepoUpdate(repoID string, commitID string) error {
+	content := new(repoUpdateEvent)
+	content.Type = "repo-update"
+	content.RepoID = repoID
+	content.CommitID = commitID
+	event := new(notifEvent)
+	event.Content = content
+	msg, err := json.Marshal(event)
+	if err != nil {
+		log.Printf("failed to encode repo update event: %v", err)
+		return err
+	}
+
+	url := fmt.Sprintf("http://%s/events", option.NotificationURL)
+	token, err := genJWTToken(repoID, "")
+	if err != nil {
+		log.Printf("failed to generate jwt token: %v", err)
+		return err
+	}
+	header := map[string][]string{
+		"Seafile-Repo-Token": {token},
+		"Content-Type":       {"application/json"},
+	}
+	_, _, err = httpCommon("POST", url, header, bytes.NewReader(msg))
+	if err != nil {
+		log.Printf("failed to send repo update event: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func httpCommon(method, url string, header map[string][]string, reader io.Reader) (int, []byte, error) {
+	req, err := http.NewRequest(method, url, reader)
+	if err != nil {
+		return -1, nil, err
+	}
+	req.Header = header
+
+	rsp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return -1, nil, err
+	}
+	defer rsp.Body.Close()
+
+	if rsp.StatusCode != http.StatusOK {
+		return rsp.StatusCode, nil, fmt.Errorf("bad response %d for %s", rsp.StatusCode, url)
+	}
+	body, err := io.ReadAll(rsp.Body)
+	if err != nil {
+		return rsp.StatusCode, nil, err
+	}
+
+	return rsp.StatusCode, body, nil
 }
 
 func doPostMultiFiles(repo *repomgr.Repo, rootID, parentDir string, dents []*fsmgr.SeafDirent, user string, replace bool, names *[]string) (string, error) {
@@ -2043,18 +2113,18 @@ func indexBlocks(ctx context.Context, repoID string, version int, filePath strin
 
 	chunkJobs := make(chan chunkingData, 10)
 	results := make(chan chunkingResult, 10)
-	go createChunkPool(ctx, int(options.maxIndexingThreads), chunkJobs, results)
+	go createChunkPool(ctx, int(option.MaxIndexingThreads), chunkJobs, results)
 
 	var blkSize int64
 	var offset int64
 
-	jobNum := (uint64(size) + options.fixedBlockSize - 1) / options.fixedBlockSize
+	jobNum := (uint64(size) + option.FixedBlockSize - 1) / option.FixedBlockSize
 	blkIDs := make([]string, jobNum)
 
 	left := size
 	for {
-		if uint64(left) >= options.fixedBlockSize {
-			blkSize = int64(options.fixedBlockSize)
+		if uint64(left) >= option.FixedBlockSize {
+			blkSize = int64(option.FixedBlockSize)
 		} else {
 			blkSize = left
 		}
@@ -2167,7 +2237,7 @@ func chunkingWorker(ctx context.Context, wg *sync.WaitGroup, chunkJobs chan chun
 
 		job := job
 		blkID, err := chunkFile(job)
-		idx := job.offset / int64(options.fixedBlockSize)
+		idx := job.offset / int64(option.FixedBlockSize)
 		result := chunkingResult{idx, blkID, err}
 		res <- result
 	}
@@ -2179,7 +2249,7 @@ func chunkFile(job chunkingData) (string, error) {
 	offset := job.offset
 	filePath := job.filePath
 	handler := job.handler
-	blkSize := options.fixedBlockSize
+	blkSize := option.FixedBlockSize
 	cryptKey := job.cryptKey
 	var file multipart.File
 	if handler != nil {
@@ -2275,7 +2345,7 @@ func checkTmpFileList(fsm *recvData) *appError {
 		}
 	}
 
-	if options.maxUploadSize > 0 && uint64(totalSize) > options.maxUploadSize {
+	if option.MaxUploadSize > 0 && uint64(totalSize) > option.MaxUploadSize {
 		msg := "File size is too large.\n"
 		return &appError{nil, msg, seafHTTPResTooLarge}
 	}

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 )
 
@@ -70,7 +71,7 @@ func getUserQuota(user string) (int64, error) {
 	}
 
 	if quota <= 0 {
-		quota = options.defaultQuota
+		quota = option.DefaultQuota
 	}
 
 	return quota, nil
