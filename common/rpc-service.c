@@ -396,8 +396,12 @@ get_commit (SeafCommit *c, void *data, gboolean *stop)
              (gint64)(c->ctime) <= cp->truncate_time &&
              cp->traversed_head)
     {
+        /* Still traverse the first commit older than truncate_time.
+         * If a file in the child commit of this commit is deleted,
+         * we need to access this commit in order to restore it
+         * from trash.
+         */
         *stop = TRUE;
-        return TRUE;
     }
 
     /* Always traverse the head commit. */
