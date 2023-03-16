@@ -1846,20 +1846,20 @@ func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error 
 }
 
 type notifEvent struct {
+	Type    string           `json:"type"`
 	Content *repoUpdateEvent `json:"content"`
 }
 type repoUpdateEvent struct {
-	Type     string `json:"type"`
 	RepoID   string `json:"repo_id"`
 	CommitID string `json:"commit_id"`
 }
 
 func notifRepoUpdate(repoID string, commitID string) error {
 	content := new(repoUpdateEvent)
-	content.Type = "repo-update"
 	content.RepoID = repoID
 	content.CommitID = commitID
 	event := new(notifEvent)
+	event.Type = "repo-update"
 	event.Content = content
 	msg, err := json.Marshal(event)
 	if err != nil {
