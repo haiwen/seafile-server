@@ -147,7 +147,7 @@ seaf_repo_manager_repo_exists (SeafRepoManager *manager, const gchar *id);
 
 GList* 
 seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit,
-                                 const gchar *order_by);
+                                 const gchar *order_by, int ret_virt_repo);
 
 gint64
 seaf_repo_manager_count_repos (SeafRepoManager *mgr, GError **error);

@@ -31,8 +31,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     remove_repo = seafile_destroy_repo
 
-    @searpc_func("objlist", ["int", "int"])
-    def seafile_get_repo_list(start, limit, order_by):
+    @searpc_func("objlist", ["int", "int", "string", "int"])
+    def seafile_get_repo_list(start, limit, order_by, ret_virt_repo):
         pass
     get_repo_list = seafile_get_repo_list
 
