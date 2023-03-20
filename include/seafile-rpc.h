@@ -17,7 +17,7 @@ seafile_get_session_info (GError **error);
  *
  * Returns repository list.
  */
-GList* seafile_get_repo_list (int start, int limit, const char *order_by, GError **error);
+GList* seafile_get_repo_list (int start, int limit, const char *order_by, int ret_virt_repo, GError **error);
 
 gint64
 seafile_count_repos (GError **error);

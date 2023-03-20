@@ -263,9 +263,9 @@ seafile_pop_event(const char *channel, GError **error)
 #endif
 
 GList*
-seafile_get_repo_list (int start, int limit, const char *order_by, GError **error)
+seafile_get_repo_list (int start, int limit, const char *order_by, int ret_virt_repo, GError **error)
 {
-    GList *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, start, limit, order_by);
+    GList *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, start, limit, order_by, ret_virt_repo);
     GList *ret = NULL;
 
     ret = convert_repo_list (repos);
@@ -565,7 +565,7 @@ seafile_unsync_repos_by_account (const char *server_addr, const char *email, GEr
         return -1;
     }
 
-    GList *ptr, *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, -1, -1);
+    GList *ptr, *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, -1, -1, NULL, 0);
     if (!repos) {
         return 0;
     }
@@ -602,7 +602,7 @@ seafile_remove_repo_tokens_by_account (const char *server_addr, const char *emai
         return -1;
     }
 
-    GList *ptr, *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, -1, -1);
+    GList *ptr, *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, -1, -1, NULL, 0);
     if (!repos) {
         return 0;
     }

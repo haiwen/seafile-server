@@ -91,7 +91,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_get_repo_list,
                                      "seafile_get_repo_list",
-                                     searpc_signature_objlist__int_int_string());
+                                     searpc_signature_objlist__int_int_string_int());
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_count_repos,
                                      "seafile_count_repos",
