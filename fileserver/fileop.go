@@ -688,6 +688,15 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	var cryptKey *seafileCrypt
+	if repo.IsEncrypted {
+		key, err := parseCryptKey(rsp, repoID, user, repo.EncVersion)
+		if err != nil {
+			return err
+		}
+		cryptKey = key
+	}
+
 	obj := make(map[string]interface{})
 	err := json.Unmarshal([]byte(data), &obj)
 	if err != nil {
@@ -720,7 +729,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 
-		err := packDir(ar, repo, objID, dirName)
+		err := packDir(ar, repo, objID, dirName, cryptKey)
 		if err != nil {
 			log.Printf("failed to pack dir %s: %v", dirName, err)
 			return nil
@@ -741,14 +750,14 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 
 		for _, v := range dirList {
 			if fsmgr.IsDir(v.Mode) {
-				if err := packDir(ar, repo, v.ID, v.Name); err != nil {
+				if err := packDir(ar, repo, v.ID, v.Name, cryptKey); err != nil {
 					if !isNetworkErr(err) {
 						log.Printf("failed to pack dir %s: %v", v.Name, err)
 					}
 					return nil
 				}
 			} else {
-				if err := packFiles(ar, &v, repo, ""); err != nil {
+				if err := packFiles(ar, &v, repo, "", cryptKey); err != nil {
 					if !isNetworkErr(err) {
 						log.Printf("failed to pack file %s: %v", v.Name, err)
 					}
@@ -806,7 +815,7 @@ func parseDirFilelist(repo *repomgr.Repo, obj map[string]interface{}) ([]fsmgr.S
 	return direntList, nil
 }
 
-func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string) error {
+func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string, cryptKey *seafileCrypt) error {
 	dirent, err := fsmgr.GetSeafdir(repo.StoreID, dirID)
 	if err != nil {
 		err := fmt.Errorf("failed to get dir for zip: %v", err)
@@ -831,11 +840,11 @@ func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string) error {
 		fileDir := filepath.Join(dirPath, v.Name)
 		fileDir = strings.TrimLeft(fileDir, "/")
 		if fsmgr.IsDir(v.Mode) {
-			if err := packDir(ar, repo, v.ID, fileDir); err != nil {
+			if err := packDir(ar, repo, v.ID, fileDir, cryptKey); err != nil {
 				return err
 			}
 		} else {
-			if err := packFiles(ar, v, repo, dirPath); err != nil {
+			if err := packFiles(ar, v, repo, dirPath, cryptKey); err != nil {
 				return err
 			}
 		}
@@ -844,7 +853,7 @@ func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string) error {
 	return nil
 }
 
-func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, parentPath string) error {
+func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, parentPath string, cryptKey *seafileCrypt) error {
 	file, err := fsmgr.GetSeafile(repo.StoreID, dirent.ID)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafile : %v", err)
@@ -862,6 +871,23 @@ func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, par
 	if err != nil {
 		err := fmt.Errorf("failed to create zip file : %v", err)
 		return err
+	}
+
+	if cryptKey != nil {
+		for _, blkID := range file.BlkIDs {
+			var buf bytes.Buffer
+			blockmgr.Read(repo.StoreID, blkID, &buf)
+			decoded, err := cryptKey.decrypt(buf.Bytes())
+			if err != nil {
+				err := fmt.Errorf("failed to decrypt block %s: %v", blkID, err)
+				return err
+			}
+			_, err = zipFile.Write(decoded)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	for _, blkID := range file.BlkIDs {
