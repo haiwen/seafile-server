@@ -263,9 +263,9 @@ seafile_pop_event(const char *channel, GError **error)
 #endif
 
 GList*
-seafile_get_repo_list (int start, int limit, const char *order_by, GError **error)
+seafile_get_repo_list (int start, int limit, const char *order_by, int ret_virt_repo, GError **error)
 {
-    GList *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, start, limit, order_by);
+    GList *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, start, limit, order_by, ret_virt_repo);
     GList *ret = NULL;
 
     ret = convert_repo_list (repos);
@@ -396,8 +396,12 @@ get_commit (SeafCommit *c, void *data, gboolean *stop)
              (gint64)(c->ctime) <= cp->truncate_time &&
              cp->traversed_head)
     {
+        /* Still traverse the first commit older than truncate_time.
+         * If a file in the child commit of this commit is deleted,
+         * we need to access this commit in order to restore it
+         * from trash.
+         */
         *stop = TRUE;
-        return TRUE;
     }
 
     /* Always traverse the head commit. */
@@ -561,7 +565,7 @@ seafile_unsync_repos_by_account (const char *server_addr, const char *email, GEr
         return -1;
     }
 
-    GList *ptr, *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, -1, -1);
+    GList *ptr, *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, -1, -1, NULL, 0);
     if (!repos) {
         return 0;
     }
@@ -598,7 +602,7 @@ seafile_remove_repo_tokens_by_account (const char *server_addr, const char *emai
         return -1;
     }
 
-    GList *ptr, *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, -1, -1);
+    GList *ptr, *repos = seaf_repo_manager_get_repo_list(seaf->repo_mgr, -1, -1, NULL, 0);
     if (!repos) {
         return 0;
     }
@@ -4517,12 +4521,18 @@ seafile_get_repo_status(const char *repo_id, GError **error)
 GList *
 seafile_search_files (const char *repo_id, const char *str, GError **error)
 {
+    return seafile_search_files_by_path (repo_id, NULL, str, error);
+}
+
+GList *
+seafile_search_files_by_path (const char *repo_id, const char *path, const char *str, GError **error)
+{
     if (!is_uuid_valid (repo_id)) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
         return NULL;
     }
 
-    GList *file_list = seaf_fs_manager_search_files (seaf->fs_mgr, repo_id, str);
+    GList *file_list = seaf_fs_manager_search_files_by_path (seaf->fs_mgr, repo_id, path, str);
     GList *ret = NULL, *ptr;
 
     for (ptr = file_list; ptr; ptr=ptr->next) {

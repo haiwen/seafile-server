@@ -14,6 +14,8 @@
 
 #include <evhtp.h>
 
+#include <jwt.h>
+
 #include "mq-mgr.h"
 #include "utils.h"
 #include "log.h"
@@ -53,6 +55,7 @@
 #define TOKEN_EXPIRE_TIME 7200	    /* 2 hours */
 #define PERM_EXPIRE_TIME 7200       /* 2 hours */
 #define VIRINFO_EXPIRE_TIME 7200       /* 2 hours */
+#define JWT_TOKEN_EXPIRE_TIME 3*24*3600 /* 3 days*/
 
 #define FS_ID_LIST_MAX_WORKERS 3
 #define FS_ID_LIST_TOKEN_LEN 36
@@ -135,6 +138,7 @@ const char *POST_CHECK_BLOCK_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}
 const char *POST_RECV_FS_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/recv-fs";
 const char *POST_PACK_FS_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/pack-fs";
 const char *GET_BLOCK_MAP_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/block-map/[\\da-z]{40}";
+const char *GET_JWT_TOKEN_REGEX = "^/repo/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/jwt-token";
 
 //accessible repos
 const char *GET_ACCESSIBLE_REPO_LIST_REGEX = "/accessible-repos";
@@ -2438,6 +2442,96 @@ out:
     g_strfreev (parts);
 }
 
+static char *
+gen_jwt_token (const char *repo_id, const char *username)
+{
+    char *jwt_token = NULL;
+    gint64 now = (gint64)time(NULL);
+
+    jwt_t *jwt = NULL;
+
+    if (!seaf->private_key) {
+        seaf_warning ("No private key is configured for generating jwt token\n");
+        return NULL;
+    }
+
+    int ret = jwt_new (&jwt);
+    if (ret != 0 || jwt == NULL) {
+        seaf_warning ("Failed to create jwt\n");
+        goto out;
+    }
+
+    ret = jwt_add_grant (jwt, "repo_id", repo_id);
+    if (ret != 0) {
+        seaf_warning ("Failed to add repo_id to jwt\n");
+        goto out;
+    }
+    ret = jwt_add_grant (jwt, "username", username);
+    if (ret != 0) {
+        seaf_warning ("Failed to add username to jwt\n");
+        goto out;
+    }
+    ret = jwt_add_grant_int (jwt, "exp", now + JWT_TOKEN_EXPIRE_TIME);
+    if (ret != 0) {
+        seaf_warning ("Failed to expire time to jwt\n");
+        goto out;
+    }
+    ret = jwt_set_alg (jwt, JWT_ALG_HS256, (unsigned char *)seaf->private_key, strlen(seaf->private_key));
+    if (ret != 0) {
+        seaf_warning ("Failed to set alg\n");
+        goto out;
+    }
+
+    jwt_token = jwt_encode_str (jwt);
+
+out:
+    jwt_free (jwt);
+    return jwt_token;
+}
+
+static void
+get_jwt_token_cb (evhtp_request_t *req, void *arg)
+{
+    const char *repo_id = NULL;
+    HttpServer *htp_server = arg;
+    json_t *obj = NULL;
+    char *data = NULL;
+    char *username = NULL;
+    char *jwt_token = NULL;
+
+    char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
+    repo_id = parts[1];
+
+    int token_status = validate_token (htp_server, req, repo_id, &username, FALSE);
+    if (token_status != EVHTP_RES_OK) {
+        evhtp_send_reply (req, token_status);
+        goto out;
+    }
+
+    jwt_token = gen_jwt_token (repo_id, username);
+    if (!jwt_token) {
+        seaf_warning ("Failed to gen jwt token for repo %s\n", repo_id);
+        evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        goto out;
+    }
+
+    obj = json_object ();
+    json_object_set_new (obj, "jwt_token", json_string (jwt_token));
+
+    data = json_dumps (obj, JSON_COMPACT);
+    evbuffer_add (req->buffer_out, data, strlen (data));
+    evhtp_send_reply (req, EVHTP_RES_OK);
+
+out:
+    g_free (jwt_token);
+    g_free (username);
+    if (obj)
+        json_decref (obj);
+    if (data)
+        free (data);
+    g_strfreev (parts);
+}
+
 static json_t *
 fill_obj_from_seafilerepo (SeafileRepo *srepo, GHashTable *table)
 {
@@ -2756,6 +2850,10 @@ http_request_init (HttpServerStruct *server)
 
     evhtp_set_regex_cb (priv->evhtp,
                         GET_BLOCK_MAP_REGEX, get_block_map_cb,
+                        priv);
+
+    evhtp_set_regex_cb (priv->evhtp,
+                        GET_JWT_TOKEN_REGEX, get_jwt_token_cb,
                         priv);
 
     evhtp_set_regex_cb (priv->evhtp,

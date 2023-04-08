@@ -8,6 +8,7 @@ import (
 
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/option"
 )
 
 const (
@@ -213,7 +214,7 @@ func mergeTestDelFile() error {
 
 func TestMergeTrees(t *testing.T) {
 	commitmgr.Init(mergeTestSeafileConfPath, mergeTestSeafileDataDir)
-	fsmgr.Init(mergeTestSeafileConfPath, mergeTestSeafileDataDir)
+	fsmgr.Init(mergeTestSeafileConfPath, mergeTestSeafileDataDir, option.FsCacheLimit)
 	err := mergeTestCreateTestDir()
 	if err != nil {
 		fmt.Printf("failed to create test dir: %v", err)

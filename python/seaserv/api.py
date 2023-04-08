@@ -107,11 +107,11 @@ class SeafileAPI(object):
     def remove_repo(self, repo_id):
         return seafserv_threaded_rpc.remove_repo(repo_id)
 
-    def get_repo_list(self, start, limit, order_by=None):
+    def get_repo_list(self, start, limit, order_by=None, ret_virt_repo=False):
         """
         Return: a list of Repo objects (lib/repo.vala)
         """
-        return seafserv_threaded_rpc.get_repo_list(start, limit, order_by)
+        return seafserv_threaded_rpc.get_repo_list(start, limit, order_by, 1 if ret_virt_repo else 0)
 
     def count_repos(self):
         return seafserv_threaded_rpc.count_repos()
@@ -856,6 +856,9 @@ class SeafileAPI(object):
 
     def search_files(self, repo_id, search_str):
         return seafserv_threaded_rpc.search_files(repo_id, search_str)
+
+    def search_files_by_path (self, repo_id, path, search_str):
+        return seafserv_threaded_rpc.search_files_by_path(repo_id, path, search_str)
     
 seafile_api = SeafileAPI()
 

@@ -34,6 +34,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/unicode/norm"
@@ -76,7 +77,7 @@ func initUpload() {
 	os.MkdirAll(objDir, os.ModePerm)
 }
 
-//contentType = "application/octet-stream"
+// contentType = "application/octet-stream"
 func parseContentType(fileName string) string {
 	var contentType string
 
@@ -687,6 +688,15 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	var cryptKey *seafileCrypt
+	if repo.IsEncrypted {
+		key, err := parseCryptKey(rsp, repoID, user, repo.EncVersion)
+		if err != nil {
+			return err
+		}
+		cryptKey = key
+	}
+
 	obj := make(map[string]interface{})
 	err := json.Unmarshal([]byte(data), &obj)
 	if err != nil {
@@ -719,7 +729,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 
-		err := packDir(ar, repo, objID, dirName)
+		err := packDir(ar, repo, objID, dirName, cryptKey)
 		if err != nil {
 			log.Printf("failed to pack dir %s: %v", dirName, err)
 			return nil
@@ -740,14 +750,14 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 
 		for _, v := range dirList {
 			if fsmgr.IsDir(v.Mode) {
-				if err := packDir(ar, repo, v.ID, v.Name); err != nil {
+				if err := packDir(ar, repo, v.ID, v.Name, cryptKey); err != nil {
 					if !isNetworkErr(err) {
 						log.Printf("failed to pack dir %s: %v", v.Name, err)
 					}
 					return nil
 				}
 			} else {
-				if err := packFiles(ar, &v, repo, ""); err != nil {
+				if err := packFiles(ar, &v, repo, "", cryptKey); err != nil {
 					if !isNetworkErr(err) {
 						log.Printf("failed to pack file %s: %v", v.Name, err)
 					}
@@ -805,7 +815,7 @@ func parseDirFilelist(repo *repomgr.Repo, obj map[string]interface{}) ([]fsmgr.S
 	return direntList, nil
 }
 
-func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string) error {
+func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string, cryptKey *seafileCrypt) error {
 	dirent, err := fsmgr.GetSeafdir(repo.StoreID, dirID)
 	if err != nil {
 		err := fmt.Errorf("failed to get dir for zip: %v", err)
@@ -830,11 +840,11 @@ func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string) error {
 		fileDir := filepath.Join(dirPath, v.Name)
 		fileDir = strings.TrimLeft(fileDir, "/")
 		if fsmgr.IsDir(v.Mode) {
-			if err := packDir(ar, repo, v.ID, fileDir); err != nil {
+			if err := packDir(ar, repo, v.ID, fileDir, cryptKey); err != nil {
 				return err
 			}
 		} else {
-			if err := packFiles(ar, v, repo, dirPath); err != nil {
+			if err := packFiles(ar, v, repo, dirPath, cryptKey); err != nil {
 				return err
 			}
 		}
@@ -843,7 +853,7 @@ func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string) error {
 	return nil
 }
 
-func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, parentPath string) error {
+func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, parentPath string, cryptKey *seafileCrypt) error {
 	file, err := fsmgr.GetSeafile(repo.StoreID, dirent.ID)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafile : %v", err)
@@ -861,6 +871,23 @@ func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, par
 	if err != nil {
 		err := fmt.Errorf("failed to create zip file : %v", err)
 		return err
+	}
+
+	if cryptKey != nil {
+		for _, blkID := range file.BlkIDs {
+			var buf bytes.Buffer
+			blockmgr.Read(repo.StoreID, blkID, &buf)
+			decoded, err := cryptKey.decrypt(buf.Bytes())
+			if err != nil {
+				err := fmt.Errorf("failed to decrypt block %s: %v", blkID, err)
+				return err
+			}
+			_, err = zipFile.Write(decoded)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	for _, blkID := range file.BlkIDs {
@@ -1012,12 +1039,12 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		}
 
 		if fsm.rend != fsm.fsize-1 {
+			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 			success := "{\"success\": true}"
 			_, err := rsp.Write([]byte(success))
 			if err != nil {
 				log.Printf("failed to write data to response")
 			}
-			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 			return nil
 		}
@@ -1090,8 +1117,6 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		replaceExisted, isAjax); err != nil {
 		return err
 	}
-
-	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	oper := "web-file-upload"
 	if fsm.tokenType == "upload-link" {
@@ -1505,6 +1530,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 
 	_, ok := r.Form["ret-json"]
 	if ok || isAjax {
+		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write([]byte(retStr))
 	} else {
 		var array []map[string]interface{}
@@ -1830,6 +1856,10 @@ func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error 
 		}
 	}
 
+	if option.EnableNotification {
+		notifRepoUpdate(repoID, commitID)
+	}
+
 	isVirtual, err := repomgr.IsVirtualRepo(repoID)
 	if err != nil {
 		return err
@@ -1839,6 +1869,71 @@ func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error 
 	}
 	publishUpdateEvent(repoID, commitID)
 	return nil
+}
+
+type notifEvent struct {
+	Type    string           `json:"type"`
+	Content *repoUpdateEvent `json:"content"`
+}
+type repoUpdateEvent struct {
+	RepoID   string `json:"repo_id"`
+	CommitID string `json:"commit_id"`
+}
+
+func notifRepoUpdate(repoID string, commitID string) error {
+	content := new(repoUpdateEvent)
+	content.RepoID = repoID
+	content.CommitID = commitID
+	event := new(notifEvent)
+	event.Type = "repo-update"
+	event.Content = content
+	msg, err := json.Marshal(event)
+	if err != nil {
+		log.Printf("failed to encode repo update event: %v", err)
+		return err
+	}
+
+	url := fmt.Sprintf("http://%s/events", option.NotificationURL)
+	token, err := genJWTToken(repoID, "")
+	if err != nil {
+		log.Printf("failed to generate jwt token: %v", err)
+		return err
+	}
+	header := map[string][]string{
+		"Seafile-Repo-Token": {token},
+		"Content-Type":       {"application/json"},
+	}
+	_, _, err = httpCommon("POST", url, header, bytes.NewReader(msg))
+	if err != nil {
+		log.Printf("failed to send repo update event: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func httpCommon(method, url string, header map[string][]string, reader io.Reader) (int, []byte, error) {
+	req, err := http.NewRequest(method, url, reader)
+	if err != nil {
+		return -1, nil, err
+	}
+	req.Header = header
+
+	rsp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return -1, nil, err
+	}
+	defer rsp.Body.Close()
+
+	if rsp.StatusCode != http.StatusOK {
+		return rsp.StatusCode, nil, fmt.Errorf("bad response %d for %s", rsp.StatusCode, url)
+	}
+	body, err := io.ReadAll(rsp.Body)
+	if err != nil {
+		return rsp.StatusCode, nil, err
+	}
+
+	return rsp.StatusCode, body, nil
 }
 
 func doPostMultiFiles(repo *repomgr.Repo, rootID, parentDir string, dents []*fsmgr.SeafDirent, user string, replace bool, names *[]string) (string, error) {
@@ -1922,6 +2017,10 @@ func postMultiFilesRecursive(repo *repomgr.Repo, dirID, toPath, user string, den
 			return "", err
 		}
 		ret = newdir.DirID
+	} else {
+		// The ret will be an empty string when failed to find parent dir, an error should be returned in such case.
+		err := fmt.Errorf("failed to find parent dir for %s", toPath)
+		return "", err
 	}
 
 	return ret, nil
@@ -2040,18 +2139,18 @@ func indexBlocks(ctx context.Context, repoID string, version int, filePath strin
 
 	chunkJobs := make(chan chunkingData, 10)
 	results := make(chan chunkingResult, 10)
-	go createChunkPool(ctx, int(options.maxIndexingThreads), chunkJobs, results)
+	go createChunkPool(ctx, int(option.MaxIndexingThreads), chunkJobs, results)
 
 	var blkSize int64
 	var offset int64
 
-	jobNum := uint64(size)/options.fixedBlockSize + 1
+	jobNum := (uint64(size) + option.FixedBlockSize - 1) / option.FixedBlockSize
 	blkIDs := make([]string, jobNum)
 
 	left := size
 	for {
-		if uint64(left) >= options.fixedBlockSize {
-			blkSize = int64(options.fixedBlockSize)
+		if uint64(left) >= option.FixedBlockSize {
+			blkSize = int64(option.FixedBlockSize)
 		} else {
 			blkSize = left
 		}
@@ -2164,7 +2263,7 @@ func chunkingWorker(ctx context.Context, wg *sync.WaitGroup, chunkJobs chan chun
 
 		job := job
 		blkID, err := chunkFile(job)
-		idx := job.offset / int64(options.fixedBlockSize)
+		idx := job.offset / int64(option.FixedBlockSize)
 		result := chunkingResult{idx, blkID, err}
 		res <- result
 	}
@@ -2176,7 +2275,7 @@ func chunkFile(job chunkingData) (string, error) {
 	offset := job.offset
 	filePath := job.filePath
 	handler := job.handler
-	blkSize := options.fixedBlockSize
+	blkSize := option.FixedBlockSize
 	cryptKey := job.cryptKey
 	var file multipart.File
 	if handler != nil {
@@ -2272,7 +2371,7 @@ func checkTmpFileList(fsm *recvData) *appError {
 		}
 	}
 
-	if options.maxUploadSize > 0 && uint64(totalSize) > options.maxUploadSize {
+	if option.MaxUploadSize > 0 && uint64(totalSize) > option.MaxUploadSize {
 		msg := "File size is too large.\n"
 		return &appError{nil, msg, seafHTTPResTooLarge}
 	}
@@ -2570,6 +2669,9 @@ func putFileRecursive(repo *repomgr.Repo, dirID, toPath string, newDent *fsmgr.S
 			return "", err
 		}
 		ret = newdir.DirID
+	} else {
+		err := fmt.Errorf("failed to find parent dir for %s", toPath)
+		return "", err
 	}
 
 	return ret, nil
@@ -2663,12 +2765,12 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		}
 
 		if fsm.rend != fsm.fsize-1 {
+			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 			success := "{\"success\": true}"
 			_, err := rsp.Write([]byte(success))
 			if err != nil {
 				log.Printf("failed to write data to response.\n")
 			}
-			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 			return nil
 		}
@@ -2744,8 +2846,6 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 
 	oper := "web-file-upload"
 	sendStatisticMsg(repoID, user, oper, uint64(contentLen))
-
-	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	return nil
 }
@@ -2868,6 +2968,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 			err := fmt.Errorf("failed to format json data")
 			return &appError{err, "", http.StatusInternalServerError}
 		}
+		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write(retJSON)
 	} else {
 		rsp.Write([]byte(fileID))
@@ -3008,14 +3109,14 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 			err := fmt.Errorf("failed to convert array to json: %v", err)
 			return &appError{err, "", http.StatusInternalServerError}
 		}
+		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write([]byte(jsonstr))
 	} else {
+		rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 		rsp.Write([]byte("\""))
 		rsp.Write([]byte(fileID))
 		rsp.Write([]byte("\""))
 	}
-
-	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 
 	return nil
 }
@@ -3192,8 +3293,8 @@ func doUploadRawBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *a
 	oper := "web-file-upload"
 	sendStatisticMsg(repoID, user, oper, uint64(contentLen))
 
-	rsp.Write([]byte("\"OK\""))
 	rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
+	rsp.Write([]byte("\"OK\""))
 
 	return nil
 }

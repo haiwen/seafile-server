@@ -17,7 +17,7 @@ seafile_get_session_info (GError **error);
  *
  * Returns repository list.
  */
-GList* seafile_get_repo_list (int start, int limit, const char *order_by, GError **error);
+GList* seafile_get_repo_list (int start, int limit, const char *order_by, int ret_virt_repo, GError **error);
 
 gint64
 seafile_count_repos (GError **error);
@@ -1140,6 +1140,9 @@ seafile_pop_event(const char *channel, GError **error);
 
 GList *
 seafile_search_files (const char *repo_id, const char *str, GError **error);
+
+GList *
+seafile_search_files_by_path (const char *repo_id, const char *path, const char *str, GError **error);
 
 /*Following is ccnet rpc*/
 int

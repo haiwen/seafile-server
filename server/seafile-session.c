@@ -44,6 +44,10 @@ seafile_session_new(const char *central_config_dir,
     GKeyFile *config;
     GKeyFile *ccnet_config;
     SeafileSession *session = NULL;
+    gboolean notif_enabled = FALSE;
+    char *notif_server = NULL;
+    int notif_port = 8083;
+    char *private_key = NULL;
 
     abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
     abs_seafile_dir = ccnet_expand_path (seafile_dir);
@@ -121,6 +125,23 @@ seafile_session_new(const char *central_config_dir,
             session->go_fileserver = FALSE;
         }
         g_free (type);
+    }
+
+    notif_enabled = g_key_file_get_boolean (config,
+                                            "notification", "enabled",
+                                            NULL);
+    if (notif_enabled) {
+        notif_server = g_key_file_get_string (config,
+                                              "notification", "host",
+                                               NULL);
+        notif_port = g_key_file_get_integer (config,
+                                             "notification", "port",
+                                              NULL);
+
+        private_key = g_key_file_get_string (config,
+                                             "notification", "jwt_private_key",
+                                             NULL);
+        session->private_key = private_key;
     }
 
     if (load_database_config (session) < 0) {
@@ -204,9 +225,21 @@ seafile_session_new(const char *central_config_dir,
     if (!session->org_mgr)
         goto onerror;
 
+    if (notif_enabled && notif_server != NULL) {
+        char notif_url[128];
+        g_sprintf (notif_url, "%s:%d", notif_server, notif_port);
+        session->notif_mgr = seaf_notif_manager_new (session, g_strdup (notif_url));
+        if (!session->notif_mgr) {
+            g_free (notif_url);
+            goto onerror;
+        }
+    }
+
     return session;
 
 onerror:
+    g_free (notif_server);
+    g_free (private_key);
     free (abs_seafile_dir);
     free (abs_ccnet_dir);
     g_free (tmp_file_dir);

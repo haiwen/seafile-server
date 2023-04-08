@@ -28,6 +28,7 @@
 #include "http-server.h"
 #include "zip-download-mgr.h"
 #include "index-blocks-mgr.h"
+#include "notif-mgr.h"
 
 #include <searpc-client.h>
 
@@ -78,6 +79,10 @@ struct _SeafileSession {
     gboolean ccnet_create_tables;
 
     gboolean go_fileserver;
+
+    // For notification server
+    NotifManager *notif_mgr;
+    char         *private_key;
 };
 
 extern SeafileSession *seaf;

@@ -54,8 +54,8 @@ def make_build_env():
 
     _env_add('PATH', join(PREFIX, 'bin'))
     if on_github_actions():
-        _env_add('PYTHONPATH', join(os.environ.get('RUNNER_TOOL_CACHE'), 'Python/3.6.9/x64/lib/python3.6/site-packages'))
-    _env_add('PYTHONPATH', join(PREFIX, 'lib/python3.6/site-packages'))
+        _env_add('PYTHONPATH', join(os.environ.get('RUNNER_TOOL_CACHE'), 'Python/3.8.14/x64/lib/python3.8/site-packages'))
+    _env_add('PYTHONPATH', join(PREFIX, 'lib/python3.8/site-packages'))
     _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib', 'pkgconfig'))
     _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib64', 'pkgconfig'))
     _env_add('PKG_CONFIG_PATH', libsearpc_dir)
@@ -178,17 +178,43 @@ class Libevhtp(Project):
         for cmd in cmds:
             shell(cmd)
 
+class Libjwt(Project):
+    def __init__(self):
+        super(Libjwt, self).__init__('libjwt')
+
+    def branch(self):
+        return 'v1.13.1'
+
+    @property
+    def url(self):
+        return 'https://www.github.com/benmcollins/libjwt.git'
+
+    @chdir
+    def compile_and_install(self):
+        cmds = [
+            'autoreconf -i',
+            './configure',
+            'sudo make all',
+            'sudo make install',
+        ]
+
+        for cmd in cmds:
+            shell(cmd)
+
 def fetch_and_build():
     libsearpc = Libsearpc()
+    libjwt = Libjwt()
     libevhtp = Libevhtp()
     ccnet = CcnetServer()
     seafile = SeafileServer()
 
     libsearpc.clone()
+    libjwt.clone()
     libevhtp.clone()
     ccnet.clone()
 
     libsearpc.compile_and_install()
+    libjwt.compile_and_install()
     libevhtp.compile_and_install()
     seafile.compile_and_install()
 

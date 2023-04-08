@@ -17,11 +17,14 @@ import (
 	"sync"
 	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/share"
 	"github.com/haiwen/seafile-server/fileserver/utils"
@@ -710,6 +713,64 @@ func getCheckQuotaCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
+type MyClaims struct {
+	Exp      int64
+	RepoID   string `json:"repo_id"`
+	UserName string `json:"username"`
+}
+
+func (*MyClaims) Valid() error {
+	return nil
+}
+
+func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+
+	if !option.EnableNotification {
+		err := fmt.Errorf("notification server is not enabled")
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	user, appErr := validateToken(r, repoID, false)
+	if appErr != nil {
+		return appErr
+	}
+
+	tokenString, err := genJWTToken(repoID, user)
+	if err != nil {
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	data := fmt.Sprintf("{\"jwt_token\":\"%s\"}", tokenString)
+
+	rsp.Write([]byte(data))
+
+	return nil
+}
+
+func genJWTToken(repoID, user string) (string, error) {
+	claims := MyClaims{
+		time.Now().Add(time.Hour * 72).Unix(),
+		repoID,
+		user,
+	}
+
+	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
+	tokenString, err := token.SignedString([]byte(option.PrivateKey))
+	if err != nil {
+		err := fmt.Errorf("failed to gen jwt token for repo %s", repoID)
+		return "", err
+	}
+
+	return tokenString, nil
+}
+
+func isValidUUID(u string) bool {
+	_, err := uuid.Parse(u)
+	return err == nil
+}
+
 func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	recvChan := make(chan *calResult)
 
@@ -1242,6 +1303,14 @@ func removeSyncAPIExpireCache() {
 	virtualRepoInfoCache.Range(deleteVirtualRepoInfo)
 }
 
+type collectFsInfo struct {
+	startTime int64
+	isTimeout bool
+	results   []interface{}
+}
+
+var ErrTimeout = fmt.Errorf("get fs id list timeout")
+
 func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead string, clientHead string, dirOnly bool) ([]interface{}, error) {
 	masterHead, err := commitmgr.Load(repo.ID, serverHead)
 	if err != nil {
@@ -1259,9 +1328,10 @@ func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead
 		remoteHeadRoot = remoteHead.RootID
 	}
 
-	var results []interface{}
+	info := new(collectFsInfo)
+	info.startTime = time.Now().Unix()
 	if remoteHeadRoot != masterHead.RootID && masterHead.RootID != emptySHA1 {
-		results = append(results, masterHead.RootID)
+		info.results = append(info.results, masterHead.RootID)
 	}
 
 	var opt *diff.DiffOptions
@@ -1271,21 +1341,24 @@ func calculateSendObjectList(ctx context.Context, repo *repomgr.Repo, serverHead
 			DirCB:  collectDirIDs,
 			Ctx:    ctx,
 			RepoID: repo.StoreID}
-		opt.Data = &results
+		opt.Data = info
 	} else {
 		opt = &diff.DiffOptions{
 			FileCB: collectFileIDsNOp,
 			DirCB:  collectDirIDs,
 			Ctx:    ctx,
 			RepoID: repo.StoreID}
-		opt.Data = &results
+		opt.Data = info
 	}
 	trees := []string{masterHead.RootID, remoteHeadRoot}
 
 	if err := diff.DiffTrees(trees, opt); err != nil {
+		if info.isTimeout {
+			return nil, ErrTimeout
+		}
 		return nil, err
 	}
-	return results, nil
+	return info.results, nil
 }
 
 func collectFileIDs(ctx context.Context, baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
@@ -1297,7 +1370,7 @@ func collectFileIDs(ctx context.Context, baseDir string, files []*fsmgr.SeafDire
 
 	file1 := files[0]
 	file2 := files[1]
-	results, ok := data.(*[]interface{})
+	info, ok := data.(*collectFsInfo)
 	if !ok {
 		err := fmt.Errorf("failed to assert results")
 		return err
@@ -1306,7 +1379,7 @@ func collectFileIDs(ctx context.Context, baseDir string, files []*fsmgr.SeafDire
 	if file1 != nil &&
 		(file2 == nil || file1.ID != file2.ID) &&
 		file1.ID != emptySHA1 {
-		*results = append(*results, file1.ID)
+		info.results = append(info.results, file1.ID)
 	}
 
 	return nil
@@ -1323,18 +1396,26 @@ func collectDirIDs(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent
 	default:
 	}
 
-	dir1 := dirs[0]
-	dir2 := dirs[1]
-	results, ok := data.(*[]interface{})
+	info, ok := data.(*collectFsInfo)
 	if !ok {
-		err := fmt.Errorf("failed to assert results")
+		err := fmt.Errorf("failed to assert fs info")
 		return err
 	}
+	dir1 := dirs[0]
+	dir2 := dirs[1]
 
 	if dir1 != nil &&
 		(dir2 == nil || dir1.ID != dir2.ID) &&
 		dir1.ID != emptySHA1 {
-		*results = append(*results, dir1.ID)
+		info.results = append(info.results, dir1.ID)
+	}
+
+	if option.FsIdListRequestTimeout > 0 {
+		now := time.Now().Unix()
+		if now-info.startTime > option.FsIdListRequestTimeout {
+			info.isTimeout = true
+			return ErrTimeout
+		}
 	}
 
 	return nil

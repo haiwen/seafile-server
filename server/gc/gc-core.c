@@ -237,6 +237,36 @@ populate_gc_index_for_repo (SeafRepo *repo, Bloom *blocks_index, Bloom *fs_index
         }
     }
 
+    // Traverse the base commit of the virtual repo. Otherwise, if the virtual repo has not been updated for a long time,
+    // the fs object corresponding to the base commit will be removed by mistake.
+    if (!repo->is_virtual) {
+        GList *vrepo_ids = NULL, *ptr;
+        char *repo_id = NULL;
+        SeafVirtRepo *vinfo = NULL;
+        vrepo_ids = seaf_repo_manager_get_virtual_repo_ids_by_origin (seaf->repo_mgr,
+                                                                      repo->id);
+        for (ptr = vrepo_ids; ptr; ptr = ptr->next) {
+            repo_id = ptr->data;
+            vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr, repo->id);
+            if (!vinfo) {
+                continue;
+            }
+            gboolean res = seaf_commit_manager_traverse_commit_tree (seaf->commit_mgr,
+                                                                     repo->store_id, repo->version,
+                                                                     vinfo->base_commit,
+                                                                     traverse_commit,
+                                                                     data,
+                                                                     FALSE);
+            seaf_virtual_repo_info_free (vinfo);
+            if (!res) {
+                seaf_warning ("Failed to traverse base commit %s for virtual repo %s.\n", vinfo->base_commit, repo_id);
+                ret = -1;
+                break;
+            }
+        }
+        string_list_free (vrepo_ids);
+    }
+
     seaf_message ("Traversed %d commits, %"G_GINT64_FORMAT" blocks.\n",
                   data->traversed_commits, data->traversed_blocks);
     ret = data->traversed_blocks;
