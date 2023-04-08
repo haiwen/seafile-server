@@ -917,7 +917,7 @@ int main (int argc, char **argv)
         case 'f':
             daemon_mode = 0;
             break;
-        case 'L':
+        case 'l':
             logdir = g_strdup(optarg);
             break;
         case 'g':
