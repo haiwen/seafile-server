@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"reflect"
+	"runtime/debug"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -85,6 +86,12 @@ func Notify(msg *Message) {
 		clients[clientID] = client
 	}
 	subscribers.Mutex.RUnlock()
+
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v\n%s", err, debug.Stack())
+		}
+	}()
 
 	go func() {
 		// In order to avoid being blocked on a Client for a long time, it is necessary to write WCh in a non-blocking way,

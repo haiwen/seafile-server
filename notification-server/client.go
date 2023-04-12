@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"runtime/debug"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -58,6 +59,11 @@ func (client *Client) Close() {
 
 // HandleMessages connects to the client to process message.
 func (client *Client) HandleMessages() {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("panic: %v\n%s", err, debug.Stack())
+		}
+	}()
 	go client.readMessages()
 	go client.writeMessages()
 	go client.checkTokenExpired()
