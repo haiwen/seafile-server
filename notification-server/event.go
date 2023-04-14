@@ -87,13 +87,12 @@ func Notify(msg *Message) {
 	}
 	subscribers.Mutex.RUnlock()
 
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("panic: %v\n%s", err, debug.Stack())
-		}
-	}()
-
 	go func() {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("panic: %v\n%s", err, debug.Stack())
+			}
+		}()
 		// In order to avoid being blocked on a Client for a long time, it is necessary to write WCh in a non-blocking way,
 		// and the waiting WCh needs to be blocked and processed after other Clients have finished writing.
 		value := reflect.ValueOf(msg)

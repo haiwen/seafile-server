@@ -57,16 +57,22 @@ func (client *Client) Close() {
 	client.ConnClosed = true
 }
 
-// HandleMessages connects to the client to process message.
-func (client *Client) HandleMessages() {
+func RecoverWrapper(f func()) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Printf("panic: %v\n%s", err, debug.Stack())
 		}
 	}()
-	go client.readMessages()
-	go client.writeMessages()
-	go client.checkTokenExpired()
+
+	f()
+}
+
+// HandleMessages connects to the client to process message.
+func (client *Client) HandleMessages() {
+
+	go RecoverWrapper(client.readMessages)
+	go RecoverWrapper(client.writeMessages)
+	go RecoverWrapper(client.checkTokenExpired)
 
 	// Set keep alive.
 	client.conn.SetPongHandler(func(string) error {
