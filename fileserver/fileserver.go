@@ -13,6 +13,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"syscall"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -114,6 +115,18 @@ func loadCcnetDB() {
 		if key, err = section.GetKey("USE_SSL"); err == nil {
 			useTLS, _ = key.Bool()
 		}
+		var connMaxLifeTimeSec int64 = 60 * 3
+		if key, err = section.GetKey("CONN_MAX_LIFE_TIME_SEC"); err == nil {
+			connMaxLifeTimeSec, _ = key.Int64()
+		}
+		maxOpenConns := 100
+		if key, err = section.GetKey("MAX_OPEN_CONNS"); err == nil {
+			maxOpenConns, _ = key.Int()
+		}
+		maxIdleConns := 10
+		if key, err = section.GetKey("MAX_IDLE_CONNS"); err == nil {
+			maxIdleConns, _ = key.Int()
+		}
 		var dsn string
 		if unixSocket == "" {
 			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
@@ -124,6 +137,9 @@ func loadCcnetDB() {
 		if err != nil {
 			log.Fatalf("Failed to open database: %v", err)
 		}
+		ccnetDB.SetConnMaxLifetime(time.Second * time.Duration(connMaxLifeTimeSec))
+		ccnetDB.SetMaxOpenConns(maxOpenConns)
+		ccnetDB.SetMaxIdleConns(maxIdleConns)
 	} else if strings.EqualFold(dbEngine, "sqlite") {
 		ccnetDBPath := filepath.Join(centralDir, "groupmgr.db")
 		ccnetDB, err = sql.Open("sqlite3", ccnetDBPath)
@@ -182,6 +198,18 @@ func loadSeafileDB() {
 		if key, err = section.GetKey("use_ssl"); err == nil {
 			useTLS, _ = key.Bool()
 		}
+		var connMaxLifeTimeSec int64 = 60 * 3
+		if key, err = section.GetKey("CONN_MAX_LIFE_TIME_SEC"); err == nil {
+			connMaxLifeTimeSec, _ = key.Int64()
+		}
+		maxOpenConns := 100
+		if key, err = section.GetKey("MAX_OPEN_CONNS"); err == nil {
+			maxOpenConns, _ = key.Int()
+		}
+		maxIdleConns := 10
+		if key, err = section.GetKey("MAX_IDLE_CONNS"); err == nil {
+			maxIdleConns, _ = key.Int()
+		}
 
 		var dsn string
 		if unixSocket == "" {
@@ -194,6 +222,9 @@ func loadSeafileDB() {
 		if err != nil {
 			log.Fatalf("Failed to open database: %v", err)
 		}
+		seafileDB.SetConnMaxLifetime(time.Second * time.Duration(connMaxLifeTimeSec))
+		seafileDB.SetMaxOpenConns(maxOpenConns)
+		seafileDB.SetMaxIdleConns(maxIdleConns)
 	} else if strings.EqualFold(dbEngine, "sqlite") {
 		seafileDBPath := filepath.Join(absDataDir, "seafile.db")
 		seafileDB, err = sql.Open("sqlite3", seafileDBPath)
