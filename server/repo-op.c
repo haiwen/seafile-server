@@ -582,8 +582,8 @@ retry:
         merged_commit = NULL;
 
         if (++retry_cnt <= MAX_RETRY_COUNT) {
-            /* Sleep random time between 100 and 1000 millisecs. */
-            usleep (g_random_int_range(1, 11) * 100 * 1000);
+            /* Sleep random time between 0 and 3 seconds. */
+            usleep (g_random_int_range(0, 30) * 100 * 1000);
 
             repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
             if (!repo) {

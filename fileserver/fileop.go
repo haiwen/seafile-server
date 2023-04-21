@@ -1673,6 +1673,8 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	}
 	var commitID string
 
+	maxRetryCnt := 10
+
 	for {
 		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, &commitID)
 		if err != nil {
@@ -1685,7 +1687,7 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 			return "", ErrConflict
 		}
 
-		if retryCnt < 10 {
+		if retryCnt < maxRetryCnt {
 			/* Sleep random time between 0 and 3 seconds. */
 			random := rand.Intn(30) + 1
 			time.Sleep(time.Duration(random*100) * time.Millisecond)
@@ -1696,7 +1698,7 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 			}
 			retryCnt++
 		} else {
-			err := fmt.Errorf("stop updating repo %s after 3 retries", repoID)
+			err := fmt.Errorf("stop updating repo %s after %d retries", repoID, maxRetryCnt)
 			return "", err
 		}
 	}
