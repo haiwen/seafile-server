@@ -25,6 +25,8 @@ seaf_db_new_mysql (const char *host,
                    const char *db,
                    const char *unix_socket,
                    gboolean use_ssl,
+                   gboolean skip_verify,
+                   const char *ca_path,
                    const char *charset,
                    int max_connections);
 
