@@ -1685,8 +1685,9 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 			return "", ErrConflict
 		}
 
-		if retryCnt < 3 {
-			random := rand.Intn(10) + 1
+		if retryCnt < 10 {
+			/* Sleep random time between 0 and 3 seconds. */
+			random := rand.Intn(30) + 1
 			time.Sleep(time.Duration(random*100) * time.Millisecond)
 			repo = repomgr.Get(repoID)
 			if repo == nil {

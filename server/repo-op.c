@@ -458,7 +458,7 @@ gen_new_commit (const char *repo_id,
                 gboolean retry_on_conflict,
                 GError **error)
 {
-#define MAX_RETRY_COUNT 3
+#define MAX_RETRY_COUNT 10
 
     SeafRepo *repo = NULL;
     SeafCommit *new_commit = NULL, *current_head = NULL, *merged_commit = NULL;
