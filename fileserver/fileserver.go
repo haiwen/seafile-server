@@ -114,9 +114,17 @@ func loadCcnetDB() {
 		if key, err = section.GetKey("USE_SSL"); err == nil {
 			useTLS, _ = key.Bool()
 		}
+		skipVerify := false
+		if key, err = section.GetKey("SKIP_VERIFY"); err == nil {
+			skipVerify, _ = key.Bool()
+		}
 		var dsn string
 		if unixSocket == "" {
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+			if skipVerify {
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify", user, password, host, port, dbName)
+			} else {
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+			}
 		} else {
 			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
 		}
@@ -182,10 +190,18 @@ func loadSeafileDB() {
 		if key, err = section.GetKey("use_ssl"); err == nil {
 			useTLS, _ = key.Bool()
 		}
+		skipVerify := false
+		if key, err = section.GetKey("skip_verify"); err == nil {
+			skipVerify, _ = key.Bool()
+		}
 
 		var dsn string
 		if unixSocket == "" {
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+			if skipVerify {
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify", user, password, host, port, dbName)
+			} else {
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+			}
 		} else {
 			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
 		}
