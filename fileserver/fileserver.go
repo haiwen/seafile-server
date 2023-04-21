@@ -153,6 +153,7 @@ func loadCcnetDB() {
 	}
 }
 
+// registerCA registers CA to verify server cert.
 func registerCA(capath string) {
 	rootCertPool := x509.NewCertPool()
 	pem, err := ioutil.ReadFile(capath)
