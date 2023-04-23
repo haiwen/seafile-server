@@ -62,6 +62,8 @@ mysql_db_start (SeafileSession *session)
     char *host, *user, *passwd, *db, *unix_socket, *charset;
     int port;
     gboolean use_ssl = FALSE;
+    gboolean skip_verify = FALSE;
+    char *ca_path = NULL;
     int max_connections = 0;
     GError *error = NULL;
 
@@ -100,6 +102,18 @@ mysql_db_start (SeafileSession *session)
     use_ssl = g_key_file_get_boolean (session->config,
                                       "database", "use_ssl", NULL);
 
+    skip_verify = g_key_file_get_boolean (session->config,
+                                          "database", "skip_verify", NULL);
+
+    if (use_ssl && !skip_verify) {
+        ca_path = seaf_key_file_get_string (session->config,
+                                            "database", "ca_path", NULL);
+        if (!ca_path) {
+            seaf_warning ("ca_path is required if use ssl and don't skip verify.\n");
+            return -1;
+        }
+    }
+
     charset = seaf_key_file_get_string (session->config,
                                      "database", "connection_charset", NULL);
 
@@ -113,7 +127,7 @@ mysql_db_start (SeafileSession *session)
         max_connections = DEFAULT_MAX_CONNECTIONS;
     }
 
-    session->db = seaf_db_new_mysql (host, port, user, passwd, db, unix_socket, use_ssl, charset, max_connections);
+    session->db = seaf_db_new_mysql (host, port, user, passwd, db, unix_socket, use_ssl, skip_verify, ca_path, charset, max_connections);
     if (!session->db) {
         seaf_warning ("Failed to start mysql db.\n");
         return -1;
@@ -252,6 +266,8 @@ ccnet_init_mysql_database (SeafileSession *session)
     char *host, *user, *passwd, *db, *unix_socket, *charset;
     int port;
     gboolean use_ssl = FALSE;
+    gboolean skip_verify = FALSE;
+    char *ca_path = NULL;
     int max_connections = 0;
 
     host = ccnet_key_file_get_string (session->ccnet_config, "Database", "HOST");
@@ -286,6 +302,15 @@ ccnet_init_mysql_database (SeafileSession *session)
     unix_socket = ccnet_key_file_get_string (session->ccnet_config,
                                              "Database", "UNIX_SOCKET");
     use_ssl = g_key_file_get_boolean (session->ccnet_config, "Database", "USE_SSL", NULL);
+    skip_verify = g_key_file_get_boolean (session->ccnet_config, "Database", "SKIP_VERIFY", NULL);
+    if (use_ssl && !skip_verify) {
+        ca_path = seaf_key_file_get_string (session->ccnet_config,
+                                            "Database", "CA_PATH", NULL);
+        if (!ca_path) {
+            seaf_warning ("ca_path is required if use ssl and don't skip verify.\n");
+            return -1;
+        }
+    }
 
     charset = ccnet_key_file_get_string (session->ccnet_config,
                                          "Database", "CONNECTION_CHARSET");
@@ -298,7 +323,7 @@ ccnet_init_mysql_database (SeafileSession *session)
         g_clear_error (&error);
     }
 
-    session->ccnet_db = seaf_db_new_mysql (host, port, user, passwd, db, unix_socket, use_ssl, charset, max_connections);
+    session->ccnet_db = seaf_db_new_mysql (host, port, user, passwd, db, unix_socket, use_ssl, skip_verify, ca_path, charset, max_connections);
     if (!session->ccnet_db) {
         seaf_warning ("Failed to open ccnet database.\n");
         return -1;

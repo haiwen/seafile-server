@@ -2,10 +2,13 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,7 +17,7 @@ import (
 	"strings"
 	"syscall"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
@@ -120,8 +123,15 @@ func loadCcnetDB() {
 		}
 		var dsn string
 		if unixSocket == "" {
-			if skipVerify {
+			if useTLS && skipVerify {
 				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify", user, password, host, port, dbName)
+			} else if useTLS && !skipVerify {
+				capath := ""
+				if key, err = section.GetKey("CA_PATH"); err == nil {
+					capath = key.String()
+				}
+				registerCA(capath)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom", user, password, host, port, dbName)
 			} else {
 				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
 			}
@@ -141,6 +151,21 @@ func loadCcnetDB() {
 	} else {
 		log.Fatalf("Unsupported database %s.", dbEngine)
 	}
+}
+
+// registerCA registers CA to verify server cert.
+func registerCA(capath string) {
+	rootCertPool := x509.NewCertPool()
+	pem, err := ioutil.ReadFile(capath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if ok := rootCertPool.AppendCertsFromPEM(pem); !ok {
+		log.Fatal("Failed to append PEM.")
+	}
+	mysql.RegisterTLSConfig("custom", &tls.Config{
+		RootCAs: rootCertPool,
+	})
 }
 
 func loadSeafileDB() {
@@ -197,8 +222,15 @@ func loadSeafileDB() {
 
 		var dsn string
 		if unixSocket == "" {
-			if skipVerify {
+			if useTLS && skipVerify {
 				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify", user, password, host, port, dbName)
+			} else if useTLS && !skipVerify {
+				capath := ""
+				if key, err = section.GetKey("ca_path"); err == nil {
+					capath = key.String()
+				}
+				registerCA(capath)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom", user, password, host, port, dbName)
 			} else {
 				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
 			}

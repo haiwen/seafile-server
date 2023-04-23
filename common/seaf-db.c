@@ -68,6 +68,8 @@ mysql_db_new (const char *host,
               const char *db_name,
               const char *unix_socket,
               gboolean use_ssl,
+              gboolean skip_verify,
+              const char *ca_path,
               const char *charset);
 static DBConnection *
 mysql_db_get_connection (SeafDB *db);
@@ -234,12 +236,14 @@ seaf_db_new_mysql (const char *host,
                    const char *db_name,
                    const char *unix_socket,
                    gboolean use_ssl,
+                   gboolean skip_verify,
+                   const char *ca_path,
                    const char *charset,
                    int max_connections)
 {
     SeafDB *db;
 
-    db = mysql_db_new (host, port, user, passwd, db_name, unix_socket, use_ssl, charset);
+    db = mysql_db_new (host, port, user, passwd, db_name, unix_socket, use_ssl, skip_verify, ca_path, charset);
     if (!db)
         return NULL;
     db->type = SEAF_DB_TYPE_MYSQL;
@@ -751,6 +755,8 @@ typedef struct MySQLDB {
     char *db_name;
     char *unix_socket;
     gboolean use_ssl;
+    gboolean skip_verify;
+    char *ca_path;
     char *charset;
 } MySQLDB;
 
@@ -775,6 +781,8 @@ mysql_db_new (const char *host,
               const char *db_name,
               const char *unix_socket,
               gboolean use_ssl,
+              gboolean skip_verify,
+              const char *ca_path,
               const char *charset)
 {
     MySQLDB *db = g_new0 (MySQLDB, 1);
@@ -786,6 +794,8 @@ mysql_db_new (const char *host,
     db->db_name = g_strdup(db_name);
     db->unix_socket = g_strdup(unix_socket);
     db->use_ssl = use_ssl;
+    db->skip_verify = skip_verify;
+    db->ca_path = g_strdup(ca_path);
     db->charset = g_strdup(charset);
 
     mysql_library_init (0, NULL, NULL);
@@ -803,6 +813,7 @@ mysql_db_get_connection (SeafDB *vdb)
     int read_write_timeout = 5;
     MYSQL *db_conn;
     MySQLDBConnection *conn = NULL;
+    int ssl_mode;
 
     db_conn = mysql_init (NULL);
     if (!db_conn) {
@@ -810,8 +821,18 @@ mysql_db_get_connection (SeafDB *vdb)
         return NULL;
     }
 
-    if (db->use_ssl)
-        mysql_ssl_set(db_conn, 0,0,0,0,0);
+    if (db->use_ssl && !db->skip_verify) {
+        // Set ssl_mode to SSL_MODE_VERIFY_IDENTITY to verify server cert.
+        // When ssl_mode is set to SSL_MODE_VERIFY_IDENTITY, MYSQL_OPT_SSL_CA is required to verify server cert.
+        // Refer to: https://dev.mysql.com/doc/c-api/5.7/en/mysql-options.html
+        ssl_mode = SSL_MODE_VERIFY_IDENTITY;
+        mysql_options(db_conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
+        mysql_options(db_conn, MYSQL_OPT_SSL_CA, db->ca_path);
+    } else if (db->use_ssl && db->skip_verify) {
+        // Set ssl_mode to SSL_MODE_PREFERRED to skip verify server cert.
+        ssl_mode = SSL_MODE_PREFERRED;
+        mysql_options(db_conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
+    }
 
     if (db->charset)
         mysql_options(db_conn, MYSQL_SET_CHARSET_NAME, db->charset);
