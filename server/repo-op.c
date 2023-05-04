@@ -1943,9 +1943,9 @@ write_block (const char *repo_id, const char *block_id, int version, const char 
 
 // return a new block id.
 static char *
-copy_file_between_enc_repo (SeafRepo *src_repo, SeafRepo *dst_repo,
-                            SeafileCrypt *src_crypt, SeafileCrypt *dst_crypt,
-                            const char *block_id)
+copy_block_between_enc_repo (SeafRepo *src_repo, SeafRepo *dst_repo,
+                             SeafileCrypt *src_crypt, SeafileCrypt *dst_crypt,
+                             const char *block_id)
 {
     SeafBlockManager *mgr = seaf->block_mgr;
     char *ret = NULL;
@@ -1959,6 +1959,11 @@ copy_file_between_enc_repo (SeafRepo *src_repo, SeafRepo *dst_repo,
     char checksum_str[41];
     int block_size = 0;
     int n;
+
+    if (g_strcmp0 (block_id, EMPTY_SHA1) == 0) {
+        ret = g_strdup (block_id);
+        goto out;
+    }
 
     // Read block from source repo.
     handle = seaf_block_manager_open_block(mgr,
@@ -2104,7 +2109,7 @@ copy_seafile (SeafRepo *src_repo, SeafRepo *dst_repo,
         }
         block_id = file->blk_sha1s[i];
         if (src_crypt != NULL || dst_crypt != NULL) {
-            char *new_block_id = copy_file_between_enc_repo (src_repo, dst_repo, src_crypt, dst_crypt, block_id);
+            char *new_block_id = copy_block_between_enc_repo (src_repo, dst_repo, src_crypt, dst_crypt, block_id);
             if (new_block_id == NULL) {
                 seaf_warning ("Failed to copy block %s from repo %s to %s.\n",
                               block_id, src_repo->id, dst_repo->id);
@@ -2113,17 +2118,16 @@ copy_seafile (SeafRepo *src_repo, SeafRepo *dst_repo,
             }
             g_free (file->blk_sha1s[i]);
             file->blk_sha1s[i] = new_block_id;
-            continue;
-        }
-
-        if (seaf_block_manager_copy_block (seaf->block_mgr,
-                                           src_repo->store_id, src_repo->version,
-                                           dst_repo->store_id, dst_repo->version,
-                                           block_id) < 0) {
-            seaf_warning ("Failed to copy block %s from repo %s to %s.\n",
-                          block_id, src_repo->id, dst_repo->id);
-            seafile_unref (file);
-            return NULL;
+        } else {
+            if (seaf_block_manager_copy_block (seaf->block_mgr,
+                                               src_repo->store_id, src_repo->version,
+                                               dst_repo->store_id, dst_repo->version,
+                                               block_id) < 0) {
+                seaf_warning ("Failed to copy block %s from repo %s to %s.\n",
+                              block_id, src_repo->id, dst_repo->id);
+                seafile_unref (file);
+                return NULL;
+            }
         }
     }
 
