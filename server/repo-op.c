@@ -1895,9 +1895,195 @@ out:
     return ret;
 }
 
+static int
+write_block (const char *repo_id, const char *block_id, int version, const char *buf, int len)
+{
+    SeafBlockManager *mgr = seaf->block_mgr;
+    BlockHandle *handle;
+    int n;
+
+    /* Don't write if the block already exists. */
+    if (seaf_block_manager_block_exists (mgr,
+                                         repo_id, version,
+                                         block_id)) {
+        return 0;
+    }
+
+    handle = seaf_block_manager_open_block (mgr,
+                                            repo_id, version,
+                                            block_id, BLOCK_WRITE);
+    if (!handle) {
+        seaf_warning ("Failed to open block %s.\n", block_id);
+        return -1;
+    }
+
+    n = seaf_block_manager_write_block (mgr, handle, buf, len);
+    if (n < 0) {
+        seaf_warning ("Failed to write block %s.\n", block_id);
+        seaf_block_manager_close_block (mgr, handle);
+        seaf_block_manager_block_handle_free (mgr, handle);
+        return -1;
+    }
+
+    if (seaf_block_manager_close_block (mgr, handle) < 0) {
+        seaf_warning ("failed to close block %s.\n", block_id);
+        seaf_block_manager_block_handle_free (mgr, handle);
+        return -1;
+    }
+
+    if (seaf_block_manager_commit_block (mgr, handle) < 0) {
+        seaf_warning ("failed to commit block %s.\n", block_id);
+        seaf_block_manager_block_handle_free (mgr, handle);
+        return -1;
+    }
+
+    seaf_block_manager_block_handle_free (mgr, handle);
+    return 0;
+}
+
+// return a new block id.
 static char *
-copy_seafile (SeafRepo *src_repo, SeafRepo *dst_repo, const char *file_id,
-              CopyTask *task, guint64 *size)
+copy_block_between_enc_repo (SeafRepo *src_repo, SeafRepo *dst_repo,
+                             SeafileCrypt *src_crypt, SeafileCrypt *dst_crypt,
+                             const char *block_id)
+{
+    SeafBlockManager *mgr = seaf->block_mgr;
+    char *ret = NULL;
+    BlockHandle *handle = NULL;
+    BlockMetadata *bmd = NULL;
+    char *buf = NULL;
+    char *src_dec_out = NULL;
+    int src_dec_out_len = -1;
+    SHA_CTX ctx;
+    uint8_t  checksum[CHECKSUM_LENGTH];
+    char checksum_str[41];
+    int block_size = 0;
+    int n;
+
+    if (g_strcmp0 (block_id, EMPTY_SHA1) == 0) {
+        ret = g_strdup (block_id);
+        goto out;
+    }
+
+    // Read block from source repo.
+    handle = seaf_block_manager_open_block(mgr,
+                                           src_repo->store_id,
+                                           src_repo->version,
+                                           block_id, BLOCK_READ);
+    if (!handle) {
+        seaf_warning ("Failed to open block %s.\n", block_id);
+        return NULL;
+    }
+
+    bmd = seaf_block_manager_stat_block_by_handle (mgr, handle);
+    if (!bmd) {
+        seaf_warning ("Failed to stat block %s by handle.\n", block_id);
+        goto out;
+    }
+    block_size = bmd->size;
+
+    if (block_size == 0) {
+        ret = g_strdup (block_id);
+        goto out;
+    }
+
+    buf = g_new (char, block_size);
+
+    n = seaf_block_manager_read_block(seaf->block_mgr, handle, buf, block_size);
+    if (n != block_size) {
+        seaf_warning ("Failed to read block from source repo %s.\n", src_repo->id);
+        
+        goto out;
+    }
+
+    if (src_crypt != NULL) {
+        int rc = seafile_decrypt (&src_dec_out, &src_dec_out_len,
+                                  buf, block_size, src_crypt);
+        if (rc != 0) {
+            seaf_warning ("Failed to decrypt block %s.\n", block_id);
+            goto out;
+        }
+    }
+
+    // Write block to destination repo.
+    if (src_crypt && dst_crypt) {
+        // Both source and destination repos are encrypted reops.
+        char *dst_enc_buf = NULL;
+        int dst_enc_len = -1;
+        int rc = seafile_encrypt (&dst_enc_buf, &dst_enc_len, 
+                                  src_dec_out, src_dec_out_len, dst_crypt);
+        if (rc != 0) {
+            seaf_warning ("Failed to encrypt block for repo %s.\n", dst_repo->id);
+            goto out;
+        }
+
+        SHA1_Init (&ctx);
+        SHA1_Update (&ctx, dst_enc_buf, dst_enc_len);
+        SHA1_Final (checksum, &ctx);
+        rawdata_to_hex (checksum, checksum_str, 20);
+        if (write_block (dst_repo->store_id, checksum_str, dst_repo->version, dst_enc_buf, dst_enc_len) < 0) {
+            g_free (dst_enc_buf);
+            goto out;
+        }
+        g_free (dst_enc_buf);
+        ret = g_strdup (checksum_str);
+    } else if (src_crypt && !dst_crypt) {
+        // Source repo is encrypted.
+        SHA1_Init (&ctx);
+        SHA1_Update (&ctx, src_dec_out, src_dec_out_len);
+        SHA1_Final (checksum, &ctx);
+        rawdata_to_hex (checksum, checksum_str, 20);
+        if (write_block (dst_repo->store_id, checksum_str, dst_repo->version, src_dec_out, src_dec_out_len) < 0) {
+            goto out;
+        }
+        ret = g_strdup (checksum_str);
+    } else if (!src_crypt && dst_crypt) {
+        // Destination repo is encrypted.
+        char *dst_enc_buf = NULL;
+        int dst_enc_len = -1;
+        int rc = seafile_encrypt (&dst_enc_buf, &dst_enc_len, 
+                                  buf, block_size, dst_crypt);
+        if (rc != 0) {
+            seaf_warning ("Failed to encrypt block for repo %s.\n", dst_repo->id);
+            goto out;
+        }
+
+        SHA1_Init (&ctx);
+        SHA1_Update (&ctx, dst_enc_buf, dst_enc_len);
+        SHA1_Final (checksum, &ctx);
+        rawdata_to_hex (checksum, checksum_str, 20);
+        if (write_block (dst_repo->store_id, checksum_str, dst_repo->version, dst_enc_buf, dst_enc_len) < 0) {
+            g_free (dst_enc_buf);
+            goto out;
+        }
+        g_free (dst_enc_buf);
+        ret = g_strdup (checksum_str);
+    } else if (!src_crypt && !dst_crypt) {
+        // Both source and destination repos are not encrypted reops.
+        if (write_block (dst_repo->store_id, block_id, dst_repo->version, buf, block_size) < 0) {
+            goto out;
+        }
+        ret = g_strdup (checksum_str);
+    }
+
+out:
+    g_free (buf);
+    g_free (src_dec_out);
+    if (handle) {
+        seaf_block_manager_close_block (mgr, handle);
+        seaf_block_manager_block_handle_free (mgr, handle);
+
+    }
+    if (bmd)
+        g_free (bmd);
+
+    return ret;
+}
+
+static char *
+copy_seafile (SeafRepo *src_repo, SeafRepo *dst_repo,
+              SeafileCrypt *src_crypt, SeafileCrypt *dst_crypt,
+              const char *file_id, CopyTask *task, guint64 *size)
 {
     Seafile *file;
 
@@ -1913,16 +2099,6 @@ copy_seafile (SeafRepo *src_repo, SeafRepo *dst_repo, const char *file_id,
     /* We may be copying from v0 repo to v1 repo or vise versa. */
     file->version = seafile_version_from_repo_version(dst_repo->version);
 
-    if (seafile_save (seaf->fs_mgr,
-                      dst_repo->store_id,
-                      dst_repo->version,
-                      file) < 0) {
-        seaf_warning ("Failed to copy file object %s from repo %s to %s.\n",
-                      file_id, src_repo->id, dst_repo->id);
-        seafile_unref (file);
-        return NULL;
-    }
-
     int i;
     char *block_id;
     for (i = 0; i < file->n_blocks; ++i) {
@@ -1931,17 +2107,39 @@ copy_seafile (SeafRepo *src_repo, SeafRepo *dst_repo, const char *file_id,
             seafile_unref (file);
             return NULL;
         }
-
         block_id = file->blk_sha1s[i];
-        if (seaf_block_manager_copy_block (seaf->block_mgr,
-                                           src_repo->store_id, src_repo->version,
-                                           dst_repo->store_id, dst_repo->version,
-                                           block_id) < 0) {
-            seaf_warning ("Failed to copy block %s from repo %s to %s.\n",
-                          block_id, src_repo->id, dst_repo->id);
-            seafile_unref (file);
-            return NULL;
+        if (src_crypt != NULL || dst_crypt != NULL) {
+            char *new_block_id = copy_block_between_enc_repo (src_repo, dst_repo, src_crypt, dst_crypt, block_id);
+            if (new_block_id == NULL) {
+                seaf_warning ("Failed to copy block %s from repo %s to %s.\n",
+                              block_id, src_repo->id, dst_repo->id);
+                seafile_unref (file);
+                return NULL;
+            }
+            g_free (file->blk_sha1s[i]);
+            file->blk_sha1s[i] = new_block_id;
+        } else {
+            if (seaf_block_manager_copy_block (seaf->block_mgr,
+                                               src_repo->store_id, src_repo->version,
+                                               dst_repo->store_id, dst_repo->version,
+                                               block_id) < 0) {
+                seaf_warning ("Failed to copy block %s from repo %s to %s.\n",
+                              block_id, src_repo->id, dst_repo->id);
+                seafile_unref (file);
+                return NULL;
+            }
         }
+    }
+
+    // Save fs after copy blocks, block_id may be changed when copy between encrypted repos.
+    if (seafile_save (seaf->fs_mgr,
+                      dst_repo->store_id,
+                      dst_repo->version,
+                      file) < 0) {
+        seaf_warning ("Failed to copy file object %s from repo %s to %s.\n",
+                      file_id, src_repo->id, dst_repo->id);
+        seafile_unref (file);
+        return NULL;
     }
 
     if (task)
@@ -1956,11 +2154,12 @@ copy_seafile (SeafRepo *src_repo, SeafRepo *dst_repo, const char *file_id,
 
 static char *
 copy_recursive (SeafRepo *src_repo, SeafRepo *dst_repo,
+                SeafileCrypt *src_crypt, SeafileCrypt *dst_crypt,
                 const char *obj_id, guint32 mode, const char *modifier,
                 CopyTask *task, guint64 *size)
 {
     if (S_ISREG(mode)) {
-        return copy_seafile (src_repo, dst_repo, obj_id, task, size);
+        return copy_seafile (src_repo, dst_repo, src_crypt, dst_crypt, obj_id, task, size);
     } else if (S_ISDIR(mode)) {
         SeafDir *src_dir = NULL, *dst_dir = NULL;
         GList *dst_ents = NULL, *ptr;
@@ -1981,7 +2180,7 @@ copy_recursive (SeafRepo *src_repo, SeafRepo *dst_repo,
             dent = ptr->data;
 
             guint64 new_size = 0;
-            new_id = copy_recursive (src_repo, dst_repo,
+            new_id = copy_recursive (src_repo, dst_repo, src_crypt, dst_crypt,
                                      dent->id, dent->mode, modifier, task, &new_size);
             if (!new_id) {
                 seaf_dir_free (src_dir);
@@ -2058,6 +2257,37 @@ set_failed_reason (char **failed_reason, char *err_str)
     *failed_reason = g_strdup (err_str);
 }
 
+static SeafileCrypt *
+get_crypt_by_repo (SeafRepo *repo, const char *user)
+{
+    char *key_hex, *iv_hex;
+    unsigned char enc_key[32], enc_iv[16];
+    SeafileCryptKey *key = NULL;
+    SeafileCrypt *crypt = NULL;
+
+    key = seaf_passwd_manager_get_decrypt_key (seaf->passwd_mgr,
+                                               repo->id, user);
+    if (!key) {
+        return NULL;
+    }
+
+    g_object_get (key,
+                  "key", &key_hex,
+                  "iv", &iv_hex,
+                  NULL);
+    if (repo->enc_version == 1)
+        hex_to_rawdata (key_hex, enc_key, 16);
+    else
+        hex_to_rawdata (key_hex, enc_key, 32);
+    hex_to_rawdata (iv_hex, enc_iv, 16);
+    crypt = seafile_crypt_new (repo->enc_version, enc_key, enc_iv);
+    g_free (key_hex);
+    g_free (iv_hex);
+
+    g_object_unref (key);
+    return crypt;
+}
+
 static int
 cross_repo_copy (const char *src_repo_id,
                  const char *src_path,
@@ -2076,11 +2306,13 @@ cross_repo_copy (const char *src_repo_id,
     char *new_id = NULL;
     guint64 new_size = 0;
     int ret = 0, i = 0;
-    int file_num = 1;
+    int file_num = 0;
     GHashTable *dirent_hash = NULL;
     gint64 total_size_all = 0;
     char *err_str = COPY_ERR_INTERNAL;
     int check_quota_ret;
+    SeafileCrypt *src_crypt = NULL;
+    SeafileCrypt *dst_crypt = NULL;
 
     src_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, src_repo_id);
     if (!src_repo) {
@@ -2090,12 +2322,32 @@ cross_repo_copy (const char *src_repo_id,
         goto out;
     }
 
+    if (src_repo->encrypted) {
+        src_crypt = get_crypt_by_repo (src_repo, modifier);
+        if (!src_crypt) {
+            err_str = COPY_ERR_INTERNAL;
+            ret = -1;
+            seaf_warning ("The source repo is encrypted. Please provide password to view it.\n");
+            goto out;
+        }
+    }
+
     dst_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, dst_repo_id);
     if (!dst_repo) {
         err_str = COPY_ERR_INTERNAL;
         ret = -1;
         seaf_warning ("Failed to get destination repo.\n");
         goto out;
+    }
+
+    if (dst_repo->encrypted) {
+        dst_crypt = get_crypt_by_repo (dst_repo, modifier);
+        if (!dst_crypt) {
+            err_str = COPY_ERR_INTERNAL;
+            ret = -1;
+            seaf_warning ("The destination repo is encrypted. Please provide password to view it.\n");
+            goto out;
+        }
     }
 
     src_names = json_to_file_list (src_filename);
@@ -2171,7 +2423,7 @@ cross_repo_copy (const char *src_repo_id,
     /* do copy */
     for (ptr = dst_names; ptr; ptr = ptr->next) {
         name = ptr->data;
-        new_id = copy_recursive (src_repo, dst_repo,
+        new_id = copy_recursive (src_repo, dst_repo, src_crypt, dst_crypt,
                                  src_dents[i]->id, src_dents[i]->mode, modifier, task,
                                  &new_size);
         if (!new_id) {
@@ -2209,6 +2461,8 @@ out:
         seaf_repo_unref (src_repo);
     if (dst_repo)
         seaf_repo_unref (dst_repo);
+    g_free (src_crypt);
+    g_free (dst_crypt);
     if (dirent_hash)
          g_hash_table_unref(dirent_hash);
     g_free(src_dents);
@@ -2484,14 +2738,6 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
     
     if (strcmp(src_repo_id, dst_repo_id) != 0) { 
         GET_REPO_OR_FAIL(dst_repo, dst_repo_id);
-
-        if (src_repo->encrypted || dst_repo->encrypted) {
-            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                         "Can't copy files between encrypted repo(s)");
-            ret = -1;
-            goto out;
-        }
-
     } else {
         seaf_repo_ref (src_repo);
         dst_repo = src_repo;
@@ -2761,11 +3007,13 @@ cross_repo_move (const char *src_repo_id,
     char *new_id = NULL;
     guint64 new_size = 0;
     int ret = 0, i = 0;
-    int file_num = 1;
+    int file_num = 0;
     GHashTable *dirent_hash = NULL;
     gint64 total_size_all = 0;
     char *err_str = COPY_ERR_INTERNAL;
     int check_quota_ret;
+    SeafileCrypt *src_crypt = NULL;
+    SeafileCrypt *dst_crypt = NULL;
 
     src_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, src_repo_id);
     if (!src_repo) {
@@ -2775,12 +3023,32 @@ cross_repo_move (const char *src_repo_id,
         goto out;
     }
 
+    if (src_repo->encrypted) {
+        src_crypt = get_crypt_by_repo (src_repo, modifier);
+        if (!src_crypt) {
+            err_str = COPY_ERR_INTERNAL;
+            ret = -1;
+            seaf_warning ("The source repo is encrypted. Please provide password to view it.\n");
+            goto out;
+        }
+    }
+
     dst_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, dst_repo_id);
     if (!dst_repo) {
         err_str = COPY_ERR_INTERNAL;
         ret = -1;
         seaf_warning ("Failed to get destination repo.\n");
         goto out;
+    }
+
+    if (dst_repo->encrypted) {
+        dst_crypt = get_crypt_by_repo (dst_repo, modifier);
+        if (!dst_crypt) {
+            err_str = COPY_ERR_INTERNAL;
+            ret = -1;
+            seaf_warning ("The destination repo is encrypted. Please provide password to view it.\n");
+            goto out;
+        }
     }
 
     src_names = json_to_file_list (src_filename);
@@ -2857,7 +3125,7 @@ cross_repo_move (const char *src_repo_id,
     /* do copy */
     for (ptr = dst_names; ptr; ptr = ptr->next) {
         name = ptr->data;
-        new_id = copy_recursive (src_repo, dst_repo,
+        new_id = copy_recursive (src_repo, dst_repo, src_crypt, dst_crypt,
                                  src_dents[i]->id, src_dents[i]->mode, modifier, task,
                                  &new_size);
         if (!new_id) {
@@ -2904,6 +3172,8 @@ out:
         seaf_repo_unref (src_repo);
     if (dst_repo)
         seaf_repo_unref (dst_repo);
+    g_free (src_crypt);
+    g_free (dst_crypt);
     if (dirent_hash)
         g_hash_table_unref(dirent_hash);
     g_free (src_dents);
@@ -3142,14 +3412,6 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
     
     if (strcmp(src_repo_id, dst_repo_id) != 0) { 
         GET_REPO_OR_FAIL(dst_repo, dst_repo_id);
-
-        if (src_repo->encrypted || dst_repo->encrypted) {
-            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                         "Can't copy files between encrypted repo(s)");
-            ret = -1;
-            goto out;
-        }
-
     } else {
         seaf_repo_ref (src_repo);
         dst_repo = src_repo;
