@@ -47,6 +47,8 @@ type Client struct {
 	Alive time.Time
 	// ConnClosed indicates whether the client's connection has been closed
 	ConnClosed bool
+	// The channel do not support concurrent close. Protect close with a mutex.
+	closeMutex sync.Mutex
 	// Addr is the address of client.
 	Addr string
 	// User is the user of client.

@@ -51,10 +51,12 @@ func (*myClaims) Valid() error {
 
 func (client *Client) Close() {
 	client.conn.Close()
+	client.closeMutex.Lock()
 	if !client.ConnClosed {
 		close(client.WCh)
 	}
 	client.ConnClosed = true
+	client.closeMutex.Unlock()
 }
 
 func RecoverWrapper(f func()) {
