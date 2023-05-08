@@ -53,6 +53,7 @@ func (client *Client) Close() {
 	client.conn.Close()
 	client.closeMutex.Lock()
 	if !client.ConnClosed {
+		close(client.ErrCh)
 		close(client.WCh)
 	}
 	client.ConnClosed = true
@@ -81,7 +82,7 @@ func (client *Client) HandleMessages() {
 		client.Alive = time.Now()
 		return nil
 	})
-	go client.keepAlive()
+	go RecoverWrapper(client.keepAlive)
 }
 
 func (client *Client) readMessages() {
@@ -95,6 +96,11 @@ func (client *Client) readMessages() {
 	}()
 
 	for {
+		select {
+		case <-client.ErrCh:
+			return
+		default:
+		}
 		var msg Message
 		err := conn.ReadJSON(&msg)
 		if err != nil {
@@ -210,17 +216,22 @@ func (client *Client) unsubscribe(repoID string) {
 
 func (client *Client) writeMessages() {
 	defer client.Close()
-	for msg := range client.WCh {
-		client.conn.SetWriteDeadline(time.Now().Add(writeWait))
-		client.connMutex.Lock()
-		err := client.conn.WriteJSON(msg)
-		client.connMutex.Unlock()
-		if err != nil {
-			log.Debugf("failed to send notification to client: %v", err)
+	for {
+		select {
+		case msg := <-client.WCh:
+			client.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			client.connMutex.Lock()
+			err := client.conn.WriteJSON(msg)
+			client.connMutex.Unlock()
+			if err != nil {
+				log.Debugf("failed to send notification to client: %v", err)
+				return
+			}
+			m, _ := msg.(*Message)
+			log.Debugf("send %s event to client %s(%d): %s", m.Type, client.User, client.ID, string(m.Content))
+		case <-client.ErrCh:
 			return
 		}
-		m, _ := msg.(*Message)
-		log.Debugf("send %s event to client %s(%d): %s", m.Type, client.User, client.ID, string(m.Content))
 	}
 }
 
@@ -228,20 +239,21 @@ func (client *Client) keepAlive() {
 	defer client.Close()
 	ticker := time.NewTicker(pingPeriod)
 	for {
-		<-ticker.C
-		if client.ConnClosed {
-			return
-		}
-		if time.Since(client.Alive) > pongWait {
-			log.Debugf("disconnected because no pong was received for more than %v", pongWait)
-			return
-		}
-		client.conn.SetWriteDeadline(time.Now().Add(writeWait))
-		client.connMutex.Lock()
-		err := client.conn.WriteMessage(websocket.PingMessage, nil)
-		client.connMutex.Unlock()
-		if err != nil {
-			log.Debugf("failed to send ping message to client: %v", err)
+		select {
+		case <-ticker.C:
+			if time.Since(client.Alive) > pongWait {
+				log.Debugf("disconnected because no pong was received for more than %v", pongWait)
+				return
+			}
+			client.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			client.connMutex.Lock()
+			err := client.conn.WriteMessage(websocket.PingMessage, nil)
+			client.connMutex.Unlock()
+			if err != nil {
+				log.Debugf("failed to send ping message to client: %v", err)
+				return
+			}
+		case <-client.ErrCh:
 			return
 		}
 	}
@@ -250,26 +262,26 @@ func (client *Client) keepAlive() {
 func (client *Client) checkTokenExpired() {
 	ticker := time.NewTicker(checkTokenPeriod)
 	for {
-		<-ticker.C
-		if client.ConnClosed {
-			return
-		}
-
-		// unsubscribe will delete repo from client.Repos, we'd better unsubscribe repos later.
-		pendingRepos := make(map[string]struct{})
-		now := time.Now()
-		client.ReposMutex.Lock()
-		for repoID, exp := range client.Repos {
-			if exp >= now.Unix() {
-				continue
+		select {
+		case <-ticker.C:
+			// unsubscribe will delete repo from client.Repos, we'd better unsubscribe repos later.
+			pendingRepos := make(map[string]struct{})
+			now := time.Now()
+			client.ReposMutex.Lock()
+			for repoID, exp := range client.Repos {
+				if exp >= now.Unix() {
+					continue
+				}
+				pendingRepos[repoID] = struct{}{}
 			}
-			pendingRepos[repoID] = struct{}{}
-		}
-		client.ReposMutex.Unlock()
+			client.ReposMutex.Unlock()
 
-		for repoID := range pendingRepos {
-			client.unsubscribe(repoID)
-			client.notifJWTExpired(repoID)
+			for repoID := range pendingRepos {
+				client.unsubscribe(repoID)
+				client.notifJWTExpired(repoID)
+			}
+		case <-client.ErrCh:
+			return
 		}
 	}
 }

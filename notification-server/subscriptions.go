@@ -40,6 +40,9 @@ type Client struct {
 	// The structs written into the channel will be converted to JSON and sent to client.
 	WCh chan interface{}
 
+	// ErrCh is used to notify the client's goroutine to exit when an error occurs.
+	ErrCh chan interface{}
+
 	// Repos is the repos this client subscribed to.
 	Repos      map[string]int64
 	ReposMutex sync.Mutex
@@ -74,6 +77,7 @@ func NewClient(conn *websocket.Conn, addr string) *Client {
 	client.ID = atomic.AddUint64(&nextClientID, 1)
 	client.conn = conn
 	client.WCh = make(chan interface{}, chanBufSize)
+	client.ErrCh = make(chan interface{})
 	client.Repos = make(map[string]int64)
 	client.Alive = time.Now()
 	client.Addr = addr
