@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dgraph-io/ristretto/z"
 	"github.com/gorilla/websocket"
 )
 
@@ -40,18 +41,12 @@ type Client struct {
 	// The structs written into the channel will be converted to JSON and sent to client.
 	WCh chan interface{}
 
-	// ErrCh is used to notify the client's goroutine to exit when an error occurs.
-	ErrCh chan interface{}
-
 	// Repos is the repos this client subscribed to.
 	Repos      map[string]int64
 	ReposMutex sync.Mutex
 	// Alive is the last time received pong.
-	Alive time.Time
-	// ConnClosed indicates whether the client's connection has been closed
-	ConnClosed bool
-	// The channel do not support concurrent close. Protect close with a mutex.
-	closeMutex sync.Mutex
+	Alive      time.Time
+	ConnCloser *z.Closer
 	// Addr is the address of client.
 	Addr string
 	// User is the user of client.
@@ -77,10 +72,10 @@ func NewClient(conn *websocket.Conn, addr string) *Client {
 	client.ID = atomic.AddUint64(&nextClientID, 1)
 	client.conn = conn
 	client.WCh = make(chan interface{}, chanBufSize)
-	client.ErrCh = make(chan interface{})
 	client.Repos = make(map[string]int64)
 	client.Alive = time.Now()
 	client.Addr = addr
+	client.ConnCloser = z.NewCloser(0)
 
 	return client
 }

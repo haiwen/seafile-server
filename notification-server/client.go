@@ -51,13 +51,6 @@ func (*myClaims) Valid() error {
 
 func (client *Client) Close() {
 	client.conn.Close()
-	client.closeMutex.Lock()
-	if !client.ConnClosed {
-		close(client.ErrCh)
-		close(client.WCh)
-	}
-	client.ConnClosed = true
-	client.closeMutex.Unlock()
 }
 
 func RecoverWrapper(f func()) {
@@ -72,32 +65,37 @@ func RecoverWrapper(f func()) {
 
 // HandleMessages connects to the client to process message.
 func (client *Client) HandleMessages() {
-
-	go RecoverWrapper(client.readMessages)
-	go RecoverWrapper(client.writeMessages)
-	go RecoverWrapper(client.checkTokenExpired)
-
 	// Set keep alive.
 	client.conn.SetPongHandler(func(string) error {
 		client.Alive = time.Now()
 		return nil
 	})
-	go RecoverWrapper(client.keepAlive)
-}
 
-func (client *Client) readMessages() {
-	conn := client.conn
-	defer func() {
+	go func() {
+		client.ConnCloser.AddRunning(4)
+		go RecoverWrapper(client.readMessages)
+		go RecoverWrapper(client.writeMessages)
+		go RecoverWrapper(client.checkTokenExpired)
+		go RecoverWrapper(client.keepAlive)
+		client.ConnCloser.Wait()
 		client.Close()
 		UnregisterClient(client)
 		for id := range client.Repos {
 			client.unsubscribe(id)
 		}
 	}()
+}
+
+func (client *Client) readMessages() {
+	conn := client.conn
+	defer func() {
+		client.ConnCloser.Done()
+		client.ConnCloser.Signal()
+	}()
 
 	for {
 		select {
-		case <-client.ErrCh:
+		case <-client.ConnCloser.HasBeenClosed():
 			return
 		default:
 		}
@@ -215,7 +213,11 @@ func (client *Client) unsubscribe(repoID string) {
 }
 
 func (client *Client) writeMessages() {
-	defer client.Close()
+	defer func() {
+		client.ConnCloser.Done()
+		client.ConnCloser.Signal()
+	}()
+
 	for {
 		select {
 		case msg := <-client.WCh:
@@ -229,14 +231,18 @@ func (client *Client) writeMessages() {
 			}
 			m, _ := msg.(*Message)
 			log.Debugf("send %s event to client %s(%d): %s", m.Type, client.User, client.ID, string(m.Content))
-		case <-client.ErrCh:
+		case <-client.ConnCloser.HasBeenClosed():
 			return
 		}
 	}
 }
 
 func (client *Client) keepAlive() {
-	defer client.Close()
+	defer func() {
+		client.ConnCloser.Done()
+		client.ConnCloser.Signal()
+	}()
+
 	ticker := time.NewTicker(pingPeriod)
 	for {
 		select {
@@ -253,13 +259,17 @@ func (client *Client) keepAlive() {
 				log.Debugf("failed to send ping message to client: %v", err)
 				return
 			}
-		case <-client.ErrCh:
+		case <-client.ConnCloser.HasBeenClosed():
 			return
 		}
 	}
 }
 
 func (client *Client) checkTokenExpired() {
+	defer func() {
+		client.ConnCloser.Done()
+	}()
+
 	ticker := time.NewTicker(checkTokenPeriod)
 	for {
 		select {
@@ -280,7 +290,7 @@ func (client *Client) checkTokenExpired() {
 				client.unsubscribe(repoID)
 				client.notifJWTExpired(repoID)
 			}
-		case <-client.ErrCh:
+		case <-client.ConnCloser.HasBeenClosed():
 			return
 		}
 	}
