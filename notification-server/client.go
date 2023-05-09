@@ -71,26 +71,23 @@ func (client *Client) HandleMessages() {
 		return nil
 	})
 
-	go func() {
-		client.ConnCloser.AddRunning(4)
-		go RecoverWrapper(client.readMessages)
-		go RecoverWrapper(client.writeMessages)
-		go RecoverWrapper(client.checkTokenExpired)
-		go RecoverWrapper(client.keepAlive)
-		client.ConnCloser.Wait()
-		client.Close()
-		UnregisterClient(client)
-		for id := range client.Repos {
-			client.unsubscribe(id)
-		}
-	}()
+	client.ConnCloser.AddRunning(4)
+	go RecoverWrapper(client.readMessages)
+	go RecoverWrapper(client.writeMessages)
+	go RecoverWrapper(client.checkTokenExpired)
+	go RecoverWrapper(client.keepAlive)
+	client.ConnCloser.Wait()
+	client.Close()
+	UnregisterClient(client)
+	for id := range client.Repos {
+		client.unsubscribe(id)
+	}
 }
 
 func (client *Client) readMessages() {
 	conn := client.conn
 	defer func() {
 		client.ConnCloser.Done()
-		client.ConnCloser.Signal()
 	}()
 
 	for {
@@ -102,12 +99,14 @@ func (client *Client) readMessages() {
 		var msg Message
 		err := conn.ReadJSON(&msg)
 		if err != nil {
+			client.ConnCloser.Signal()
 			log.Debugf("failed to read json data from client: %s: %v", client.Addr, err)
 			return
 		}
 
 		err = client.handleMessage(&msg)
 		if err != nil {
+			client.ConnCloser.Signal()
 			log.Debugf("%v", err)
 			return
 		}
@@ -215,7 +214,6 @@ func (client *Client) unsubscribe(repoID string) {
 func (client *Client) writeMessages() {
 	defer func() {
 		client.ConnCloser.Done()
-		client.ConnCloser.Signal()
 	}()
 
 	for {
@@ -226,6 +224,7 @@ func (client *Client) writeMessages() {
 			err := client.conn.WriteJSON(msg)
 			client.connMutex.Unlock()
 			if err != nil {
+				client.ConnCloser.Signal()
 				log.Debugf("failed to send notification to client: %v", err)
 				return
 			}
@@ -240,7 +239,6 @@ func (client *Client) writeMessages() {
 func (client *Client) keepAlive() {
 	defer func() {
 		client.ConnCloser.Done()
-		client.ConnCloser.Signal()
 	}()
 
 	ticker := time.NewTicker(pingPeriod)
@@ -248,6 +246,7 @@ func (client *Client) keepAlive() {
 		select {
 		case <-ticker.C:
 			if time.Since(client.Alive) > pongWait {
+				client.ConnCloser.Signal()
 				log.Debugf("disconnected because no pong was received for more than %v", pongWait)
 				return
 			}
@@ -256,6 +255,7 @@ func (client *Client) keepAlive() {
 			err := client.conn.WriteMessage(websocket.PingMessage, nil)
 			client.connMutex.Unlock()
 			if err != nil {
+				client.ConnCloser.Signal()
 				log.Debugf("failed to send ping message to client: %v", err)
 				return
 			}
