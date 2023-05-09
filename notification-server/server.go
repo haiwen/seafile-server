@@ -46,7 +46,7 @@ func loadNotifConfig() {
 
 	section, err := config.GetSection("notification")
 	if err != nil {
-		log.Fatal("No general section in seafile.conf.")
+		log.Fatal("No notification section in seafile.conf.")
 	}
 
 	host = "0.0.0.0"
