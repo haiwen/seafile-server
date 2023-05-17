@@ -822,16 +822,24 @@ mysql_db_get_connection (SeafDB *vdb)
     }
 
     if (db->use_ssl && !db->skip_verify) {
+#ifndef LIBMARIADB
         // Set ssl_mode to SSL_MODE_VERIFY_IDENTITY to verify server cert.
         // When ssl_mode is set to SSL_MODE_VERIFY_IDENTITY, MYSQL_OPT_SSL_CA is required to verify server cert.
         // Refer to: https://dev.mysql.com/doc/c-api/5.7/en/mysql-options.html
         ssl_mode = SSL_MODE_VERIFY_IDENTITY;
         mysql_options(db_conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
         mysql_options(db_conn, MYSQL_OPT_SSL_CA, db->ca_path);
+#else
+        static my_bool verify= 1;
+        mysql_optionsv(db_conn, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, (void *)&verify);
+        mysql_options(db_conn, MYSQL_OPT_SSL_CA, db->ca_path);
+#endif
     } else if (db->use_ssl && db->skip_verify) {
+#ifndef LIBMARIADB
         // Set ssl_mode to SSL_MODE_PREFERRED to skip verify server cert.
         ssl_mode = SSL_MODE_PREFERRED;
         mysql_options(db_conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
+#endif
     }
 
     if (db->charset)
