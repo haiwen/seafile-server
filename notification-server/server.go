@@ -39,7 +39,9 @@ func init() {
 func loadNotifConfig() {
 	notifyConfPath := filepath.Join(configDir, "seafile.conf")
 
-	config, err := ini.Load(notifyConfPath)
+	opts := ini.LoadOptions{}
+	opts.SpaceBeforeInlineComment = true
+	config, err := ini.LoadSources(opts, notifyConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load notification.conf: %v", err)
 	}
