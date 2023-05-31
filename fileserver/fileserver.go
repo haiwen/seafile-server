@@ -72,7 +72,9 @@ func (f *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
 
 func loadCcnetDB() {
 	ccnetConfPath := filepath.Join(centralDir, "ccnet.conf")
-	config, err := ini.Load(ccnetConfPath)
+	opts := ini.LoadOptions{}
+	opts.SpaceBeforeInlineComment = true
+	config, err := ini.LoadSources(opts, ccnetConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load ccnet.conf: %v", err)
 	}
@@ -171,7 +173,9 @@ func registerCA(capath string) {
 func loadSeafileDB() {
 	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
 
-	config, err := ini.Load(seafileConfPath)
+	opts := ini.LoadOptions{}
+	opts.SpaceBeforeInlineComment = true
+	config, err := ini.LoadSources(opts, seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
 	}
