@@ -2263,6 +2263,28 @@ out:
     return TRUE;
 }
 
+/* RepoInfo upgraded two times in history,
+ * the fist time 'repo_name' column was added
+ * and the second time column 'last_modifier'
+ * is added, so the default value NULL should be considered.
+ */
+static gboolean
+mini_repo_incomplete (SeafRepo *repo)
+{
+    if (!repo->name || !repo->last_modifier) {
+        if (repo->name) {
+            g_free (repo->name);
+        }
+        if (repo->last_modifier) {
+            g_free (repo->last_modifier);
+        }
+
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
 GList *
 seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                                       const char *email,
@@ -2343,7 +2365,7 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
     for (ptr = repo_list; ptr; ptr = ptr->next) {
         repo = ptr->data;
         if (ret_corrupted) {
-            if (!repo->is_corrupted && (!repo->name || !repo->last_modifier)) {
+            if (!repo->is_corrupted && mini_repo_incomplete (repo)) {
                 load_mini_repo (mgr, repo);
                 if (!repo->is_corrupted)
                     set_repo_commit_to_db (repo->id, repo->name, repo->last_modify,
@@ -2355,7 +2377,7 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
                 seaf_repo_unref (repo);
                 continue;
             }
-            if (!repo->name || !repo->last_modifier) {
+            if (mini_repo_incomplete (repo)) {
                 load_mini_repo (mgr, repo);
                 if (!repo->is_corrupted)
                     set_repo_commit_to_db (repo->id, repo->name, repo->last_modify,
