@@ -379,7 +379,7 @@ func main() {
 	router := newHTTPRouter()
 
 	go handleSignals()
-	go handleUser1Singal()
+	go handleUser1Signal()
 
 	log.Print("Seafile file server started.")
 
@@ -398,7 +398,7 @@ func handleSignals() {
 	os.Exit(0)
 }
 
-func handleUser1Singal() {
+func handleUser1Signal() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGUSR1)
 	<-signalChan
