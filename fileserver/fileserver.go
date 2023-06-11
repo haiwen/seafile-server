@@ -35,7 +35,7 @@ import (
 
 var dataDir, absDataDir string
 var centralDir string
-var logFile, absLogFile string
+var logFile, errorLogFile, absLogFile string
 var rpcPipePath string
 var pidFilePath string
 var logFp *os.File
@@ -346,7 +346,7 @@ func main() {
 	}
 
 	if absLogFile != "" {
-		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
+		errorLogFile = filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
 		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open or create error log file: %v", err)
@@ -422,6 +422,13 @@ func logRotate() {
 		logFp.Close()
 		logFp = fp
 	}
+
+	// reopen fileserver-error log
+	fp, err = os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("Failed to reopen fileserver-error log: %v", err)
+	}
+	syscall.Dup3(int(fp.Fd()), int(os.Stderr.Fd()), 0)
 }
 
 var rpcclient *searpc.Client
