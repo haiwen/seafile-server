@@ -1111,6 +1111,16 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
     parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     repo_id = parts[1];
 
+    if (seaf->upload_file_limit >= 0) {
+        gint64 file_number = seaf_get_origin_repo_file_number (repo_id);
+        if (file_number >= seaf->upload_file_limit) {
+            char *error = "Too many files in library.\n";
+            evbuffer_add (req->buffer_out, error, strlen (error));
+            evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
+            goto out;
+        }
+    }
+
     int token_status = validate_token (htp_server, req, repo_id, &username, FALSE);
     if (token_status != EVHTP_RES_OK) {
         evhtp_send_reply (req, token_status);

@@ -835,6 +835,12 @@ seaf_repo_manager_edit_repo (const char *repo_id,
                 GError **error);
 
 gint64
+seaf_get_repo_file_number(const char *repo_id);
+
+gint64
+seaf_get_origin_repo_file_number(const char *repo_id);
+
+gint64
 seaf_get_total_file_number (GError **error);
 
 gint64

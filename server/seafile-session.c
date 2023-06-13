@@ -48,6 +48,7 @@ seafile_session_new(const char *central_config_dir,
     char *notif_server = NULL;
     int notif_port = 8083;
     char *private_key = NULL;
+    gint64 upload_file_limit = -1;
 
     abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
     abs_seafile_dir = ccnet_expand_path (seafile_dir);
@@ -126,6 +127,15 @@ seafile_session_new(const char *central_config_dir,
         }
         g_free (type);
     }
+
+    upload_file_limit = g_key_file_get_int64 (config,
+                                              "fileserver", "upload_file_limit",
+                                              &error);
+    if (error) {
+        g_clear_error(&error);
+        upload_file_limit = -1;
+    }
+    session->upload_file_limit = upload_file_limit;
 
     notif_enabled = g_key_file_get_boolean (config,
                                             "notification", "enabled",

@@ -1014,6 +1014,20 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
+
+	if option.UploadFileLimit >= 0 {
+		vInfo, _ := repomgr.GetVirtualRepoInfo(repoID)
+		rRepoID := repoID
+		if vInfo != nil {
+			rRepoID = vInfo.OriginRepoID
+		}
+		fileNumber, _ := repomgr.GetFileNumber(rRepoID)
+		if fileNumber >= option.UploadFileLimit {
+			msg := "Too many files in library.\n"
+			return &appError{nil, msg, http.StatusForbidden}
+		}
+	}
+
 	user, appErr := validateToken(r, repoID, false)
 	if appErr != nil {
 		return appErr

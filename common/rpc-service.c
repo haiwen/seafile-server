@@ -2400,6 +2400,16 @@ seafile_post_file (const char *repo_id, const char *temp_file_path,
         goto out;
     }
 
+    if (seaf->upload_file_limit >= 0) {
+        gint64 file_number = seaf_get_origin_repo_file_number(repo_id);
+        if (file_number >= seaf->upload_file_limit) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_TOO_MANY_FILES,
+                         "Too many files in library.");
+            ret = -1;
+            goto out;
+        }
+    }
+
     rpath = format_dir_path (norm_parent_dir);
 
     if (seaf_repo_manager_post_file (seaf->repo_mgr, repo_id,
@@ -2703,6 +2713,16 @@ seafile_post_empty_file (const char *repo_id, const char *parent_dir,
                      "Path is in valid UTF8 encoding");
         ret = -1;
         goto out;
+    }
+
+    if (seaf->upload_file_limit >= 0) {
+        gint64 file_number = seaf_get_origin_repo_file_number(repo_id);
+        if (file_number >= seaf->upload_file_limit) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_TOO_MANY_FILES,
+                         "Too many files in library.");
+            ret = -1;
+            goto out;
+        }
     }
 
     norm_file_name = normalize_utf8_path (new_file_name);

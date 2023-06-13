@@ -157,6 +157,16 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
         return NULL;
     }
 
+    if ((strcmp(op, "upload") ==0 || strcmp(op, "upload-link") == 0) &&
+        seaf->upload_file_limit >= 0) {
+        gint64 file_number = seaf_get_origin_repo_file_number (repo_id);
+        if (file_number >= seaf->upload_file_limit) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_TOO_MANY_FILES,
+                        "Too many files in library.");
+            return NULL;
+        }
+    }
+
     pthread_mutex_lock (&mgr->priv->lock);
 
     t = gen_new_token (mgr->priv->access_token_hash);

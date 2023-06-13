@@ -79,6 +79,7 @@ struct _SeafileSession {
     gboolean ccnet_create_tables;
 
     gboolean go_fileserver;
+    gint64 upload_file_limit;
 
     // For notification server
     NotifManager *notif_mgr;

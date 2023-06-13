@@ -38,6 +38,7 @@ var (
 	WindowsEncoding           string
 	SkipBlockHash             bool
 	FsCacheLimit              int64
+	UploadFileLimit           int64
 
 	// general options
 	CloudMode bool
@@ -73,6 +74,7 @@ func initDefaultOptions() {
 	DefaultQuota = InfiniteQuota
 	FsCacheLimit = 2 << 30
 	FsIdListRequestTimeout = -1
+	UploadFileLimit = -1
 }
 
 func LoadFileServerOptions(centralDir string) {
@@ -213,6 +215,12 @@ func parseFileServerSection(section *ini.Section) {
 		fsIdListRequestTimeout, err := key.Int64()
 		if err == nil {
 			FsIdListRequestTimeout = fsIdListRequestTimeout
+		}
+	}
+	if key, err := section.GetKey("upload_file_limit"); err == nil {
+		uploadFileLimit, err := key.Int64()
+		if err == nil {
+			UploadFileLimit = uploadFileLimit
 		}
 	}
 }

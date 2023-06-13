@@ -660,3 +660,17 @@ func UpdateRepoInfo(repoID, commitID string) error {
 
 	return nil
 }
+
+func GetFileNumber(repoID string) (int64, error) {
+	sqlStr := "SELECT file_count FROM RepoFileCount WHERE repo_id = ?"
+
+	row := seafileDB.QueryRow(sqlStr, repoID)
+	var fileNumber sql.NullInt64
+	if err := row.Scan(&fileNumber); err != nil {
+		if err != sql.ErrNoRows {
+			return 0, err
+		}
+		return 0, nil
+	}
+	return fileNumber.Int64, nil
+}
