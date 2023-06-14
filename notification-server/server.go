@@ -104,18 +104,29 @@ func loadCcnetDB() {
 		log.Fatalf("Unsupported database %s.", dbEngine)
 	}
 
-	if key, err = section.GetKey("HOST"); err != nil {
+	// Check unix_socket first. host, user and password are not needed if set.
+	unixSocket := ""
+	if key, err = section.GetKey("UNIX_SOCKET"); err == nil {
+		unixSocket = key.String()
+	}
+	host := ""
+	if key, err = section.GetKey("HOST"); err == nil {
+		host = key.String()
+	} else if unixSocket == "" {
 		log.Fatal("No database host in ccnet.conf.")
 	}
-	host := key.String()
-	if key, err = section.GetKey("USER"); err != nil {
+	user := ""
+	if key, err = section.GetKey("USER"); err == nil {
+		user = key.String()
+	} else if unixSocket == "" {
 		log.Fatal("No database user in ccnet.conf.")
 	}
-	user := key.String()
-	if key, err = section.GetKey("PASSWD"); err != nil {
+	password := ""
+	if key, err = section.GetKey("PASSWORD"); err == nil {
+		password = key.String()
+	} else if unixSocket == "" {
 		log.Fatal("No database password in ccnet.conf.")
 	}
-	password := key.String()
 	if key, err = section.GetKey("DB"); err != nil {
 		log.Fatal("No database db_name in ccnet.conf.")
 	}
@@ -123,10 +134,6 @@ func loadCcnetDB() {
 	port := 3306
 	if key, err = section.GetKey("PORT"); err == nil {
 		port, _ = key.Int()
-	}
-	unixSocket := ""
-	if key, err = section.GetKey("UNIX_SOCKET"); err == nil {
-		unixSocket = key.String()
 	}
 	useTLS := false
 	if key, err = section.GetKey("USE_SSL"); err == nil {
@@ -136,7 +143,11 @@ func loadCcnetDB() {
 	if unixSocket == "" {
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
 	} else {
-		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
+		if user != "" {
+			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
+		} else {
+			dsn = fmt.Sprintf("unix(%s)/%s", unixSocket, dbName)
+		}
 	}
 	ccnetDB, err = sql.Open("mysql", dsn)
 	if err != nil {

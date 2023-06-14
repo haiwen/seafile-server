@@ -844,6 +844,13 @@ mysql_db_get_connection (SeafDB *vdb)
 
     if (db->charset)
         mysql_options(db_conn, MYSQL_SET_CHARSET_NAME, db->charset);
+    if (db->unix_socket)
+    {
+        mysql_options (db_conn, MYSQL_OPT_PROTOCOL, MYSQL_PROTOCOL_SOCKET);
+        if (!db->user) {
+            mysql_options (db_conn, MYSQL_DEFAULT_AUTH, "unix_socket");
+        }
+    }
 
     mysql_options(db_conn, MYSQL_OPT_CONNECT_TIMEOUT, (const char*)&conn_timeout);
     mysql_options(db_conn, MYSQL_OPT_READ_TIMEOUT, (const char*)&read_write_timeout);
