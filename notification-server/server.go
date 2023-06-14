@@ -132,6 +132,10 @@ func loadCcnetDB() {
 	if key, err = section.GetKey("USE_SSL"); err == nil {
 		useTLS, _ = key.Bool()
 	}
+	maxConnections := 100
+	if key, err = section.GetKey("MAX_CONNECTIONS"); err == nil {
+		maxConnections, _ = key.Int()
+	}
 	var dsn string
 	if unixSocket == "" {
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
@@ -145,6 +149,8 @@ func loadCcnetDB() {
 	if err := ccnetDB.Ping(); err != nil {
 		log.Fatalf("Failed to connected to mysql: %v", err)
 	}
+	ccnetDB.SetConnMaxLifetime(time.Minute * 3)
+	ccnetDB.SetMaxOpenConns(maxConnections)
 }
 
 func main() {

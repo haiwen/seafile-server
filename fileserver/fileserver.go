@@ -16,6 +16,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -123,6 +124,11 @@ func loadCcnetDB() {
 		if key, err = section.GetKey("SKIP_VERIFY"); err == nil {
 			skipVerify, _ = key.Bool()
 		}
+		maxConnections := 100
+		if key, err = section.GetKey("MAX_CONNECTIONS"); err == nil {
+			maxConnections, _ = key.Int()
+		}
+		
 		var dsn string
 		if unixSocket == "" {
 			if useTLS && skipVerify {
@@ -144,6 +150,8 @@ func loadCcnetDB() {
 		if err != nil {
 			log.Fatalf("Failed to open database: %v", err)
 		}
+		ccnetDB.SetConnMaxLifetime(time.Minute * 3)
+		ccnetDB.SetMaxOpenConns(maxConnections)
 	} else if strings.EqualFold(dbEngine, "sqlite") {
 		ccnetDBPath := filepath.Join(centralDir, "groupmgr.db")
 		ccnetDB, err = sql.Open("sqlite3", ccnetDBPath)
@@ -223,6 +231,10 @@ func loadSeafileDB() {
 		if key, err = section.GetKey("skip_verify"); err == nil {
 			skipVerify, _ = key.Bool()
 		}
+		maxConnections := 100
+		if key, err = section.GetKey("max_connections"); err == nil {
+			maxConnections, _ = key.Int()
+		}
 
 		var dsn string
 		if unixSocket == "" {
@@ -246,6 +258,8 @@ func loadSeafileDB() {
 		if err != nil {
 			log.Fatalf("Failed to open database: %v", err)
 		}
+		seafileDB.SetConnMaxLifetime(time.Minute * 3)
+		seafileDB.SetMaxOpenConns(maxConnections)
 	} else if strings.EqualFold(dbEngine, "sqlite") {
 		seafileDBPath := filepath.Join(absDataDir, "seafile.db")
 		seafileDB, err = sql.Open("sqlite3", seafileDBPath)
