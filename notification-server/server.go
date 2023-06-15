@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -22,7 +23,10 @@ import (
 )
 
 var configDir string
-var logFile, absLogFile string
+var logFile, errorLogFile, absLogFile string
+var pidFilePath string
+var logFp *os.File
+
 var privateKey string
 var host string
 var port uint32
@@ -32,6 +36,7 @@ var ccnetDB *sql.DB
 func init() {
 	flag.StringVar(&configDir, "c", "", "config directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
+	flag.StringVar(&pidFilePath, "p", "", "pid file path")
 
 	log.SetFormatter(&LogFormatter{})
 }
@@ -153,6 +158,31 @@ func loadCcnetDB() {
 	}
 }
 
+func writePidFile(pid_file_path string) error {
+	file, err := os.OpenFile(pid_file_path, os.O_CREATE|os.O_WRONLY, 0664)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	pid := os.Getpid()
+	str := fmt.Sprintf("%d", pid)
+	_, err = file.Write([]byte(str))
+
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func removePidfile(pid_file_path string) error {
+	err := os.Remove(pid_file_path)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	flag.Parse()
 
@@ -165,7 +195,7 @@ func main() {
 		log.Fatalf("config directory %s doesn't exist: %v.", configDir, err)
 	}
 
-	if logFile == "" {
+  if logFile == "" {
 		absLogFile = filepath.Join(configDir, "notification.log")
 		fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
@@ -180,12 +210,13 @@ func main() {
 		fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open or create log file: %v", err)
-		}
+    }
+		logFp = fp
 		log.SetOutput(fp)
 	}
 
 	if absLogFile != "" {
-		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification_server_error.log")
+		errorLogFile = filepath.Join(filepath.Dir(absLogFile), "notification_server_error.log")
 		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open or create error log file: %v", err)
@@ -196,9 +227,18 @@ func main() {
 	loadNotifConfig()
 	loadCcnetDB()
 
+	if pidFilePath != "" {
+		if writePidFile(pidFilePath) != nil {
+			log.Fatal("write pid file failed.")
+		}
+	}
+	
 	Init()
 
 	router := newHTTPRouter()
+
+	go handleSignals()
+	go handleUser1Signal()
 
 	log.Info("notification server started.")
 
@@ -207,6 +247,47 @@ func main() {
 	if err != nil {
 		log.Info("notificationserver exiting: %v", err)
 	}
+}
+
+func handleSignals() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	<-signalChan
+	removePidfile(pidFilePath)
+	os.Exit(0)
+}
+
+func handleUser1Signal() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGUSR1)
+	<-signalChan
+
+	for {
+		select {
+		case <-signalChan:
+			logRotate()
+		}
+	}
+}
+
+func logRotate() {
+	// reopen fileserver log
+	fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("Failed to reopen notification-server log: %v", err)
+	}
+	log.SetOutput(fp)
+	if logFp != nil {
+		logFp.Close()
+		logFp = fp
+	}
+
+	// reopen fileserver-error log
+	fp, err = os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("Failed to reopen notification-server-error log: %v", err)
+	}
+	syscall.Dup3(int(fp.Fd()), int(os.Stderr.Fd()), 0)
 }
 
 func newHTTPRouter() *mux.Router {
