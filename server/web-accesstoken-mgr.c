@@ -158,9 +158,9 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
     }
 
     if ((strcmp(op, "upload") ==0 || strcmp(op, "upload-link") == 0) &&
-        seaf->upload_file_limit >= 0) {
+        seaf->repo_file_number_limit >= 0) {
         gint64 file_number = seaf_get_origin_repo_file_number (repo_id);
-        if (file_number >= seaf->upload_file_limit) {
+        if (file_number >= seaf->repo_file_number_limit) {
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_TOO_MANY_FILES,
                         "Too many files in library.");
             return NULL;

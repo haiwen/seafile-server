@@ -258,6 +258,32 @@ func loadSeafileDB() {
 	dbType = dbEngine
 }
 
+func loadRepoFileNumberLimit() int64 {
+	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
+
+	opts := ini.LoadOptions{}
+	opts.SpaceBeforeInlineComment = true
+	config, err := ini.LoadSources(opts, seafileConfPath)
+	if err != nil {
+		return -1
+	}
+
+	section, err := config.GetSection("quota")
+	if err != nil {
+		return -1
+	}
+
+	key, err := section.GetKey("library_file_number")
+	if err != nil {
+		return -1
+	}
+	fileLimit, err := key.Int64()
+	if err != nil {
+		return -1
+	}
+	return fileLimit
+}
+
 func writePidFile(pid_file_path string) error {
 	file, err := os.OpenFile(pid_file_path, os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
@@ -314,6 +340,7 @@ func main() {
 	}
 	loadSeafileDB()
 	option.LoadFileServerOptions(centralDir)
+	fileLimit := loadRepoFileNumberLimit()
 
 	if logFile == "" {
 		absLogFile = filepath.Join(absDataDir, "fileserver.log")
@@ -368,7 +395,7 @@ func main() {
 
 	fileopInit()
 
-	syncAPIInit()
+	syncAPIInit(fileLimit)
 
 	sizeSchedulerInit()
 

@@ -2400,9 +2400,9 @@ seafile_post_file (const char *repo_id, const char *temp_file_path,
         goto out;
     }
 
-    if (seaf->upload_file_limit >= 0) {
+    if (seaf->repo_file_number_limit >= 0) {
         gint64 file_number = seaf_get_origin_repo_file_number(repo_id);
-        if (file_number >= seaf->upload_file_limit) {
+        if (file_number >= seaf->repo_file_number_limit) {
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_TOO_MANY_FILES,
                          "Too many files in library.");
             ret = -1;
@@ -2715,9 +2715,9 @@ seafile_post_empty_file (const char *repo_id, const char *parent_dir,
         goto out;
     }
 
-    if (seaf->upload_file_limit >= 0) {
+    if (seaf->repo_file_number_limit >= 0) {
         gint64 file_number = seaf_get_origin_repo_file_number(repo_id);
-        if (file_number >= seaf->upload_file_limit) {
+        if (file_number >= seaf->repo_file_number_limit) {
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_TOO_MANY_FILES,
                          "Too many files in library.");
             ret = -1;

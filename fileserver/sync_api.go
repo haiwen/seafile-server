@@ -56,6 +56,7 @@ var (
 	permCache            sync.Map
 	virtualRepoInfoCache sync.Map
 	calFsIdPool          *workerpool.WorkPool
+	repoFileNumberLimit  int64
 )
 
 type tokenInfo struct {
@@ -90,7 +91,8 @@ type statusEventData struct {
 	bytes  uint64
 }
 
-func syncAPIInit() {
+func syncAPIInit(fileLimit int64) {
+	repoFileNumberLimit = fileLimit
 	ticker := time.NewTicker(time.Second * syncAPICleaningIntervalSec)
 	go RecoverWrapper(func() {
 		for range ticker.C {
@@ -1015,14 +1017,16 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
 
-	if option.UploadFileLimit >= 0 {
+	var fileNumber int64
+
+	if repoFileNumberLimit >= 0 {
 		vInfo, _ := repomgr.GetVirtualRepoInfo(repoID)
 		rRepoID := repoID
 		if vInfo != nil {
 			rRepoID = vInfo.OriginRepoID
 		}
-		fileNumber, _ := repomgr.GetFileNumber(rRepoID)
-		if fileNumber >= option.UploadFileLimit {
+		fileNumber, _ = repomgr.GetFileNumber(rRepoID)
+		if fileNumber >= repoFileNumberLimit {
 			msg := "Too many files in library.\n"
 			return &appError{nil, msg, http.StatusForbidden}
 		}
@@ -1056,6 +1060,14 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
+	if repoFileNumberLimit >= 0 {
+		addedNumber := calculateNumberOfAddedFile(base, newCommit)
+		if fileNumber+addedNumber >= repoFileNumberLimit {
+			msg := "Too many files in library.\n"
+			return &appError{nil, msg, http.StatusForbidden}
+		}
+	}
+
 	ret, err := checkQuota(repoID, 0)
 	if err != nil {
 		err := fmt.Errorf("Failed to check quota: %v", err)
@@ -1077,6 +1089,28 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	rsp.WriteHeader(http.StatusOK)
 	return nil
+}
+
+func calculateNumberOfAddedFile(baseCommit, newCommit *commitmgr.Commit) int64 {
+	if repoFileNumberLimit < 0 {
+		return 0
+	}
+	var results []*diff.DiffEntry
+	if err := diff.DiffCommits(baseCommit, newCommit, &results, true); err != nil {
+		log.Printf("Failed to diff commits: %v", err)
+		return 0
+	}
+
+	var fileNumber int64
+	for _, entry := range results {
+		if entry.Status == diff.DiffStatusAdded {
+			fileNumber++
+		} else if entry.Status == diff.DiffStatusDeleted {
+			fileNumber--
+		}
+	}
+
+	return fileNumber
 }
 
 func getHeadCommit(rsp http.ResponseWriter, r *http.Request) *appError {

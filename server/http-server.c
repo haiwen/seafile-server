@@ -969,6 +969,40 @@ gen_merge_description (SeafRepo *repo,
     return desc;
 }
 
+static gint64
+calculate_number_of_added_file (SeafCommit *base_commit, SeafCommit *new_commit) {
+    gint64 file_number = 0;
+    GList *diff_entries = NULL;
+
+    if (seaf->repo_file_number_limit < 0) {
+        return 0;
+    }
+
+    int rc = diff_commits (base_commit, new_commit, &diff_entries, TRUE);
+    if (rc < 0) {
+        seaf_warning ("Failed to calculate number of new file.\n"); 
+        return 0;
+    }
+
+    GList *ptr;
+    DiffEntry *diff_entry;
+    for (ptr = diff_entries; ptr; ptr = ptr->next) {
+        diff_entry = ptr->data;
+        if (diff_entry->status == DIFF_STATUS_ADDED) {
+            file_number++;
+        } else if (diff_entry->status == DIFF_STATUS_DELETED) {
+            file_number--;
+        }
+        diff_entry_free ((DiffEntry *)ptr->data);
+    }
+
+    if (diff_entries) {
+        g_list_free (diff_entries);
+    }
+
+    return file_number;
+}
+
 static int
 fast_forward_or_merge (const char *repo_id,
                        SeafCommit *base,
@@ -1101,6 +1135,7 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
     char *username = NULL;
     SeafRepo *repo = NULL;
     SeafCommit *new_commit = NULL, *base = NULL;
+    gint64 file_number = 0;
 
     const char *new_commit_id = evhtp_kv_find (req->uri->query, "head");
     if (new_commit_id == NULL || !is_object_id_valid (new_commit_id)) {
@@ -1111,9 +1146,9 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
     parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     repo_id = parts[1];
 
-    if (seaf->upload_file_limit >= 0) {
-        gint64 file_number = seaf_get_origin_repo_file_number (repo_id);
-        if (file_number >= seaf->upload_file_limit) {
+    if (seaf->repo_file_number_limit >= 0) {
+        file_number = seaf_get_origin_repo_file_number (repo_id);
+        if (file_number >= seaf->repo_file_number_limit) {
             char *error = "Too many files in library.\n";
             evbuffer_add (req->buffer_out, error, strlen (error));
             evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
@@ -1156,6 +1191,16 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
     if (!base) {
         evhtp_send_reply (req, EVHTP_RES_BADREQ);
         goto out;
+    }
+
+    if (seaf->repo_file_number_limit >= 0) {
+        gint64 new_file_number = calculate_number_of_added_file (base, new_commit);
+        if (file_number + new_file_number >= seaf->repo_file_number_limit) {
+            char *error = "Too many files in library.\n";
+            evbuffer_add (req->buffer_out, error, strlen (error));
+            evhtp_send_reply (req, EVHTP_RES_FORBIDDEN);
+            goto out;
+        }
     }
 
     if (seaf_quota_manager_check_quota (seaf->quota_mgr, repo_id) < 0) {
