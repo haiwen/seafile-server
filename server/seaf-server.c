@@ -1315,8 +1315,6 @@ main (int argc, char **argv)
 
     event_init ();
 
-    start_rpc_service (seafile_dir, rpc_pipe_path);
-
     seaf = seafile_session_new (central_config_dir, seafile_dir, ccnet_dir);
     if (!seaf) {
         seaf_warning ("Failed to create seafile session.\n");
@@ -1327,10 +1325,6 @@ main (int argc, char **argv)
 #ifndef WIN32
     set_syslog_config (seaf->config);
 #endif
-
-    g_free (seafile_dir);
-    g_free (logfile);
-    g_free (rpc_pipe_path);
 
     set_signal_handlers (seaf);
 
@@ -1352,6 +1346,11 @@ main (int argc, char **argv)
 
     if (seafile_session_start (seaf) < 0)
         exit (1);
+
+    start_rpc_service (seafile_dir, rpc_pipe_path);
+    g_free (seafile_dir);
+    g_free (logfile);
+    g_free (rpc_pipe_path);
 
     atexit (on_seaf_server_exit);
 
