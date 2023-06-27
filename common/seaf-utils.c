@@ -81,9 +81,8 @@ mysql_db_start (SeafileSession *session)
         port = MYSQL_DEFAULT_PORT;
     }
 
-    // user is required.
     user = seaf_key_file_get_string (session->config, "database", "user", &error);
-    if (!user) {
+    if (!user && !unix_socket) {
         seaf_warning ("DB user not set in config.\n");
         return -1;
     }
@@ -282,8 +281,7 @@ ccnet_init_mysql_database (SeafileSession *session)
         seaf_warning ("DB host not set in config.\n");
         return -1;
     }
-    // user is required.
-    if (!user) {
+    if (!user && !unix_socket) {
         seaf_warning ("DB user not set in config.\n");
         return -1;
     }
