@@ -711,8 +711,8 @@ seafile_generate_magic_and_random_key(int enc_version,
         return NULL;
     }
 
-    seafile_generate_magic (enc_version, repo_id, passwd, salt, magic);
-    if (seafile_generate_random_key (passwd, enc_version, salt, random_key) < 0) {
+    seafile_generate_magic (enc_version, repo_id, passwd, salt, magic, seaf->key_iter);
+    if (seafile_generate_random_key (passwd, enc_version, salt, random_key, seaf->key_iter) < 0) {
         return NULL;
     }
 
@@ -1041,7 +1041,7 @@ retry:
     }
 
     if (seafile_verify_repo_passwd (repo_id, old_passwd, repo->magic,
-                                    repo->enc_version, repo->salt) < 0) {
+                                    repo->enc_version, repo->salt, repo->key_iter) < 0) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Incorrect password");
         return -1;
     }
@@ -1058,10 +1058,10 @@ retry:
 
     char new_magic[65], new_random_key[97];
 
-    seafile_generate_magic (repo->enc_version, repo_id, new_passwd, repo->salt, new_magic);
+    seafile_generate_magic (repo->enc_version, repo_id, new_passwd, repo->salt, new_magic, repo->key_iter);
     if (seafile_update_random_key (old_passwd, repo->random_key,
                                    new_passwd, new_random_key,
-                                   repo->enc_version, repo->salt) < 0) {
+                                   repo->enc_version, repo->salt, repo->key_iter) < 0) {
         ret = -1;
         goto out;
     }

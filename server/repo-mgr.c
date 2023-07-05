@@ -150,6 +150,11 @@ seaf_repo_from_commit (SeafRepo *repo, SeafCommit *commit)
             memcpy (repo->magic, commit->magic, 64);
             memcpy (repo->random_key, commit->random_key, 96);
             memcpy (repo->salt, commit->salt, 64);
+        } else if (repo->enc_version == 5) {
+            memcpy (repo->magic, commit->magic, 64);
+            memcpy (repo->random_key, commit->random_key, 96);
+            memcpy (repo->salt, commit->salt, 64);
+            repo->key_iter = commit->key_iter;
         }
     }
     repo->no_local_history = commit->no_local_history;
@@ -179,6 +184,11 @@ seaf_repo_to_commit (SeafRepo *repo, SeafCommit *commit)
             commit->magic = g_strdup (repo->magic);
             commit->random_key = g_strdup (repo->random_key);
             commit->salt = g_strdup (repo->salt);
+        } else if (commit->enc_version == 5) {
+            commit->magic = g_strdup (repo->magic);
+            commit->random_key = g_strdup (repo->random_key);
+            commit->salt = g_strdup (repo->salt);
+            commit->key_iter = repo->key_iter;
         }
     }
     commit->no_local_history = repo->no_local_history;
@@ -3741,7 +3751,7 @@ create_repo_common (SeafRepoManager *mgr,
     SeafBranch *master = NULL;
     int ret = -1;
 
-    if (enc_version != 4 && enc_version != 3 && enc_version != 2 && enc_version != -1) {
+    if (enc_version != 5 && enc_version != 4 && enc_version != 3 && enc_version != 2 && enc_version != -1) {
         seaf_warning ("Unsupported enc version %d.\n", enc_version);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                      "Unsupported encryption version");
@@ -3782,6 +3792,9 @@ create_repo_common (SeafRepoManager *mgr,
     }
     if (enc_version >= 3)
         memcpy (repo->salt, salt, 64);
+    if (enc_version >= 5) {
+        repo->key_iter = seaf->key_iter;
+    }
 
     repo->version = CURRENT_REPO_VERSION;
     memcpy (repo->store_id, repo_id, 36);
@@ -3855,8 +3868,8 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
         if (seafile_generate_repo_salt (salt) < 0) {
             goto bad;
         }
-        seafile_generate_magic (enc_version, repo_id, passwd, salt, magic);
-        if (seafile_generate_random_key (passwd, enc_version, salt, random_key) < 0) {
+        seafile_generate_magic (enc_version, repo_id, passwd, salt, magic, seaf->key_iter);
+        if (seafile_generate_random_key (passwd, enc_version, salt, random_key, seaf->key_iter) < 0) {
             goto bad;
         }
     }
