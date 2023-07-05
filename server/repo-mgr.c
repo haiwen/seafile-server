@@ -3744,6 +3744,7 @@ create_repo_common (SeafRepoManager *mgr,
                     const char *random_key,
                     const char *salt,
                     int enc_version,
+                    int key_iter,
                     GError **error)
 {
     SeafRepo *repo = NULL;
@@ -3780,6 +3781,14 @@ create_repo_common (SeafRepoManager *mgr,
             return -1;
         }
     }
+    if (enc_version >= 5) {
+        if (key_iter <= 0) {
+            seaf_warning ("Bad key iteration times.\n");
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                         "Bad key iteration times");
+            return -1;
+        }
+    }
 
     repo = seaf_repo_new (repo_id, repo_name, repo_desc);
 
@@ -3793,7 +3802,7 @@ create_repo_common (SeafRepoManager *mgr,
     if (enc_version >= 3)
         memcpy (repo->salt, salt, 64);
     if (enc_version >= 5) {
-        repo->key_iter = seaf->key_iter;
+        repo->key_iter = key_iter;
     }
 
     repo->version = CURRENT_REPO_VERSION;
@@ -3877,10 +3886,10 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
     int rc;
     if (passwd)
         rc = create_repo_common (mgr, repo_id, repo_name, repo_desc, owner_email,
-                                 magic, random_key, salt, enc_version, error);
+                                 magic, random_key, salt, enc_version, seaf->key_iter, error);
     else
         rc = create_repo_common (mgr, repo_id, repo_name, repo_desc, owner_email,
-                                 NULL, NULL, NULL, -1, error);
+                                 NULL, NULL, NULL, -1, -1, error);
     if (rc < 0)
         goto bad;
 
@@ -3909,6 +3918,7 @@ seaf_repo_manager_create_enc_repo (SeafRepoManager *mgr,
                                    const char *random_key,
                                    const char *salt,
                                    int enc_version,
+                                   int key_iter,
                                    GError **error)
 {
     if (!repo_id || !is_uuid_valid (repo_id)) {
@@ -3926,7 +3936,7 @@ seaf_repo_manager_create_enc_repo (SeafRepoManager *mgr,
     }
 
     if (create_repo_common (mgr, repo_id, repo_name, repo_desc, owner_email,
-                            magic, random_key, salt, enc_version, error) < 0)
+                            magic, random_key, salt, enc_version, key_iter, error) < 0)
         return NULL;
 
     if (seaf_repo_manager_set_repo_owner (mgr, repo_id, owner_email) < 0) {

@@ -3056,6 +3056,7 @@ seafile_create_enc_repo (const char *repo_id,
                          const char *random_key,
                          const char *salt,
                          int enc_version,
+                         int key_iter,
                          GError **error)
 {
     if (!repo_id || !repo_name || !repo_desc || !owner_email) {
@@ -3069,6 +3070,7 @@ seafile_create_enc_repo (const char *repo_id,
                                              repo_id, repo_name, repo_desc,
                                              owner_email,
                                              magic, random_key, salt, enc_version,
+                                             key_iter,
                                              error);
     return ret;
 }
