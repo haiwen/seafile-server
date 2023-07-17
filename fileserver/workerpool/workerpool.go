@@ -1,13 +1,16 @@
 package workerpool
 
 import (
-	log "github.com/sirupsen/logrus"
 	"runtime/debug"
+
+	"github.com/dgraph-io/ristretto/z"
+	log "github.com/sirupsen/logrus"
 )
 
 type WorkPool struct {
-	jobs  chan Job
-	jobCB JobCB
+	jobs   chan Job
+	jobCB  JobCB
+	closer *z.Closer
 }
 
 // Job is the job object of workpool.
@@ -23,34 +26,39 @@ func CreateWorkerPool(jobCB JobCB, n int) *WorkPool {
 	pool.jobCB = jobCB
 	pool.jobs = make(chan Job, 100)
 	for i := 0; i < n; i++ {
-		go worker(pool.jobs)
+		go pool.run(pool.jobs)
 	}
 	return pool
 }
 
 func (pool *WorkPool) AddTask(args ...interface{}) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("panic: %v\n%s", err, debug.Stack())
-		}
-	}()
 	job := Job{pool.jobCB, args}
 	pool.jobs <- job
 }
 
-func worker(jobs chan Job) {
+func (pool *WorkPool) run(jobs chan Job) {
 	defer func() {
 		if err := recover(); err != nil {
 			log.Printf("panic: %v\n%s", err, debug.Stack())
 		}
 	}()
+	defer pool.closer.Done()
 
-	for job := range jobs {
-		if job.callback != nil {
-			err := job.callback(job.args...)
-			if err != nil {
-				log.Printf("failed to call jobs: %v.\n", err)
+	for {
+		select {
+		case job := <-pool.jobs:
+			if job.callback != nil {
+				err := job.callback(job.args...)
+				if err != nil {
+					log.Printf("failed to call jobs: %v.\n", err)
+				}
 			}
+		case <-pool.closer.HasBeenClosed():
+			return
 		}
 	}
+}
+
+func (pool *WorkPool) Shutdown() {
+	pool.closer.SignalAndWait()
 }
