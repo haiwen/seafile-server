@@ -582,7 +582,7 @@ out:
     }
     g_list_free (commit_list);
 
-    if (!repo->head) {
+    if (!repo || !repo->head) {
         seaf_warning("No available commits found for repo %.8s, can't be repaired.\n",
                      repo_id);
         seaf_repo_unref (repo);
