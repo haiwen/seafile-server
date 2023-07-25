@@ -25,6 +25,7 @@ func CreateWorkerPool(jobCB JobCB, n int) *WorkPool {
 	pool := new(WorkPool)
 	pool.jobCB = jobCB
 	pool.jobs = make(chan Job, 100)
+	pool.closer = z.NewCloser(n)
 	for i := 0; i < n; i++ {
 		go pool.run(pool.jobs)
 	}
