@@ -359,42 +359,6 @@ setup_env ()
 }
 
 static int
-start_seafevents() {
-    if (!ctl->has_seafevents)
-        return 0;
-
-    static char *seafevents_config_file = NULL;
-    static char *seafevents_log_file = NULL;
-
-    if (seafevents_config_file == NULL)
-        seafevents_config_file = g_build_filename (topdir,
-                                                  "conf/seafevents.conf",
-                                                   NULL);
-    if (seafevents_log_file == NULL)
-        seafevents_log_file = g_build_filename (ctl->logdir,
-                                                "seafevents.log",
-                                                NULL);
-
-    char *argv[] = {
-        (char *)get_python_executable(),
-        "-m", "seafevents.main",
-        "--config-file", seafevents_config_file,
-        "--logfile", seafevents_log_file,
-        "-P", ctl->pidfile[PID_SEAFEVENTS],
-        NULL
-    };
-
-    int pid = spawn_process (argv, true);
-
-    if (pid <= 0) {
-        seaf_warning ("Failed to spawn seafevents.\n");
-        return -1;
-    }
-
-    return 0;
-}
-
-static int
 start_seafdav() {
     static char *seafdav_log_file = NULL;
     if (seafdav_log_file == NULL)
@@ -528,11 +492,6 @@ check_process (void *data)
         }
     }
 
-    if (ctl->has_seafevents && need_restart(PID_SEAFEVENTS)) {
-        seaf_message ("seafevents need restart...\n");
-        start_seafevents ();
-    }
-
     return TRUE;
 }
 
@@ -553,8 +512,6 @@ stop_services ()
     kill_by_force(PID_SERVER);
     kill_by_force(PID_FILESERVER);
     kill_by_force(PID_SEAFDAV);
-    if (ctl->has_seafevents)
-        kill_by_force(PID_SEAFEVENTS);
 }
 
 static void
@@ -570,7 +527,6 @@ init_pidfile_path (SeafileController *ctl)
 
     ctl->pidfile[PID_SERVER] = g_build_filename (pid_dir, "seaf-server.pid", NULL);
     ctl->pidfile[PID_SEAFDAV] = g_build_filename (pid_dir, "seafdav.pid", NULL);
-    ctl->pidfile[PID_SEAFEVENTS] = g_build_filename (pid_dir, "seafevents.pid", NULL);
     ctl->pidfile[PID_FILESERVER] = g_build_filename (pid_dir, "fileserver.pid", NULL);
 }
 
@@ -612,18 +568,6 @@ seaf_controller_init (SeafileController *ctl,
     if (read_seafdav_config() < 0) {
         return -1;
     }
-
-    char *seafevents_config_file = g_build_filename (topdir,
-                                                     "conf/seafevents.conf",
-                                                     NULL);
-
-    if (!g_file_test (seafevents_config_file, G_FILE_TEST_EXISTS)) {
-        seaf_message ("No seafevents.\n");
-        ctl->has_seafevents = FALSE;
-    } else {
-        ctl->has_seafevents = TRUE;
-    }
-    g_free (seafevents_config_file);
 
     init_pidfile_path (ctl);
     setup_env ();
