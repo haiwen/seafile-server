@@ -4189,6 +4189,28 @@ out:
     return ret;
 }
 
+gint64
+seaf_get_repo_file_number(const char *repo_id)
+{
+    char *sql = "SELECT file_count FROM RepoFileCount WHERE repo_id = ?";
+
+    return seaf_db_statement_get_int64 (seaf->db, sql, 1, "string", repo_id);;
+}
+
+gint64
+seaf_get_origin_repo_file_number(const char *repo_id)
+{
+    const char *r_repo_id = repo_id;
+    SeafVirtRepo *vinfo = seaf_repo_manager_get_virtual_repo_info(seaf->repo_mgr, repo_id);
+    if (vinfo) {
+        r_repo_id = vinfo->origin_repo_id;
+        seaf_virtual_repo_info_free(vinfo);
+    }
+    gint64 file_number = seaf_get_repo_file_number (r_repo_id);
+
+    return file_number;
+}
+
 gboolean
 get_total_file_number_cb (SeafDBRow *row, void *vdata)
 {
