@@ -711,6 +711,67 @@ static int check_db_table (SeafDB *db)
           "cfg_key VARCHAR(255) NOT NULL, value VARCHAR(255), property INTEGER)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
+    } else if (db_type == SEAF_DB_TYPE_DM) {
+        sql = "CREATE TABLE IF NOT EXISTS EmailUser ("
+            "id INTEGER NOT NULL PRIMARY KEY AUTO_INCREMENT,"
+            "email VARCHAR(255), passwd VARCHAR(256), is_staff INTEGER NOT NULL, "
+            "is_active INTEGER NOT NULL, ctime BIGINT, "
+            "reference_id VARCHAR(255))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS email_index on EmailUser (email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS reference_id_index on EmailUser (reference_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE TABLE IF NOT EXISTS Binding (email VARCHAR(255), peer_id VARCHAR(41))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE INDEX IF NOT EXISTS email_index on Binding (email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS peer_index on Binding (peer_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE TABLE IF NOT EXISTS UserRole (email VARCHAR(255), role VARCHAR(255))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE INDEX IF NOT EXISTS userrole_email_index on UserRole (email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS userrole_userrole_index on UserRole (email, role)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE TABLE IF NOT EXISTS LDAPUsers ("
+          "id INTEGER NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+          "email VARCHAR(255) NOT NULL, password VARCHAR(255) NOT NULL, "
+          "is_staff INTEGER NOT NULL, is_active INTEGER NOT NULL, extra_attrs TEXT, "
+          "reference_id VARCHAR(255))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS ldapusers_email_index on LDAPUsers(email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS ldapusers_reference_id_index on LDAPUsers(reference_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE TABLE IF NOT EXISTS LDAPConfig (cfg_group VARCHAR(255) NOT NULL,"
+          "cfg_key VARCHAR(255) NOT NULL, value VARCHAR(255), property INTEGER)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
     }
 
     return 0;
@@ -754,6 +815,7 @@ open_db (CcnetUserManager *manager)
         db = open_sqlite_db (manager);
         break;
     case SEAF_DB_TYPE_PGSQL:
+    case SEAF_DB_TYPE_DM:
     case SEAF_DB_TYPE_MYSQL:
         db = manager->session->ccnet_db;
         break;

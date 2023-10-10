@@ -145,6 +145,58 @@ mysql_db_start (SeafileSession *session)
 
 #endif
 
+#ifdef HAVE_ODBC
+
+static int
+dm_db_start (SeafileSession *session)
+{
+    char *user, *passwd, *db;
+    int max_connections = 0;
+    GError *error = NULL;
+
+    user = seaf_key_file_get_string (session->config, "database", "user", &error);
+    if (!user) {
+        seaf_warning ("DB user not set in config.\n");
+        return -1;
+    }
+
+    passwd = seaf_key_file_get_string (session->config, "database", "password", &error);
+    if (!passwd) {
+        seaf_warning ("DB passwd not set in config.\n");
+        return -1;
+    }
+
+    db = seaf_key_file_get_string (session->config, "database", "db_name", &error);
+    if (!db) {
+        seaf_warning ("DB name not set in config.\n");
+        return -1;
+    }
+
+    if (error)
+        g_clear_error (&error);
+    max_connections = g_key_file_get_integer (session->config,
+                                              "database", "max_connections",
+                                              &error);
+    if (error || max_connections < 0) {
+        g_clear_error (&error);
+        max_connections = DEFAULT_MAX_CONNECTIONS;
+    }
+
+    session->db = seaf_db_new_dm (user, passwd, db, max_connections);
+    if (!session->db) {
+        seaf_warning ("Failed to start dm db.\n");
+        return -1;
+    }
+
+    g_free (user);
+    g_free (passwd);
+    g_free (db);
+
+    return 0;
+}
+
+#endif
+
 #ifdef HAVE_POSTGRESQL
 
 static int
@@ -221,6 +273,11 @@ load_database_config (SeafileSession *session)
 #ifdef HAVE_MYSQL
     else if (strcasecmp (type, "mysql") == 0) {
         ret = mysql_db_start (session);
+    }
+#endif
+#ifdef HAVE_ODBC
+    else if (strcasecmp (type, "dm") == 0) {
+        ret = dm_db_start (session);
     }
 #endif
 #ifdef HAVE_POSTGRESQL
@@ -341,6 +398,56 @@ ccnet_init_mysql_database (SeafileSession *session)
 
 #endif
 
+#ifdef HAVE_ODBC
+
+static int
+ccnet_init_dm_database (SeafileSession *session)
+{
+    char *user, *passwd, *db;
+    int max_connections = 0;
+
+    user = ccnet_key_file_get_string (session->ccnet_config, "Database", "USER");
+    passwd = ccnet_key_file_get_string (session->ccnet_config, "Database", "PASSWD");
+    db = ccnet_key_file_get_string (session->ccnet_config, "Database", "DB");
+
+    if (!user) {
+        seaf_warning ("DB user not set in config.\n");
+        return -1;
+    }
+    if (!passwd) {
+        seaf_warning ("DB passwd not set in config.\n");
+        return -1;
+    }
+    if (!db) {
+        seaf_warning ("DB name not set in config.\n");
+        return -1;
+    }
+
+    GError *error = NULL;
+
+    max_connections = g_key_file_get_integer (session->ccnet_config,
+                                              "Database", "MAX_CONNECTIONS",
+                                              &error);
+    if (error || max_connections < 0) {
+        max_connections = DEFAULT_MAX_CONNECTIONS;
+        g_clear_error (&error);
+    }
+
+    session->ccnet_db = seaf_db_new_dm (user, passwd, db, max_connections);
+    if (!session->ccnet_db) {
+        seaf_warning ("Failed to open ccnet database.\n");
+        return -1;
+    }
+
+    g_free (user);
+    g_free (passwd);
+    g_free (db);
+
+    return 0;
+}
+
+#endif
+
 int
 load_ccnet_database_config (SeafileSession *session)
 {
@@ -357,6 +464,11 @@ load_ccnet_database_config (SeafileSession *session)
     else if (strcasecmp (engine, "mysql") == 0) {
         seaf_message("Use database Mysql\n");
         ret = ccnet_init_mysql_database (session);
+    }
+#endif
+#ifdef HAVE_ODBC
+    else if (strcasecmp (engine, "dm") == 0) {
+        ret = ccnet_init_dm_database (session);
     }
 #endif
 #if 0

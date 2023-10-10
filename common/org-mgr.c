@@ -77,6 +77,7 @@ open_db (CcnetOrgManager *manager)
         db = open_sqlite_db (manager);
         break;
     case SEAF_DB_TYPE_PGSQL:
+    case SEAF_DB_TYPE_DM:
     case SEAF_DB_TYPE_MYSQL:
         db = manager->session->ccnet_db;
         break;
@@ -203,6 +204,47 @@ static int check_db_table (CcnetDB *db)
         //    if (seaf_db_query (db, sql) < 0)
         //        return -1;
         //}
+    } else if (db_type == SEAF_DB_TYPE_DM) {
+        sql = "CREATE TABLE IF NOT EXISTS Organization (org_id INTEGER"
+            " PRIMARY KEY, org_name VARCHAR(255),"
+            " url_prefix VARCHAR(255), "
+            " creator VARCHAR(255), ctime BIGINT)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS url_prefix_indx on "
+            "Organization (url_prefix)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        
+        sql = "CREATE TABLE IF NOT EXISTS OrgUser (org_id INTEGER, "
+            "email VARCHAR(255), is_staff INTEGER NOT NULL)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE INDEX IF NOT EXISTS email_indx on "
+            "OrgUser (email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS orgid_email_indx on "
+            "OrgUser (org_id, email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE TABLE IF NOT EXISTS OrgGroup (org_id INTEGER, "
+            "group_id INTEGER)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE INDEX IF NOT EXISTS groupid_indx on OrgGroup (group_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE UNIQUE INDEX IF NOT EXISTS org_group_indx on "
+            "OrgGroup (org_id, group_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
     }
 
     return 0;

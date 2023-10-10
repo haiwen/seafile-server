@@ -427,7 +427,7 @@ seaf_repo_manager_set_repo_history_limit (SeafRepoManager *mgr,
         return 0;
     }
 
-    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
+    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL || seaf_db_type(db) == SEAF_DB_TYPE_DM) {
         gboolean err;
         snprintf(sql, sizeof(sql),
                  "SELECT repo_id FROM RepoHistoryLimit "
@@ -512,7 +512,7 @@ seaf_repo_manager_set_repo_valid_since (SeafRepoManager *mgr,
     SeafDB *db = mgr->seaf->db;
     char sql[256];
 
-    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
+    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL || seaf_db_type(db) == SEAF_DB_TYPE_DM) {
         gboolean err;
         snprintf(sql, sizeof(sql),
                  "SELECT repo_id FROM RepoValidSince WHERE "
