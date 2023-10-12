@@ -269,7 +269,7 @@ AC_SUBST(JWT_CFLAGS)
 AC_SUBST(JWT_LIBS)
 
 if test x${compile_python} = xyes; then
-    AM_PATH_PYTHON([2.6])
+    AM_PATH_PYTHON([3.5])
     if test "$bwin32" = true; then
         if test x$PYTHON_DIR != x; then
             # set pyexecdir to somewhere like /c/Python26/Lib/site-packages
