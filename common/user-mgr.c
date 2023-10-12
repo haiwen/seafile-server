@@ -728,7 +728,8 @@ static int check_db_table (SeafDB *db)
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS Binding (email VARCHAR(255), peer_id VARCHAR(41))";
+        sql = "CREATE TABLE IF NOT EXISTS Binding (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "email VARCHAR(255), peer_id VARCHAR(41))";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
@@ -740,7 +741,8 @@ static int check_db_table (SeafDB *db)
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS UserRole (email VARCHAR(255), role VARCHAR(255))";
+        sql = "CREATE TABLE IF NOT EXISTS UserRole (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "email VARCHAR(255), role VARCHAR(255))";
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
@@ -768,7 +770,8 @@ static int check_db_table (SeafDB *db)
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS LDAPConfig (cfg_group VARCHAR(255) NOT NULL,"
+        sql = "CREATE TABLE IF NOT EXISTS LDAPConfig (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "cfg_group VARCHAR(255) NOT NULL,"
           "cfg_key VARCHAR(255) NOT NULL, value VARCHAR(255), property INTEGER)";
         if (seaf_db_query (db, sql) < 0)
             return -1;

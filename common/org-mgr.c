@@ -217,7 +217,8 @@ static int check_db_table (CcnetDB *db)
         if (seaf_db_query (db, sql) < 0)
             return -1;
         
-        sql = "CREATE TABLE IF NOT EXISTS OrgUser (org_id INTEGER, "
+        sql = "CREATE TABLE IF NOT EXISTS OrgUser (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "org_id INTEGER, "
             "email VARCHAR(255), is_staff INTEGER NOT NULL)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
@@ -232,7 +233,8 @@ static int check_db_table (CcnetDB *db)
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS OrgGroup (org_id INTEGER, "
+        sql = "CREATE TABLE IF NOT EXISTS OrgGroup (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "org_id INTEGER, "
             "group_id INTEGER)";
         if (seaf_db_query (db, sql) < 0)
             return -1;

@@ -237,7 +237,8 @@ static int check_db_table (CcnetGroupManager *manager, CcnetDB *db)
             return -1;
         }
 
-        sql = "CREATE TABLE IF NOT EXISTS GroupUser (group_id INTEGER, "
+        sql = "CREATE TABLE IF NOT EXISTS GroupUser (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "group_id INTEGER, "
             "user_name VARCHAR(255), is_staff tinyint)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
@@ -252,7 +253,8 @@ static int check_db_table (CcnetGroupManager *manager, CcnetDB *db)
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS GroupDNPair (group_id INTEGER,"
+        sql = "CREATE TABLE IF NOT EXISTS GroupDNPair (d BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "group_id INTEGER,"
             " dn VARCHAR(255))";
         if (seaf_db_query (db, sql) < 0)
             return -1;

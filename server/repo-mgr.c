@@ -1260,7 +1260,8 @@ create_tables_dm (SeafRepoManager *mgr)
 
     /* Group repo */
 
-    sql = "CREATE TABLE IF NOT EXISTS RepoGroup (repo_id VARCHAR(37), "
+    sql = "CREATE TABLE IF NOT EXISTS RepoGroup (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,"
+        "repo_id VARCHAR(37), "
         "group_id INTEGER, user_name VARCHAR(255), permission VARCHAR(15))";
     if (seaf_db_query (db, sql) < 0)
         return -1;
@@ -1289,6 +1290,7 @@ create_tables_dm (SeafRepoManager *mgr)
         return -1;
 
     sql = "CREATE TABLE IF NOT EXISTS RepoUserToken ("
+        "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
         "repo_id VARCHAR(37), "
         "email VARCHAR(255), "
         "token VARCHAR(41))";
@@ -1382,7 +1384,8 @@ create_tables_dm (SeafRepoManager *mgr)
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
-    sql = "CREATE TABLE IF NOT EXISTS WebUploadTempFiles (repo_id VARCHAR(40) NOT NULL, "
+    sql = "CREATE TABLE IF NOT EXISTS WebUploadTempFiles (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        "repo_id VARCHAR(40) NOT NULL, "
         "file_path TEXT NOT NULL, tmp_file_path TEXT NOT NULL)";
     if (seaf_db_query (db, sql) < 0)
         return -1;

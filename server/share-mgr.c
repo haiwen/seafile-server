@@ -58,7 +58,8 @@ seaf_share_manager_start (SeafShareManager *mgr)
             return -1;
     } else if (db_type == SEAF_DB_TYPE_DM) {
         sql = "CREATE TABLE IF NOT EXISTS SharedRepo "
-            "(repo_id VARCHAR(37) , from_email VARCHAR(255), to_email VARCHAR(255), "
+            "(id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,"
+            "repo_id VARCHAR(37) , from_email VARCHAR(255), to_email VARCHAR(255), "
             "permission VARCHAR(15))";
         if (seaf_db_query (db, sql) < 0)
             return -1;
