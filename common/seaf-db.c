@@ -1979,7 +1979,7 @@ _bind_params_dm (HSTMT stmt, DM_BIND *params, int n, va_list args)
             ret = SQLBindParameter(stmt, i+1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, sizeof(x), 0, params[i].buffer, sizeof(x), NULL);
             if (!SUCCESS(ret)) {
                 errmsg = dm_db_error (SQL_HANDLE_STMT, stmt);
-                seaf_warning ("Failed to bid params: %s\n", errmsg);
+                seaf_warning ("Failed to bind params: %s\n", errmsg);
                 g_free (errmsg);
                 return -1;
             }
@@ -1991,7 +1991,7 @@ _bind_params_dm (HSTMT stmt, DM_BIND *params, int n, va_list args)
             ret = SQLBindParameter(stmt, i+1, SQL_PARAM_INPUT, SQL_C_SBIGINT, SQL_BIGINT, sizeof(x), 0, params[i].buffer, sizeof(x), NULL);
             if (!SUCCESS(ret)) {
                 errmsg = dm_db_error (SQL_HANDLE_STMT, stmt);
-                seaf_warning ("Failed to bid params: %s\n", errmsg);
+                seaf_warning ("Failed to bind params: %s\n", errmsg);
                 g_free (errmsg);
                 return -1;
             }
@@ -2001,11 +2001,15 @@ _bind_params_dm (HSTMT stmt, DM_BIND *params, int n, va_list args)
             if (s) {
                 len = strlen(s);
             }
+            // SQLBindParameter bind an empty string, need to set len to 1.
+            if (len==0) {
+                len=1;
+            }
             params[i].buffer = g_strdup(s);
             ret = SQLBindParameter(stmt, i+1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, len, 0, params[i].buffer, len, NULL);
             if (!SUCCESS(ret)) {
                 errmsg = dm_db_error (SQL_HANDLE_STMT, stmt);
-                seaf_warning ("Failed to bid params: %s\n", errmsg);
+                seaf_warning ("Failed to bind params: %s\n", errmsg);
                 g_free (errmsg);
                 return -1;
             }
