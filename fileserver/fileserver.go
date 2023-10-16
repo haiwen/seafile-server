@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	_ "dm"
 	"flag"
 	"fmt"
 	"io"
@@ -155,6 +156,29 @@ func loadCcnetDB() {
 		if err != nil {
 			log.Fatalf("Failed to open database %s: %v", ccnetDBPath, err)
 		}
+	} else if strings.EqualFold(dbEngine, "dm") {
+		if key, err = section.GetKey("HOST"); err != nil {
+			log.Fatal("No database host in ccnet.conf.")
+		}
+		host := key.String()
+		// user is required.
+		if key, err = section.GetKey("USER"); err != nil {
+			log.Fatal("No database user in ccnet.conf.")
+		}
+		user := key.String()
+		if key, err = section.GetKey("PASSWD"); err != nil {
+			log.Fatal("No database password in ccnet.conf.")
+		}
+		password := key.String()
+		port := 5236
+		if key, err = section.GetKey("PORT"); err == nil {
+			port, _ = key.Int()
+		}
+		dsn := fmt.Sprintf("dm://%s:%s@%s:%d", user, password, host, port)
+		ccnetDB, err = sql.Open("dm", dsn)
+		if err != nil {
+			log.Fatalf("Failed to open dm database: %v", err)
+		}
 	} else {
 		log.Fatalf("Unsupported database %s.", dbEngine)
 	}
@@ -262,6 +286,30 @@ func loadSeafileDB() {
 		seafileDB, err = sql.Open("sqlite3", seafileDBPath)
 		if err != nil {
 			log.Fatalf("Failed to open database %s: %v", seafileDBPath, err)
+		}
+	} else if strings.EqualFold(dbEngine, "dm") {
+		if key, err = section.GetKey("host"); err != nil {
+			log.Fatal("No database host in seafile.conf.")
+		}
+		host := key.String()
+		// user is required.
+		if key, err = section.GetKey("user"); err != nil {
+			log.Fatal("No database user in seafile.conf.")
+		}
+		user := key.String()
+
+		if key, err = section.GetKey("password"); err != nil {
+			log.Fatal("No database password in seafile.conf.")
+		}
+		password := key.String()
+		port := 5236
+		if key, err = section.GetKey("port"); err == nil {
+			port, _ = key.Int()
+		}
+		dsn := fmt.Sprintf("dm://%s:%s@%s:%d", user, password, host, port)
+		seafileDB, err = sql.Open("dm", dsn)
+		if err != nil {
+			log.Fatalf("Failed to open dm database: %v", err)
 		}
 	} else {
 		log.Fatalf("Unsupported database %s.", dbEngine)
@@ -373,7 +421,7 @@ func main() {
 
 	commitmgr.Init(centralDir, dataDir)
 
-	share.Init(ccnetDB, seafileDB, option.GroupTableName, option.CloudMode)
+	share.Init(ccnetDB, seafileDB, option.GroupTableName, option.CloudMode, dbType)
 
 	rpcClientInit()
 
