@@ -1,5 +1,5 @@
-//go:build !dm
-// +build !dm
+//go:build dm
+// +build dm
 
 // Main package for Seafile file server.
 package main
@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
+	_ "dm"
 	"flag"
 	"fmt"
 	"io"

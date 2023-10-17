@@ -253,7 +253,7 @@ static int check_db_table (CcnetGroupManager *manager, CcnetDB *db)
         if (seaf_db_query (db, sql) < 0)
             return -1;
 
-        sql = "CREATE TABLE IF NOT EXISTS GroupDNPair (d BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+        sql = "CREATE TABLE IF NOT EXISTS GroupDNPair (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
             "group_id INTEGER,"
             " dn VARCHAR(255))";
         if (seaf_db_query (db, sql) < 0)
