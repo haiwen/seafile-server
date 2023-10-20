@@ -168,7 +168,16 @@ func jsonNoEscape(data interface{}) ([]byte, error) {
 		return nil, err
 	}
 
-	return buf.Bytes(), nil
+	bytes := buf.Bytes()
+
+	// Encode will terminate each value with a newline.
+	// This makes the output look a little nicer
+	// when debugging, and some kind of space
+	// is required if the encoded value was a number,
+	// so that the reader knows there aren't more
+	// digits coming.
+	// The newline at the end needs to be removed for the above reasons.
+	return bytes[:len(bytes)-1], nil
 }
 
 // SeafDir is a dir object
