@@ -3182,6 +3182,12 @@ char *seafile_get_file_id_by_path (const char *repo_id,
                                    const char *path,
                                    GError **error)
 {
+    if (!repo_id || !path) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                     "Bad arguments");
+        return NULL;
+    }
+
     char *rpath = format_dir_path (path);
     char *ret = get_obj_id_by_path (repo_id, rpath, FALSE, error);
 
@@ -3196,6 +3202,12 @@ char *seafile_get_dir_id_by_path (const char *repo_id,
                                   const char *path,
                                   GError **error)
 {
+    if (!repo_id || !path) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                     "Bad arguments");
+        return NULL;
+    }
+
     char *rpath = format_dir_path (path);
     char *ret = get_obj_id_by_path (repo_id, rpath, TRUE, error);
 
