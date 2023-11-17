@@ -27,8 +27,20 @@ struct SeafileCrypt {
 
 typedef struct SeafileCrypt SeafileCrypt;
 
+void
+seafile_crypt_init (const char *algo, const char *params);
+
 SeafileCrypt *
 seafile_crypt_new (int version, unsigned char *key, unsigned char *iv);
+
+gboolean
+seafile_crypt_use_default_algo ();
+
+const char *
+seafile_crypt_get_pwd_hash_algo ();
+
+const char *
+seafile_crypt_get_pwd_hash_params ();
 
 /*
   Derive key and iv used by AES encryption from @data_in.
@@ -55,6 +67,7 @@ seafile_crypt_new (int version, unsigned char *key, unsigned char *iv);
 int
 seafile_derive_key (const char *data_in, int in_len, int version,
                     const char *repo_salt,
+                    const char *algo, const char *params_str,
                     unsigned char *key, unsigned char *iv);
 
 /* @salt must be an char array of size 65 bytes. */
@@ -75,6 +88,8 @@ void
 seafile_generate_magic (int version, const char *repo_id,
                         const char *passwd,
                         const char *repo_salt,
+                        const char *algo,
+                        const char *params_str,
                         char *magic);
 
 int
@@ -82,18 +97,23 @@ seafile_verify_repo_passwd (const char *repo_id,
                             const char *passwd,
                             const char *magic,
                             int version,
-                            const char *repo_salt);
+                            const char *repo_salt,
+                            const char *pwd_hash,
+                            const char *algo,
+                            const char *params_str);
 
 int
 seafile_decrypt_repo_enc_key (int enc_version,
                               const char *passwd, const char *random_key,
                               const char *repo_salt,
+                              const char *algo, const char *params_str,
                               unsigned char *key_out, unsigned char *iv_out);
 
 int
 seafile_update_random_key (const char *old_passwd, const char *old_random_key,
                            const char *new_passwd, char *new_random_key,
-                           int enc_version, const char *repo_salt);
+                           int enc_version, const char *repo_salt,
+                           const char *algo, const char *params_str);
 
 int
 seafile_encrypt (char **data_out,

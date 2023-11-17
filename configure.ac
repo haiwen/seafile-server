@@ -268,6 +268,10 @@ PKG_CHECK_MODULES(JWT, [libjwt])
 AC_SUBST(JWT_CFLAGS)
 AC_SUBST(JWT_LIBS)
 
+PKG_CHECK_MODULES(ARGON2, [libargon2])
+AC_SUBST(ARGON2_CFLAGS)
+AC_SUBST(ARGON2_LIBS)
+
 if test x${compile_python} = xyes; then
     AM_PATH_PYTHON([2.6])
     if test "$bwin32" = true; then

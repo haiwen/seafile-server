@@ -89,6 +89,8 @@ seaf_repo_free (SeafRepo *repo)
     if (repo->virtual_info)
         seaf_virtual_repo_info_free (repo->virtual_info);
     g_free (repo->last_modifier);
+    g_free (repo->pwd_hash_algo);
+    g_free (repo->pwd_hash_params);
     g_free (repo);
 }
 
@@ -151,6 +153,11 @@ seaf_repo_from_commit (SeafRepo *repo, SeafCommit *commit)
             memcpy (repo->random_key, commit->random_key, 96);
             memcpy (repo->salt, commit->salt, 64);
         }
+        if (commit->pwd_hash_algo) {
+            memcpy (repo->pwd_hash, commit->pwd_hash, 64);
+            repo->pwd_hash_algo = g_strdup (commit->pwd_hash_algo);
+            repo->pwd_hash_params = g_strdup (commit->pwd_hash_params);
+        }
     }
     repo->no_local_history = commit->no_local_history;
     repo->version = commit->version;
@@ -179,6 +186,11 @@ seaf_repo_to_commit (SeafRepo *repo, SeafCommit *commit)
             commit->magic = g_strdup (repo->magic);
             commit->random_key = g_strdup (repo->random_key);
             commit->salt = g_strdup (repo->salt);
+        }
+        if (repo->pwd_hash_algo) {
+            commit->pwd_hash = g_strdup (repo->pwd_hash);
+            commit->pwd_hash_algo = g_strdup (repo->pwd_hash_algo);
+            commit->pwd_hash_params = g_strdup (repo->pwd_hash_params);
         }
     }
     commit->no_local_history = repo->no_local_history;
@@ -3783,6 +3795,13 @@ create_repo_common (SeafRepoManager *mgr,
     if (enc_version >= 3)
         memcpy (repo->salt, salt, 64);
 
+    if (enc_version >= 2 && !seafile_crypt_use_default_algo ()) {
+        // set pwd_hash fields here.
+        memcpy (repo->pwd_hash, magic, 64);
+        repo->pwd_hash_algo = g_strdup (seafile_crypt_get_pwd_hash_algo ());
+        repo->pwd_hash_params = g_strdup (seafile_crypt_get_pwd_hash_params ());
+    }
+
     repo->version = CURRENT_REPO_VERSION;
     memcpy (repo->store_id, repo_id, 36);
 
@@ -3848,6 +3867,8 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
 {
     char *repo_id = NULL;
     char salt[65], magic[65], random_key[97];
+    const char *algo = seafile_crypt_get_pwd_hash_algo ();
+    const char *params = seafile_crypt_get_pwd_hash_params ();
 
     repo_id = gen_uuid ();
 
@@ -3855,7 +3876,7 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
         if (seafile_generate_repo_salt (salt) < 0) {
             goto bad;
         }
-        seafile_generate_magic (enc_version, repo_id, passwd, salt, magic);
+        seafile_generate_magic (enc_version, repo_id, passwd, salt, algo, params, magic);
         if (seafile_generate_random_key (passwd, enc_version, salt, random_key) < 0) {
             goto bad;
         }

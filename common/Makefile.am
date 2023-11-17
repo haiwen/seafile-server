@@ -7,6 +7,7 @@ proc_headers = \
 noinst_HEADERS = \
 	diff-simple.h \
 	seafile-crypt.h \
+	password-hash.h \
 	common.h \
 	branch-mgr.h \
 	fs-mgr.h \

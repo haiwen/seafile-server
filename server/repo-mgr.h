@@ -33,6 +33,9 @@ struct _SeafRepo {
     gboolean    encrypted;
     int         enc_version;
     gchar       magic[65];       /* hash(repo_id + passwd), key stretched. */
+    gchar       pwd_hash[65];       /* hash(repo_id + passwd), key stretched. */
+    gchar       *pwd_hash_algo;
+    gchar       *pwd_hash_params;
     gchar       random_key[97];
     gchar       salt[65];
     gboolean    no_local_history;
