@@ -82,6 +82,8 @@ int
 seafile_generate_random_key (const char *passwd,
                              int version,
                              const char *repo_salt,
+                             const char *algo,
+                             const char *params,
                              char *random_key);
 
 void

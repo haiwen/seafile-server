@@ -227,7 +227,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_create_enc_repo,
                                      "seafile_create_enc_repo",
-                                     searpc_signature_string__string_string_string_string_string_string_string_int());
+                                     searpc_signature_string__string_string_string_string_string_string_string_int_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_get_commit,
@@ -745,7 +745,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_generate_magic_and_random_key,
                                      "generate_magic_and_random_key",
-                                     searpc_signature_object__int_string_string());
+                                     searpc_signature_object__int_string_string_string_string());
 
     /* Config */
     searpc_server_register_function ("seafserv-threaded-rpcserver",

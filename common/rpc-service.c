@@ -55,6 +55,8 @@ convert_repo (SeafRepo *r)
     g_object_set (repo, "id", r->id, "name", r->name,
                   "desc", r->desc, "encrypted", r->encrypted,
                   "magic", r->magic, "enc_version", r->enc_version,
+                  "pwd_hash", r->pwd_hash,
+                  "pwd_hash_algo", r->pwd_hash_algo, "pwd_hash_params", r->pwd_hash_params,
                   "head_cmmt_id", r->head ? r->head->commit_id : NULL,
                   "root", r->root_id,
                   "version", r->version, "last_modify", r->last_modify,
@@ -696,6 +698,8 @@ GObject *
 seafile_generate_magic_and_random_key(int enc_version,
                                       const char* repo_id,
                                       const char *passwd,
+                                      const char *pwd_hash_algo,
+                                      const char *pwd_hash_params,
                                       GError **error)
 {
     if (!repo_id || !passwd) {
@@ -712,15 +716,22 @@ seafile_generate_magic_and_random_key(int enc_version,
     }
 
     gboolean use_default = seafile_crypt_use_default_algo ();
-    const char *algo = seafile_crypt_get_pwd_hash_algo ();
-    const char *params = seafile_crypt_get_pwd_hash_params ();
+    const char *algo = NULL;
+    const char *params = NULL;
+    if (pwd_hash_algo) {
+        algo = pwd_hash_algo;
+        params = pwd_hash_params;
+    } else {
+        algo = seafile_crypt_get_pwd_hash_algo ();
+        params = seafile_crypt_get_pwd_hash_params ();
+    }
     seafile_generate_magic (enc_version, repo_id, passwd, salt, algo, params, magic);
-    if (seafile_generate_random_key (passwd, enc_version, salt, random_key) < 0) {
+    if (seafile_generate_random_key (passwd, enc_version, salt, algo, params, random_key) < 0) {
         return NULL;
     }
 
     SeafileEncryptionInfo *sinfo;
-    if (use_default) {
+    if (use_default && !pwd_hash_algo) {
         sinfo = g_object_new (SEAFILE_TYPE_ENCRYPTION_INFO,
                               "repo_id", repo_id,
                               "passwd", passwd,
@@ -3079,6 +3090,9 @@ seafile_create_enc_repo (const char *repo_id,
                          const char *random_key,
                          const char *salt,
                          int enc_version,
+                         const char *pwd_hash,
+                         const char *pwd_hash_algo,
+                         const char *pwd_hash_params,
                          GError **error)
 {
     if (!repo_id || !repo_name || !repo_desc || !owner_email) {
@@ -3091,7 +3105,9 @@ seafile_create_enc_repo (const char *repo_id,
     ret = seaf_repo_manager_create_enc_repo (seaf->repo_mgr,
                                              repo_id, repo_name, repo_desc,
                                              owner_email,
-                                             magic, random_key, salt, enc_version,
+                                             magic, random_key, salt,
+                                             enc_version,
+                                             pwd_hash, pwd_hash_algo, pwd_hash_params,
                                              error);
     return ret;
 }

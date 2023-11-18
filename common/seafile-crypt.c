@@ -90,6 +90,8 @@ int
 seafile_generate_random_key (const char *passwd,
                              int version,
                              const char *repo_salt,
+                             const char *algo,
+                             const char *params,
                              char *random_key)
 {
     SeafileCrypt *crypt;
@@ -103,7 +105,7 @@ seafile_generate_random_key (const char *passwd,
         return -1;
     }
 
-    seafile_derive_key (passwd, strlen(passwd), version, repo_salt, default_params.algo, default_params.params_str, key, iv);
+    seafile_derive_key (passwd, strlen(passwd), version, repo_salt, algo, params, key, iv);
 
     crypt = seafile_crypt_new (version, key, iv);
 
