@@ -37,12 +37,15 @@ type Repo struct {
 	StoreID string
 
 	// Encrypted repo info
-	IsEncrypted bool
-	EncVersion  int
-	Magic       string
-	RandomKey   string
-	Salt        string
-	Version     int
+	IsEncrypted   bool
+	EncVersion    int
+	Magic         string
+	RandomKey     string
+	Salt          string
+	PwdHash       string
+	PwdHashAlgo   string
+	PwdHashParams string
+	Version       int
 }
 
 // VRepoInfo contains virtual repo information.
@@ -146,6 +149,11 @@ func Get(id string) *Repo {
 			repo.RandomKey = commit.RandomKey
 			repo.Salt = commit.Salt
 		}
+		if commit.PwdHash != "" {
+			repo.PwdHash = commit.PwdHash
+			repo.PwdHashAlgo = commit.PwdHashAlgo
+			repo.PwdHashParams = commit.PwdHashParams
+		}
 	}
 
 	return repo
@@ -171,6 +179,11 @@ func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
 			commit.Magic = repo.Magic
 			commit.RandomKey = repo.RandomKey
 			commit.Salt = repo.Salt
+		}
+		if repo.PwdHash != "" {
+			commit.PwdHash = repo.PwdHash
+			commit.PwdHashAlgo = repo.PwdHashAlgo
+			commit.PwdHashParams = repo.PwdHashParams
 		}
 	} else {
 		commit.Encrypted = "false"
@@ -260,6 +273,15 @@ func GetEx(id string) *Repo {
 			repo.Magic = commit.Magic
 			repo.RandomKey = commit.RandomKey
 			repo.Salt = commit.Salt
+		} else if repo.EncVersion == 4 {
+			repo.Magic = commit.Magic
+			repo.RandomKey = commit.RandomKey
+			repo.Salt = commit.Salt
+		}
+		if commit.PwdHash != "" {
+			repo.PwdHash = commit.PwdHash
+			repo.PwdHashAlgo = commit.PwdHashAlgo
+			repo.PwdHashParams = commit.PwdHashParams
 		}
 	}
 
