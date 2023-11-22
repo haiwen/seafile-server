@@ -1018,6 +1018,47 @@ format_json_ret (GList *name_list, GList *id_list, GList *size_list)
     return ret;
 }
 
+static gboolean
+check_files_with_same_name (SeafRepo *repo, const char *parent_dir, GList *filenames)
+{
+    char *canon_path = NULL;
+    SeafCommit *commit = NULL;
+    SeafDir *dir = NULL;
+    GError *error = NULL;
+    gboolean ret = FALSE;
+
+    GET_COMMIT_OR_FAIL(commit, repo->id, repo->version, repo->head->commit_id);
+
+    canon_path = get_canonical_path (parent_dir);
+
+    dir = seaf_fs_manager_get_seafdir_by_path (seaf->fs_mgr,
+                                               repo->store_id, repo->version,
+                                               commit->root_id,
+                                               canon_path, &error);
+    if (!dir) {
+        goto out;
+    }
+
+    GList *ptr;
+    for (ptr = filenames; ptr; ptr = ptr->next) {
+        char *name = ptr->data;
+        char *unique_name = NULL;
+        unique_name = generate_unique_filename (name, dir->entries);
+        if (!unique_name) {
+            ret = TRUE;
+            goto out;
+        }
+        g_free (unique_name);
+    }
+out:
+    g_clear_error (&error);
+    g_free (canon_path);
+    seaf_dir_free (dir);
+    seaf_commit_unref (commit);
+
+    return ret;
+}
+
 int
 seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                     const char *repo_id,
@@ -1049,6 +1090,13 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
     if (!filenames || !paths) {
         seaf_debug ("[post files] Invalid filenames or paths.\n");
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid files");
+        ret = -1;
+        goto out;
+    }
+
+    if (!replace_existed && check_files_with_same_name (repo, parent_dir, filenames))  {
+        seaf_debug ("[post files] Too many files with same name.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_FILES_WITH_SAME_NAME, "Too many files with same name");
         ret = -1;
         goto out;
     }
