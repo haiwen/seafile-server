@@ -8,7 +8,7 @@ This is the core component of Seafile server. It provides RPC to the web front-e
 Build and Run
 =============
 
-See <http://manual.seafile.com/build_seafile/server.html>
+See <https://manual.seafile.com/build_seafile/server/>
 
 Contributing
 ===========
