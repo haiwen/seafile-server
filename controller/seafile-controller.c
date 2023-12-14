@@ -371,7 +371,7 @@ start_seafdav() {
     snprintf (port, sizeof(port), "%d", conf.port);
 
     int pid;
-    if (ctr->seafdav_conf->debug_mode) {
+    if (conf.debug_mode) {
         char *argv[] = {
             (char *)get_python_executable(),
             "-m", "wsgidav.server.server_cli",
