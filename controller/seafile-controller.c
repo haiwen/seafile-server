@@ -370,19 +370,35 @@ start_seafdav() {
     char port[16];
     snprintf (port, sizeof(port), "%d", conf.port);
 
-    char *argv[] = {
-        (char *)get_python_executable(),
-        "-m", "wsgidav.server.server_cli",
-        "--server", "gunicorn",
-        "--root", "/",
-        "--log-file", seafdav_log_file, 
-        "--pid", ctl->pidfile[PID_SEAFDAV],
-        "--port", port,
-        "--host", conf.host,
-        NULL
-    };
-
-    int pid = spawn_process (argv, true);
+    int pid;
+    if (ctr->seafdav_conf->debug_mode) {
+        char *argv[] = {
+            (char *)get_python_executable(),
+            "-m", "wsgidav.server.server_cli",
+            "--server", "gunicorn",
+            "--root", "/",
+            "--log-file", seafdav_log_file, 
+            "--pid", ctl->pidfile[PID_SEAFDAV],
+            "--port", port,
+            "--host", conf.host,
+            "-v",
+            NULL
+        };
+        pid = spawn_process (argv, true);
+    } else {
+        char *argv[] = {
+            (char *)get_python_executable(),
+            "-m", "wsgidav.server.server_cli",
+            "--server", "gunicorn",
+            "--root", "/",
+            "--log-file", seafdav_log_file, 
+            "--pid", ctl->pidfile[PID_SEAFDAV],
+            "--port", port,
+            "--host", conf.host,
+            NULL
+        };
+        pid = spawn_process (argv, true);
+    }
 
     if (pid <= 0) {
         seaf_warning ("Failed to spawn seafdav\n");
@@ -776,6 +792,15 @@ read_seafdav_config()
             seaf_message ("Error when reading WEBDAV.port, use deafult value 8080\n");
         }
         ctl->seafdav_config.port = 8080;
+        g_clear_error (&error);
+    }
+
+    ctl->seafdav_config.debug_mode = g_key_file_get_boolean (key_file, "WEBDAV", "debug", &error);
+    if (error != NULL) {
+        if (error->code != G_KEY_FILE_ERROR_KEY_NOT_FOUND) {
+            seaf_message ("Error when reading WEBDAV.debug, use deafult value FALSE\n");
+        }
+        ctl->seafdav_config.debug_mode = FALSE;
         g_clear_error (&error);
     }
 
