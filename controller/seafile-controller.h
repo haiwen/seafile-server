@@ -35,6 +35,7 @@ typedef struct SeafDavConfig {
     gboolean enabled;
     int port;
     char *host;
+    gboolean debug_mode;
 
 } SeafDavConfig;
 
