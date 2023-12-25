@@ -70,7 +70,7 @@ mysql_db_start (SeafileSession *session)
     unix_socket = seaf_key_file_get_string (session->config, 
                                          "database", "unix_socket", NULL);
 
-    host = seaf_key_file_get_string (session->config, "database", "host", &error);
+    host = seaf_key_file_get_string (session->config, "database", "host", NULL);
     if (!host && !unix_socket) {
         seaf_warning ("DB host not set in config.\n");
         return -1;
@@ -78,22 +78,23 @@ mysql_db_start (SeafileSession *session)
 
     port = g_key_file_get_integer (session->config, "database", "port", &error);
     if (error) {
+        g_clear_error (&error);
         port = MYSQL_DEFAULT_PORT;
     }
 
-    user = seaf_key_file_get_string (session->config, "database", "user", &error);
+    user = seaf_key_file_get_string (session->config, "database", "user", NULL);
     if (!user && !unix_socket) {
         seaf_warning ("DB user not set in config.\n");
         return -1;
     }
 
-    passwd = seaf_key_file_get_string (session->config, "database", "password", &error);
+    passwd = seaf_key_file_get_string (session->config, "database", "password", NULL);
     if (!passwd && !unix_socket) {
         seaf_warning ("DB passwd not set in config.\n");
         return -1;
     }
 
-    db = seaf_key_file_get_string (session->config, "database", "db_name", &error);
+    db = seaf_key_file_get_string (session->config, "database", "db_name", NULL);
     if (!db) {
         seaf_warning ("DB name not set in config.\n");
         return -1;
@@ -117,13 +118,12 @@ mysql_db_start (SeafileSession *session)
     charset = seaf_key_file_get_string (session->config,
                                      "database", "connection_charset", NULL);
 
-    if (error)
-        g_clear_error (&error);
     max_connections = g_key_file_get_integer (session->config,
                                               "database", "max_connections",
                                               &error);
     if (error || max_connections < 0) {
-        g_clear_error (&error);
+        if (error)
+            g_clear_error (&error);
         max_connections = DEFAULT_MAX_CONNECTIONS;
     }
 
@@ -320,7 +320,8 @@ ccnet_init_mysql_database (SeafileSession *session)
                                               &error);
     if (error || max_connections < 0) {
         max_connections = DEFAULT_MAX_CONNECTIONS;
-        g_clear_error (&error);
+        if (error)
+            g_clear_error (&error);
     }
 
     session->ccnet_db = seaf_db_new_mysql (host, port, user, passwd, db, unix_socket, use_ssl, skip_verify, ca_path, charset, max_connections);

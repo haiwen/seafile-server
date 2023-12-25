@@ -849,7 +849,11 @@ mysql_db_get_connection (SeafDB *vdb)
         int pro_type = MYSQL_PROTOCOL_SOCKET;
         mysql_options (db_conn, MYSQL_OPT_PROTOCOL, &pro_type);
         if (!db->user) {
+#ifndef LIBMARIADB
            mysql_options (db_conn, MYSQL_DEFAULT_AUTH, "unix_socket");
+#else
+           mysql_options (db_conn, MARIADB_OPT_UNIXSOCKET, (void *)db->unix_socket);
+#endif
         }
     }
 
