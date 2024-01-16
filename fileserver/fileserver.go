@@ -2,10 +2,13 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,7 +17,7 @@ import (
 	"strings"
 	"syscall"
 
-	_ "github.com/go-sql-driver/mysql"
+	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
@@ -69,7 +72,9 @@ func (f *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
 
 func loadCcnetDB() {
 	ccnetConfPath := filepath.Join(centralDir, "ccnet.conf")
-	config, err := ini.Load(ccnetConfPath)
+	opts := ini.LoadOptions{}
+	opts.SpaceBeforeInlineComment = true
+	config, err := ini.LoadSources(opts, ccnetConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load ccnet.conf: %v", err)
 	}
@@ -86,18 +91,27 @@ func loadCcnetDB() {
 	}
 
 	if strings.EqualFold(dbEngine, "mysql") {
-		if key, err = section.GetKey("HOST"); err != nil {
+		unixSocket := ""
+		if key, err = section.GetKey("UNIX_SOCKET"); err == nil {
+			unixSocket = key.String()
+		}
+		host := ""
+		if key, err = section.GetKey("HOST"); err == nil {
+			host = key.String()
+		} else if unixSocket == "" {
 			log.Fatal("No database host in ccnet.conf.")
 		}
-		host := key.String()
+		// user is required.
 		if key, err = section.GetKey("USER"); err != nil {
 			log.Fatal("No database user in ccnet.conf.")
 		}
 		user := key.String()
-		if key, err = section.GetKey("PASSWD"); err != nil {
+		password := ""
+		if key, err = section.GetKey("PASSWD"); err == nil {
+			password = key.String()
+		} else if unixSocket == "" {
 			log.Fatal("No database password in ccnet.conf.")
 		}
-		password := key.String()
 		if key, err = section.GetKey("DB"); err != nil {
 			log.Fatal("No database db_name in ccnet.conf.")
 		}
@@ -106,17 +120,28 @@ func loadCcnetDB() {
 		if key, err = section.GetKey("PORT"); err == nil {
 			port, _ = key.Int()
 		}
-		unixSocket := ""
-		if key, err = section.GetKey("UNIX_SOCKET"); err == nil {
-			unixSocket = key.String()
-		}
 		useTLS := false
 		if key, err = section.GetKey("USE_SSL"); err == nil {
 			useTLS, _ = key.Bool()
 		}
+		skipVerify := false
+		if key, err = section.GetKey("SKIP_VERIFY"); err == nil {
+			skipVerify, _ = key.Bool()
+		}
 		var dsn string
 		if unixSocket == "" {
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+			if useTLS && skipVerify {
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify", user, password, host, port, dbName)
+			} else if useTLS && !skipVerify {
+				capath := ""
+				if key, err = section.GetKey("CA_PATH"); err == nil {
+					capath = key.String()
+				}
+				registerCA(capath)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom", user, password, host, port, dbName)
+			} else {
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+			}
 		} else {
 			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
 		}
@@ -135,10 +160,27 @@ func loadCcnetDB() {
 	}
 }
 
+// registerCA registers CA to verify server cert.
+func registerCA(capath string) {
+	rootCertPool := x509.NewCertPool()
+	pem, err := ioutil.ReadFile(capath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if ok := rootCertPool.AppendCertsFromPEM(pem); !ok {
+		log.Fatal("Failed to append PEM.")
+	}
+	mysql.RegisterTLSConfig("custom", &tls.Config{
+		RootCAs: rootCertPool,
+	})
+}
+
 func loadSeafileDB() {
 	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
 
-	config, err := ini.Load(seafileConfPath)
+	opts := ini.LoadOptions{}
+	opts.SpaceBeforeInlineComment = true
+	config, err := ini.LoadSources(opts, seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
 	}
@@ -154,18 +196,28 @@ func loadSeafileDB() {
 		dbEngine = key.String()
 	}
 	if strings.EqualFold(dbEngine, "mysql") {
-		if key, err = section.GetKey("host"); err != nil {
+		unixSocket := ""
+		if key, err = section.GetKey("unix_socket"); err == nil {
+			unixSocket = key.String()
+		}
+		host := ""
+		if key, err = section.GetKey("host"); err == nil {
+			host = key.String()
+		} else if unixSocket == "" {
 			log.Fatal("No database host in seafile.conf.")
 		}
-		host := key.String()
+		// user is required.
 		if key, err = section.GetKey("user"); err != nil {
 			log.Fatal("No database user in seafile.conf.")
 		}
 		user := key.String()
-		if key, err = section.GetKey("password"); err != nil {
+
+		password := ""
+		if key, err = section.GetKey("password"); err == nil {
+			password = key.String()
+		} else if unixSocket == "" {
 			log.Fatal("No database password in seafile.conf.")
 		}
-		password := key.String()
 		if key, err = section.GetKey("db_name"); err != nil {
 			log.Fatal("No database db_name in seafile.conf.")
 		}
@@ -174,18 +226,29 @@ func loadSeafileDB() {
 		if key, err = section.GetKey("port"); err == nil {
 			port, _ = key.Int()
 		}
-		unixSocket := ""
-		if key, err = section.GetKey("unix_socket"); err == nil {
-			unixSocket = key.String()
-		}
 		useTLS := false
 		if key, err = section.GetKey("use_ssl"); err == nil {
 			useTLS, _ = key.Bool()
 		}
+		skipVerify := false
+		if key, err = section.GetKey("skip_verify"); err == nil {
+			skipVerify, _ = key.Bool()
+		}
 
 		var dsn string
 		if unixSocket == "" {
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+			if useTLS && skipVerify {
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify", user, password, host, port, dbName)
+			} else if useTLS && !skipVerify {
+				capath := ""
+				if key, err = section.GetKey("ca_path"); err == nil {
+					capath = key.String()
+				}
+				registerCA(capath)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom", user, password, host, port, dbName)
+			} else {
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+			}
 		} else {
 			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
 		}

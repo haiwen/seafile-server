@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -38,14 +39,16 @@ func init() {
 func loadNotifConfig() {
 	notifyConfPath := filepath.Join(configDir, "seafile.conf")
 
-	config, err := ini.Load(notifyConfPath)
+	opts := ini.LoadOptions{}
+	opts.SpaceBeforeInlineComment = true
+	config, err := ini.LoadSources(opts, notifyConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load notification.conf: %v", err)
 	}
 
 	section, err := config.GetSection("notification")
 	if err != nil {
-		log.Fatal("No general section in seafile.conf.")
+		log.Fatal("No notification section in seafile.conf.")
 	}
 
 	host = "0.0.0.0"
@@ -101,18 +104,28 @@ func loadCcnetDB() {
 		log.Fatalf("Unsupported database %s.", dbEngine)
 	}
 
-	if key, err = section.GetKey("HOST"); err != nil {
+	unixSocket := ""
+	if key, err = section.GetKey("UNIX_SOCKET"); err == nil {
+		unixSocket = key.String()
+	}
+
+	host := ""
+	if key, err = section.GetKey("HOST"); err == nil {
+		host = key.String()
+	} else if unixSocket == "" {
 		log.Fatal("No database host in ccnet.conf.")
 	}
-	host := key.String()
+	// user is required.
 	if key, err = section.GetKey("USER"); err != nil {
 		log.Fatal("No database user in ccnet.conf.")
 	}
 	user := key.String()
-	if key, err = section.GetKey("PASSWD"); err != nil {
+	password := ""
+	if key, err = section.GetKey("PASSWD"); err == nil {
+		password = key.String()
+	} else if unixSocket == "" {
 		log.Fatal("No database password in ccnet.conf.")
 	}
-	password := key.String()
 	if key, err = section.GetKey("DB"); err != nil {
 		log.Fatal("No database db_name in ccnet.conf.")
 	}
@@ -120,10 +133,6 @@ func loadCcnetDB() {
 	port := 3306
 	if key, err = section.GetKey("PORT"); err == nil {
 		port, _ = key.Int()
-	}
-	unixSocket := ""
-	if key, err = section.GetKey("UNIX_SOCKET"); err == nil {
-		unixSocket = key.String()
 	}
 	useTLS := false
 	if key, err = section.GetKey("USE_SSL"); err == nil {
@@ -175,6 +184,15 @@ func main() {
 		log.SetOutput(fp)
 	}
 
+	if absLogFile != "" {
+		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification_server_error.log")
+		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("Failed to open or create error log file: %v", err)
+		}
+		syscall.Dup3(int(fp.Fd()), int(os.Stderr.Fd()), 0)
+	}
+
 	loadNotifConfig()
 	loadCcnetDB()
 
@@ -205,11 +223,9 @@ func messageCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	upgrader := newUpgrader()
 	conn, err := upgrader.Upgrade(rsp, r, nil)
 	if err != nil {
-		err := fmt.Errorf("failed to upgrade http to websocket: %v", err)
-		return &appError{Error: err,
-			Message: "",
-			Code:    http.StatusInternalServerError,
-		}
+		log.Warnf("failed to upgrade http to websocket: %v", err)
+		// Don't return eror here, because the upgrade fails, then Upgrade replies to the client with an HTTP error response.
+		return nil
 	}
 
 	addr := r.Header.Get("x-forwarded-for")

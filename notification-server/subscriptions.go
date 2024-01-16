@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dgraph-io/ristretto/z"
 	"github.com/gorilla/websocket"
 )
 
@@ -44,9 +45,8 @@ type Client struct {
 	Repos      map[string]int64
 	ReposMutex sync.Mutex
 	// Alive is the last time received pong.
-	Alive time.Time
-	// ConnClosed indicates whether the client's connection has been closed
-	ConnClosed bool
+	Alive      time.Time
+	ConnCloser *z.Closer
 	// Addr is the address of client.
 	Addr string
 	// User is the user of client.
@@ -75,6 +75,7 @@ func NewClient(conn *websocket.Conn, addr string) *Client {
 	client.Repos = make(map[string]int64)
 	client.Alive = time.Now()
 	client.Addr = addr
+	client.ConnCloser = z.NewCloser(0)
 
 	return client
 }

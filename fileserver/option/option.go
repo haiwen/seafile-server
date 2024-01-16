@@ -80,7 +80,9 @@ func LoadFileServerOptions(centralDir string) {
 
 	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
 
-	config, err := ini.Load(seafileConfPath)
+	opts := ini.LoadOptions{}
+	opts.SpaceBeforeInlineComment = true
+	config, err := ini.LoadSources(opts, seafileConfPath)
 	if err != nil {
 		log.Fatalf("Failed to load seafile.conf: %v", err)
 	}

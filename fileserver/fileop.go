@@ -1472,6 +1472,11 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 
 	canonPath := getCanonPath(parentDir)
 
+	if !replace && checkFilesWithSameName(repo, canonPath, fileNames) {
+		msg := "Too many files with same name.\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
 	for _, fileName := range fileNames {
 		if shouldIgnoreFile(fileName) {
 			msg := fmt.Sprintf("invalid fileName: %s.\n", fileName)
@@ -1556,6 +1561,26 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 	}
 
 	return nil
+}
+
+func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []string) bool {
+	commit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
+	if err != nil {
+		return false
+	}
+	dir, err := fsmgr.GetSeafdirByPath(repo.StoreID, commit.RootID, canonPath)
+	if err != nil {
+		return false
+	}
+
+	for _, name := range fileNames {
+		uniqueName := genUniqueName(name, dir.Entries)
+		if uniqueName == "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64) (string, error) {
@@ -1673,6 +1698,8 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	}
 	var commitID string
 
+	maxRetryCnt := 10
+
 	for {
 		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, &commitID)
 		if err != nil {
@@ -1685,8 +1712,9 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 			return "", ErrConflict
 		}
 
-		if retryCnt < 3 {
-			random := rand.Intn(10) + 1
+		if retryCnt < maxRetryCnt {
+			/* Sleep random time between 0 and 3 seconds. */
+			random := rand.Intn(30) + 1
 			time.Sleep(time.Duration(random*100) * time.Millisecond)
 			repo = repomgr.Get(repoID)
 			if repo == nil {
@@ -1695,7 +1723,7 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 			}
 			retryCnt++
 		} else {
-			err := fmt.Errorf("stop updating repo %s after 3 retries", repoID)
+			err := fmt.Errorf("stop updating repo %s after %d retries", repoID, maxRetryCnt)
 			return "", err
 		}
 	}

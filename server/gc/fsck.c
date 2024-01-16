@@ -262,6 +262,8 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
             if (seaf_dir_save (mgr, store_id, version, new_dir) < 0) {
                 seaf_warning ("Repo[%.8s] failed to save dir\n", fsck_data->repo->id);
                 seaf_dir_free (new_dir);
+                // dir->entries was taken by new_dir, which has been freed.
+                dir->entries = NULL;
                 goto out;
             }
         }
@@ -582,7 +584,7 @@ out:
     }
     g_list_free (commit_list);
 
-    if (!repo->head) {
+    if (!repo || !repo->head) {
         seaf_warning("No available commits found for repo %.8s, can't be repaired.\n",
                      repo_id);
         seaf_repo_unref (repo);
