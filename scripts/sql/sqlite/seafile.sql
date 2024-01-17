@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS RepoValidSince (repo_id CHAR(37) PRIMARY KEY, timesta
 CREATE TABLE IF NOT EXISTS WebAP (repo_id CHAR(37) PRIMARY KEY, access_property CHAR(10));
 CREATE TABLE IF NOT EXISTS VirtualRepo (repo_id CHAR(36) PRIMARY KEY, origin_repo CHAR(36), path TEXT, base_commit CHAR(40));
 CREATE INDEX IF NOT EXISTS virtualrepo_origin_repo_idx ON VirtualRepo (origin_repo);
+CREATE INDEX IF NOT EXISTS virtualrepo_unique_idx ON VirtualRepo (origin_repo, path);
 CREATE TABLE IF NOT EXISTS GarbageRepos (repo_id CHAR(36) PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS RepoTrash (repo_id CHAR(36) PRIMARY KEY, repo_name VARCHAR(255), head_id CHAR(40), owner_id VARCHAR(255), size BIGINT UNSIGNED, org_id INTEGER, del_time BIGINT);
 CREATE INDEX IF NOT EXISTS repotrash_owner_id_idx ON RepoTrash(owner_id);
