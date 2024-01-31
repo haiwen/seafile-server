@@ -2508,6 +2508,11 @@ get_jwt_token_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
+    if (!seaf->notif_mgr) {
+        evhtp_send_reply (req, EVHTP_RES_NOTFOUND);
+        goto out;
+    }
+
     jwt_token = gen_jwt_token (repo_id, username);
     if (!jwt_token) {
         seaf_warning ("Failed to gen jwt token for repo %s\n", repo_id);
