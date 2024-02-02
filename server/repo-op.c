@@ -3491,6 +3491,26 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
     }
 
     gboolean is_virtual_origin = is_virtual_repo_and_origin (src_repo, dst_repo);
+    // Check if moving files to subdir.
+    if (src_repo == dst_repo && !is_virtual_origin) {
+        char *src_dirent_path = NULL;
+        int len;
+        for (ptr = src_names; ptr; ptr = ptr->next) {
+            name = ptr->data;
+            src_dirent_path = g_build_path ("/", src_path, name, "/", NULL);
+            len = strlen(src_dirent_path);
+            if (strncmp (dst_path, src_dirent_path, len) == 0) {
+                g_free (src_dirent_path);
+                ret = -1;
+                seaf_warning ("[move files] Can not move directory to its subdirectory");
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                             "Can not move directory to its subdirectory");
+                goto out;
+            }
+            g_free (src_dirent_path);
+        }
+    }
+
     if (src_repo == dst_repo || is_virtual_origin) {
         /* get src dirents */
 
