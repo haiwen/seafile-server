@@ -5,6 +5,7 @@ enum {
     SEAF_DB_TYPE_SQLITE,
     SEAF_DB_TYPE_MYSQL,
     SEAF_DB_TYPE_PGSQL,
+    SEAF_DB_TYPE_DM,
 };
 
 typedef struct SeafDB SeafDB;
@@ -43,6 +44,12 @@ seaf_db_new_pgsql (const char *host,
 
 SeafDB *
 seaf_db_new_sqlite (const char *db_path, int max_connections);
+
+SeafDB *
+seaf_db_new_dm (const char *user,
+                const char *passwd,
+                const char *db_name,
+                int max_connections);
 
 int
 seaf_db_type (SeafDB *db);

@@ -470,7 +470,7 @@ schedule_create_system_default_repo (SeafileSession *session)
     int db_type = seaf_db_type (session->db);
     char *sql;
 
-    if (db_type == SEAF_DB_TYPE_MYSQL)
+    if (db_type == SEAF_DB_TYPE_MYSQL || db_type == SEAF_DB_TYPE_DM)
         sql = "CREATE TABLE IF NOT EXISTS SystemInfo "
         "(id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
         "info_key VARCHAR(256), info_value VARCHAR(1024))";

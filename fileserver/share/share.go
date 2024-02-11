@@ -25,13 +25,15 @@ var ccnetDB *sql.DB
 var seafileDB *sql.DB
 var groupTableName string
 var cloudMode bool
+var dbType string
 
 // Init ccnetDB, seafileDB, groupTableName, cloudMode
-func Init(cnDB *sql.DB, seafDB *sql.DB, grpTableName string, clMode bool) {
+func Init(cnDB *sql.DB, seafDB *sql.DB, grpTableName string, clMode bool, dType string) {
 	ccnetDB = cnDB
 	seafileDB = seafDB
 	groupTableName = grpTableName
 	cloudMode = clMode
+	dbType = dType
 }
 
 // CheckPerm get user's repo permission
@@ -95,9 +97,15 @@ func getUserGroups(sqlStr string, args ...interface{}) ([]group, error) {
 }
 
 func getGroupsByUser(userName string, returnAncestors bool) ([]group, error) {
+	tableName := ""
+	if strings.EqualFold(dbType, "mysql") {
+		tableName = fmt.Sprintf("`%s`", groupTableName)
+	} else {
+		tableName = fmt.Sprintf("\"%s\"", groupTableName)
+	}
 	sqlStr := fmt.Sprintf("SELECT g.group_id, group_name, creator_name, timestamp, parent_group_id FROM "+
-		"`%s` g, GroupUser u WHERE g.group_id = u.group_id AND user_name=? ORDER BY g.group_id DESC",
-		groupTableName)
+		"%s g, GroupUser u WHERE g.group_id = u.group_id AND user_name=? ORDER BY g.group_id DESC",
+		tableName)
 	groups, err := getUserGroups(sqlStr, userName)
 	if err != nil {
 		err := fmt.Errorf("Failed to get groups by user %s: %v", userName, err)
@@ -135,8 +143,8 @@ func getGroupsByUser(userName string, returnAncestors bool) ([]group, error) {
 		}
 
 		sqlStr = fmt.Sprintf("SELECT g.group_id, group_name, creator_name, timestamp, parent_group_id FROM "+
-			"`%s` g WHERE g.group_id IN (%s) ORDER BY g.group_id DESC",
-			groupTableName, paths)
+			"%s g WHERE g.group_id IN (%s) ORDER BY g.group_id DESC",
+			tableName, paths)
 		groups, err := getUserGroups(sqlStr)
 		if err != nil {
 			return nil, err

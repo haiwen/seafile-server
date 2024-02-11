@@ -123,3 +123,6 @@ def test_repo_manipulation():
     api.remove_repo(t_repo_id)
     t_repo = api.get_repo(t_repo_id)
     assert t_repo == None
+    api.remove_repo(t_enc_repo_id)
+    t_enc_repo = api.get_repo(t_enc_repo_id)
+    assert t_enc_repo == None

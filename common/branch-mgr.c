@@ -141,6 +141,13 @@ open_db (SeafBranchManager *mgr)
 
     char *sql;
     switch (seaf_db_type (mgr->seaf->db)) {
+    case SEAF_DB_TYPE_DM:
+        sql = "CREATE TABLE IF NOT EXISTS Branch ("
+            "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
+            "name VARCHAR(10), repo_id VARCHAR(41), commit_id VARCHAR(41))";
+        if (seaf_db_query (mgr->seaf->db, sql) < 0)
+            return -1;
+        break;
     case SEAF_DB_TYPE_MYSQL:
         sql = "CREATE TABLE IF NOT EXISTS Branch ("
             "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
@@ -200,7 +207,7 @@ seaf_branch_manager_add_branch (SeafBranchManager *mgr, SeafBranch *branch)
     char *sql;
     SeafDB *db = mgr->seaf->db;
 
-    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
+    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL || seaf_db_type(db) == SEAF_DB_TYPE_DM) {
         gboolean exists, err;
         int rc;
 
@@ -382,6 +389,7 @@ seaf_branch_manager_test_and_update_branch (SeafBranchManager *mgr,
     switch (seaf_db_type (mgr->seaf->db)) {
     case SEAF_DB_TYPE_MYSQL:
     case SEAF_DB_TYPE_PGSQL:
+    case SEAF_DB_TYPE_DM:
         sql = "SELECT commit_id FROM Branch WHERE name=? "
             "AND repo_id=? FOR UPDATE";
         break;
