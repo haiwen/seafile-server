@@ -12,7 +12,7 @@ sudo systemctl start mysql.service
 sudo apt-get update
 sudo apt-get install -y intltool libarchive-dev libcurl4-openssl-dev libevent-dev \
 libfuse-dev libglib2.0-dev libjansson-dev libmysqlclient-dev libonig-dev \
-sqlite3 libsqlite3-dev libtool net-tools uuid-dev valac
+sqlite3 libsqlite3-dev libtool net-tools uuid-dev valac libargon2-dev
 sudo systemctl start mysql.service
 
 pip install -r requirements.txt

@@ -36,11 +36,12 @@ seaf_fuse_SOURCES = seaf-fuse.c \
                     ../common/obj-store.c \
                     ../common/obj-backend-fs.c \
                     ../common/obj-backend-riak.c \
-                    ../common/seafile-crypt.c
+                    ../common/seafile-crypt.c \
+                    ../common/password-hash.c
 
 seaf_fuse_LDADD = @GLIB2_LIBS@ @GOBJECT_LIBS@ @SSL_LIBS@ @LIB_RT@ @LIB_UUID@ \
                   -lsqlite3 @LIBEVENT_LIBS@ \
 		  $(top_builddir)/common/cdc/libcdc.la \
 		  @SEARPC_LIBS@ @JANSSON_LIBS@ @FUSE_LIBS@ @ZLIB_LIBS@ \
-		  @LDAP_LIBS@ @MYSQL_LIBS@ -lsqlite3
+		  @LDAP_LIBS@ @MYSQL_LIBS@ -lsqlite3 @ARGON2_LIBS@
 

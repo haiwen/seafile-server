@@ -36,6 +36,7 @@ common_sources = \
 	../../common/obj-store.c \
 	../../common/obj-backend-fs.c \
 	../../common/seafile-crypt.c \
+	../../common/password-hash.c \
 	../../common/config-mgr.c
 
 seafserv_gc_SOURCES = \
@@ -48,7 +49,7 @@ seafserv_gc_LDADD = $(top_builddir)/common/cdc/libcdc.la \
 	$(top_builddir)/lib/libseafile_common.la \
 	@GLIB2_LIBS@ @GOBJECT_LIBS@ @SSL_LIBS@ @LIB_RT@ @LIB_UUID@ -lsqlite3 @LIBEVENT_LIBS@ \
 	@SEARPC_LIBS@ @JANSSON_LIBS@ ${LIB_WS32} @ZLIB_LIBS@ \
-	@MYSQL_LIBS@ -lsqlite3
+	@MYSQL_LIBS@ -lsqlite3 @ARGON2_LIBS@
 
 seaf_fsck_SOURCES = \
 	seaf-fsck.c \
@@ -59,4 +60,4 @@ seaf_fsck_LDADD = $(top_builddir)/common/cdc/libcdc.la \
 	$(top_builddir)/lib/libseafile_common.la \
 	@GLIB2_LIBS@ @GOBJECT_LIBS@ @SSL_LIBS@ @LIB_RT@ @LIB_UUID@ -lsqlite3 @LIBEVENT_LIBS@ \
 	@SEARPC_LIBS@ @JANSSON_LIBS@ ${LIB_WS32} @ZLIB_LIBS@ \
-	@MYSQL_LIBS@ -lsqlite3
+	@MYSQL_LIBS@ -lsqlite3 @ARGON2_LIBS@

@@ -11,8 +11,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     create_repo = seafile_create_repo
 
-    @searpc_func("string", ["string", "string", "string", "string", "string", "string", "string", "int"])
-    def seafile_create_enc_repo(repo_id, name, desc, owner_email, magic, random_key, salt, enc_version):
+    @searpc_func("string", ["string", "string", "string", "string", "string", "string", "string", "int", "string", "string", "string"])
+    def seafile_create_enc_repo(repo_id, name, desc, owner_email, magic, random_key, salt, enc_version, pwd_hash, pwd_hash_algo, pwd_hash_params):
         pass
     create_enc_repo = seafile_create_enc_repo
 
@@ -665,8 +665,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def empty_repo_trash_by_owner(owner):
         pass
 
-    @searpc_func("object", ["int", "string", "string"])
-    def generate_magic_and_random_key(enc_version, repo_id, password):
+    @searpc_func("object", ["int", "string", "string", "string", "string"])
+    def generate_magic_and_random_key(enc_version, repo_id, password, pwd_hash_algo, pwd_hash_params):
         pass
 
     @searpc_func("int64", [])

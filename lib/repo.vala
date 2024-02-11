@@ -56,6 +56,9 @@ public class Repo : Object {
     public int enc_version { get; set; }
     public string random_key { get; set; }
     public string salt { get; set; }
+    public string pwd_hash { get; set; }
+    public string pwd_hash_algo { get; set; }
+    public string pwd_hash_params { get; set; }
 
     // Section 3: Client only information
     // Should be set for all client repo objects
@@ -202,6 +205,9 @@ public class EncryptionInfo: Object {
     public string magic { get; set; }
     public string random_key { get; set; }
     public string salt { get; set; }
+    public string pwd_hash { get; set; }
+    public string pwd_hash_algo { get; set; }
+    public string pwd_hash_params { get; set; }
 }
 
 public class UserQuotaUsage: Object {

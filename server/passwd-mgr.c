@@ -126,7 +126,9 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
     }
 
     if (seafile_verify_repo_passwd (repo->id, passwd,
-                                    repo->magic, repo->enc_version, repo->salt) < 0) {
+                                    repo->magic,
+                                    repo->enc_version, repo->salt,
+                                    repo->pwd_hash, repo->pwd_hash_algo, repo->pwd_hash_params) < 0) {
         seaf_repo_unref (repo);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Incorrect password");
@@ -143,6 +145,7 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
     }
 
     if (seafile_decrypt_repo_enc_key (repo->enc_version, passwd, repo->random_key, repo->salt,
+                                      repo->pwd_hash_algo, repo->pwd_hash_params,
                                       crypt_key->key, crypt_key->iv) < 0) {
         seaf_repo_unref (repo);
         g_free (crypt_key);
