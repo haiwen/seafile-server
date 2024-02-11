@@ -42,6 +42,7 @@ type Repo struct {
 	Magic       string
 	RandomKey   string
 	Salt        string
+	KeyIter     int
 	Version     int
 }
 
@@ -145,6 +146,11 @@ func Get(id string) *Repo {
 			repo.Magic = commit.Magic
 			repo.RandomKey = commit.RandomKey
 			repo.Salt = commit.Salt
+		} else if repo.EncVersion == 5 {
+			repo.Magic = commit.Magic
+			repo.RandomKey = commit.RandomKey
+			repo.Salt = commit.Salt
+			repo.KeyIter = commit.KeyIter
 		}
 	}
 
@@ -171,6 +177,11 @@ func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
 			commit.Magic = repo.Magic
 			commit.RandomKey = repo.RandomKey
 			commit.Salt = repo.Salt
+		} else if repo.EncVersion == 5 {
+			commit.Magic = repo.Magic
+			commit.RandomKey = repo.RandomKey
+			commit.Salt = repo.Salt
+			commit.KeyIter = repo.KeyIter
 		}
 	} else {
 		commit.Encrypted = "false"

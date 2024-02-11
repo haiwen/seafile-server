@@ -85,7 +85,7 @@ do_create_virtual_repo (SeafRepoManager *mgr,
         repo->enc_version = origin_repo->enc_version;
         if (repo->enc_version >= 3)
             memcpy (repo->salt, origin_repo->salt, 64);
-        seafile_generate_magic (repo->enc_version, repo_id, passwd, repo->salt, repo->magic);
+        seafile_generate_magic (repo->enc_version, repo_id, passwd, repo->salt, repo->magic, repo->key_iter);
         if (repo->enc_version >= 2)
             memcpy (repo->random_key, origin_repo->random_key, 96);
     }
@@ -224,7 +224,8 @@ create_virtual_repo_common (SeafRepoManager *mgr,
                                         passwd,
                                         origin_repo->magic,
                                         origin_repo->enc_version,
-                                        origin_repo->salt) < 0) {
+                                        origin_repo->salt,
+                                        origin_repo->key_iter) < 0) {
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                          "Incorrect password");
             seaf_repo_unref (origin_repo);

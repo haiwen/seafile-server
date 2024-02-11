@@ -36,6 +36,7 @@ type Commit struct {
 	Magic          string `json:"magic,omitempty"`
 	RandomKey      string `json:"key,omitempty"`
 	Salt           string `json:"salt,omitempty"`
+	KeyIter        int    `json:"key_iter,omitempty"`
 	Version        int    `json:"version,omitempty"`
 	Conflict       int    `json:"conflict,omitempty"`
 	NewMerge       int    `json:"new_merge,omitempty"`

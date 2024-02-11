@@ -89,8 +89,8 @@ class SeafileAPI(object):
     def create_repo(self, name, desc, username, passwd=None, enc_version=2, storage_id=None):
         return seafserv_threaded_rpc.create_repo(name, desc, username, passwd, enc_version)
 
-    def create_enc_repo(self, repo_id, name, desc, username, magic, random_key, salt, enc_version):
-        return seafserv_threaded_rpc.create_enc_repo(repo_id, name, desc, username, magic, random_key, salt, enc_version)
+    def create_enc_repo(self, repo_id, name, desc, username, magic, random_key, salt, enc_version, key_iter=1000):
+        return seafserv_threaded_rpc.create_enc_repo(repo_id, name, desc, username, magic, random_key, salt, enc_version, key_iter)
 
     def get_repos_by_id_prefix(self, id_prefix, start=-1, limit=-1):
         """

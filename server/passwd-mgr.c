@@ -118,7 +118,7 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
         return -1;
     }
 
-    if (repo->enc_version != 1 && repo->enc_version != 2 && repo->enc_version != 3 && repo->enc_version != 4) {
+    if (repo->enc_version != 1 && repo->enc_version != 2 && repo->enc_version != 3 && repo->enc_version != 4 && repo->enc_version != 5) {
         seaf_repo_unref (repo);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                      "Unsupported encryption version");
@@ -126,7 +126,7 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
     }
 
     if (seafile_verify_repo_passwd (repo->id, passwd,
-                                    repo->magic, repo->enc_version, repo->salt) < 0) {
+                                    repo->magic, repo->enc_version, repo->salt, repo->key_iter) < 0) {
         seaf_repo_unref (repo);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Incorrect password");
@@ -143,6 +143,7 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
     }
 
     if (seafile_decrypt_repo_enc_key (repo->enc_version, passwd, repo->random_key, repo->salt,
+                                      repo->key_iter,
                                       crypt_key->key, crypt_key->iv) < 0) {
         seaf_repo_unref (repo);
         g_free (crypt_key);

@@ -127,6 +127,14 @@ seafile_session_new(const char *central_config_dir,
         g_free (type);
     }
 
+    session->key_iter = g_key_file_get_integer (config,
+                                                "general", "pbkdf2_iter_times",
+                                                NULL);
+    if (session->key_iter <= 0) {
+        session->key_iter = 1000;
+    }
+
+
     notif_enabled = g_key_file_get_boolean (config,
                                             "notification", "enabled",
                                             NULL);
