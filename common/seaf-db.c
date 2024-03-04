@@ -845,6 +845,18 @@ mysql_db_get_connection (SeafDB *vdb)
     if (db->charset)
         mysql_options(db_conn, MYSQL_SET_CHARSET_NAME, db->charset);
 
+    if (db->unix_socket) {
+        int pro_type = MYSQL_PROTOCOL_SOCKET;
+        mysql_options (db_conn, MYSQL_OPT_PROTOCOL, &pro_type);
+        if (!db->user) {
+#ifndef LIBMARIADB
+           mysql_options (db_conn, MYSQL_DEFAULT_AUTH, "unix_socket");
+#else
+           mysql_options (db_conn, MARIADB_OPT_UNIXSOCKET, (void *)db->unix_socket);
+#endif
+        }
+    }
+
     mysql_options(db_conn, MYSQL_OPT_CONNECT_TIMEOUT, (const char*)&conn_timeout);
     mysql_options(db_conn, MYSQL_OPT_READ_TIMEOUT, (const char*)&read_write_timeout);
     mysql_options(db_conn, MYSQL_OPT_WRITE_TIMEOUT, (const char*)&read_write_timeout);

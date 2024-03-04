@@ -728,8 +728,7 @@ func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	repoID := vars["repoid"]
 
 	if !option.EnableNotification {
-		err := fmt.Errorf("notification server is not enabled")
-		return &appError{err, "", http.StatusInternalServerError}
+		return &appError{nil, "", http.StatusNotFound}
 	}
 
 	user, appErr := validateToken(r, repoID, false)

@@ -1472,6 +1472,11 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 
 	canonPath := getCanonPath(parentDir)
 
+	if !replace && checkFilesWithSameName(repo, canonPath, fileNames) {
+		msg := "Too many files with same name.\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
 	for _, fileName := range fileNames {
 		if shouldIgnoreFile(fileName) {
 			msg := fmt.Sprintf("invalid fileName: %s.\n", fileName)
@@ -1556,6 +1561,26 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 	}
 
 	return nil
+}
+
+func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []string) bool {
+	commit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
+	if err != nil {
+		return false
+	}
+	dir, err := fsmgr.GetSeafdirByPath(repo.StoreID, commit.RootID, canonPath)
+	if err != nil {
+		return false
+	}
+
+	for _, name := range fileNames {
+		uniqueName := genUniqueName(name, dir.Entries)
+		if uniqueName == "" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64) (string, error) {

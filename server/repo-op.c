@@ -1018,6 +1018,47 @@ format_json_ret (GList *name_list, GList *id_list, GList *size_list)
     return ret;
 }
 
+static gboolean
+check_files_with_same_name (SeafRepo *repo, const char *parent_dir, GList *filenames)
+{
+    char *canon_path = NULL;
+    SeafCommit *commit = NULL;
+    SeafDir *dir = NULL;
+    GError *error = NULL;
+    gboolean ret = FALSE;
+
+    GET_COMMIT_OR_FAIL(commit, repo->id, repo->version, repo->head->commit_id);
+
+    canon_path = get_canonical_path (parent_dir);
+
+    dir = seaf_fs_manager_get_seafdir_by_path (seaf->fs_mgr,
+                                               repo->store_id, repo->version,
+                                               commit->root_id,
+                                               canon_path, &error);
+    if (!dir) {
+        goto out;
+    }
+
+    GList *ptr;
+    for (ptr = filenames; ptr; ptr = ptr->next) {
+        char *name = ptr->data;
+        char *unique_name = NULL;
+        unique_name = generate_unique_filename (name, dir->entries);
+        if (!unique_name) {
+            ret = TRUE;
+            goto out;
+        }
+        g_free (unique_name);
+    }
+out:
+    g_clear_error (&error);
+    g_free (canon_path);
+    seaf_dir_free (dir);
+    seaf_commit_unref (commit);
+
+    return ret;
+}
+
 int
 seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                     const char *repo_id,
@@ -1049,6 +1090,13 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
     if (!filenames || !paths) {
         seaf_debug ("[post files] Invalid filenames or paths.\n");
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid files");
+        ret = -1;
+        goto out;
+    }
+
+    if (!replace_existed && check_files_with_same_name (repo, parent_dir, filenames))  {
+        seaf_debug ("[post files] Too many files with same name.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_FILES_WITH_SAME_NAME, "Too many files with same name");
         ret = -1;
         goto out;
     }
@@ -2707,6 +2755,11 @@ out:
     return res;
 }
 
+static gboolean
+check_move (SeafRepo *src_repo, SeafRepo *dst_repo,
+            const char *src_path, const char *dst_path,
+            GList *src_names);
+
 SeafileCopyResult *
 seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
                                        const char *src_repo_id,
@@ -2770,6 +2823,14 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
     /* copy file within the same repo */
     if (src_repo == dst_repo ||
         is_virtual_repo_and_origin (src_repo, dst_repo)) {
+
+        if (!check_move (src_repo, dst_repo, src_path, dst_path, src_names)) {
+            seaf_warning ("Can not copy directory to its subdirectory");
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "Can not copy directory to its subdirectory");
+            ret = -1;
+            goto out;
+        }
 
         /* get src dirents */
         src_dents = g_new0 (SeafDirent *, file_num);
@@ -3380,6 +3441,44 @@ out:
     return res;
 }
 
+static gboolean
+check_move (SeafRepo *src_repo, SeafRepo *dst_repo,
+            const char *src_path, const char *dst_path,
+            GList *src_names)
+{
+    char *dst_dirent_path =  NULL;
+    int len;
+    gboolean ret = TRUE;
+
+    if (dst_repo->virtual_info) {
+        dst_dirent_path = g_build_path ("/", dst_repo->virtual_info->path, dst_path, NULL);
+    } else {
+        dst_dirent_path = g_strdup (dst_path);
+    }
+
+    GList *ptr;
+    char *src_dirent_path = NULL;
+    char *name;
+    for (ptr = src_names; ptr; ptr = ptr->next) {
+        name = ptr->data;
+        if (src_repo->virtual_info) {
+            src_dirent_path = g_build_path ("/", src_repo->virtual_info->path, src_path, name, "/", NULL);
+        } else {
+            src_dirent_path = g_build_path ("/", src_path, name, "/", NULL);
+        }
+        len = strlen(src_dirent_path);
+        if (strncmp (dst_dirent_path, src_dirent_path, len) == 0) {
+            g_free (src_dirent_path);
+            ret = FALSE;
+            goto out;
+        }
+        g_free (src_dirent_path);
+    }
+out:
+    g_free (dst_dirent_path);
+    return ret;
+}
+
 SeafileCopyResult *
 seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
                                        const char *src_repo_id,
@@ -3445,6 +3544,14 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
     gboolean is_virtual_origin = is_virtual_repo_and_origin (src_repo, dst_repo);
     if (src_repo == dst_repo || is_virtual_origin) {
         /* get src dirents */
+
+        if (!check_move (src_repo, dst_repo, src_path, dst_path, src_names)) {
+            seaf_warning ("Can not move copy directory to its subdirectory");
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "Can not move directory to its subdirectory");
+            ret = -1;
+            goto out;
+        }
 
         src_dents = g_new0 (SeafDirent *, file_num);
         file_sizes = g_new0 (gint64, file_num);

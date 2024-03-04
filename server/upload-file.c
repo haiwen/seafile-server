@@ -584,6 +584,9 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         if (error) {
             if (error->code == POST_FILE_ERR_FILENAME) {
                 error_code = ERROR_FILENAME;
+            } else if (error->code == SEAF_ERR_FILES_WITH_SAME_NAME) {
+                error_code = -1;
+                send_error_reply (req, EVHTP_RES_BADREQ, "Too many files with same name.\n");
             }
             g_clear_error (&error);
         }
@@ -1196,6 +1199,9 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
         if (error) {
             if (error->code == POST_FILE_ERR_FILENAME) {
                 error_code = ERROR_FILENAME;
+            } else if (error->code == SEAF_ERR_FILES_WITH_SAME_NAME) {
+                error_code = -1;
+                send_error_reply (req, EVHTP_RES_BADREQ, "Too many files with same name.\n");
             }
             g_clear_error (&error);
         }

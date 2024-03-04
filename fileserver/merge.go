@@ -161,6 +161,7 @@ func mergeEntries(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt
 				return nil, err
 			}
 			dents[2].Name = conflictName
+			mergedDents = append(mergedDents, head)
 			mergedDents = append(mergedDents, remote)
 			opt.conflict = true
 		}
