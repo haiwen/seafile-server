@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -26,6 +27,7 @@ var logFile, absLogFile string
 var privateKey string
 var host string
 var port uint32
+var logFp *os.File
 
 var ccnetDB *sql.DB
 
@@ -171,6 +173,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to open or create log file: %v", err)
 		}
+		logFp = fp
 		log.SetOutput(fp)
 	} else if logFile != "-" {
 		absLogFile, err = filepath.Abs(logFile)
@@ -181,6 +184,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to open or create log file: %v", err)
 		}
+		logFp = fp
 		log.SetOutput(fp)
 	}
 
@@ -191,12 +195,15 @@ func main() {
 			log.Fatalf("Failed to open or create error log file: %v", err)
 		}
 		syscall.Dup3(int(fp.Fd()), int(os.Stderr.Fd()), 0)
+		fp.Close()
 	}
 
 	loadNotifConfig()
 	loadCcnetDB()
 
 	Init()
+
+	go handleUser1Signal()
 
 	router := newHTTPRouter()
 
@@ -207,6 +214,39 @@ func main() {
 	if err != nil {
 		log.Info("notificationserver exiting: %v", err)
 	}
+}
+
+func handleUser1Signal() {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGUSR1)
+	<-signalChan
+
+	for {
+		select {
+		case <-signalChan:
+			logRotate()
+		}
+	}
+}
+
+func logRotate() {
+	fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("Failed to reopen notification log: %v", err)
+	}
+	log.SetOutput(fp)
+	if logFp != nil {
+		logFp.Close()
+		logFp = fp
+	}
+
+	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification_server_error.log")
+	errFp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("Failed to reopen notification error log: %v", err)
+	}
+	syscall.Dup3(int(errFp.Fd()), int(os.Stderr.Fd()), 0)
+	errFp.Close()
 }
 
 func newHTTPRouter() *mux.Router {
