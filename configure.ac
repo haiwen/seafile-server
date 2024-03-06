@@ -91,10 +91,12 @@ AC_ARG_WITH(mysql,
             [MYSQL_CONFIG=$with_mysql],
 	    [MYSQL_CONFIG="default_mysql_config"])
 
+AC_ARG_ENABLE(httpserver, AC_HELP_STRING([--enable-httpserver], [enable httpserver]),
+   [compile_httpserver=$enableval],[compile_httpserver="yes"])
+
 AM_CONDITIONAL([COMPILE_TOOLS], [test "${compile_tools}" = "yes"])
 AM_CONDITIONAL([COMPILE_PYTHON], [test "${compile_python}" = "yes"])
 AM_CONDITIONAL([COMPILE_FUSE], [test "${compile_fuse}" = "yes"])
-
 AM_CONDITIONAL([WIN32], [test "$bwin32" = "true"])
 AM_CONDITIONAL([MACOS], [test "$bmac" = "true"])
 AM_CONDITIONAL([LINUX], [test "$blinux" = "true"])
@@ -258,6 +260,10 @@ if test "${compile_ldap}" = "yes"; then
    fi
 
 
+fi
+
+if test "${compile_httpserver}" = "yes"; then
+    AC_DEFINE([HAVE_EVHTP], [1], [Define to 1 if httpserver is enabled.])
 fi
 
 PKG_CHECK_MODULES(CURL, [libcurl >= $CURL_REQUIRED])

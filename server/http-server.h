@@ -36,7 +36,9 @@ int
 seaf_http_server_invalidate_tokens (HttpServerStruct *htp_server,
                                     const GList *tokens);
 
+#ifdef HAVE_EVHTP
 void
 send_statistic_msg (const char *repo_id, char *user, char *operation, guint64 bytes);
+#endif
 
 #endif

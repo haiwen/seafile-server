@@ -1,5 +1,6 @@
 #include "common.h"
 
+#ifdef HAVE_EVHTP
 #define DEBUG_FLAG SEAFILE_DEBUG_HTTP
 #include "log.h"
 
@@ -1546,3 +1547,4 @@ access_file_init (evhtp_t *htp)
 
     return 0;
 }
+#endif
