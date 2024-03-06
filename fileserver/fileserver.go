@@ -363,6 +363,7 @@ func main() {
 			log.Fatalf("Failed to open or create error log file: %v", err)
 		}
 		syscall.Dup3(int(fp.Fd()), int(os.Stderr.Fd()), 0)
+		// We need to close the old fp, because it has beed duped.
 		fp.Close()
 	}
 
