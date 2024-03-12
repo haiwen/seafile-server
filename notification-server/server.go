@@ -168,7 +168,7 @@ func main() {
 	}
 
 	if logFile == "" {
-		absLogFile = filepath.Join(configDir, "notification.log")
+		absLogFile = filepath.Join(configDir, "notification-server.log")
 		fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open or create log file: %v", err)
@@ -189,7 +189,7 @@ func main() {
 	}
 
 	if absLogFile != "" {
-		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification_server_error.log")
+		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification-server-error.log")
 		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
 			log.Fatalf("Failed to open or create error log file: %v", err)
@@ -240,7 +240,7 @@ func logRotate() {
 		logFp = fp
 	}
 
-	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification_server_error.log")
+	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification-server-error.log")
 	errFp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		log.Fatalf("Failed to reopen notification error log: %v", err)
