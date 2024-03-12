@@ -1,5 +1,6 @@
 #include "common.h"
 
+#ifdef HAVE_EVHTP
 #include <pthread.h>
 #include <string.h>
 #include <jansson.h>
@@ -12,9 +13,7 @@
 #include <event.h>
 #endif
 
-#ifdef HAVE_EVHTP
 #include <evhtp.h>
-#endif
 
 #include <jwt.h>
 
@@ -63,11 +62,9 @@
 #define FS_ID_LIST_TOKEN_LEN 36
 
 struct _HttpServer {
-#ifdef HAVE_EVHTP
     evbase_t *evbase;
     evhtp_t *evhtp;
     event_t *reap_timer;
-#endif
     pthread_t thread_id;
 
     GHashTable *token_cache;
@@ -295,7 +292,6 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     }
 }
 
-#ifdef HAVE_EVHTP
 static int
 validate_token (HttpServer *htp_server, evhtp_request_t *req,
                 const char *repo_id, char **username,
@@ -2876,7 +2872,6 @@ http_request_init (HttpServerStruct *server)
     if (upload_file_init (priv->evhtp, server->http_temp_dir) < 0)
         exit(-1);
 }
-#endif
 
 static void
 token_cache_value_free (gpointer data)
@@ -2968,7 +2963,6 @@ remove_expire_cache_cb (evutil_socket_t sock, short type, void *data)
 static void *
 http_server_run (void *arg)
 {
-#ifdef HAVE_EVHTP
     HttpServerStruct *server = arg;
     HttpServer *priv = server->priv;
 
@@ -2998,7 +2992,6 @@ http_server_run (void *arg)
 
     event_base_loop (priv->evbase, 0);
 
-#endif
     return NULL;
 }
 
@@ -3008,10 +3001,8 @@ seaf_http_server_new (struct _SeafileSession *session)
     HttpServerStruct *server = g_new0 (HttpServerStruct, 1);
     HttpServer *priv = g_new0 (HttpServer, 1);
 
-#ifdef HAVE_EVHTP
     priv->evbase = NULL;
     priv->evhtp = NULL;
-#endif
 
     load_http_config (server, session);
 
@@ -3163,3 +3154,5 @@ seaf_http_server_invalidate_tokens (HttpServerStruct *htp_server,
     pthread_mutex_unlock (&htp_server->priv->token_cache_lock);
     return 0;
 }
+
+#endif

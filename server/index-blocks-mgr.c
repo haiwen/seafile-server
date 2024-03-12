@@ -74,7 +74,7 @@ index_blocks_mgr_new (SeafileSession *session)
 
     priv->idx_tpool = g_thread_pool_new (start_index_task,
                                          priv,
-                                         session->http_server->max_index_processing_threads,
+                                         session->max_index_processing_threads,
                                          FALSE, &error);
     if (!priv->idx_tpool) {
         if (error) {

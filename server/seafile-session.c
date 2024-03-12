@@ -30,6 +30,67 @@
 
 #define DEFAULT_THREAD_POOL_SIZE 500
 
+#define DEFAULT_FIXED_BLOCK_SIZE ((gint64)1 << 23) /* 8MB */
+
+static void
+load_fileserver_config (SeafileSession *session)
+{
+    int web_token_expire_time;
+    int max_index_processing_threads;
+    int fixed_block_size_mb;
+    int max_indexing_threads;
+
+    session->go_fileserver = g_key_file_get_boolean (session->config,
+                                                     "fileserver", "use_go_fileserver",
+                                                     NULL);
+    if (session->go_fileserver) {
+        char *type = NULL;
+        type = g_key_file_get_string (session->config, "database", "type", NULL);
+        if (!type || g_strcmp0 (type, "mysql") != 0) {
+            session->go_fileserver = FALSE;
+        }
+        g_free (type);
+    }
+
+    web_token_expire_time = g_key_file_get_integer (session->config,
+                                                    "fileserver", "web_token_expire_time",
+                                                    NULL);
+    if (web_token_expire_time <= 0) {
+        session->web_token_expire_time = 3600;
+    } else {
+        session->web_token_expire_time = web_token_expire_time;
+    }
+
+    max_index_processing_threads = g_key_file_get_integer (session->config,
+                                                           "fileserver", "max_index_processing_threads",
+                                                           NULL);
+    if (max_index_processing_threads <= 0) {
+        session->max_index_processing_threads = 3;
+    } else {
+        session->max_index_processing_threads = max_index_processing_threads;
+    }
+
+    fixed_block_size_mb = g_key_file_get_integer (session->config,
+                                                  "fileserver", "fixed_block_size",
+                                                  NULL);
+    if (fixed_block_size_mb <= 0){
+        session->fixed_block_size = DEFAULT_FIXED_BLOCK_SIZE;
+    } else {
+        session->fixed_block_size = fixed_block_size_mb * ((gint64)1 << 20);
+    }
+
+    max_indexing_threads = g_key_file_get_integer (session->config,
+                                                   "fileserver", "max_indexing_threads",
+                                                   NULL);
+    if (max_indexing_threads <= 0) {
+        session->max_indexing_threads = 1;
+    } else {
+        session->max_indexing_threads = max_indexing_threads;
+    }
+
+    return;
+}
+
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
@@ -115,17 +176,7 @@ seafile_session_new(const char *central_config_dir,
                                                   "general", "cloud_mode",
                                                   NULL);
 
-    session->go_fileserver = g_key_file_get_boolean (config,
-                                                     "fileserver", "use_go_fileserver",
-                                                     NULL);
-    if (session->go_fileserver) {
-        char *type = NULL;
-        type = g_key_file_get_string (config, "database", "type", NULL);
-        if (!type || g_strcmp0 (type, "mysql") != 0) {
-            session->go_fileserver = FALSE;
-        }
-        g_free (type);
-    }
+    load_fileserver_config (session);
 
     notif_enabled = g_key_file_get_boolean (config,
                                             "notification", "enabled",
@@ -201,6 +252,7 @@ seafile_session_new(const char *central_config_dir,
     if (!session->mq_mgr)
         goto onerror;
 
+#ifdef HAVE_EVHTP
     session->http_server = seaf_http_server_new (session);
     if (!session->http_server)
         goto onerror;
@@ -208,6 +260,7 @@ seafile_session_new(const char *central_config_dir,
     session->zip_download_mgr = zip_download_mgr_new ();
     if (!session->zip_download_mgr)
         goto onerror;
+#endif
 
     session->index_blocks_mgr = index_blocks_mgr_new (session);
     if (!session->index_blocks_mgr)
@@ -324,10 +377,15 @@ seafile_session_start (SeafileSession *session)
     }
 
     if (!session->go_fileserver) {
+#ifdef HAVE_EVHTP
         if (seaf_http_server_start (session->http_server) < 0) {
             seaf_warning ("Failed to start http server thread.\n");
             return -1;
         }
+#else
+        seaf_warning ("Failed to start http server thread, please use go fileserver.\n");
+        return -1;
+#endif
     }
 
     return 0;

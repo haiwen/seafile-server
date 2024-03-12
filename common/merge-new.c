@@ -1,3 +1,5 @@
+#include "common.h"
+
 #include "seafile-session.h"
 #include "merge-new.h"
 #include "vc-common.h"
