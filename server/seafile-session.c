@@ -61,6 +61,9 @@ load_fileserver_config (SeafileSession *session)
         session->web_token_expire_time = web_token_expire_time;
     }
 
+    seaf_message ("fileserver: web_token_expire_time = %d\n",
+                  session->web_token_expire_time);
+
     max_index_processing_threads = g_key_file_get_integer (session->config,
                                                            "fileserver", "max_index_processing_threads",
                                                            NULL);
@@ -69,6 +72,10 @@ load_fileserver_config (SeafileSession *session)
     } else {
         session->max_index_processing_threads = max_index_processing_threads;
     }
+
+    seaf_message ("fileserver: max_index_processing_threads= %d\n",
+                  session->max_index_processing_threads);
+
 
     fixed_block_size_mb = g_key_file_get_integer (session->config,
                                                   "fileserver", "fixed_block_size",
@@ -79,6 +86,9 @@ load_fileserver_config (SeafileSession *session)
         session->fixed_block_size = fixed_block_size_mb * ((gint64)1 << 20);
     }
 
+    seaf_message ("fileserver: fixed_block_size = %"G_GINT64_FORMAT"\n",
+                  session->fixed_block_size);
+
     max_indexing_threads = g_key_file_get_integer (session->config,
                                                    "fileserver", "max_indexing_threads",
                                                    NULL);
@@ -87,6 +97,9 @@ load_fileserver_config (SeafileSession *session)
     } else {
         session->max_indexing_threads = max_indexing_threads;
     }
+
+    seaf_message ("fileserver: max_indexing_threads = %d\n",
+                  session->max_indexing_threads);
 
     return;
 }
