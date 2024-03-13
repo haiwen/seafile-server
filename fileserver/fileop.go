@@ -453,7 +453,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 	if operation == "download-link" {
 		oper = "link-file-download"
 	}
-	sendStatisticMsg(repo.StoreID, user, oper, file.FileSize)
+	sendStatisticMsg(repo.StoreID, user, oper, end-start+1)
 
 	return nil
 }
