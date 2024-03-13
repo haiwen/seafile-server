@@ -1,5 +1,6 @@
 #include "common.h"
 
+#ifdef HAVE_EVHTP
 #include <pthread.h>
 #include <string.h>
 #include <jansson.h>
@@ -63,6 +64,7 @@
 struct _HttpServer {
     evbase_t *evbase;
     evhtp_t *evhtp;
+    event_t *reap_timer;
     pthread_t thread_id;
 
     GHashTable *token_cache;
@@ -73,8 +75,6 @@ struct _HttpServer {
 
     GHashTable *vir_repo_info_cache;
     pthread_mutex_t vir_repo_info_cache_lock;
-
-    event_t *reap_timer;
 
     GThreadPool *compute_fs_obj_id_pool;
 
@@ -150,11 +150,7 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
     char *host = NULL;
     int port = 0;
     int worker_threads;
-    int web_token_expire_time;
-    int fixed_block_size_mb;
     char *encoding;
-    int max_indexing_threads;
-    int max_index_processing_threads;
     char *cluster_shared_temp_file_mode = NULL;
 
     host = fileserver_config_get_string (session->config, HOST, &error);
@@ -197,66 +193,6 @@ load_http_config (HttpServerStruct *htp_server, SeafileSession *session)
             htp_server->worker_threads = worker_threads;
     }
     seaf_message ("fileserver: worker_threads = %d\n", htp_server->worker_threads);
-
-    fixed_block_size_mb = fileserver_config_get_integer (session->config,
-                                                  "fixed_block_size",
-                                                  &error);
-    if (error){
-        htp_server->fixed_block_size = DEFAULT_FIXED_BLOCK_SIZE;
-        g_clear_error(&error);
-    } else {
-        if (fixed_block_size_mb <= 0)
-            htp_server->fixed_block_size = DEFAULT_FIXED_BLOCK_SIZE;
-        else
-            htp_server->fixed_block_size = fixed_block_size_mb * ((gint64)1 << 20);
-    }
-    seaf_message ("fileserver: fixed_block_size = %"G_GINT64_FORMAT"\n",
-                  htp_server->fixed_block_size);
-
-    web_token_expire_time = fileserver_config_get_integer (session->config,
-                                                "web_token_expire_time",
-                                                &error);
-    if (error){
-        htp_server->web_token_expire_time = 3600; /* default 3600s */
-        g_clear_error(&error);
-    } else {
-        if (web_token_expire_time <= 0)
-            htp_server->web_token_expire_time = 3600; /* default 3600s */
-        else
-            htp_server->web_token_expire_time = web_token_expire_time;
-    }
-    seaf_message ("fileserver: web_token_expire_time = %d\n",
-                  htp_server->web_token_expire_time);
-
-    max_indexing_threads = fileserver_config_get_integer (session->config,
-                                                          "max_indexing_threads",
-                                                          &error);
-    if (error) {
-        htp_server->max_indexing_threads = DEFAULT_MAX_INDEXING_THREADS;
-        g_clear_error (&error);
-    } else {
-        if (max_indexing_threads <= 0)
-            htp_server->max_indexing_threads = DEFAULT_MAX_INDEXING_THREADS;
-        else
-            htp_server->max_indexing_threads = max_indexing_threads;
-    }
-    seaf_message ("fileserver: max_indexing_threads = %d\n",
-                  htp_server->max_indexing_threads);
-
-    max_index_processing_threads = fileserver_config_get_integer (session->config,
-                                                                  "max_index_processing_threads",
-                                                                  &error);
-    if (error) {
-        htp_server->max_index_processing_threads = DEFAULT_MAX_INDEX_PROCESSING_THREADS;
-        g_clear_error (&error);
-    } else {
-        if (max_index_processing_threads <= 0)
-            htp_server->max_index_processing_threads = DEFAULT_MAX_INDEX_PROCESSING_THREADS;
-        else
-            htp_server->max_index_processing_threads = max_index_processing_threads;
-    }
-    seaf_message ("fileserver: max_index_processing_threads= %d\n",
-                  htp_server->max_index_processing_threads);
 
     cluster_shared_temp_file_mode = fileserver_config_get_string (session->config,
                                                                   "cluster_shared_temp_file_mode",
@@ -3154,3 +3090,5 @@ seaf_http_server_invalidate_tokens (HttpServerStruct *htp_server,
     pthread_mutex_unlock (&htp_server->priv->token_cache_lock);
     return 0;
 }
+
+#endif

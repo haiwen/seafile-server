@@ -1553,7 +1553,9 @@ seaf_repo_manager_delete_token (SeafRepoManager *mgr,
 
     GList *tokens = NULL;
     tokens = g_list_append (tokens, g_strdup(token));
+#ifdef HAVE_EVHTP
     seaf_http_server_invalidate_tokens (seaf->http_server, tokens);
+#endif
     g_list_free_full (tokens, (GDestroyNotify)g_free);
 
     return 0;
@@ -1838,7 +1840,9 @@ seaf_repo_manager_delete_repo_tokens_by_email (SeafRepoManager *mgr,
         goto out;
     }
 
+#ifdef HAVE_EVHTP
     seaf_http_server_invalidate_tokens (seaf->http_server, token_list);
+#endif
 
 out:
     g_list_free_full (token_list, (GDestroyNotify)g_free);

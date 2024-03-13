@@ -160,7 +160,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
     pthread_mutex_lock (&mgr->priv->lock);
 
     t = gen_new_token (mgr->priv->access_token_hash);
-    expire = now + seaf->http_server->web_token_expire_time;
+    expire = now + seaf->web_token_expire_time;
 
     info = g_new0 (AccessInfo, 1);
     info->repo_id = g_strdup (repo_id);
@@ -176,6 +176,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
 
     pthread_mutex_unlock (&mgr->priv->lock);
 
+#ifdef HAVE_EVHTP
     if (!seaf->go_fileserver) {
         if (strcmp(op, "download-dir") == 0 ||
             strcmp(op, "download-multi") == 0 ||
@@ -202,6 +203,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
             g_object_unref (webaccess);
         }
     }
+#endif
 
     return t;
 }

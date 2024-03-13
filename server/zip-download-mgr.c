@@ -1,7 +1,9 @@
+#include "common.h"
+
+#ifdef HAVE_EVHTP
 #include <pthread.h>
 #include <jansson.h>
 
-#include "common.h"
 #include <timer.h>
 #include "utils.h"
 #include "log.h"
@@ -651,3 +653,4 @@ zip_download_mgr_cancel_zip_task (ZipDownloadMgr *mgr,
 
     return 0;
 }
+#endif
