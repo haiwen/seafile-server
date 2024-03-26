@@ -509,6 +509,7 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/debug/pprof/block", &profileHandler{pprof.Handler("block")})
 	r.Handle("/debug/pprof/goroutine", &profileHandler{pprof.Handler("goroutine")})
 	r.Handle("/debug/pprof/threadcreate", &profileHandler{pprof.Handler("threadcreate")})
+	r.Handle("/debug/pprof/trace", &traceHandler{})
 	return r
 }
 
@@ -556,4 +557,18 @@ func (p *profileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.pHandler.ServeHTTP(w, r)
+}
+
+type traceHandler struct {
+}
+
+func (p *traceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	queries := r.URL.Query()
+	password := queries.Get("password")
+	if !option.EnableProfiling || password != option.ProfilePassword {
+		http.Error(w, "", http.StatusUnauthorized)
+		return
+	}
+
+	pprof.Trace(w, r)
 }
