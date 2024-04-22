@@ -247,7 +247,7 @@ populate_gc_index_for_repo (SeafRepo *repo, Bloom *blocks_index, Bloom *fs_index
                                                                       repo->id);
         for (ptr = vrepo_ids; ptr; ptr = ptr->next) {
             repo_id = ptr->data;
-            vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr, repo->id);
+            vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr, repo_id);
             if (!vinfo) {
                 continue;
             }

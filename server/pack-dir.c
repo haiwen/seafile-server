@@ -1,4 +1,5 @@
 #include "common.h"
+#ifdef HAVE_EVHTP
 
 #define DEBUG_FLAG SEAFILE_DEBUG_HTTP
 #include "log.h"
@@ -481,3 +482,4 @@ pack_files (const char *store_id,
 
     return ret;
 }
+#endif

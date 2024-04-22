@@ -363,6 +363,8 @@ func main() {
 			log.Fatalf("Failed to open or create error log file: %v", err)
 		}
 		syscall.Dup3(int(fp.Fd()), int(os.Stderr.Fd()), 0)
+		// We need to close the old fp, because it has beed duped.
+		fp.Close()
 	}
 
 	repomgr.Init(seafileDB)
@@ -390,7 +392,7 @@ func main() {
 	router := newHTTPRouter()
 
 	go handleSignals()
-	go handleUser1Singal()
+	go handleUser1Signal()
 
 	log.Print("Seafile file server started.")
 
@@ -409,7 +411,7 @@ func handleSignals() {
 	os.Exit(0)
 }
 
-func handleUser1Singal() {
+func handleUser1Signal() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGUSR1)
 	<-signalChan
@@ -433,6 +435,14 @@ func logRotate() {
 		logFp.Close()
 		logFp = fp
 	}
+
+	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
+	errFp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("Failed to reopen fileserver error log: %v", err)
+	}
+	syscall.Dup3(int(errFp.Fd()), int(os.Stderr.Fd()), 0)
+	errFp.Close()
 }
 
 var rpcclient *searpc.Client
@@ -499,6 +509,7 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/debug/pprof/block", &profileHandler{pprof.Handler("block")})
 	r.Handle("/debug/pprof/goroutine", &profileHandler{pprof.Handler("goroutine")})
 	r.Handle("/debug/pprof/threadcreate", &profileHandler{pprof.Handler("threadcreate")})
+	r.Handle("/debug/pprof/trace", &traceHandler{})
 	return r
 }
 
@@ -546,4 +557,18 @@ func (p *profileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.pHandler.ServeHTTP(w, r)
+}
+
+type traceHandler struct {
+}
+
+func (p *traceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	queries := r.URL.Query()
+	password := queries.Get("password")
+	if !option.EnableProfiling || password != option.ProfilePassword {
+		http.Error(w, "", http.StatusUnauthorized)
+		return
+	}
+
+	pprof.Trace(w, r)
 }

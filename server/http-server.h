@@ -1,6 +1,7 @@
 #ifndef HTTP_SERVER_H
 #define HTTP_SERVER_H
 
+#ifdef HAVE_EVHTP
 #include <glib.h>
 
 struct _SeafileSession;
@@ -16,11 +17,7 @@ struct _HttpServerStruct {
     int bind_port;
     char *http_temp_dir;        /* temp dir for file upload */
     char *windows_encoding;
-    gint64 fixed_block_size;
-    int web_token_expire_time;
-    int max_indexing_threads;
     int worker_threads;
-    int max_index_processing_threads;
     int cluster_shared_temp_file_mode;
 };
 
@@ -38,5 +35,6 @@ seaf_http_server_invalidate_tokens (HttpServerStruct *htp_server,
 
 void
 send_statistic_msg (const char *repo_id, char *user, char *operation, guint64 bytes);
+#endif
 
 #endif

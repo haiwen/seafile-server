@@ -71,14 +71,21 @@ struct _SeafileSession {
 
     int                  cloud_mode;
 
+#ifdef HAVE_EVHTP
     HttpServerStruct    *http_server;
     ZipDownloadMgr      *zip_download_mgr;
+#endif
     IndexBlksMgr        *index_blocks_mgr;
 
     gboolean create_tables;
     gboolean ccnet_create_tables;
 
     gboolean go_fileserver;
+
+    int web_token_expire_time;
+    int max_index_processing_threads;
+    gint64 fixed_block_size;
+    int max_indexing_threads;
 
     // For notification server
     NotifManager *notif_mgr;

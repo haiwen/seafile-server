@@ -1436,15 +1436,23 @@ seafile_web_query_access_token (const char *token, GError **error)
 char *
 seafile_query_zip_progress (const char *token, GError **error)
 {
+#ifdef HAVE_EVHTP
     return zip_download_mgr_query_zip_progress (seaf->zip_download_mgr,
                                                 token, error);
+#else
+    return NULL;
+#endif
 }
 
 int
 seafile_cancel_zip_task (const char *token, GError **error)
 {
+#ifdef HAVE_EVHTP
     return zip_download_mgr_cancel_zip_task (seaf->zip_download_mgr,
                                              token);
+#else
+    return 0;
+#endif
 }
 
 int
@@ -3751,7 +3759,9 @@ seafile_delete_repo_tokens_by_peer_id(const char *email,
         return -1;
     }
 
+#ifdef HAVE_EVHTP
     seaf_http_server_invalidate_tokens(seaf->http_server, tokens);
+#endif
     g_list_free_full (tokens, (GDestroyNotify)g_free);
     return 0;
 }

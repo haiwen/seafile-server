@@ -728,8 +728,7 @@ func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	repoID := vars["repoid"]
 
 	if !option.EnableNotification {
-		err := fmt.Errorf("notification server is not enabled")
-		return &appError{err, "", http.StatusInternalServerError}
+		return &appError{nil, "", http.StatusNotFound}
 	}
 
 	user, appErr := validateToken(r, repoID, false)
@@ -828,7 +827,7 @@ func putSendBlockCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	if err := blockmgr.Write(storeID, blockID, r.Body); err != nil {
-		err := fmt.Errorf("Failed to close block %.8s:%s", storeID, blockID)
+		err := fmt.Errorf("Failed to write block %.8s:%s: %v", storeID, blockID, err)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 

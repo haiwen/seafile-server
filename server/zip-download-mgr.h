@@ -1,6 +1,8 @@
 #ifndef ZIP_DOWNLOAD_MGR_H
 #define ZIP_DOWNLOAD_MGR_H
 
+#ifdef HAVE_EVHTP
+
 #include "seafile-object.h"
 
 struct ZipDownloadMgrPriv;
@@ -33,5 +35,6 @@ zip_download_mgr_del_zip_progress (ZipDownloadMgr *mgr,
 int
 zip_download_mgr_cancel_zip_task (ZipDownloadMgr *mgr,
                                   const char *token);
+#endif
 
 #endif

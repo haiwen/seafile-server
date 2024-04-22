@@ -1,5 +1,6 @@
 #include "common.h"
 
+#ifdef HAVE_EVHTP
 #define DEBUG_FLAG SEAFILE_DEBUG_HTTP
 #include "log.h"
 
@@ -1812,7 +1813,11 @@ get_mime_header_param_value (const char *param)
     char *first_quote, *last_quote;
     char *value;
 
+    // param may not start with double quotes. 
     first_quote = strchr (param, '\"');
+    if (!first_quote) {
+        return g_strdup (param);
+    }
     last_quote = strrchr (param, '\"');
     if (!first_quote || !last_quote || first_quote == last_quote) {
         seaf_debug ("[upload] Invalid mime param %s.\n", param);
@@ -1869,7 +1874,8 @@ parse_mime_header (evhtp_request_t *req, char *header, RecvFSM *fsm)
     }
 
     *colon = 0;
-    if (strcmp (header, "Content-Disposition") == 0) {
+    // Content-Disposition is case-insensitive.
+    if (strcasecmp (header, "Content-Disposition") == 0) {
         params = g_strsplit (colon + 1, ";", 3);
         for (p = params; *p != NULL; ++p)
             *p = g_strstrip (*p);
@@ -2697,3 +2703,4 @@ upload_file_init (evhtp_t *htp, const char *http_temp_dir)
 
     return 0;
 }
+#endif
