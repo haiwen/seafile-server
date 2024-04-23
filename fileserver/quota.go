@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
@@ -62,7 +63,12 @@ func checkQuota(repoID string, delta int64) (int, error) {
 
 func getUserQuota(user string) (int64, error) {
 	var quota int64
-	sqlStr := "SELECT quota FROM UserQuota WHERE user=?"
+	sqlStr := ""
+	if strings.EqualFold(dbType, "mysql") {
+		sqlStr = "SELECT quota FROM UserQuota WHERE user=?"
+	} else {
+		sqlStr = "SELECT quota FROM UserQuota WHERE \"user\"=?"
+	}
 	row := seafileDB.QueryRow(sqlStr, user)
 	if err := row.Scan(&quota); err != nil {
 		if err != sql.ErrNoRows {

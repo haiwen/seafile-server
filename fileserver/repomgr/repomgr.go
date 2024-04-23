@@ -607,12 +607,6 @@ func removeVirtualRepoOndisk(repoID string, cloudMode bool) error {
 		if err != nil {
 			return err
 		}
-	} else {
-		sqlStr = "REPLACE INTO GarbageRepos (repo_id) VALUES (?)"
-		_, err := seafileDB.Exec(sqlStr, repoID)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

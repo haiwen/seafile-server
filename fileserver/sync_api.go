@@ -638,10 +638,14 @@ func headCommitsMultiCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		}
 	}
 
+	mode := ""
+	if strings.EqualFold(dbType, "mysql") {
+		mode = "LOCK IN SHARE MODE"
+	}
 	sqlStr := fmt.Sprintf(
 		"SELECT repo_id, commit_id FROM Branch WHERE name='master' AND "+
-			"repo_id IN (%s) LOCK IN SHARE MODE",
-		repoIDs.String())
+			"repo_id IN (%s) %s",
+		repoIDs.String(), mode)
 
 	rows, err := seafileDB.Query(sqlStr)
 	if err != nil {
@@ -1067,7 +1071,7 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 func getHeadCommit(rsp http.ResponseWriter, r *http.Request) *appError {
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
-	sqlStr := "SELECT EXISTS(SELECT 1 FROM Repo WHERE repo_id=?)"
+	sqlStr := "SELECT 1 FROM Repo WHERE repo_id=?"
 	var exists bool
 	row := seafileDB.QueryRow(sqlStr, repoID)
 	if err := row.Scan(&exists); err != nil {

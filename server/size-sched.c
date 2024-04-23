@@ -256,6 +256,7 @@ get_old_repo_info_from_db (SeafDB *db, const char *repo_id, gboolean *is_db_err)
     switch (seaf_db_type (db)) {
     case SEAF_DB_TYPE_MYSQL:
     case SEAF_DB_TYPE_PGSQL:
+    case SEAF_DB_TYPE_DM:
         sql = "select s.head_id,s.size,f.file_count FROM "
             "RepoSize s LEFT JOIN RepoFileCount f ON "
             "s.repo_id=f.repo_id WHERE "

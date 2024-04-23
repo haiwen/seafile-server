@@ -56,6 +56,22 @@ seaf_share_manager_start (SeafShareManager *mgr)
         sql = "CREATE INDEX IF NOT EXISTS ToEmailIndex on SharedRepo (to_email)";
         if (seaf_db_query (db, sql) < 0)
             return -1;
+    } else if (db_type == SEAF_DB_TYPE_DM) {
+        sql = "CREATE TABLE IF NOT EXISTS SharedRepo "
+            "(id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,"
+            "repo_id VARCHAR(37) , from_email VARCHAR(255), to_email VARCHAR(255), "
+            "permission VARCHAR(15))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE INDEX IF NOT EXISTS RepoIdIndex on SharedRepo (repo_id)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE INDEX IF NOT EXISTS FromEmailIndex on SharedRepo (from_email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+        sql = "CREATE INDEX IF NOT EXISTS ToEmailIndex on SharedRepo (to_email)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
     }
     /* else if (db_type == SEAF_DB_TYPE_PGSQL) { */
     /*     sql = "CREATE TABLE IF NOT EXISTS SharedRepo " */

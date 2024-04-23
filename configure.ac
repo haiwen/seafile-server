@@ -86,6 +86,11 @@ AC_ARG_ENABLE(python,
               [compile_python=$enableval],
               [compile_python=yes])
 
+AC_ARG_ENABLE(odbc,
+              AC_HELP_STRING([--enable-odbc],[build seafile with odbc]),
+              [compile_odbc=$enableval],
+	          [compile_odbc=yes])
+
 AC_ARG_WITH(mysql,
             AC_HELP_STRING([--with-mysql],[path to mysql_config]),
             [MYSQL_CONFIG=$with_mysql],
@@ -291,6 +296,14 @@ if test "${compile_fuse}" = "yes"; then
    PKG_CHECK_MODULES(FUSE, [fuse >= $FUSE_REQUIRED])
    AC_SUBST(FUSE_CFLAGS)
    AC_SUBST(FUSE_LIBS)
+fi
+
+if test "${compile_odbc}" = "yes"; then
+   PKG_CHECK_MODULES(ODBC, [odbc])
+   AC_SUBST(ODBC_FLAGS)
+   AC_SUBST(ODBC_LIBS)
+   AC_DEFINE([DM64], [1], [Define to 1 if dm support is enabled])
+   AC_DEFINE([HAVE_ODBC], [1], [Define to 1 if dm support is enabled])
 fi
 
 dnl check libarchive

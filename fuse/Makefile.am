@@ -42,5 +42,5 @@ seaf_fuse_LDADD = @GLIB2_LIBS@ @GOBJECT_LIBS@ @SSL_LIBS@ @LIB_RT@ @LIB_UUID@ \
                   -lsqlite3 @LIBEVENT_LIBS@ \
 		  $(top_builddir)/common/cdc/libcdc.la \
 		  @SEARPC_LIBS@ @JANSSON_LIBS@ @FUSE_LIBS@ @ZLIB_LIBS@ \
-		  @LDAP_LIBS@ @MYSQL_LIBS@ -lsqlite3
+		  @LDAP_LIBS@ @MYSQL_LIBS@ -lsqlite3 @ODBC_LIBS@
 

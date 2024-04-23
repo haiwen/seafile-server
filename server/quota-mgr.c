@@ -155,6 +155,28 @@ seaf_quota_manager_init (SeafQuotaManager *mgr)
             return -1;
 
         break;
+    case SEAF_DB_TYPE_DM:
+        sql = "CREATE TABLE IF NOT EXISTS UserQuota (\"user\" VARCHAR(255) PRIMARY KEY,"
+            "quota BIGINT)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE TABLE IF NOT EXISTS UserShareQuota (\"user\" VARCHAR(255) PRIMARY KEY,"
+            "quota BIGINT)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE TABLE IF NOT EXISTS OrgQuota (org_id INTEGER PRIMARY KEY,"
+            "quota BIGINT)";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        sql = "CREATE TABLE IF NOT EXISTS OrgUserQuota (org_id INTEGER,"
+            "\"user\" VARCHAR(255), quota BIGINT, PRIMARY KEY (org_id, \"user\"))";
+        if (seaf_db_query (db, sql) < 0)
+            return -1;
+
+        break;
     }
 
     return 0;
@@ -166,7 +188,7 @@ seaf_quota_manager_set_user_quota (SeafQuotaManager *mgr,
                                    gint64 quota)
 {
     SeafDB *db = mgr->session->db;
-    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
+    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL || seaf_db_type(db) == SEAF_DB_TYPE_DM) {
         gboolean exists, err;
         int rc;
 
@@ -203,7 +225,7 @@ seaf_quota_manager_get_user_quota (SeafQuotaManager *mgr,
     char *sql;
     gint64 quota;
 
-    if (seaf_db_type(mgr->session->db) != SEAF_DB_TYPE_PGSQL)
+    if (seaf_db_type(mgr->session->db) != SEAF_DB_TYPE_PGSQL && seaf_db_type(mgr->session->db) != SEAF_DB_TYPE_DM)
         sql = "SELECT quota FROM UserQuota WHERE user=?";
     else
         sql = "SELECT quota FROM UserQuota WHERE \"user\"=?";
@@ -223,7 +245,7 @@ seaf_quota_manager_set_org_quota (SeafQuotaManager *mgr,
 {
     SeafDB *db = mgr->session->db;
 
-    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
+    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL || seaf_db_type(db) == SEAF_DB_TYPE_DM) {
         gboolean exists, err;
         int rc;
 
@@ -274,7 +296,7 @@ seaf_quota_manager_set_org_user_quota (SeafQuotaManager *mgr,
     SeafDB *db = mgr->session->db;
     int rc;
 
-    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL) {
+    if (seaf_db_type(db) == SEAF_DB_TYPE_PGSQL || seaf_db_type(db) == SEAF_DB_TYPE_DM) {
         gboolean exists, err;
 
         exists = seaf_db_statement_exists (db,
@@ -313,7 +335,7 @@ seaf_quota_manager_get_org_user_quota (SeafQuotaManager *mgr,
     char *sql;
     gint64 quota;
 
-    if (seaf_db_type(mgr->session->db) != SEAF_DB_TYPE_PGSQL)
+    if (seaf_db_type(mgr->session->db) != SEAF_DB_TYPE_PGSQL && seaf_db_type(mgr->session->db) != SEAF_DB_TYPE_DM)
         sql = "SELECT quota FROM OrgUserQuota WHERE org_id=? AND user=?";
     else
         sql = "SELECT quota FROM OrgUserQuota WHERE org_id=? AND \"user\"=?";

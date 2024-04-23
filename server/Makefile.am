@@ -86,4 +86,4 @@ seaf_server_LDADD = $(top_builddir)/lib/libseafile_common.la \
 	@SEARPC_LIBS@ @JANSSON_LIBS@ ${LIB_WS32} @ZLIB_LIBS@ \
 	@LIBARCHIVE_LIBS@ @LIB_ICONV@ \
 	@LDAP_LIBS@ @MYSQL_LIBS@ -lsqlite3 \
-	@CURL_LIBS@ @JWT_LIBS@
+	@CURL_LIBS@ @JWT_LIBS@ @ODBC_LIBS@
