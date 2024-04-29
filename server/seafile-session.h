@@ -90,6 +90,8 @@ struct _SeafileSession {
     // For notification server
     NotifManager *notif_mgr;
     char         *private_key;
+
+    gboolean is_repair;
 };
 
 extern SeafileSession *seaf;
@@ -98,6 +100,12 @@ SeafileSession *
 seafile_session_new(const char *central_config_dir, 
                     const char *seafile_dir,
                     const char *ccnet_dir);
+
+SeafileSession *
+seafile_repair_session_new(const char *central_config_dir,
+                           const char *seafile_dir,
+                           const char *ccnet_dir);
+
 int
 seafile_session_init (SeafileSession *session);
 
