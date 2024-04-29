@@ -1123,3 +1123,153 @@ seaf_repo_manager_init_merge_scheduler ()
                                         SCHEDULE_INTERVAL);
     return 0;
 }
+
+int
+seaf_repo_manager_repair_virtual_repo (char *repo_id)
+{
+    SeafRepoManager *mgr = seaf->repo_mgr;
+    SeafVirtRepo *vinfo = NULL;
+    SeafRepo *repo = NULL, *orig_repo = NULL;
+    SeafCommit *head = NULL, *orig_head = NULL;
+    char *root = NULL, *orig_root = NULL;
+    char new_base_commit[41] = {0};
+    int ret = 0;
+    GError *error = NULL;
+
+    /* repos */
+    repo = seaf_repo_manager_get_repo (mgr, repo_id);
+    if (!repo) {
+        seaf_warning ("Failed to get virt repo %.10s.\n", repo_id);
+        ret = -1;
+        goto out;
+    }
+
+    if (!repo->virtual_info) {
+        seaf_warning ("Repo %.10s is not a virtual repo.\n", repo_id);
+        ret = -1;
+        goto out;
+    }
+
+    vinfo = seaf_repo_manager_get_virtual_repo_info (mgr, repo_id);
+    if (!vinfo) {
+        seaf_warning ("Failed to get virt repo info %.10s.\n", repo_id);
+        ret = -1;
+        goto out;
+    }
+
+    orig_repo = seaf_repo_manager_get_repo (mgr, vinfo->origin_repo_id);
+    if (!orig_repo) {
+        seaf_warning ("Failed to get orig repo %.10s.\n", vinfo->origin_repo_id);
+        ret = -1;
+        goto out;
+    }
+
+    /* commits */
+    head = seaf_commit_manager_get_commit (seaf->commit_mgr,
+                                           repo->id, repo->version,
+                                           repo->head->commit_id);
+    if (!head) {
+        seaf_warning ("Failed to get virtual repo commit %s:%.8s.\n",
+                      repo->id, repo->head->commit_id);
+        ret = -1;
+        goto out;
+    }
+
+    orig_head = seaf_commit_manager_get_commit (seaf->commit_mgr,
+                                                orig_repo->id, orig_repo->version,
+                                                orig_repo->head->commit_id);
+    if (!orig_head) {
+        seaf_warning ("Failed to get origin repo commit %s:%.8s.\n",
+                      orig_repo->id, orig_repo->head->commit_id);
+        ret = -1;
+        goto out;
+    }
+
+    orig_root = seaf_fs_manager_get_seafdir_id_by_path (seaf->fs_mgr,
+                                                        orig_repo->store_id,
+                                                        orig_repo->version,
+                                                        orig_head->root_id,
+                                                        vinfo->path,
+                                                        &error);
+    if (error &&
+        !g_error_matches(error,
+                         SEAFILE_DOMAIN,
+                         SEAF_ERR_PATH_NO_EXIST)) {
+        seaf_warning ("Failed to get seafdir id by path in origin repo %.10s: %s.\n", orig_repo->store_id, error->message);
+        ret = -1;
+        goto out;
+    }
+    if (!orig_root) {
+        seaf_message("Path %s not found in origin repo %.8s, delete or rename virtual repo %.8s\n",
+                    vinfo->path, vinfo->origin_repo_id, repo_id);
+
+        goto out;
+    }
+
+    /* fs roots */
+    root = head->root_id;
+
+    MergeOptions opt;
+    const char *roots[2];
+
+    memset (&opt, 0, sizeof(opt));
+    opt.n_ways = 2;
+    memcpy (opt.remote_repo_id, repo_id, 36);
+    memcpy (opt.remote_head, head->commit_id, 40);
+
+    roots[0] = orig_root;
+    roots[1] = root;
+
+    /* Merge virtual into origin */
+    if (seaf_merge_trees (orig_repo->store_id, orig_repo->version,
+                          2, roots, &opt) < 0) {
+        seaf_warning ("Failed to merge virtual repo %.10s.\n", repo_id);
+        ret = -1;
+        goto out;
+    }
+
+    seaf_debug ("Number of dirs visted in merge: %d.\n", opt.visit_dirs);
+
+    /* Update virtual repo root. */
+    ret = seaf_repo_manager_update_dir (mgr,
+                                        repo_id,
+                                        "/",
+                                        opt.merged_tree_root,
+                                        orig_head->creator_name,
+                                        head->commit_id,
+                                        NULL,
+                                        NULL);
+    if (ret < 0) {
+        seaf_warning ("Failed to update root of virtual repo %.10s.\n",
+                      repo_id);
+        goto out;
+    }
+
+    /* Update origin repo path. */
+    ret = seaf_repo_manager_update_dir (mgr,
+                                        vinfo->origin_repo_id,
+                                        vinfo->path,
+                                        opt.merged_tree_root,
+                                        head->creator_name,
+                                        orig_head->commit_id,
+                                        new_base_commit,
+                                        NULL);
+    if (ret < 0) {
+        seaf_warning ("Failed to update origin repo %.10s path %s.\n",
+                      vinfo->origin_repo_id, vinfo->path);
+        goto out;
+    }
+
+    set_virtual_repo_base_commit_path (repo->id, new_base_commit, vinfo->path);
+
+out:
+    if (error)
+        g_clear_error (&error);
+    seaf_virtual_repo_info_free (vinfo);
+    seaf_repo_unref (repo);
+    seaf_repo_unref (orig_repo);
+    seaf_commit_unref (head);
+    seaf_commit_unref (orig_head);
+    g_free (orig_root);
+    return ret;
+}

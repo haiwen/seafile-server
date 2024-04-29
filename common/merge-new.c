@@ -81,15 +81,12 @@ out:
     return conflict_name;
 }
 
-static int
-merge_entries (const char *store_id, int version,
-               int n, SeafDirent *dents[],
-               const char *basedir,
-               GList **dents_out,
-               MergeOptions *opt)
+int twoway_merge(const char *store_id, int version, const char *basedir,
+                 SeafDirent *dents[], GList **dents_out, struct MergeOptions *opt)
 {
-    SeafDirent *files[3];
+    SeafDirent *files[2];
     int i;
+    int n = opt->n_ways;
 
     memset (files, 0, sizeof(files[0])*n);
     for (i = 0; i < n; ++i) {
@@ -97,15 +94,66 @@ merge_entries (const char *store_id, int version,
             files[i] = dents[i];
     }
 
-    /* If we're running 2-way merge, or the caller requires not to
-     * actually merge contents, just call the callback function.
-     */
-    if (n == 2 || !opt->do_merge)
-        return opt->callback (basedir, files, opt);
+    SeafDirent *head, *remote;
+    char *conflict_name;
 
-    /* Otherwise, we're doing a real 3-way merge of the trees.
-     * It means merge files and handle any conflicts.
-     */
+    head = files[0];
+    remote = files[1];
+
+    if (head && remote) {
+        if (strcmp (head->id, remote->id) == 0) {
+            // file match
+            seaf_debug ("%s%s: files match\n", basedir, head->name);
+            *dents_out = g_list_prepend (*dents_out, seaf_dirent_dup(head));
+        } else {
+            // file content conflict
+            seaf_debug ("%s%s: files conflict\n", basedir, head->name);
+            conflict_name = merge_conflict_filename(store_id, version,
+                                                    opt,
+                                                    basedir,
+                                                    head->name);
+            if (!conflict_name)
+                return -1;
+
+            g_free (remote->name);
+            remote->name = conflict_name;
+            remote->name_len = strlen (remote->name);
+
+            *dents_out = g_list_prepend (*dents_out, seaf_dirent_dup(head));
+            *dents_out = g_list_prepend (*dents_out, seaf_dirent_dup(remote));
+
+            opt->conflict = TRUE;
+        }
+    } else if (!head && remote) {
+        // file not in head, but in remote
+        seaf_debug ("%s%s: added in remote\n", basedir, remote->name);
+        *dents_out = g_list_prepend (*dents_out, seaf_dirent_dup(remote));
+    } else if (head && !remote) {
+        // file in head, but not in remote
+        seaf_debug ("%s%s: added in head\n", basedir, head->name);
+        *dents_out = g_list_prepend (*dents_out, seaf_dirent_dup(head));
+    }
+
+    return 0;
+}
+
+static int
+threeway_merge (const char *store_id, int version,
+                 SeafDirent *dents[],
+                 const char *basedir,
+                 GList **dents_out,
+                 MergeOptions *opt)
+{
+    SeafDirent *files[3];
+    int i;
+    gint64 curr_time;
+    int n = opt->n_ways;
+
+    memset (files, 0, sizeof(files[0])*n);
+    for (i = 0; i < n; ++i) {
+        if (dents[i] && S_ISREG(dents[i]->mode))
+            files[i] = dents[i];
+    }
 
     SeafDirent *base, *head, *remote;
     char *conflict_name;
@@ -324,6 +372,25 @@ merge_entries (const char *store_id, int version,
 }
 
 static int
+merge_entries (const char *store_id, int version,
+               int n, SeafDirent *dents[],
+               const char *basedir,
+               GList **dents_out,
+               MergeOptions *opt)
+{
+    /* If we're running 2-way merge, it means merge files base on head and remote.
+     */
+    if (n == 2)
+        return twoway_merge (store_id, version, basedir, dents, dents_out, opt);
+
+    /* Otherwise, we're doing a real 3-way merge of the trees.
+     * It means merge files and handle any conflicts.
+     */
+
+    return threeway_merge (store_id, version, dents, basedir, dents_out, opt);
+}
+
+static int
 merge_directories (const char *store_id, int version,
                    int n, SeafDirent *dents[],
                    const char *basedir,
@@ -345,7 +412,7 @@ merge_directories (const char *store_id, int version,
 
     seaf_debug ("dir_mask = %d\n", dir_mask);
 
-    if (n == 3 && opt->do_merge) {
+    if (n == 3) {
         switch (dir_mask) {
         case 0:
             g_return_val_if_reached (-1);
@@ -407,6 +474,33 @@ merge_directories (const char *store_id, int version,
         default:
             g_return_val_if_reached (-1);
         }
+    } else if (n == 2) {
+        switch (dir_mask) {
+        case 0:
+            g_return_val_if_reached (-1);
+        case 1:
+            /*head is dir, remote is not dir*/
+            seaf_debug ("%s%s: only head is dir\n", basedir, dents[0]->name);
+            *dents_out = g_list_prepend (*dents_out, seaf_dirent_dup(dents[0]));
+            return 0;
+        case 2:
+            /*head is not dir, remote is dir*/
+            seaf_debug ("%s%s: only remote is dir\n", basedir, dents[1]->name);
+            *dents_out = g_list_prepend (*dents_out, seaf_dirent_dup(dents[1]));
+            return 0;
+        case 3:
+            if (strcmp (dents[0]->id, dents[1]->id) == 0) {
+                seaf_debug ("%s%s: dir is the same in head and remote\n",
+                            basedir, dents[0]->name);
+                *dents_out = g_list_prepend (*dents_out, seaf_dirent_dup(dents[1]));
+                return 0;
+            }
+            seaf_debug ("%s%s: dir is changed in head and remote, merge recursively\n",
+                        basedir, dents[0]->name);
+            break;
+        default:
+            g_return_val_if_reached (-1);
+        }
     }
 
     memset (sub_dirs, 0, sizeof(sub_dirs[0])*n);
@@ -433,13 +527,19 @@ merge_directories (const char *store_id, int version,
 
     g_free (new_basedir);
 
-    if (n == 3 && opt->do_merge) {
+    if (n == 3) {
         if (dir_mask == 3 || dir_mask == 6 || dir_mask == 7) {
             merged_dent = seaf_dirent_dup (dents[1]);
             memcpy (merged_dent->id, opt->merged_tree_root, 40);
             *dents_out = g_list_prepend (*dents_out, merged_dent);
         } else if (dir_mask == 5) {
             merged_dent = seaf_dirent_dup (dents[2]);
+            memcpy (merged_dent->id, opt->merged_tree_root, 40);
+            *dents_out = g_list_prepend (*dents_out, merged_dent);
+        }
+    } else if (n == 2) {
+        if (dir_mask == 3) {
+            merged_dent = seaf_dirent_dup (dents[1]);
             memcpy (merged_dent->id, opt->merged_tree_root, 40);
             *dents_out = g_list_prepend (*dents_out, merged_dent);
         }
@@ -539,7 +639,7 @@ merge_trees_recursive (const char *store_id, int version,
         }
     }
 
-    if (n == 3 && opt->do_merge) {
+    if (n == 3) {
         merged_dents = g_list_sort (merged_dents, compare_dirents);
         merged_tree = seaf_dir_new (NULL, merged_dents,
                                     dir_version_from_repo_version(version));
@@ -548,6 +648,23 @@ merge_trees_recursive (const char *store_id, int version,
 
         if ((trees[1] && strcmp (trees[1]->dir_id, merged_tree->dir_id) == 0) ||
             (trees[2] && strcmp (trees[2]->dir_id, merged_tree->dir_id) == 0)) {
+            seaf_dir_free (merged_tree);
+        } else {
+            ret = seaf_dir_save (seaf->fs_mgr, store_id, version, merged_tree);
+            seaf_dir_free (merged_tree);
+            if (ret < 0) {
+                seaf_warning ("Failed to save merged tree %s:%s.\n", store_id, basedir);
+            }
+        }
+    } else if (n == 2) {
+        merged_dents = g_list_sort (merged_dents, compare_dirents);
+        merged_tree = seaf_dir_new (NULL, merged_dents,
+                                    dir_version_from_repo_version(version));
+
+        memcpy (opt->merged_tree_root, merged_tree->dir_id, 40);
+
+        if ((trees[0] && strcmp (trees[0]->dir_id, merged_tree->dir_id) == 0) || 
+            (trees[1] && strcmp (trees[1]->dir_id, merged_tree->dir_id) == 0)) {
             seaf_dir_free (merged_tree);
         } else {
             ret = seaf_dir_save (seaf->fs_mgr, store_id, version, merged_tree);
