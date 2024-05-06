@@ -295,15 +295,14 @@ class SeafileAPI(object):
                                               filename, username, head_id)
 
     '''
-    If you want to delete multiple files in a batch, @filename should be in
-    the following format: '["filename1", "filename2", "filename3"]'
+    If you want to delete multiple files in a batch, @filename should be json array
     '''
     def del_file(self, repo_id, parent_dir, filename, username):
         return seafserv_threaded_rpc.del_file(repo_id, parent_dir, filename, username)
 
     '''
     If you want to move or copy multiple files in a batch, @src_filename and @dst_filename
-    should be in the following format: '["filename1", "filename2", "filename3"]',make sure the number of files
+    should be json array, make sure the number of files
     in @src_filename and @dst_filename parameters match
     '''
     def copy_file(self, src_repo, src_dir, src_filename, dst_repo,

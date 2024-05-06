@@ -2809,14 +2809,14 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
     dst_names = json_to_file_list (dst_filenames);
     if (!src_names || !dst_names) {
         ret = -1;
-        seaf_warning ("[copy files] Bad args: Load filenames to json failed.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Load filenames to json failed");
         goto out;
     }
     file_num = g_list_length (src_names);
     int dst_file_num = g_list_length (dst_names);
     if (dst_file_num != file_num) {
         ret = -1;
-        seaf_warning ("[copy files] Bad args.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "The number of files in the parameters does not match");
         goto out;
     }
 
@@ -2846,7 +2846,7 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
             name = ptr->data;
             if (strcmp(name, "") == 0) {
                 ret = -1;
-                seaf_warning ("[copy files] Bad args: Empty src_filenames.\n");
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Empty src_filenames");
                 goto out;
             }
             src_dents[i] = g_hash_table_lookup(dirent_hash, name);
@@ -2865,7 +2865,7 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
             name = ptr->data;
             if (strcmp(name, "") == 0) {
                 ret = -1;
-                seaf_warning ("[copy files] Bad args: Empty dst_filenames.\n");
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Empty dst_filenames");
                 goto out;
             }
             /* duplicate src dirents with new names */
@@ -3336,7 +3336,7 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
     dst_names = json_to_file_list (dst_filenames);
     if (!src_names || !dst_names) {
         ret = -1;
-        seaf_warning ("[move files] Bad args: Load filenames to json failed.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Load filenames to json failed");
         goto out;
     }
 
@@ -3344,7 +3344,7 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
     int dst_file_num = g_list_length (dst_names);
     if (dst_file_num != file_num) {
         ret = -1;
-        seaf_warning ("[move files] Bad args.\n");
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "The number of files in the parameters does not match");
         goto out;
     }
 
@@ -3373,7 +3373,7 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
             name = ptr->data;
             if (strcmp(name, "") == 0) {
                 ret = -1;
-                seaf_warning ("[move files] Bad args: Empty src_filenames.\n");
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Empty src_filenames");
                 goto out;
             }
             src_dents[i] = g_hash_table_lookup(dirent_hash, name);
@@ -3392,7 +3392,7 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
             name = ptr->data;
             if (strcmp(name, "") == 0) {
                 ret = -1;
-                seaf_warning ("[move files] Bad args: Empty dst_filenames.\n");
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Empty dst_filenames");
                 goto out;
             }
             /* duplicate src dirents with new names */
