@@ -2744,7 +2744,6 @@ seafile_del_file (const char *repo_id, const char *parent_dir,
 {
     char *norm_parent_dir = NULL, *norm_file_name = NULL, *rpath = NULL;
     int ret = 0;
-    json_t *array = NULL;
 
     if (!repo_id || !parent_dir || !file_name || !user) {
         g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
@@ -2772,21 +2771,6 @@ seafile_del_file (const char *repo_id, const char *parent_dir,
         goto out;
     }
 
-    array = json_loadb (norm_file_name, strlen(norm_file_name), 0, NULL);
-    if (!array) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        ret = -1;
-        goto out;
-    }
-    size_t n = json_array_size (array);
-    if (n <= 0) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        ret = -1;
-        goto out;
-    }
-
     rpath = format_dir_path (norm_parent_dir);
 
     if (seaf_repo_manager_del_file (seaf->repo_mgr, repo_id,
@@ -2796,8 +2780,6 @@ seafile_del_file (const char *repo_id, const char *parent_dir,
     }
 
 out:
-    if (array)
-        json_decref (array);
     g_free (norm_parent_dir);
     g_free (norm_file_name);
     g_free (rpath);
@@ -2821,8 +2803,6 @@ seafile_copy_file (const char *src_repo_id,
     char *norm_dst_dir = NULL, *norm_dst_filename = NULL;
     char *rsrc_dir = NULL, *rdst_dir = NULL;
     GObject *ret = NULL;
-    json_t *src_array = NULL, *dst_array = NULL;
-    size_t n_src, n_dst;
 
     if (!src_repo_id || !src_dir || !src_filename ||
         !dst_repo_id || !dst_dir || !dst_filename || !user) {
@@ -2863,36 +2843,6 @@ seafile_copy_file (const char *src_repo_id,
         goto out;
     }
 
-    src_array = json_loadb (norm_src_filename, strlen(norm_src_filename), 0, NULL);
-    if (!src_array) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        goto out;
-    }
-    n_src = json_array_size (src_array);
-    if (n_src <= 0) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        goto out;
-    }
-    dst_array = json_loadb (norm_dst_filename, strlen(norm_dst_filename), 0, NULL);
-    if (!dst_array) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        goto out;
-    }
-    n_dst = json_array_size (dst_array);
-    if (n_dst <= 0) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        goto out;
-    }
-    if (n_src != n_dst) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "The number of files in the parameters does not match");
-        goto out;
-    }
-
     rsrc_dir = format_dir_path (norm_src_dir);
     rdst_dir = format_dir_path (norm_dst_dir);
 
@@ -2903,10 +2853,6 @@ seafile_copy_file (const char *src_repo_id,
                                                             error);
 
 out:
-    if (src_array)
-        json_decref (src_array);
-    if (dst_array)
-        json_decref (dst_array);
     g_free (norm_src_dir);
     g_free (norm_src_filename);
     g_free (norm_dst_dir);
@@ -2934,8 +2880,6 @@ seafile_move_file (const char *src_repo_id,
     char *norm_dst_dir = NULL, *norm_dst_filename = NULL;
     char *rsrc_dir = NULL, *rdst_dir = NULL;
     GObject *ret = NULL;
-    json_t *src_array = NULL, *dst_array = NULL;
-    size_t n_src, n_dst;
 
     if (!src_repo_id || !src_dir || !src_filename ||
         !dst_repo_id || !dst_dir || !dst_filename || !user) {
@@ -2976,36 +2920,6 @@ seafile_move_file (const char *src_repo_id,
         goto out;
     }
 
-    src_array = json_loadb (norm_src_filename, strlen(norm_src_filename), 0, NULL);
-    if (!src_array) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        goto out;
-    }
-    n_src = json_array_size (src_array);
-    if (n_src <= 0) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        goto out;
-    }
-    dst_array = json_loadb (norm_dst_filename, strlen(norm_dst_filename), 0, NULL);
-    if (!dst_array) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        goto out;
-    }
-    n_dst = json_array_size (dst_array);
-    if (n_dst <= 0) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "Path is in valid json array");
-        goto out;
-    }
-    if (n_src != n_dst) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
-                     "The number of files in the parameters does not match");
-        goto out;
-    }
-
     rsrc_dir = format_dir_path (norm_src_dir);
     rdst_dir = format_dir_path (norm_dst_dir);
 
@@ -3016,10 +2930,6 @@ seafile_move_file (const char *src_repo_id,
                                                             error);
 
 out:
-    if (src_array)
-        json_decref (src_array);
-    if (dst_array)
-        json_decref (dst_array);
     g_free (norm_src_dir);
     g_free (norm_src_filename);
     g_free (norm_dst_dir);
