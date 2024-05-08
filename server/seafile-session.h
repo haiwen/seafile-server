@@ -90,6 +90,9 @@ struct _SeafileSession {
     // For notification server
     NotifManager *notif_mgr;
     char         *private_key;
+
+    // For pbkdf2 iter parameter.
+    int           key_iter;
 };
 
 extern SeafileSession *seaf;

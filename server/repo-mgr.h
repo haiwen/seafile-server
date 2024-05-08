@@ -35,6 +35,7 @@ struct _SeafRepo {
     gchar       magic[65];       /* hash(repo_id + passwd), key stretched. */
     gchar       random_key[97];
     gchar       salt[65];
+    int         key_iter;
     gboolean    no_local_history;
     gint64      last_modify;
     gint64      size;
@@ -513,6 +514,7 @@ seaf_repo_manager_create_enc_repo (SeafRepoManager *mgr,
                                    const char *random_key,
                                    const char *salt,
                                    int enc_version,
+                                   int key_iter,
                                    GError **error);
 
 /* Give a repo and a path in this repo, returns a list of commits, where every
