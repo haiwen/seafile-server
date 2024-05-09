@@ -1024,7 +1024,7 @@ check_files_with_same_name (SeafRepo *repo, const char *parent_dir, GList *filen
     char *canon_path = NULL;
     SeafCommit *commit = NULL;
     SeafDir *dir = NULL;
-    GError *error = NULL;
+    GError **error = NULL;
     gboolean ret = FALSE;
 
     GET_COMMIT_OR_FAIL(commit, repo->id, repo->version, repo->head->commit_id);
@@ -1034,7 +1034,7 @@ check_files_with_same_name (SeafRepo *repo, const char *parent_dir, GList *filen
     dir = seaf_fs_manager_get_seafdir_by_path (seaf->fs_mgr,
                                                repo->store_id, repo->version,
                                                commit->root_id,
-                                               canon_path, &error);
+                                               canon_path, error);
     if (!dir) {
         goto out;
     }
@@ -1051,7 +1051,7 @@ check_files_with_same_name (SeafRepo *repo, const char *parent_dir, GList *filen
         g_free (unique_name);
     }
 out:
-    g_clear_error (&error);
+    g_clear_error (error);
     g_free (canon_path);
     seaf_dir_free (dir);
     seaf_commit_unref (commit);
@@ -6531,13 +6531,19 @@ hash_to_list (gpointer key, gpointer value, gpointer user_data)
 }
 
 static gint
-compare_commit_by_time (gconstpointer a, gconstpointer b, gpointer unused)
+compare_commit_by_time (gconstpointer a, gconstpointer b)
 {
     const SeafCommit *commit_a = a;
     const SeafCommit *commit_b = b;
 
     /* Latest commit comes first in the list. */
     return (commit_b->ctime - commit_a->ctime);
+}
+
+static gint
+compare_data_commit_by_time (gconstpointer a, gconstpointer b, gpointer unused)
+{
+    return compare_commit_by_time (a, b);
 }
 
 static int
@@ -6560,7 +6566,7 @@ insert_parent_commit (GList **list, GHashTable *hash,
     }
 
     *list = g_list_insert_sorted_with_data (*list, p,
-                                           compare_commit_by_time,
+                                           compare_data_commit_by_time,
                                            NULL);
 
     key = g_strdup (parent_id);
