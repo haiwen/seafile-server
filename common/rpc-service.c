@@ -709,13 +709,13 @@ seafile_generate_magic_and_random_key(int enc_version,
 
     gchar salt[65] = {0};
     gchar magic[65] = {0};
+    gchar pwd_hash[65] = {0};
     gchar random_key[97] = {0};
 
     if (enc_version >= 3 && seafile_generate_repo_salt (salt) < 0) {
         return NULL;
     }
 
-    gboolean use_default = seafile_crypt_use_default_algo ();
     const char *algo = NULL;
     const char *params = NULL;
     if (pwd_hash_algo) {
@@ -725,18 +725,25 @@ seafile_generate_magic_and_random_key(int enc_version,
         algo = seafile_crypt_get_pwd_hash_algo ();
         params = seafile_crypt_get_pwd_hash_params ();
     }
-    seafile_generate_magic (enc_version, repo_id, passwd, salt, algo, params, magic);
-    if (seafile_generate_random_key (passwd, enc_version, salt, algo, params, random_key) < 0) {
+
+    if (algo != NULL) {
+        seafile_generate_pwd_hash (repo_id, passwd, salt, algo, params, pwd_hash);
+    } else {
+        seafile_generate_magic (enc_version, repo_id, passwd, salt, magic);
+    }
+    if (seafile_generate_random_key (passwd, enc_version, salt, random_key) < 0) {
         return NULL;
     }
 
     SeafileEncryptionInfo *sinfo;
-    if (use_default && !pwd_hash_algo) {
+    if (algo != NULL) {
         sinfo = g_object_new (SEAFILE_TYPE_ENCRYPTION_INFO,
                               "repo_id", repo_id,
                               "passwd", passwd,
                               "enc_version", enc_version,
-                              "magic", magic,
+                              "pwd_hash", pwd_hash,
+                              "pwd_hash_algo", algo,
+                              "pwd_hash_params", params,
                               "random_key", random_key,
                               NULL);
     } else {
@@ -744,9 +751,7 @@ seafile_generate_magic_and_random_key(int enc_version,
                               "repo_id", repo_id,
                               "passwd", passwd,
                               "enc_version", enc_version,
-                              "pwd_hash", magic,
-                              "pwd_hash_algo", algo,
-                              "pwd_hash_params", params,
+                              "magic", magic,
                               "random_key", random_key,
                               NULL);
     }
@@ -1066,11 +1071,18 @@ retry:
         return -1;
     }
 
-    if (seafile_verify_repo_passwd (repo_id, old_passwd, repo->magic,
-                                    repo->enc_version, repo->salt,
-                                    repo->pwd_hash, repo->pwd_hash_algo, repo->pwd_hash_params) < 0) {
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Incorrect password");
-        return -1;
+    if (repo->pwd_hash_algo) {
+        if (seafile_pwd_hash_verify_repo_passwd (repo_id, old_passwd, repo->salt,
+                                                 repo->pwd_hash, repo->pwd_hash_algo, repo->pwd_hash_params) < 0) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Incorrect password");
+            return -1;
+        }
+    } else {
+        if (seafile_verify_repo_passwd (repo_id, old_passwd, repo->magic,
+                                        repo->enc_version, repo->salt) < 0) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Incorrect password");
+            return -1;
+        }
     }
 
     parent = seaf_commit_manager_get_commit (seaf->commit_mgr,
@@ -1083,23 +1095,26 @@ retry:
         goto out;
     }
 
-    char new_magic[65], new_random_key[97];
+    char new_magic[65], new_pwd_hash[65], new_random_key[97];
 
-    seafile_generate_magic (repo->enc_version, repo_id, new_passwd, repo->salt,
-                            repo->pwd_hash_algo, repo->pwd_hash_params, new_magic);
+    if (repo->pwd_hash_algo) {
+        seafile_generate_pwd_hash (repo_id, new_passwd, repo->salt,
+                                   repo->pwd_hash_algo, repo->pwd_hash_params, new_pwd_hash);
+    } else {
+        seafile_generate_magic (repo->enc_version, repo_id, new_passwd, repo->salt,
+                                new_magic);
+    }
     if (seafile_update_random_key (old_passwd, repo->random_key,
                                    new_passwd, new_random_key,
-                                   repo->enc_version, repo->salt,
-                                   repo->pwd_hash_algo, repo->pwd_hash_params) < 0) {
+                                   repo->enc_version, repo->salt) < 0) {
         ret = -1;
         goto out;
     }
 
-    if (!repo->pwd_hash_algo) {
-        memcpy (repo->magic, new_magic, 64);
+    if (repo->pwd_hash_algo) {
+        memcpy (repo->pwd_hash, new_pwd_hash, 64);
     } else {
         memcpy (repo->magic, new_magic, 64);
-        memcpy (repo->pwd_hash, new_magic, 64);
     }
     memcpy (repo->random_key, new_random_key, 96);
 

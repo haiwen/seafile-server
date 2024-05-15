@@ -18,6 +18,11 @@
 #define DEC_SUCCESS 1
 #define DEC_FAILURE 0
 
+#define KEYGEN_ITERATION 1 << 19
+#define KEYGEN_ITERATION2 1000
+/* Should generate random salt for each repo. */
+static unsigned char salt[8] = { 0xda, 0x90, 0x45, 0xc3, 0x06, 0xc7, 0xcc, 0x26 };
+
 static PwdHashParams default_params;
 
 void
@@ -39,12 +44,6 @@ seafile_crypt_new (int version, unsigned char *key, unsigned char *iv)
     return crypt;
 }
 
-gboolean
-seafile_crypt_use_default_algo ()
-{
-    return default_params.is_default;
-}
-
 const char *
 seafile_crypt_get_pwd_hash_algo ()
 {
@@ -60,14 +59,53 @@ seafile_crypt_get_pwd_hash_params ()
 int
 seafile_derive_key (const char *data_in, int in_len, int version,
                     const char *repo_salt,
-                    const char *algo, const char *params_str,
                     unsigned char *key, unsigned char *iv)
 {
-    int ret = pwd_hash_derive_key (data_in, in_len, version,
-                                   repo_salt,
-                                   algo, params_str,
-                                   key, iv);
-    return ret;
+    if (version >= 3) {
+        unsigned char repo_salt_bin[32];
+        hex_to_rawdata (repo_salt, repo_salt_bin, 32);
+
+        PKCS5_PBKDF2_HMAC (data_in, in_len,
+                           repo_salt_bin, sizeof(repo_salt_bin),
+                           KEYGEN_ITERATION2,
+                           EVP_sha256(),
+                           32, key);
+        PKCS5_PBKDF2_HMAC ((char *)key, 32,
+                           repo_salt_bin, sizeof(repo_salt_bin),
+                           10,
+                           EVP_sha256(),
+                           16, iv);
+        return 0;
+    } else if (version == 2) {
+        PKCS5_PBKDF2_HMAC (data_in, in_len,
+                           salt, sizeof(salt),
+                           KEYGEN_ITERATION2,
+                           EVP_sha256(),
+                           32, key);
+        PKCS5_PBKDF2_HMAC ((char *)key, 32,
+                           salt, sizeof(salt),
+                           10,
+                           EVP_sha256(),
+                           16, iv);
+        return 0;
+    } else if (version == 1)
+        return EVP_BytesToKey (EVP_aes_128_cbc(), /* cipher mode */
+                               EVP_sha1(),        /* message digest */
+                               salt,              /* salt */
+                               (unsigned char*)data_in,
+                               in_len,
+                               KEYGEN_ITERATION,   /* iteration times */
+                               key, /* the derived key */
+                               iv); /* IV, initial vector */
+    else
+        return EVP_BytesToKey (EVP_aes_128_ecb(), /* cipher mode */
+                               EVP_sha1(),        /* message digest */
+                               NULL,              /* salt */
+                               (unsigned char*)data_in,
+                               in_len,
+                               3,   /* iteration times */
+                               key, /* the derived key */
+                               iv); /* IV, initial vector */
 }
 
 int
@@ -90,8 +128,6 @@ int
 seafile_generate_random_key (const char *passwd,
                              int version,
                              const char *repo_salt,
-                             const char *algo,
-                             const char *params,
                              char *random_key)
 {
     SeafileCrypt *crypt;
@@ -105,7 +141,7 @@ seafile_generate_random_key (const char *passwd,
         return -1;
     }
 
-    seafile_derive_key (passwd, strlen(passwd), version, repo_salt, algo, params, key, iv);
+    seafile_derive_key (passwd, strlen(passwd), version, repo_salt, key, iv);
 
     crypt = seafile_crypt_new (version, key, iv);
 
@@ -124,8 +160,6 @@ void
 seafile_generate_magic (int version, const char *repo_id,
                         const char *passwd,
                         const char *repo_salt,
-                        const char *algo,
-                        const char *params_str,
                         char *magic)
 {
     GString *buf = g_string_new (NULL);
@@ -137,10 +171,33 @@ seafile_generate_magic (int version, const char *repo_id,
      */
     g_string_append_printf (buf, "%s%s", repo_id, passwd);
 
-    seafile_derive_key (buf->str, buf->len, version, repo_salt, algo, params_str, key, iv);
+    seafile_derive_key (buf->str, buf->len, version, repo_salt, key, iv);
 
     g_string_free (buf, TRUE);
     rawdata_to_hex (key, magic, 32);
+}
+
+void
+seafile_generate_pwd_hash (const char *repo_id,
+                           const char *passwd,
+                           const char *repo_salt,
+                           const char *algo,
+                           const char *params_str,
+                           char *pwd_hash)
+{
+    GString *buf = g_string_new (NULL);
+    unsigned char key[32];
+
+    /* Compute a "pwd_hash" string from repo_id and passwd.
+     * This is used to verify the password given by user before decrypting
+     * data.
+     */
+    g_string_append_printf (buf, "%s%s", repo_id, passwd);
+
+    pwd_hash_derive_key (buf->str, buf->len, repo_salt, algo, params_str, key);
+
+    g_string_free (buf, TRUE);
+    rawdata_to_hex (key, pwd_hash, 32);
 }
 
 int
@@ -148,10 +205,7 @@ seafile_verify_repo_passwd (const char *repo_id,
                             const char *passwd,
                             const char *magic,
                             int version,
-                            const char *repo_salt,
-                            const char *pwd_hash,
-                            const char *algo,
-                            const char *params_str)
+                            const char *repo_salt)
 {
     GString *buf = g_string_new (NULL);
     unsigned char key[32], iv[16];
@@ -165,7 +219,7 @@ seafile_verify_repo_passwd (const char *repo_id,
     /* Recompute the magic and compare it with the one comes with the repo. */
     g_string_append_printf (buf, "%s%s", repo_id, passwd);
 
-    seafile_derive_key (buf->str, buf->len, version, repo_salt, algo, params_str, key, iv);
+    seafile_derive_key (buf->str, buf->len, version, repo_salt, key, iv);
 
     g_string_free (buf, TRUE);
     if (version >= 2)
@@ -173,14 +227,32 @@ seafile_verify_repo_passwd (const char *repo_id,
     else
         rawdata_to_hex (key, hex, 16);
 
-    if (algo) {
-        if (g_strcmp0 (hex, pwd_hash) == 0)
-            return 0;
-        else
-            return -1;
-    }
-
     if (g_strcmp0 (hex, magic) == 0)
+        return 0;
+    else
+        return -1;
+}
+
+int
+seafile_pwd_hash_verify_repo_passwd (const char *repo_id,
+                                     const char *passwd,
+                                     const char *repo_salt,
+                                     const char *pwd_hash,
+                                     const char *algo,
+                                     const char *params_str)
+{
+    GString *buf = g_string_new (NULL);
+    unsigned char key[32];
+    char hex[65];
+
+    g_string_append_printf (buf, "%s%s", repo_id, passwd);
+
+    pwd_hash_derive_key (buf->str, buf->len, repo_salt, algo, params_str, key);
+
+    g_string_free (buf, TRUE);
+    rawdata_to_hex (key, hex, 32);
+
+    if (g_strcmp0 (hex, pwd_hash) == 0)
         return 0;
     else
         return -1;
@@ -190,12 +262,11 @@ int
 seafile_decrypt_repo_enc_key (int enc_version,
                               const char *passwd, const char *random_key,
                               const char *repo_salt,
-                              const char *algo, const char *params_str,
                               unsigned char *key_out, unsigned char *iv_out)
 {
     unsigned char key[32], iv[16];
 
-    seafile_derive_key (passwd, strlen(passwd), enc_version, repo_salt, algo, params_str, key, iv);
+    seafile_derive_key (passwd, strlen(passwd), enc_version, repo_salt, key, iv);
 
     if (enc_version == 1) {
         memcpy (key_out, key, 16);
@@ -225,7 +296,6 @@ seafile_decrypt_repo_enc_key (int enc_version,
 
         seafile_derive_key ((char *)dec_random_key, 32, enc_version,
                             repo_salt,
-                            algo, params_str,
                             key, iv);
         memcpy (key_out, key, 32);
         memcpy (iv_out, iv, 16);
@@ -240,8 +310,7 @@ seafile_decrypt_repo_enc_key (int enc_version,
 int
 seafile_update_random_key (const char *old_passwd, const char *old_random_key,
                            const char *new_passwd, char *new_random_key,
-                           int enc_version, const char *repo_salt,
-                           const char *algo, const char *params_str)
+                           int enc_version, const char *repo_salt)
 {
     unsigned char key[32], iv[16];
     unsigned char random_key_raw[48], *secret_key, *new_random_key_raw;
@@ -250,7 +319,7 @@ seafile_update_random_key (const char *old_passwd, const char *old_random_key,
 
     /* First, use old_passwd to decrypt secret key from old_random_key. */
     seafile_derive_key (old_passwd, strlen(old_passwd), enc_version,
-                        repo_salt, algo, params_str, key, iv);
+                        repo_salt, key, iv);
 
     hex_to_rawdata (old_random_key, random_key_raw, 48);
 
@@ -266,7 +335,7 @@ seafile_update_random_key (const char *old_passwd, const char *old_random_key,
 
     /* Second, use new_passwd to encrypt secret key. */
     seafile_derive_key (new_passwd, strlen(new_passwd), enc_version,
-                        repo_salt, algo, params_str, key, iv);
+                        repo_salt, key, iv);
 
     crypt = seafile_crypt_new (enc_version, key, iv);
 

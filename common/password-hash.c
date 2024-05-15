@@ -10,93 +10,48 @@
 #include "utils.h"
 #include "log.h"
 
-#define KEYGEN_ITERATION 1 << 19
-#define KEYGEN_ITERATION2 1000
-/* Should generate random salt for each repo. */
-static unsigned char salt[8] = { 0xda, 0x90, 0x45, 0xc3, 0x06, 0xc7, 0xcc, 0x26 };
-
-// pdkdf2
-typedef struct Pdkdf2Params {
+// pbkdf2
+typedef struct Pbkdf2Params {
     int iteration;
-    int iteration2;
-} Pdkdf2Params;
+} Pbkdf2Params;
 
-static Pdkdf2Params *
-parse_pdkdf2_sha256_params (const char *params_str)
+static Pbkdf2Params *
+parse_pbkdf2_sha256_params (const char *params_str)
 {
-    Pdkdf2Params *params = NULL;
+    Pbkdf2Params *params = NULL;
     if (!params_str) {
-        params = g_new0 (Pdkdf2Params, 1);
-        params->iteration = KEYGEN_ITERATION;
-        params->iteration2 = KEYGEN_ITERATION2;
+        params = g_new0 (Pbkdf2Params, 1);
+        params->iteration = 1000;
         return params;
     }
     int iteration;
     iteration = atoi (params_str);
     if (iteration <= 0) {
-        iteration = KEYGEN_ITERATION2;
+        iteration = 1000;
     }
 
-    params = g_new0 (Pdkdf2Params, 1);
-    params->iteration = KEYGEN_ITERATION;
-    params->iteration2 = iteration;
+    params = g_new0 (Pbkdf2Params, 1);
+    params->iteration = iteration;
     return params;
 }
 
-int
-pdkdf2_sha256_derive_key (const char *data_in, int in_len, int version,
-                          const char *repo_salt,
-                          Pdkdf2Params *params,
-                          unsigned char *key, unsigned char *iv)
+static int
+pbkdf2_sha256_derive_key (const char *data_in, int in_len,
+                          const char *salt,
+                          Pbkdf2Params *params,
+                          unsigned char *key)
 {
     int iteration = params->iteration;
-    int iteration2 = params->iteration2;
 
-    if (version >= 3) {
-        unsigned char repo_salt_bin[32];
-        hex_to_rawdata (repo_salt, repo_salt_bin, 32);
+    unsigned char salt_bin[32];
+    hex_to_rawdata (salt, salt_bin, 32);
 
-        PKCS5_PBKDF2_HMAC (data_in, in_len,
-                           repo_salt_bin, sizeof(repo_salt_bin),
-                           iteration2,
-                           EVP_sha256(),
-                           32, key);
-        PKCS5_PBKDF2_HMAC ((char *)key, 32,
-                           repo_salt_bin, sizeof(repo_salt_bin),
-                           10,
-                           EVP_sha256(),
-                           16, iv);
-        return 0;
-    } else if (version == 2) {
-        PKCS5_PBKDF2_HMAC (data_in, in_len,
-                           salt, sizeof(salt),
-                           iteration2,
-                           EVP_sha256(),
-                           32, key);
-        PKCS5_PBKDF2_HMAC ((char *)key, 32,
-                           salt, sizeof(salt),
-                           10,
-                           EVP_sha256(),
-                           16, iv);
-        return 0;
-    } else if (version == 1)
-        return EVP_BytesToKey (EVP_aes_128_cbc(), /* cipher mode */
-                               EVP_sha1(),        /* message digest */
-                               salt,              /* salt */
-                               (unsigned char*)data_in,
-                               in_len,
-                               iteration,   /* iteration times */
-                               key, /* the derived key */
-                               iv); /* IV, initial vector */
-    else
-        return EVP_BytesToKey (EVP_aes_128_ecb(), /* cipher mode */
-                               EVP_sha1(),        /* message digest */
-                               NULL,              /* salt */
-                               (unsigned char*)data_in,
-                               in_len,
-                               3,   /* iteration times */
-                               key, /* the derived key */
-                               iv); /* IV, initial vector */
+    PKCS5_PBKDF2_HMAC (data_in, in_len,
+                       salt_bin, sizeof(salt_bin),
+                       iteration,
+                       EVP_sha256(),
+                       32, key);
+    return 0;
 }
 
 // argon2id
@@ -149,38 +104,24 @@ parse_argon2id_params (const char *params_str)
     return argon2_params;
 }
 
-int
-argon2id_derive_key (const char *data_in, int in_len, int version,
-                     const char *repo_salt,
+static int
+argon2id_derive_key (const char *data_in, int in_len,
+                     const char *salt,
                      Argon2idParams *params,
-                     unsigned char *key, unsigned char *iv)
+                     unsigned char *key)
 {
-    if (version >= 3) {
-        unsigned char repo_salt_bin[32];
-        hex_to_rawdata (repo_salt, repo_salt_bin, 32);
+    unsigned char salt_bin[32];
+    hex_to_rawdata (salt, salt_bin, 32);
 
-        argon2id_hash_raw(params->time_cost, params->memory_cost, params->parallelism,
-                          data_in, in_len,
-                          repo_salt_bin, sizeof(repo_salt_bin),
-                          key, 32);
-        argon2id_hash_raw(params->time_cost, params->memory_cost, params->parallelism,
-                          key, 32,
-                          repo_salt_bin, sizeof(repo_salt_bin),
-                          iv, 16);
-    } else {
-        argon2id_hash_raw(params->time_cost, params->memory_cost, params->parallelism,
-                          data_in, in_len,
-                          salt, sizeof(salt),
-                          key, 32);
-        argon2id_hash_raw(params->time_cost, params->memory_cost, params->parallelism,
-                          key, 32,
-                          salt, sizeof(salt),
-                          iv, 16);
-    }
+    argon2id_hash_raw(params->time_cost, params->memory_cost, params->parallelism,
+                      data_in, in_len,
+                      salt_bin, sizeof(salt_bin),
+                      key, 32);
 
     return 0;
 }
 
+// pwd_hash_init is used to init default pwd hash algorithms.
 void
 pwd_hash_init (const char *algo, const char *params_str, PwdHashParams *params)
 {
@@ -197,31 +138,29 @@ pwd_hash_init (const char *algo, const char *params_str, PwdHashParams *params)
         else
             params->params_str = g_strdup ("2,102400,8");
     } else {
-        params->is_default = TRUE;
-        params->algo = g_strdup (PWD_HASH_PDKDF2);
+        params->algo = NULL;
     }
 
     seaf_message ("password hash algorithms: %s, params: %s\n ", params->algo, params->params_str);
 }
 
-
 int
-pwd_hash_derive_key (const char *data_in, int in_len, int version,
-                     const char *repo_salt,
+pwd_hash_derive_key (const char *data_in, int in_len,
+                     const char *salt,
                      const char *algo, const char *params_str,
-                     unsigned char *key, unsigned char *iv)
+                     unsigned char *key)
 {
     int ret = 0;
     if (g_strcmp0 (algo, PWD_HASH_ARGON2ID) == 0) {
         Argon2idParams *algo_params = parse_argon2id_params (params_str);
-        ret = argon2id_derive_key (data_in, in_len, version,
-                                   repo_salt, algo_params, key, iv);
+        ret = argon2id_derive_key (data_in, in_len,
+                                   salt, algo_params, key);
         g_free (algo_params);
         return ret;
     } else {
-        Pdkdf2Params *algo_params = parse_pdkdf2_sha256_params (params_str);
-        ret = pdkdf2_sha256_derive_key (data_in, in_len, version,
-                                        repo_salt, algo_params, key, iv);
+        Pbkdf2Params *algo_params = parse_pbkdf2_sha256_params (params_str);
+        ret = pbkdf2_sha256_derive_key (data_in, in_len,
+                                        salt, algo_params, key);
         g_free (algo_params);
         return ret;
     }

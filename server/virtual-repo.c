@@ -90,12 +90,12 @@ do_create_virtual_repo (SeafRepoManager *mgr,
             if (origin_repo->pwd_hash_params)
                 repo->pwd_hash_params = g_strdup (origin_repo->pwd_hash_params);
             if (repo->pwd_hash_algo) {
-                seafile_generate_magic (repo->enc_version, repo_id, passwd, repo->salt,
-                                        repo->pwd_hash_algo, repo->pwd_hash_params, repo->pwd_hash);
+                seafile_generate_pwd_hash (repo_id, passwd, repo->salt,
+                                           repo->pwd_hash_algo, repo->pwd_hash_params, repo->pwd_hash);
                 memcpy (repo->magic, repo->pwd_hash, 32);
             } else
                 seafile_generate_magic (repo->enc_version, repo_id, passwd, repo->salt,
-                                        repo->pwd_hash_algo, repo->pwd_hash_params, repo->magic);
+                                        repo->magic);
         if (repo->enc_version >= 2)
             memcpy (repo->random_key, origin_repo->random_key, 96);
     }
@@ -230,18 +230,29 @@ create_virtual_repo_common (SeafRepoManager *mgr,
             return NULL;
         }
 
-        if (seafile_verify_repo_passwd (origin_repo_id,
-                                        passwd,
-                                        origin_repo->magic,
-                                        origin_repo->enc_version,
-                                        origin_repo->salt,
-                                        origin_repo->pwd_hash,
-                                        origin_repo->pwd_hash_algo,
-                                        origin_repo->pwd_hash_params) < 0) {
-            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                         "Incorrect password");
-            seaf_repo_unref (origin_repo);
-            return NULL;
+        if (origin_repo->pwd_hash_algo) {
+            if (seafile_pwd_hash_verify_repo_passwd (origin_repo_id,
+                                                     passwd,
+                                                     origin_repo->salt,
+                                                     origin_repo->pwd_hash,
+                                                     origin_repo->pwd_hash_algo,
+                                                     origin_repo->pwd_hash_params) < 0) {
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                             "Incorrect password");
+                seaf_repo_unref (origin_repo);
+                return NULL;
+            }
+        } else {
+            if (seafile_verify_repo_passwd (origin_repo_id,
+                                            passwd,
+                                            origin_repo->magic,
+                                            origin_repo->enc_version,
+                                            origin_repo->salt) < 0) {
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                             "Incorrect password");
+                seaf_repo_unref (origin_repo);
+                return NULL;
+            }
         }
     }
 
