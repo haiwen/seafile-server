@@ -3,6 +3,7 @@
 #include <string.h>
 #include <glib.h>
 #include "seafile-crypt.h"
+#include "password-hash.h"
 #include <openssl/rand.h>
 
 #include "utils.h"
@@ -22,6 +23,14 @@
 /* Should generate random salt for each repo. */
 static unsigned char salt[8] = { 0xda, 0x90, 0x45, 0xc3, 0x06, 0xc7, 0xcc, 0x26 };
 
+static PwdHashParams default_params;
+
+void
+seafile_crypt_init (const char *algo, const char *params)
+{
+    parse_pwd_hash_params (algo, params, &default_params);
+}
+
 SeafileCrypt *
 seafile_crypt_new (int version, unsigned char *key, unsigned char *iv)
 {
@@ -33,6 +42,18 @@ seafile_crypt_new (int version, unsigned char *key, unsigned char *iv)
         memcpy (crypt->key, key, 32);
     memcpy (crypt->iv, iv, 16);
     return crypt;
+}
+
+const char *
+seafile_crypt_get_default_pwd_hash_algo ()
+{
+    return default_params.algo;
+}
+
+const char *
+seafile_crypt_get_default_pwd_hash_params ()
+{
+    return default_params.params_str;
 }
 
 int
@@ -156,6 +177,29 @@ seafile_generate_magic (int version, const char *repo_id,
     rawdata_to_hex (key, magic, 32);
 }
 
+void
+seafile_generate_pwd_hash (const char *repo_id,
+                           const char *passwd,
+                           const char *repo_salt,
+                           const char *algo,
+                           const char *params_str,
+                           char *pwd_hash)
+{
+    GString *buf = g_string_new (NULL);
+    unsigned char key[32];
+
+    /* Compute a "pwd_hash" string from repo_id and passwd.
+     * This is used to verify the password given by user before decrypting
+     * data.
+     */
+    g_string_append_printf (buf, "%s%s", repo_id, passwd);
+
+    pwd_hash_derive_key (buf->str, buf->len, repo_salt, algo, params_str, key);
+
+    g_string_free (buf, TRUE);
+    rawdata_to_hex (key, pwd_hash, 32);
+}
+
 int
 seafile_verify_repo_passwd (const char *repo_id,
                             const char *passwd,
@@ -184,6 +228,31 @@ seafile_verify_repo_passwd (const char *repo_id,
         rawdata_to_hex (key, hex, 16);
 
     if (g_strcmp0 (hex, magic) == 0)
+        return 0;
+    else
+        return -1;
+}
+
+int
+seafile_pwd_hash_verify_repo_passwd (const char *repo_id,
+                                     const char *passwd,
+                                     const char *repo_salt,
+                                     const char *pwd_hash,
+                                     const char *algo,
+                                     const char *params_str)
+{
+    GString *buf = g_string_new (NULL);
+    unsigned char key[32];
+    char hex[65];
+
+    g_string_append_printf (buf, "%s%s", repo_id, passwd);
+
+    pwd_hash_derive_key (buf->str, buf->len, repo_salt, algo, params_str, key);
+
+    g_string_free (buf, TRUE);
+    rawdata_to_hex (key, hex, 32);
+
+    if (g_strcmp0 (hex, pwd_hash) == 0)
         return 0;
     else
         return -1;

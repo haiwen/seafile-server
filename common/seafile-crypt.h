@@ -27,8 +27,17 @@ struct SeafileCrypt {
 
 typedef struct SeafileCrypt SeafileCrypt;
 
+void
+seafile_crypt_init (const char *algo, const char *params);
+
 SeafileCrypt *
 seafile_crypt_new (int version, unsigned char *key, unsigned char *iv);
+
+const char *
+seafile_crypt_get_default_pwd_hash_algo ();
+
+const char *
+seafile_crypt_get_default_pwd_hash_params ();
 
 /*
   Derive key and iv used by AES encryption from @data_in.
@@ -77,12 +86,28 @@ seafile_generate_magic (int version, const char *repo_id,
                         const char *repo_salt,
                         char *magic);
 
+void
+seafile_generate_pwd_hash (const char *repo_id,
+                           const char *passwd,
+                           const char *repo_salt,
+                           const char *algo,
+                           const char *params_str,
+                           char *pwd_hash);
+
 int
 seafile_verify_repo_passwd (const char *repo_id,
                             const char *passwd,
                             const char *magic,
                             int version,
                             const char *repo_salt);
+
+int
+seafile_pwd_hash_verify_repo_passwd (const char *repo_id,
+                                     const char *passwd,
+                                     const char *repo_salt,
+                                     const char *pwd_hash,
+                                     const char *algo,
+                                     const char *params_str);
 
 int
 seafile_decrypt_repo_enc_key (int enc_version,

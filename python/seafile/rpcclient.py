@@ -11,8 +11,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     create_repo = seafile_create_repo
 
-    @searpc_func("string", ["string", "string", "string", "string", "string", "string", "string", "int"])
-    def seafile_create_enc_repo(repo_id, name, desc, owner_email, magic, random_key, salt, enc_version):
+    @searpc_func("string", ["string", "string", "string", "string", "string", "string", "string", "int", "string", "string", "string"])
+    def seafile_create_enc_repo(repo_id, name, desc, owner_email, magic, random_key, salt, enc_version, pwd_hash, pwd_hash_algo, pwd_hash_params):
         pass
     create_enc_repo = seafile_create_enc_repo
 
