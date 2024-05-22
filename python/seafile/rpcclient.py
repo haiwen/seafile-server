@@ -665,8 +665,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def empty_repo_trash_by_owner(owner):
         pass
 
-    @searpc_func("object", ["int", "string", "string", "string", "string"])
-    def generate_magic_and_random_key(enc_version, repo_id, password, pwd_hash_algo, pwd_hash_params):
+    @searpc_func("object", ["int", "string", "string"])
+    def generate_magic_and_random_key(enc_version, repo_id, password):
         pass
 
     @searpc_func("int64", [])

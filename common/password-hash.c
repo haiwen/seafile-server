@@ -121,9 +121,9 @@ argon2id_derive_key (const char *data_in, int in_len,
     return 0;
 }
 
-// pwd_hash_init is used to init default pwd hash algorithms.
+// parse_pwd_hash_params is used to parse default pwd hash algorithms.
 void
-pwd_hash_init (const char *algo, const char *params_str, PwdHashParams *params)
+parse_pwd_hash_params (const char *algo, const char *params_str, PwdHashParams *params)
 {
     if (g_strcmp0 (algo, PWD_HASH_PDKDF2) == 0) {
         params->algo = g_strdup (PWD_HASH_PDKDF2);

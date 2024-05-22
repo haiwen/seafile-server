@@ -745,7 +745,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_generate_magic_and_random_key,
                                      "generate_magic_and_random_key",
-                                     searpc_signature_object__int_string_string_string_string());
+                                     searpc_signature_object__int_string_string());
 
     /* Config */
     searpc_server_register_function ("seafserv-threaded-rpcserver",

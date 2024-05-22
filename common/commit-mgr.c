@@ -636,7 +636,7 @@ commit_to_json_object (SeafCommit *commit)
 
     if (commit->encrypted) {
         json_object_set_int_member (object, "enc_version", commit->enc_version);
-        // If pwd_hash is setted, the magic field is no longer included in the commit of the newly created repo.
+        // If pwd_hash is set, the magic field is no longer included in the commit of the newly created repo.
         if (commit->enc_version >= 1 && !commit->pwd_hash)
             json_object_set_string_member (object, "magic", commit->magic);
         if (commit->enc_version >= 2)
@@ -754,7 +754,7 @@ commit_from_json_object (const char *commit_id, json_t *object)
         (second_parent_id && !is_object_id_valid(second_parent_id)))
         return commit;
 
-    // If pwd_hash is setted, the magic field is no longer included in the commit of the newly created repo.
+    // If pwd_hash is set, the magic field is no longer included in the commit of the newly created repo.
     if (!magic)
         magic = pwd_hash;
 
@@ -813,7 +813,7 @@ commit_from_json_object (const char *commit_id, json_t *object)
 
     if (commit->encrypted) {
         commit->enc_version = enc_version;
-        if (enc_version >= 1)
+        if (enc_version >= 1 && !pwd_hash)
             commit->magic = g_strdup(magic);
         if (enc_version >= 2)
             commit->random_key = g_strdup (random_key);

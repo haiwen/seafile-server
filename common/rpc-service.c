@@ -698,8 +698,6 @@ GObject *
 seafile_generate_magic_and_random_key(int enc_version,
                                       const char* repo_id,
                                       const char *passwd,
-                                      const char *pwd_hash_algo,
-                                      const char *pwd_hash_params,
                                       GError **error)
 {
     if (!repo_id || !passwd) {
@@ -718,13 +716,8 @@ seafile_generate_magic_and_random_key(int enc_version,
 
     const char *algo = NULL;
     const char *params = NULL;
-    if (pwd_hash_algo) {
-        algo = pwd_hash_algo;
-        params = pwd_hash_params;
-    } else {
-        algo = seafile_crypt_get_pwd_hash_algo ();
-        params = seafile_crypt_get_pwd_hash_params ();
-    }
+    algo = seafile_crypt_get_default_pwd_hash_algo ();
+    params = seafile_crypt_get_default_pwd_hash_params ();
 
     if (algo != NULL) {
         seafile_generate_pwd_hash (repo_id, passwd, salt, algo, params, pwd_hash);

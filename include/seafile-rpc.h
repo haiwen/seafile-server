@@ -1043,8 +1043,6 @@ GObject *
 seafile_generate_magic_and_random_key(int enc_version,
                                       const char* repo_id,
                                       const char *passwd,
-                                      const char *pwd_hash_algo,
-                                      const char *pwd_hash_params,
                                       GError **error);
 
 gint64

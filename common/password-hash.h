@@ -12,7 +12,7 @@ typedef struct _PwdHashParams {
 } PwdHashParams;
 
 void
-pwd_hash_init (const char *algo, const char *params_str, PwdHashParams *params);
+ parse_pwd_hash_params (const char *algo, const char *params_str, PwdHashParams *params);
 
 int
 pwd_hash_derive_key (const char *data_in, int in_len,

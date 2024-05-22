@@ -135,19 +135,19 @@ func Get(id string) *Repo {
 	if commit.Encrypted == "true" {
 		repo.IsEncrypted = true
 		repo.EncVersion = commit.EncVersion
-		if repo.EncVersion == 1 {
+		if repo.EncVersion == 1 && commit.PwdHash == "" {
 			repo.Magic = commit.Magic
 		} else if repo.EncVersion == 2 {
-			repo.Magic = commit.Magic
 			repo.RandomKey = commit.RandomKey
 		} else if repo.EncVersion == 3 {
-			repo.Magic = commit.Magic
 			repo.RandomKey = commit.RandomKey
 			repo.Salt = commit.Salt
 		} else if repo.EncVersion == 4 {
-			repo.Magic = commit.Magic
 			repo.RandomKey = commit.RandomKey
 			repo.Salt = commit.Salt
+		}
+		if repo.EncVersion >= 2 && commit.PwdHash == "" {
+			repo.Magic = commit.Magic
 		}
 		if commit.PwdHash != "" {
 			repo.PwdHash = commit.PwdHash
@@ -166,19 +166,19 @@ func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
 	if repo.IsEncrypted {
 		commit.Encrypted = "true"
 		commit.EncVersion = repo.EncVersion
-		if repo.EncVersion == 1 {
+		if repo.EncVersion == 1 && repo.PwdHash == "" {
 			commit.Magic = repo.Magic
 		} else if repo.EncVersion == 2 {
-			commit.Magic = repo.Magic
 			commit.RandomKey = repo.RandomKey
 		} else if repo.EncVersion == 3 {
-			commit.Magic = repo.Magic
 			commit.RandomKey = repo.RandomKey
 			commit.Salt = repo.Salt
 		} else if repo.EncVersion == 4 {
-			commit.Magic = repo.Magic
 			commit.RandomKey = repo.RandomKey
 			commit.Salt = repo.Salt
+		}
+		if repo.EncVersion >= 2 && repo.PwdHash == "" {
+			commit.Magic = repo.Magic
 		}
 		if repo.PwdHash != "" {
 			commit.PwdHash = repo.PwdHash

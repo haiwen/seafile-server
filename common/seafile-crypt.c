@@ -28,7 +28,7 @@ static PwdHashParams default_params;
 void
 seafile_crypt_init (const char *algo, const char *params)
 {
-    pwd_hash_init (algo, params, &default_params);
+    parse_pwd_hash_params (algo, params, &default_params);
 }
 
 SeafileCrypt *
@@ -45,13 +45,13 @@ seafile_crypt_new (int version, unsigned char *key, unsigned char *iv)
 }
 
 const char *
-seafile_crypt_get_pwd_hash_algo ()
+seafile_crypt_get_default_pwd_hash_algo ()
 {
     return default_params.algo;
 }
 
 const char *
-seafile_crypt_get_pwd_hash_params ()
+seafile_crypt_get_default_pwd_hash_params ()
 {
     return default_params.params_str;
 }

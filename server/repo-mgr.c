@@ -140,20 +140,19 @@ seaf_repo_from_commit (SeafRepo *repo, SeafCommit *commit)
     memcpy (repo->root_id, commit->root_id, 40);
     if (repo->encrypted) {
         repo->enc_version = commit->enc_version;
-        if (repo->enc_version == 1)
+        if (repo->enc_version == 1 && !commit->pwd_hash_algo)
             memcpy (repo->magic, commit->magic, 32);
         else if (repo->enc_version == 2) {
-            memcpy (repo->magic, commit->magic, 64);
             memcpy (repo->random_key, commit->random_key, 96);
         } else if (repo->enc_version == 3) {
-            memcpy (repo->magic, commit->magic, 64);
             memcpy (repo->random_key, commit->random_key, 96);
             memcpy (repo->salt, commit->salt, 64);
         } else if (repo->enc_version == 4) {
-            if (!commit->pwd_hash_algo)
-                memcpy (repo->magic, commit->magic, 64);
             memcpy (repo->random_key, commit->random_key, 96);
             memcpy (repo->salt, commit->salt, 64);
+        }
+        if (repo->enc_version >= 2 && !commit->pwd_hash_algo) {
+            memcpy (repo->magic, commit->magic, 64);
         }
         if (commit->pwd_hash_algo) {
             memcpy (repo->pwd_hash, commit->pwd_hash, 64);
@@ -175,20 +174,19 @@ seaf_repo_to_commit (SeafRepo *repo, SeafCommit *commit)
     commit->repaired = repo->repaired;
     if (commit->encrypted) {
         commit->enc_version = repo->enc_version;
-        if (commit->enc_version == 1)
+        if (commit->enc_version == 1 && !repo->pwd_hash_algo)
             commit->magic = g_strdup (repo->magic);
         else if (commit->enc_version == 2) {
-            commit->magic = g_strdup (repo->magic);
             commit->random_key = g_strdup (repo->random_key);
         } else if (commit->enc_version == 3) {
-            commit->magic = g_strdup (repo->magic);
             commit->random_key = g_strdup (repo->random_key);
             commit->salt = g_strdup (repo->salt);
         } else if (commit->enc_version == 4) {
-            if (!repo->pwd_hash_algo)
-                commit->magic = g_strdup (repo->magic);
             commit->random_key = g_strdup (repo->random_key);
             commit->salt = g_strdup (repo->salt);
+        }
+        if (commit->enc_version >= 2 && !repo->pwd_hash_algo) {
+            commit->magic = g_strdup (repo->magic);
         }
         if (repo->pwd_hash_algo) {
             commit->pwd_hash = g_strdup (repo->pwd_hash);
@@ -3744,20 +3742,20 @@ typedef struct _RepoCryptCompat {
     const char *pwd_hash;
     const char *pwd_hash_algo;
     const char *pwd_hash_params;
-} RepoCryptCompat;
+} RepoCryptInfo;
 
 static
-RepoCryptCompat *
-repo_crypt_compat_new (const char *magic, const char *pwd_hash,
+RepoCryptInfo *
+repo_crypt_info_new (const char *magic, const char *pwd_hash,
                        const char *algo, const char *params)
 {
-    RepoCryptCompat *crypt_compat = g_new0 (RepoCryptCompat, 1);
-    crypt_compat->magic = magic;
-    crypt_compat->pwd_hash = pwd_hash;
-    crypt_compat->pwd_hash_algo = algo;
-    crypt_compat->pwd_hash_params = params;
+    RepoCryptInfo *crypt_info = g_new0 (RepoCryptInfo, 1);
+    crypt_info->magic = magic;
+    crypt_info->pwd_hash = pwd_hash;
+    crypt_info->pwd_hash_algo = algo;
+    crypt_info->pwd_hash_params = params;
 
-    return crypt_compat;
+    return crypt_info;
 }
 
 static int
@@ -3769,7 +3767,7 @@ create_repo_common (SeafRepoManager *mgr,
                     const char *random_key,
                     const char *salt,
                     int enc_version,
-                    RepoCryptCompat *crypt_compat,
+                    RepoCryptInfo *crypt_info,
                     GError **error)
 {
     SeafRepo *repo = NULL;
@@ -3784,17 +3782,17 @@ create_repo_common (SeafRepoManager *mgr,
         return -1;
     }
     
-    if (crypt_compat && crypt_compat->pwd_hash_algo) {
-        if (g_strcmp0 (crypt_compat->pwd_hash_algo, PWD_HASH_PDKDF2) != 0 &&
-            g_strcmp0 (crypt_compat->pwd_hash_algo, PWD_HASH_ARGON2ID) !=0)
+    if (crypt_info && crypt_info->pwd_hash_algo) {
+        if (g_strcmp0 (crypt_info->pwd_hash_algo, PWD_HASH_PDKDF2) != 0 &&
+            g_strcmp0 (crypt_info->pwd_hash_algo, PWD_HASH_ARGON2ID) !=0)
         {
-            seaf_warning ("Unsupported enc algothrims %s.\n", crypt_compat->pwd_hash_algo);
+            seaf_warning ("Unsupported enc algothrims %s.\n", crypt_info->pwd_hash_algo);
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                          "Unsupported encryption algothrims");
             return -1;
         }
 
-        if (!crypt_compat->pwd_hash || strlen(crypt_compat->pwd_hash) != 64) {
+        if (!crypt_info->pwd_hash || strlen(crypt_info->pwd_hash) != 64) {
             seaf_warning ("Bad pwd_hash.\n");
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                          "Bad pwd_hash");
@@ -3803,7 +3801,7 @@ create_repo_common (SeafRepoManager *mgr,
     }
 
     if (enc_version >= 2) {
-        if (!crypt_compat->pwd_hash_algo && (!crypt_compat->magic || strlen(crypt_compat->magic) != 64)) {
+        if (!crypt_info->pwd_hash_algo && (!crypt_info->magic || strlen(crypt_info->magic) != 64)) {
             seaf_warning ("Bad magic.\n");
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                          "Bad magic");
@@ -3832,18 +3830,18 @@ create_repo_common (SeafRepoManager *mgr,
     if (enc_version >= 2) {
         repo->encrypted = TRUE;
         repo->enc_version = enc_version;
-        if (!crypt_compat->pwd_hash_algo)
-            memcpy (repo->magic, crypt_compat->magic, 64);
+        if (!crypt_info->pwd_hash_algo)
+            memcpy (repo->magic, crypt_info->magic, 64);
         memcpy (repo->random_key, random_key, 96);
     }
     if (enc_version >= 3)
         memcpy (repo->salt, salt, 64);
 
-    if (crypt_compat && crypt_compat->pwd_hash_algo) {
+    if (crypt_info && crypt_info->pwd_hash_algo) {
         // set pwd_hash fields here.
-        memcpy (repo->pwd_hash, crypt_compat->pwd_hash, 64);
-        repo->pwd_hash_algo = g_strdup (crypt_compat->pwd_hash_algo);
-        repo->pwd_hash_params = g_strdup (crypt_compat->pwd_hash_params);
+        memcpy (repo->pwd_hash, crypt_info->pwd_hash, 64);
+        repo->pwd_hash_algo = g_strdup (crypt_info->pwd_hash_algo);
+        repo->pwd_hash_params = g_strdup (crypt_info->pwd_hash_params);
     }
 
     repo->version = CURRENT_REPO_VERSION;
@@ -3911,8 +3909,8 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
 {
     char *repo_id = NULL;
     char salt[65], magic[65], pwd_hash[65], random_key[97];
-    const char *algo = seafile_crypt_get_pwd_hash_algo ();
-    const char *params = seafile_crypt_get_pwd_hash_params ();
+    const char *algo = seafile_crypt_get_default_pwd_hash_algo ();
+    const char *params = seafile_crypt_get_default_pwd_hash_params ();
 
     repo_id = gen_uuid ();
 
@@ -3932,10 +3930,10 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
 
     int rc;
     if (passwd) {
-        RepoCryptCompat *crypt_compat = repo_crypt_compat_new (magic, pwd_hash, algo, params);
+        RepoCryptInfo *crypt_info = repo_crypt_info_new (magic, pwd_hash, algo, params);
         rc = create_repo_common (mgr, repo_id, repo_name, repo_desc, owner_email,
-                                 random_key, salt, enc_version, crypt_compat, error);
-        g_free (crypt_compat);
+                                 random_key, salt, enc_version, crypt_info, error);
+        g_free (crypt_info);
     }
     else
         rc = create_repo_common (mgr, repo_id, repo_name, repo_desc, owner_email,
@@ -3987,13 +3985,13 @@ seaf_repo_manager_create_enc_repo (SeafRepoManager *mgr,
         return NULL;
     }
 
-    RepoCryptCompat *crypt_compat = repo_crypt_compat_new (magic, pwd_hash, pwd_hash_algo, pwd_hash_params);
+    RepoCryptInfo *crypt_info = repo_crypt_info_new (magic, pwd_hash, pwd_hash_algo, pwd_hash_params);
     if (create_repo_common (mgr, repo_id, repo_name, repo_desc, owner_email,
-                            random_key, salt, enc_version, crypt_compat, error) < 0) {
-        g_free (crypt_compat);
+                            random_key, salt, enc_version, crypt_info, error) < 0) {
+        g_free (crypt_info);
         return NULL;
     }
-    g_free (crypt_compat);
+    g_free (crypt_info);
 
     if (seaf_repo_manager_set_repo_owner (mgr, repo_id, owner_email) < 0) {
         seaf_warning ("Failed to set repo owner.\n");

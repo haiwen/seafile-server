@@ -81,8 +81,8 @@ class SeafileAPI(object):
     def unset_passwd(self, repo_id, user):
         return seafserv_threaded_rpc.unset_passwd(repo_id, user)
 
-    def generate_magic_and_random_key(self, enc_version, repo_id, password, pwd_hash_algo=None, pwd_hash_params=None):
-        return seafserv_threaded_rpc.generate_magic_and_random_key(enc_version, repo_id, password, pwd_hash_algo, pwd_hash_params)
+    def generate_magic_and_random_key(self, enc_version, repo_id, password):
+        return seafserv_threaded_rpc.generate_magic_and_random_key(enc_version, repo_id, password)
 
     # repo manipulation
 
