@@ -412,6 +412,7 @@ type SharedRepo struct {
 	Permission   string `json:"permission"`
 	Type         string `json:"type"`
 	Owner        string `json:"owner"`
+	RepoType     string `json:"-"`
 }
 
 // GetReposByOwner get repos by owner
@@ -419,7 +420,7 @@ func GetReposByOwner(email string) ([]*SharedRepo, error) {
 	var repos []*SharedRepo
 
 	query := "SELECT o.repo_id, b.commit_id, i.name, " +
-		"i.version, i.update_time, i.last_modifier FROM " +
+		"i.version, i.update_time, i.last_modifier, i.type FROM " +
 		"RepoOwner o LEFT JOIN Branch b ON o.repo_id = b.repo_id " +
 		"LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id " +
 		"LEFT JOIN VirtualRepo v ON o.repo_id = v.repo_id " +
@@ -443,10 +444,10 @@ func GetReposByOwner(email string) ([]*SharedRepo, error) {
 
 	for rows.Next() {
 		repo := new(SharedRepo)
-		var repoName, lastModifier sql.NullString
+		var repoName, lastModifier, repoType sql.NullString
 		if err := rows.Scan(&repo.ID, &repo.HeadCommitID,
 			&repoName, &repo.Version, &repo.MTime,
-			&lastModifier); err == nil {
+			&lastModifier, &repoType); err == nil {
 
 			if repo.HeadCommitID == "" {
 				continue
@@ -458,6 +459,9 @@ func GetReposByOwner(email string) ([]*SharedRepo, error) {
 				continue
 			}
 			repo.Name = repoName.String
+			if repoType.Valid {
+				repo.RepoType = repoType.String
+			}
 			repos = append(repos, repo)
 		}
 	}
@@ -473,7 +477,7 @@ func GetReposByOwner(email string) ([]*SharedRepo, error) {
 func ListInnerPubRepos() ([]*SharedRepo, error) {
 	query := "SELECT InnerPubRepo.repo_id, " +
 		"owner_id, permission, commit_id, i.name, " +
-		"i.update_time, i.version " +
+		"i.update_time, i.version, i.type " +
 		"FROM InnerPubRepo " +
 		"LEFT JOIN RepoInfo i ON InnerPubRepo.repo_id = i.repo_id, RepoOwner, Branch " +
 		"WHERE InnerPubRepo.repo_id=RepoOwner.repo_id AND " +
@@ -495,10 +499,10 @@ func ListInnerPubRepos() ([]*SharedRepo, error) {
 	var repos []*SharedRepo
 	for rows.Next() {
 		repo := new(SharedRepo)
-		var repoName sql.NullString
+		var repoName, repoType sql.NullString
 		if err := rows.Scan(&repo.ID, &repo.Owner,
 			&repo.Permission, &repo.HeadCommitID, &repoName,
-			&repo.MTime, &repo.Version); err == nil {
+			&repo.MTime, &repo.Version, &repoType); err == nil {
 
 			if !repoName.Valid {
 				continue
@@ -507,6 +511,9 @@ func ListInnerPubRepos() ([]*SharedRepo, error) {
 				continue
 			}
 			repo.Name = repoName.String
+			if repoType.Valid {
+				repo.RepoType = repoType.String
+			}
 			repos = append(repos, repo)
 		}
 	}
@@ -525,7 +532,7 @@ func ListShareRepos(email, columnType string) ([]*SharedRepo, error) {
 	if columnType == "from_email" {
 		query = "SELECT sh.repo_id, to_email, " +
 			"permission, commit_id, " +
-			"i.name, i.update_time, i.version FROM " +
+			"i.name, i.update_time, i.version, i.type FROM " +
 			"SharedRepo sh LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b " +
 			"WHERE from_email=? AND " +
 			"sh.repo_id = b.repo_id AND " +
@@ -534,7 +541,7 @@ func ListShareRepos(email, columnType string) ([]*SharedRepo, error) {
 	} else if columnType == "to_email" {
 		query = "SELECT sh.repo_id, from_email, " +
 			"permission, commit_id, " +
-			"i.name, i.update_time, i.version FROM " +
+			"i.name, i.update_time, i.version, i.type FROM " +
 			"SharedRepo sh LEFT JOIN RepoInfo i ON sh.repo_id = i.repo_id, Branch b " +
 			"WHERE to_email=? AND " +
 			"sh.repo_id = b.repo_id AND " +
@@ -561,10 +568,10 @@ func ListShareRepos(email, columnType string) ([]*SharedRepo, error) {
 
 	for rows.Next() {
 		repo := new(SharedRepo)
-		var repoName sql.NullString
+		var repoName, repoType sql.NullString
 		if err := rows.Scan(&repo.ID, &repo.Owner,
 			&repo.Permission, &repo.HeadCommitID,
-			&repoName, &repo.MTime, &repo.Version); err == nil {
+			&repoName, &repo.MTime, &repo.Version, &repoType); err == nil {
 
 			if !repoName.Valid {
 				continue
@@ -573,6 +580,9 @@ func ListShareRepos(email, columnType string) ([]*SharedRepo, error) {
 				continue
 			}
 			repo.Name = repoName.String
+			if repoType.Valid {
+				repo.RepoType = repoType.String
+			}
 
 			repos = append(repos, repo)
 		}
@@ -599,7 +609,7 @@ func GetGroupReposByUser(user string, orgID int) ([]*SharedRepo, error) {
 	if orgID < 0 {
 		sqlBuilder.WriteString("SELECT g.repo_id, " +
 			"user_name, permission, commit_id, " +
-			"i.name, i.update_time, i.version " +
+			"i.name, i.update_time, i.version, i.type " +
 			"FROM RepoGroup g " +
 			"LEFT JOIN RepoInfo i ON g.repo_id = i.repo_id, " +
 			"Branch b WHERE g.repo_id = b.repo_id AND " +
@@ -607,7 +617,7 @@ func GetGroupReposByUser(user string, orgID int) ([]*SharedRepo, error) {
 	} else {
 		sqlBuilder.WriteString("SELECT g.repo_id, " +
 			"owner, permission, commit_id, " +
-			"i.name, i.update_time, i.version " +
+			"i.name, i.update_time, i.version, i.type " +
 			"FROM OrgGroupRepo g " +
 			"LEFT JOIN RepoInfo i ON g.repo_id = i.repo_id, " +
 			"Branch b WHERE g.repo_id = b.repo_id AND " +
@@ -631,10 +641,13 @@ func GetGroupReposByUser(user string, orgID int) ([]*SharedRepo, error) {
 	var repos []*SharedRepo
 	for rows.Next() {
 		gRepo := new(SharedRepo)
+		var repoType sql.NullString
 		if err := rows.Scan(&gRepo.ID, &gRepo.Owner,
 			&gRepo.Permission, &gRepo.HeadCommitID,
-			&gRepo.Name, &gRepo.MTime, &gRepo.Version); err == nil {
-
+			&gRepo.Name, &gRepo.MTime, &gRepo.Version, &repoType); err == nil {
+			if repoType.Valid {
+				gRepo.RepoType = repoType.String
+			}
 			repos = append(repos, gRepo)
 		}
 	}
