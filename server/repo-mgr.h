@@ -42,6 +42,7 @@ struct _SeafRepo {
     gint64      last_modify;
     gint64      size;
     gint64      file_count;
+    gchar       *type;
 
     int         status;
 
