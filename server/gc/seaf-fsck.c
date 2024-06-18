@@ -151,7 +151,7 @@ main(int argc, char *argv[])
 
 #ifdef __linux__
     uid_t current_user, seafile_user;
-    if (!force && !check_user (seafile_dir, &current_user, &seafile_user)) {
+    if (!export_path && !force && !check_user (seafile_dir, &current_user, &seafile_user)) {
         seaf_message ("Current user (%u) is not the user for running "
                       "seafile server (%u). Unable to run fsck.\n",
                       current_user, seafile_user);
