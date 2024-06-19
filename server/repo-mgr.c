@@ -92,6 +92,7 @@ seaf_repo_free (SeafRepo *repo)
     g_free (repo->last_modifier);
     g_free (repo->pwd_hash_algo);
     g_free (repo->pwd_hash_params);
+    g_free (repo->type);
     g_free (repo);
 }
 
@@ -680,6 +681,7 @@ create_repo_fill_size (SeafDBRow *row, void *data)
     const char *vrepo_id = seaf_db_row_get_column_text (row, 3);
     gint64 file_count = seaf_db_row_get_column_int64 (row, 7);
     int status = seaf_db_row_get_column_int(row, 8);
+    const char *type = seaf_db_row_get_column_text (row, 9);
 
     *repo = seaf_repo_new (repo_id, NULL, NULL);
     if (!*repo)
@@ -712,6 +714,9 @@ create_repo_fill_size (SeafDBRow *row, void *data)
     } else {
         memcpy ((*repo)->store_id, repo_id, 36);
     }
+    if (type) {
+        (*repo)->type = g_strdup(type);
+    }
 
     return TRUE;
 }
@@ -724,7 +729,7 @@ get_repo_from_db (SeafRepoManager *mgr, const char *id, gboolean *db_err)
 
     if (seaf_db_type(mgr->seaf->db) != SEAF_DB_TYPE_PGSQL)
         sql = "SELECT r.repo_id, s.size, b.commit_id, "
-            "v.repo_id, v.origin_repo, v.path, v.base_commit, fc.file_count, i.status FROM "
+            "v.repo_id, v.origin_repo, v.path, v.base_commit, fc.file_count, i.status, i.type FROM "
             "Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id "
             "LEFT JOIN RepoSize s ON r.repo_id = s.repo_id "
             "LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id "
@@ -1083,7 +1088,8 @@ create_tables_mysql (SeafRepoManager *mgr)
     sql = "CREATE TABLE IF NOT EXISTS RepoInfo (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
         "repo_id CHAR(36), "
         "name VARCHAR(255) NOT NULL, update_time BIGINT, version INTEGER, "
-        "is_encrypted INTEGER, last_modifier VARCHAR(255), status INTEGER DEFAULT 0, UNIQUE INDEX(repo_id)) ENGINE=INNODB";
+        "is_encrypted INTEGER, last_modifier VARCHAR(255), status INTEGER DEFAULT 0, type VARCHAR(10), "
+        "UNIQUE INDEX(repo_id), INDEX(type)) ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
@@ -2248,6 +2254,7 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
     gboolean is_encrypted = seaf_db_row_get_column_int (row, 6) ? TRUE : FALSE;
     const char *last_modifier = seaf_db_row_get_column_text (row, 7);
     int status = seaf_db_row_get_column_int (row, 8);
+    const char *type = seaf_db_row_get_column_text (row, 9);
 
     repo = seaf_repo_new (repo_id, NULL, NULL);
     if (!repo)
@@ -2259,8 +2266,8 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
     }
 
     repo->size = size;
-    if (seaf_db_row_get_column_count (row) == 10) {
-        gint64 file_count = seaf_db_row_get_column_int64 (row, 9);
+    if (seaf_db_row_get_column_count (row) == 11) {
+        gint64 file_count = seaf_db_row_get_column_int64 (row, 10);
         repo->file_count = file_count;
     }
     head = seaf_branch_new ("master", repo_id, commit_id);
@@ -2272,6 +2279,9 @@ collect_repos_fill_size_commit (SeafDBRow *row, void *data)
         repo->encrypted = is_encrypted;
         repo->last_modifier = g_strdup (last_modifier);
         repo->status = status;
+    }
+    if (type) {
+        repo->type = g_strdup(type);
     }
 
 out:
@@ -2297,7 +2307,7 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
     if (start == -1 && limit == -1) {
         if (db_type != SEAF_DB_TYPE_PGSQL)
             sql = "SELECT o.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, i.type FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
@@ -2325,7 +2335,7 @@ seaf_repo_manager_get_repos_by_owner (SeafRepoManager *mgr,
     } else {
         if (db_type != SEAF_DB_TYPE_PGSQL)
             sql = "SELECT o.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, i.type FROM "
                 "RepoOwner o LEFT JOIN RepoSize s ON o.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON o.repo_id = b.repo_id "
                 "LEFT JOIN RepoInfo i ON o.repo_id = i.repo_id "
@@ -2412,7 +2422,7 @@ seaf_repo_manager_get_repos_by_id_prefix (SeafRepoManager *mgr,
     if (start == -1 && limit == -1) {
         if (db_type != SEAF_DB_TYPE_PGSQL)
             sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, i.type FROM "
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
@@ -2437,7 +2447,7 @@ seaf_repo_manager_get_repos_by_id_prefix (SeafRepoManager *mgr,
     } else {
         if (db_type != SEAF_DB_TYPE_PGSQL)
             sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status FROM "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, i.type FROM "
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
@@ -2482,7 +2492,7 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
     switch (seaf_db_type(seaf->db)) {
     case SEAF_DB_TYPE_MYSQL:
         sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-            "i.version, i.is_encrypted, i.last_modifier, i.status, fc.file_count FROM "
+            "i.version, i.is_encrypted, i.last_modifier, i.status, i.type, fc.file_count FROM "
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
             "LEFT JOIN RepoFileCount fc ON i.repo_id = fc.repo_id "
@@ -2506,7 +2516,7 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
         break;
     case SEAF_DB_TYPE_SQLITE:
         sql = "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-            "i.version, i.is_encrypted, i.last_modifier, i.status, fc.file_count FROM "
+            "i.version, i.is_encrypted, i.last_modifier, i.status, i.type, fc.file_count FROM "
             "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
             "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
             "LEFT JOIN RepoFileCount fc ON i.repo_id = fc.repo_id "
@@ -2559,7 +2569,7 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
         switch (seaf_db_type(mgr->seaf->db)) {
         case SEAF_DB_TYPE_MYSQL:
             g_string_append (sql, "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status, f.file_count FROM "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, i.type, f.file_count FROM "
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
@@ -2577,7 +2587,7 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
             break;
         case SEAF_DB_TYPE_SQLITE:
             g_string_append (sql, "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status, f.file_count FROM "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, i.type, f.file_count FROM "
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
@@ -2605,7 +2615,7 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
         switch (seaf_db_type(mgr->seaf->db)) {
         case SEAF_DB_TYPE_MYSQL:
             g_string_append (sql, "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status, f.file_count FROM "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, i.type, f.file_count FROM "
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
@@ -2623,7 +2633,7 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr, int start, int limit, con
             break;
         case SEAF_DB_TYPE_SQLITE:
             g_string_append (sql, "SELECT i.repo_id, s.size, b.commit_id, i.name, i.update_time, "
-                "i.version, i.is_encrypted, i.last_modifier, i.status, f.file_count FROM "
+                "i.version, i.is_encrypted, i.last_modifier, i.status, i.type, f.file_count FROM "
                 "RepoInfo i LEFT JOIN RepoSize s ON i.repo_id = s.repo_id "
                 "LEFT JOIN Branch b ON i.repo_id = b.repo_id "
                 "LEFT JOIN RepoFileCount f ON i.repo_id = f.repo_id "
@@ -3298,6 +3308,7 @@ get_group_repos_cb (SeafDBRow *row, void *data)
     gboolean is_encrypted = seaf_db_row_get_column_int (row, 12) ? TRUE : FALSE;
     const char *last_modifier = seaf_db_row_get_column_text (row, 13);
     int status = seaf_db_row_get_column_int (row, 14);
+    const char *type = seaf_db_row_get_column_text (row, 15);
 
     char *user_name_l = g_ascii_strdown (user_name, -1);
 
@@ -3319,7 +3330,7 @@ get_group_repos_cb (SeafDBRow *row, void *data)
         if (vrepo_id) {
             const char *origin_repo_id = seaf_db_row_get_column_text (row, 7);
             const char *origin_path = seaf_db_row_get_column_text (row, 8);
-            const char *origin_repo_name = seaf_db_row_get_column_text (row, 15);
+            const char *origin_repo_name = seaf_db_row_get_column_text (row, 16);
             g_object_set (srepo, "store_id", origin_repo_id,
                           "origin_repo_id", origin_repo_id,
                           "origin_repo_name", origin_repo_name,
@@ -3335,6 +3346,9 @@ get_group_repos_cb (SeafDBRow *row, void *data)
                           "version", version,
                           "encrypted", is_encrypted,
                           "last_modifier", last_modifier, NULL);
+        }
+        if (type) {
+            g_object_set (srepo, "repo_type", type, NULL);
         }
         *p_list = g_list_prepend (*p_list, srepo);
     }
@@ -3411,7 +3425,7 @@ seaf_repo_manager_get_repos_by_group (SeafRepoManager *mgr,
     sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
         "v.origin_repo, v.path, i.name, "
-        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
+        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i.type, i2.name "
         "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
         "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoInfo i ON RepoGroup.repo_id = i.repo_id "
@@ -3449,7 +3463,7 @@ seaf_repo_manager_get_group_repos_by_owner (SeafRepoManager *mgr,
     sql = "SELECT RepoGroup.repo_id, v.repo_id, "
         "group_id, user_name, permission, commit_id, s.size, "
         "v.origin_repo, v.path, i.name, "
-        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
+        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i.type, i2.name "
         "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
         "RepoGroup.repo_id = v.repo_id "
         "LEFT JOIN RepoInfo i ON RepoGroup.repo_id = i.repo_id "
@@ -3600,6 +3614,7 @@ collect_public_repos (SeafDBRow *row, void *data)
     gboolean is_encrypted = seaf_db_row_get_column_int (row, 11) ? TRUE : FALSE;
     const char *last_modifier = seaf_db_row_get_column_text (row, 12);
     int status = seaf_db_row_get_column_int (row, 13);
+    const char *type = seaf_db_row_get_column_text (row, 14);
 
     char *owner_l = g_ascii_strdown (owner, -1);
 
@@ -3636,6 +3651,9 @@ collect_public_repos (SeafDBRow *row, void *data)
                           "encrypted", is_encrypted,
                           "last_modifier", last_modifier, NULL);
         }
+        if (type) {
+            g_object_set (srepo, "repo_type", type, NULL);
+        }
 
         *ret = g_list_prepend (*ret, srepo);
     }
@@ -3652,7 +3670,7 @@ seaf_repo_manager_list_inner_pub_repos (SeafRepoManager *mgr, gboolean *db_err)
     sql = "SELECT InnerPubRepo.repo_id, VirtualRepo.repo_id, "
         "owner_id, permission, commit_id, s.size, "
         "VirtualRepo.origin_repo, VirtualRepo.path, i.name, "
-        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status "
+        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i.type "
         "FROM InnerPubRepo LEFT JOIN VirtualRepo ON "
         "InnerPubRepo.repo_id=VirtualRepo.repo_id "
         "LEFT JOIN RepoInfo i ON InnerPubRepo.repo_id = i.repo_id "
@@ -3696,7 +3714,7 @@ seaf_repo_manager_list_inner_pub_repos_by_owner (SeafRepoManager *mgr,
     sql = "SELECT InnerPubRepo.repo_id, VirtualRepo.repo_id, "
         "owner_id, permission, commit_id, s.size, "
         "VirtualRepo.origin_repo, VirtualRepo.path, i.name, "
-        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status "
+        "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i.type "
         "FROM InnerPubRepo LEFT JOIN VirtualRepo ON "
         "InnerPubRepo.repo_id=VirtualRepo.repo_id "
         "LEFT JOIN RepoInfo i ON InnerPubRepo.repo_id = i.repo_id "
@@ -4575,7 +4593,7 @@ seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
         sql = "SELECT RepoGroup.repo_id, v.repo_id, "
               "group_id, user_name, permission, commit_id, s.size, "
               "v.origin_repo, v.path, i.name, "
-              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i.type, i2.name "
               "FROM RepoGroup LEFT JOIN VirtualRepo v ON "
               "RepoGroup.repo_id = v.repo_id "
               "LEFT JOIN RepoInfo i ON RepoGroup.repo_id = i.repo_id "
@@ -4589,7 +4607,7 @@ seaf_get_group_shared_repo_by_path (SeafRepoManager *mgr,
         sql = "SELECT OrgGroupRepo.repo_id, v.repo_id, "
               "group_id, owner, permission, commit_id, s.size, "
               "v.origin_repo, v.path, i.name, "
-              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
+              "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i.type, i2.name "
               "FROM OrgGroupRepo LEFT JOIN VirtualRepo v ON "
               "OrgGroupRepo.repo_id = v.repo_id "
               "LEFT JOIN RepoInfo i ON OrgRepoGroup.repo_id = i.repo_id "
@@ -4648,7 +4666,7 @@ seaf_get_group_repos_by_user (SeafRepoManager *mgr,
     g_string_printf (sql, "SELECT g.repo_id, v.repo_id, "
                           "group_id, %s, permission, commit_id, s.size, "
                           "v.origin_repo, v.path, i.name, "
-                          "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i2.name "
+                          "i.update_time, i.version, i.is_encrypted, i.last_modifier, i.status, i.type, i2.name "
                           "FROM %s g LEFT JOIN VirtualRepo v ON "
                           "g.repo_id = v.repo_id "
                           "LEFT JOIN RepoInfo i ON g.repo_id = i.repo_id "
