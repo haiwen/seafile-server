@@ -66,6 +66,7 @@ convert_repo (SeafRepo *r)
                   "repo_id", r->id, "repo_name", r->name,
                   "repo_desc", r->desc, "last_modified", r->last_modify,
                   "status", r->status,
+                  "repo_type", r->type,
                   NULL);
 
 #ifdef SEAFILE_SERVER
