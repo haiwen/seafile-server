@@ -297,6 +297,7 @@ seaf_repo_manager_revert_on_server (SeafRepoManager *mgr,
                                     const char *repo_id,
                                     const char *commit_id,
                                     const char *user_name,
+                                    const char *friendly_name,
                                     GError **error);
 
 /**
@@ -315,6 +316,7 @@ seaf_repo_manager_post_file (SeafRepoManager *mgr,
                              const char *parent_dir,
                              const char *file_name,
                              const char *user,
+                             const char *friendly_name,
                              GError **error);
 
 int
@@ -324,6 +326,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                     const char *filenames_json,
                                     const char *paths_json,
                                     const char *user,
+                                    const char *friendly_name,
                                     int replace_existed,
                                     char **new_ids,
                                     char **task_id,
@@ -368,6 +371,7 @@ seaf_repo_manager_post_empty_file (SeafRepoManager *mgr,
                                    const char *parent_dir,
                                    const char *new_file_name,
                                    const char *user,
+                                   const char *friendly_name,
                                    GError **error);
 
 int
@@ -376,6 +380,7 @@ seaf_repo_manager_post_dir (SeafRepoManager *mgr,
                             const char *parent_dir,
                             const char *new_dir_name,
                             const char *user,
+                            const char *friendly_name,
                             GError **error);
 
 int
@@ -384,6 +389,7 @@ seaf_repo_manager_mkdir_with_parents (SeafRepoManager *mgr,
                                       const char *parent_dir,
                                       const char *new_dir_path,
                                       const char *user,
+                                      const char *friendly_name,
                                       GError **error);
 
 /**
@@ -400,6 +406,7 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
                             const char *parent_dir,
                             const char *file_name,
                             const char *user,
+                            const char *friendly_name,
                             const char *head_id,
                             char **new_file_id,                            
                             GError **error);
@@ -423,20 +430,8 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
                             const char *parent_dir,
                             const char *file_name,
                             const char *user,
+                            const char *friendly_name,
                             GError **error);
-
-SeafileCopyResult *
-seaf_repo_manager_copy_file (SeafRepoManager *mgr,
-                             const char *src_repo_id,
-                             const char *src_dir,
-                             const char *src_filename,
-                             const char *dst_repo_id,
-                             const char *dst_dir,
-                             const char *dst_filename,
-                             const char *user,
-                             int need_progress,
-                             int synchronous,
-                             GError **error);
 
 SeafileCopyResult *
 seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
@@ -447,23 +442,10 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
                                        const char *dst_dir,
                                        const char *dst_filenames,
                                        const char *user,
+                                       const char *friendly_name,
                                        int need_progress,
                                        int synchronous,
                                        GError **error);
-
-SeafileCopyResult *
-seaf_repo_manager_move_file (SeafRepoManager *mgr,
-                             const char *src_repo_id,
-                             const char *src_dir,
-                             const char *src_filename,
-                             const char *dst_repo_id,
-                             const char *dst_dir,
-                             const char *dst_filename,
-                             int replace,
-                             const char *user,
-                             int need_progress,
-                             int synchronous,
-                             GError **error);
 
 SeafileCopyResult *
 seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
@@ -475,6 +457,7 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
                                        const char *dst_filenames,
                                        int replace,
                                        const char *user,
+                                       const char *friendly_name,
                                        int need_progress,
                                        int synchronous,
                                        GError **error);
@@ -486,6 +469,7 @@ seaf_repo_manager_rename_file (SeafRepoManager *mgr,
                                const char *oldname,
                                const char *newname,
                                const char *user,
+                               const char *friendly_name,
                                GError **error);
 
 int
@@ -541,6 +525,7 @@ seaf_repo_manager_revert_file (SeafRepoManager *mgr,
                                const char *commit_id,
                                const char *path,
                                const char *user,
+                               const char *friendly_name,
                                GError **error);
 
 int
@@ -549,6 +534,7 @@ seaf_repo_manager_revert_dir (SeafRepoManager *mgr,
                               const char *old_commit_id,
                               const char *dir_path,
                               const char *user,
+                              const char *friendly_name,
                               GError **error);
 
 /*
@@ -573,6 +559,7 @@ seaf_repo_manager_update_dir (SeafRepoManager *mgr,
                               const char *dir_path,
                               const char *new_dir_id,
                               const char *user,
+                              const char *friendly_name,
                               const char *head_id,
                               char *new_commit_id,
                               GError **error);
@@ -902,6 +889,7 @@ int
 post_files_and_gen_commit (GList *filenames,
                           const char *repo_id,
                           const char *user,
+                          const char *friendly_name,
                           char **ret_json,
                           int replace_existed,
                           const char *canon_path,

@@ -97,6 +97,7 @@ struct CopyThreadData {
     char *dst_filename;
     int replace;
     char *modifier;
+    char *friendly_name;
     CopyTask *task;
     CopyTaskFunc func;
 };
@@ -109,7 +110,7 @@ copy_thread (void *vdata)
 
     data->func (data->src_repo_id, data->src_path, data->src_filename,
                 data->dst_repo_id, data->dst_path, data->dst_filename,
-                data->replace, data->modifier, data->task);
+                data->replace, data->modifier, data->friendly_name, data->task);
 
     return vdata;
 }
@@ -124,6 +125,7 @@ copy_done (void *vdata)
     g_free (data->dst_path);
     g_free (data->dst_filename);
     g_free (data->modifier);
+    g_free (data->friendly_name);
     g_free (data);
 }
 
@@ -137,6 +139,7 @@ seaf_copy_manager_add_task (SeafCopyManager *mgr,
                             const char *dst_filename,
                             int replace,
                             const char *modifier,
+                            const char *friendly_name,
                             CopyTaskFunc function,
                             gboolean need_progress)
 {
@@ -165,6 +168,7 @@ seaf_copy_manager_add_task (SeafCopyManager *mgr,
     data->dst_filename = g_strdup(dst_filename);
     data->replace = replace;
     data->modifier = g_strdup(modifier);
+    data->friendly_name = g_strdup(friendly_name);
     data->task = task;
     data->func = function;
 

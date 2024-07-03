@@ -3793,6 +3793,7 @@ create_repo_common (SeafRepoManager *mgr,
     commit = seaf_commit_new (NULL, repo->id,
                               EMPTY_SHA1, /* root id */
                               user, /* creator */
+                              NULL,
                               EMPTY_SHA1, /* creator id */
                               "Created library",  /* description */
                               0);         /* ctime */
@@ -4154,6 +4155,7 @@ retry:
                               repo->id,
                               parent->root_id,
                               user,
+                              NULL,
                               EMPTY_SHA1,
                               "Changed library name or description",
                               0);

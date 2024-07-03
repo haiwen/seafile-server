@@ -47,6 +47,7 @@ typedef struct IndexPara {
     GList *paths;
     SeafRepo *repo;
     char *user;
+    char *friendly_name;
     char *canon_path;
     int replace_existed;
     SeafileCrypt *crypt;
@@ -132,6 +133,7 @@ free_index_para (IndexPara *idx_para)
     string_list_free (idx_para->paths);
     seaf_repo_unref (idx_para->repo);
     g_free (idx_para->user);
+    g_free (idx_para->friendly_name);
     g_free (idx_para->canon_path);
     g_free (idx_para->crypt);
     g_free (idx_para);
@@ -173,6 +175,7 @@ start_index_task (gpointer data, gpointer user_data)
     ret = post_files_and_gen_commit (idx_para->filenames,
                                      idx_para->repo->id,
                                      idx_para->user,
+                                     idx_para->friendly_name,
                                      idx_para->ret_json ? &ret_json : NULL,
                                      idx_para->replace_existed,
                                      idx_para->canon_path,
@@ -241,6 +244,7 @@ index_blocks_mgr_start_index (IndexBlksMgr *mgr,
                               GList *paths,
                               const char *repo_id,
                               const char *user,
+                              const char *friendly_name,
                               int replace_existed,
                               gboolean ret_json,
                               const char *canon_path,
@@ -278,6 +282,7 @@ index_blocks_mgr_start_index (IndexBlksMgr *mgr,
     idx_para->paths = g_list_copy_deep (paths, (GCopyFunc)g_strdup, NULL);
     idx_para->repo = repo;
     idx_para->user = g_strdup (user);
+    idx_para->friendly_name = g_strdup (friendly_name);
     idx_para->canon_path = g_strdup(canon_path);
     idx_para->replace_existed = replace_existed;
     idx_para->ret_json = ret_json;

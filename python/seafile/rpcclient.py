@@ -91,8 +91,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     repo_query_access_property = seafile_repo_query_access_property
 
-    @searpc_func("int",  ["string", "string", "string"])
-    def seafile_revert_on_server(repo_id, commit_id, user_name):
+    @searpc_func("int",  ["string", "string", "string", "string"])
+    def seafile_revert_on_server(repo_id, commit_id, user_name, friendly_name):
         pass
     revert_on_server = seafile_revert_on_server
 
@@ -101,43 +101,43 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     get_diff = seafile_diff
 
-    @searpc_func("int", ["string", "string", "string", "string", "string"])
-    def seafile_post_file(repo_id, tmp_file_path, parent_dir, filename, user):
+    @searpc_func("int", ["string", "string", "string", "string", "string", "string"])
+    def seafile_post_file(repo_id, tmp_file_path, parent_dir, filename, user, friendly_name):
         pass
     post_file = seafile_post_file
 
-    @searpc_func("int", ["string", "string", "string", "string"])
-    def seafile_post_dir(repo_id, parent_dir, new_dir_name, user):
+    @searpc_func("int", ["string", "string", "string", "string", "string"])
+    def seafile_post_dir(repo_id, parent_dir, new_dir_name, user, friendly_name):
         pass
     post_dir = seafile_post_dir
 
-    @searpc_func("int", ["string", "string", "string", "string"])
-    def seafile_post_empty_file(repo_id, parent_dir, filename, user):
+    @searpc_func("int", ["string", "string", "string", "string", "string"])
+    def seafile_post_empty_file(repo_id, parent_dir, filename, user, friendly_name):
         pass
     post_empty_file = seafile_post_empty_file
 
-    @searpc_func("int", ["string", "string", "string", "string", "string", "string"])
-    def seafile_put_file(repo_id, tmp_file_path, parent_dir, filename, user, head_id):
+    @searpc_func("int", ["string", "string", "string", "string", "string", "string", "string"])
+    def seafile_put_file(repo_id, tmp_file_path, parent_dir, filename, user, friendly_name, head_id):
         pass
     put_file = seafile_put_file
 
-    @searpc_func("int", ["string", "string", "string", "string"])
-    def seafile_del_file(repo_id, parent_dir, filename, user):
+    @searpc_func("int", ["string", "string", "string", "string", "string"])
+    def seafile_del_file(repo_id, parent_dir, filename, user, friendly_name):
         pass
     del_file = seafile_del_file
 
-    @searpc_func("object", ["string", "string", "string", "string", "string", "string", "string", "int", "int"])
-    def seafile_copy_file(src_repo, src_dir, src_filename, dst_repo, dst_dir, dst_filename, user, need_progress, synchronous):
+    @searpc_func("object", ["string", "string", "string", "string", "string", "string", "string", "string", "int", "int"])
+    def seafile_copy_file(src_repo, src_dir, src_filename, dst_repo, dst_dir, dst_filename, user, friendly_name, need_progress, synchronous):
         pass
     copy_file = seafile_copy_file
 
-    @searpc_func("object", ["string", "string", "string", "string", "string", "string", "int", "string", "int", "int"])
-    def seafile_move_file(src_repo, src_dir, src_filename, dst_repo, dst_dir, dst_filename, replace, user, need_progress, synchronous):
+    @searpc_func("object", ["string", "string", "string", "string", "string", "string", "int", "string", "string", "int", "int"])
+    def seafile_move_file(src_repo, src_dir, src_filename, dst_repo, dst_dir, dst_filename, replace, user, friendly_name, need_progress, synchronous):
         pass
     move_file = seafile_move_file
 
-    @searpc_func("int", ["string", "string", "string", "string", "string"])
-    def seafile_rename_file(repo_id, parent_dir, oldname, newname, user):
+    @searpc_func("int", ["string", "string", "string", "string", "string", "string"])
+    def seafile_rename_file(repo_id, parent_dir, oldname, newname, user, friendly_name):
         pass
     rename_file = seafile_rename_file
 
@@ -215,8 +215,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     calc_files_last_modified = seafile_calc_files_last_modified
 
-    @searpc_func("int", ["string", "string", "string", "string"])
-    def seafile_revert_file(repo_id, commit_id, path, user):
+    @searpc_func("int", ["string", "string", "string", "string", "string"])
+    def seafile_revert_file(repo_id, commit_id, path, user, friendly_name):
         pass
     revert_file = seafile_revert_file
 
@@ -225,8 +225,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     check_repo_blocks_missing = seafile_check_repo_blocks_missing
 
-    @searpc_func("int", ["string", "string", "string", "string"])
-    def seafile_revert_dir(repo_id, commit_id, path, user):
+    @searpc_func("int", ["string", "string", "string", "string", "string"])
+    def seafile_revert_dir(repo_id, commit_id, path, user, friendly_name):
         pass
     revert_dir = seafile_revert_dir
 
@@ -690,8 +690,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     get_upload_tmp_file_offset = seafile_get_upload_tmp_file_offset
 
-    @searpc_func("int", ["string", "string", "string", "string"])
-    def seafile_mkdir_with_parents (repo_id, parent_dir, relative_path, username):
+    @searpc_func("int", ["string", "string", "string", "string", "string"])
+    def seafile_mkdir_with_parents (repo_id, parent_dir, relative_path, username, friendly_name):
         pass
     mkdir_with_parents = seafile_mkdir_with_parents
 

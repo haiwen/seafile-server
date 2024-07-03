@@ -1073,6 +1073,7 @@ retry:
                               repo->id,
                               parent->root_id,
                               user,
+                              NULL,
                               EMPTY_SHA1,
                               "Changed library password",
                               0);
@@ -2345,6 +2346,7 @@ int
 seafile_revert_on_server (const char *repo_id,
                           const char *commit_id,
                           const char *user_name,
+                          const char *friendly_name,
                           GError **error)
 {
     if (!repo_id || strlen(repo_id) != 36 ||
@@ -2369,13 +2371,14 @@ seafile_revert_on_server (const char *repo_id,
                                                repo_id,
                                                commit_id,
                                                user_name,
+                                               friendly_name,
                                                error);
 }
 
 int
 seafile_post_file (const char *repo_id, const char *temp_file_path,
                    const char *parent_dir, const char *file_name,
-                   const char *user,
+                   const char *user, const char *friendly_name,
                    GError **error)
 {
     char *norm_parent_dir = NULL, *norm_file_name = NULL, *rpath = NULL;
@@ -2412,7 +2415,7 @@ seafile_post_file (const char *repo_id, const char *temp_file_path,
 
     if (seaf_repo_manager_post_file (seaf->repo_mgr, repo_id,
                                      temp_file_path, rpath,
-                                     norm_file_name, user,
+                                     norm_file_name, user, friendly_name,
                                      error) < 0) {
         ret = -1;
     }
@@ -2493,6 +2496,7 @@ seafile_post_multi_files (const char *repo_id,
                           const char *filenames_json,
                           const char *paths_json,
                           const char *user,
+                          const char *friendly_name,
                           int replace_existed,
                           GError **error)
 {
@@ -2525,6 +2529,7 @@ seafile_post_multi_files (const char *repo_id,
                                         filenames_json,
                                         paths_json,
                                         user,
+                                        friendly_name,
                                         replace_existed,
                                         &ret_json,
                                         NULL,
@@ -2540,7 +2545,8 @@ out:
 char *
 seafile_put_file (const char *repo_id, const char *temp_file_path,
                   const char *parent_dir, const char *file_name,
-                  const char *user, const char *head_id,
+                  const char *user, const char *friendly_name,
+                  const char *head_id,
                   GError **error)
 {
     char *norm_parent_dir = NULL, *norm_file_name = NULL, *rpath = NULL;
@@ -2575,7 +2581,7 @@ seafile_put_file (const char *repo_id, const char *temp_file_path,
 
     seaf_repo_manager_put_file (seaf->repo_mgr, repo_id,
                                 temp_file_path, rpath,
-                                norm_file_name, user, head_id,
+                                norm_file_name, user, friendly_name, head_id,
                                 &new_file_id, error);
 
 out:
@@ -2640,6 +2646,7 @@ out:
 int
 seafile_post_dir (const char *repo_id, const char *parent_dir,
                   const char *new_dir_name, const char *user,
+                  const char *friendly_name,
                   GError **error)
 {
     char *norm_parent_dir = NULL, *norm_dir_name = NULL, *rpath = NULL;
@@ -2675,7 +2682,7 @@ seafile_post_dir (const char *repo_id, const char *parent_dir,
 
     if (seaf_repo_manager_post_dir (seaf->repo_mgr, repo_id,
                                     rpath, norm_dir_name,
-                                    user, error) < 0) {
+                                    user, friendly_name, error) < 0) {
         ret = -1;
     }
 
@@ -2690,6 +2697,7 @@ out:
 int
 seafile_post_empty_file (const char *repo_id, const char *parent_dir,
                          const char *new_file_name, const char *user,
+                         const char *friendly_name,
                          GError **error)
 {
     char *norm_parent_dir = NULL, *norm_file_name = NULL, *rpath = NULL;
@@ -2725,7 +2733,7 @@ seafile_post_empty_file (const char *repo_id, const char *parent_dir,
 
     if (seaf_repo_manager_post_empty_file (seaf->repo_mgr, repo_id,
                                            rpath, norm_file_name,
-                                           user, error) < 0) {
+                                           user, friendly_name, error) < 0) {
         ret = -1;
     }
 
@@ -2740,6 +2748,7 @@ out:
 int
 seafile_del_file (const char *repo_id, const char *parent_dir,
                   const char *file_name, const char *user,
+                  const char *friendly_name,
                   GError **error)
 {
     char *norm_parent_dir = NULL, *norm_file_name = NULL, *rpath = NULL;
@@ -2775,7 +2784,7 @@ seafile_del_file (const char *repo_id, const char *parent_dir,
 
     if (seaf_repo_manager_del_file (seaf->repo_mgr, repo_id,
                                     rpath, norm_file_name,
-                                    user, error) < 0) {
+                                    user, friendly_name, error) < 0) {
         ret = -1;
     }
 
@@ -2795,6 +2804,7 @@ seafile_copy_file (const char *src_repo_id,
                    const char *dst_dir,
                    const char *dst_filename,
                    const char *user,
+                   const char *friendly_name,
                    int need_progress,
                    int synchronous,
                    GError **error)
@@ -2849,7 +2859,7 @@ seafile_copy_file (const char *src_repo_id,
     ret = (GObject *)seaf_repo_manager_copy_multiple_files (seaf->repo_mgr,
                                                             src_repo_id, rsrc_dir, norm_src_filename,
                                                             dst_repo_id, rdst_dir, norm_dst_filename,
-                                                            user, need_progress, synchronous,
+                                                            user, friendly_name, need_progress, synchronous,
                                                             error);
 
 out:
@@ -2872,6 +2882,7 @@ seafile_move_file (const char *src_repo_id,
                    const char *dst_filename,
                    int replace,
                    const char *user,
+                   const char *friendly_name,
                    int need_progress,
                    int synchronous,
                    GError **error)
@@ -2926,7 +2937,7 @@ seafile_move_file (const char *src_repo_id,
     ret = (GObject *)seaf_repo_manager_move_multiple_files (seaf->repo_mgr,
                                                             src_repo_id, rsrc_dir, norm_src_filename,
                                                             dst_repo_id, rdst_dir, norm_dst_filename,
-                                                            replace, user, need_progress, synchronous,
+                                                            replace, user, friendly_name, need_progress, synchronous,
                                                             error);
 
 out:
@@ -2958,6 +2969,7 @@ seafile_rename_file (const char *repo_id,
                      const char *oldname,
                      const char *newname,
                      const char *user,
+                     const char *friendly_name,
                      GError **error)
 {
     char *norm_parent_dir = NULL, *norm_oldname = NULL, *norm_newname = NULL;
@@ -3002,7 +3014,7 @@ seafile_rename_file (const char *repo_id,
 
     if (seaf_repo_manager_rename_file (seaf->repo_mgr, repo_id,
                                        rpath, norm_oldname, norm_newname,
-                                       user, error) < 0) {
+                                       user, friendly_name, error) < 0) {
         ret = -1;
     }
 
@@ -3506,6 +3518,7 @@ seafile_revert_file (const char *repo_id,
                      const char *commit_id,
                      const char *path,
                      const char *user,
+                     const char *friendly_name,
                      GError **error)
 {
     if (!repo_id || !commit_id || !path || !user) {
@@ -3528,7 +3541,7 @@ seafile_revert_file (const char *repo_id,
 
     int ret = seaf_repo_manager_revert_file (seaf->repo_mgr,
                                              repo_id, commit_id,
-                                             rpath, user, error);
+                                             rpath, user, friendly_name, error);
     g_free (rpath);
 
     return ret;
@@ -3539,6 +3552,7 @@ seafile_revert_dir (const char *repo_id,
                     const char *commit_id,
                     const char *path,
                     const char *user,
+                    const char *friendly_name,
                     GError **error)
 {
     if (!repo_id || !commit_id || !path || !user) {
@@ -3561,7 +3575,7 @@ seafile_revert_dir (const char *repo_id,
 
     int ret = seaf_repo_manager_revert_dir (seaf->repo_mgr,
                                             repo_id, commit_id,
-                                            rpath, user, error);
+                                            rpath, user, friendly_name, error);
     g_free (rpath);
 
     return ret;
@@ -4259,6 +4273,7 @@ seafile_get_trash_repo_owner (const char *repo_id, GError **error)
 int
 seafile_mkdir_with_parents (const char *repo_id, const char *parent_dir,
                             const char *new_dir_path, const char *user,
+                            const char *friendly_name,
                             GError **error)
 {
     if (!repo_id || !parent_dir || !new_dir_path || !user) {
@@ -4273,7 +4288,7 @@ seafile_mkdir_with_parents (const char *repo_id, const char *parent_dir,
 
     if (seaf_repo_manager_mkdir_with_parents (seaf->repo_mgr, repo_id,
                                               parent_dir, new_dir_path,
-                                              user, error) < 0) {
+                                              user, friendly_name, error) < 0) {
         return -1;
     }
 

@@ -151,8 +151,8 @@ class SeafileAPI(object):
     def get_repo_size(self, repo_id):
         return seafserv_threaded_rpc.server_repo_size(repo_id)
 
-    def revert_repo(self, repo_id, commit_id, username):
-        return seafserv_threaded_rpc.revert_on_server(repo_id, commit_id, username)
+    def revert_repo(self, repo_id, commit_id, username, friendly_name):
+        return seafserv_threaded_rpc.revert_on_server(repo_id, commit_id, username, friendly_name)
 
     def diff_commits(self, repo_id, old_commit, new_commit, fold_dir_diff = 1):
         """
@@ -262,8 +262,8 @@ class SeafileAPI(object):
     def list_dir_with_perm(self, repo_id, dir_path, dir_id, user, offset=-1, limit=-1):
         return seafserv_threaded_rpc.list_dir_with_perm (repo_id, dir_path, dir_id, user, offset, limit)
 
-    def mkdir_with_parents (self, repo_id, parent_dir, relative_path, username):
-        return seafserv_threaded_rpc.mkdir_with_parents(repo_id, parent_dir, relative_path, username)
+    def mkdir_with_parents (self, repo_id, parent_dir, relative_path, username, friendly_name):
+        return seafserv_threaded_rpc.mkdir_with_parents(repo_id, parent_dir, relative_path, username, friendly_name)
 
     def get_file_count_info_by_path(self, repo_id, path):
         return seafserv_threaded_rpc.get_file_count_info_by_path(repo_id, path)
@@ -276,29 +276,29 @@ class SeafileAPI(object):
 
     # file/dir operations
 
-    def post_file(self, repo_id, tmp_file_path, parent_dir, filename, username):
+    def post_file(self, repo_id, tmp_file_path, parent_dir, filename, username, friendly_name):
         """Add a file to a directory"""
         return seafserv_threaded_rpc.post_file(repo_id, tmp_file_path, parent_dir,
-                                               filename, username)
+                                               filename, username, friendly_name)
 
-    def post_empty_file(self, repo_id, parent_dir, filename, username):
+    def post_empty_file(self, repo_id, parent_dir, filename, username, friendly_name):
         return seafserv_threaded_rpc.post_empty_file(repo_id, parent_dir,
-                                                     filename, username)
+                                                     filename, username, friendly_name)
 
     def put_file(self, repo_id, tmp_file_path, parent_dir, filename,
-                 username, head_id):
+                 username, friendly_name, head_id):
         """Update an existing file
 
         head_id: the original commit id of the old file
         """
         return seafserv_threaded_rpc.put_file(repo_id, tmp_file_path, parent_dir,
-                                              filename, username, head_id)
+                                              filename, username, friendly_name, head_id)
 
     '''
     If you want to delete multiple files in a batch, @filename should be json array
     '''
-    def del_file(self, repo_id, parent_dir, filename, username):
-        return seafserv_threaded_rpc.del_file(repo_id, parent_dir, filename, username)
+    def del_file(self, repo_id, parent_dir, filename, username, friendly_name):
+        return seafserv_threaded_rpc.del_file(repo_id, parent_dir, filename, username, friendly_name)
 
     '''
     If you want to move or copy multiple files in a batch, @src_filename and @dst_filename
@@ -306,16 +306,16 @@ class SeafileAPI(object):
     in @src_filename and @dst_filename parameters match
     '''
     def copy_file(self, src_repo, src_dir, src_filename, dst_repo,
-                  dst_dir, dst_filename, username, need_progress, synchronous=0):
+                  dst_dir, dst_filename, username, friendly_name, need_progress, synchronous=0):
         return seafserv_threaded_rpc.copy_file(src_repo, src_dir, src_filename,
                                                dst_repo, dst_dir, dst_filename,
-                                               username, need_progress, synchronous)
+                                               username, friendly_name, need_progress, synchronous)
 
     def move_file(self, src_repo, src_dir, src_filename, dst_repo, dst_dir,
-                  dst_filename, replace, username, need_progress, synchronous=0):
+                  dst_filename, replace, username, friendly_name, need_progress, synchronous=0):
         return seafserv_threaded_rpc.move_file(src_repo, src_dir, src_filename,
                                                dst_repo, dst_dir, dst_filename,
-                                               replace, username, need_progress, synchronous)
+                                               replace, username, friendly_name, need_progress, synchronous)
 
     def get_copy_task(self, task_id):
         return seafserv_threaded_rpc.get_copy_task(task_id)
@@ -323,19 +323,19 @@ class SeafileAPI(object):
     def cancel_copy_task(self, task_id):
         return seafserv_threaded_rpc.cancel_copy_task(task_id)
 
-    def rename_file(self, repo_id, parent_dir, oldname, newname, username):
+    def rename_file(self, repo_id, parent_dir, oldname, newname, username, friendly_name):
         return seafserv_threaded_rpc.rename_file(repo_id, parent_dir,
-                                                 oldname, newname, username)
+                                                 oldname, newname, username, friendly_name)
 
-    def post_dir(self, repo_id, parent_dir, dirname, username):
+    def post_dir(self, repo_id, parent_dir, dirname, username, friendly_name):
         """Add a directory"""
-        return seafserv_threaded_rpc.post_dir(repo_id, parent_dir, dirname, username)
+        return seafserv_threaded_rpc.post_dir(repo_id, parent_dir, dirname, username, friendly_name)
 
-    def revert_file(self, repo_id, commit_id, path, username):
-        return seafserv_threaded_rpc.revert_file(repo_id, commit_id, path, username)
+    def revert_file(self, repo_id, commit_id, path, username, friendly_name):
+        return seafserv_threaded_rpc.revert_file(repo_id, commit_id, path, username, friendly_name)
 
-    def revert_dir(self, repo_id, commit_id, path, username):
-        return seafserv_threaded_rpc.revert_dir(repo_id, commit_id, path, username)
+    def revert_dir(self, repo_id, commit_id, path, username, friendly_name):
+        return seafserv_threaded_rpc.revert_dir(repo_id, commit_id, path, username, friendly_name)
 
     def get_deleted(self, repo_id, show_days, path='/', scan_stat=None, limit=100):
         """

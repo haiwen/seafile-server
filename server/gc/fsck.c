@@ -393,7 +393,7 @@ reset_commit_to_repair (SeafRepo *repo, SeafCommit *parent, char *new_root_id,
 
     SeafCommit *new_commit = NULL;
     new_commit = seaf_commit_new (NULL, repo->id, new_root_id,
-                                  parent->creator_name, parent->creator_id,
+                                  parent->creator_name, parent->username, parent->creator_id,
                                   desc, 0);
     g_free (desc);
     if (!new_commit) {

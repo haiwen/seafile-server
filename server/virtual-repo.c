@@ -99,6 +99,7 @@ do_create_virtual_repo (SeafRepoManager *mgr,
     commit = seaf_commit_new (NULL, repo->id,
                               root_id, /* root id */
                               user, /* creator */
+                              NULL,
                               EMPTY_SHA1, /* creator id */
                               repo_desc,  /* description */
                               0);         /* ctime */
@@ -903,6 +904,7 @@ static void *merge_virtual_repo (void *vtask)
                                             "/",
                                             orig_root,
                                             orig_head->creator_name,
+                                            orig_head->username,
                                             head->commit_id,
                                             NULL,
                                             NULL);
@@ -922,6 +924,7 @@ static void *merge_virtual_repo (void *vtask)
                                             vinfo->path,
                                             root,
                                             head->creator_name,
+                                            head->username,
                                             orig_head->commit_id,
                                             new_base_commit,
                                             NULL);
@@ -973,6 +976,7 @@ static void *merge_virtual_repo (void *vtask)
                                             "/",
                                             opt.merged_tree_root,
                                             orig_head->creator_name,
+                                            orig_head->username,
                                             head->commit_id,
                                             NULL,
                                             NULL);
@@ -988,6 +992,7 @@ static void *merge_virtual_repo (void *vtask)
                                             vinfo->path,
                                             opt.merged_tree_root,
                                             head->creator_name,
+                                            head->username,
                                             orig_head->commit_id,
                                             new_base_commit,
                                             NULL);
@@ -1236,6 +1241,7 @@ seaf_repo_manager_repair_virtual_repo (char *repo_id)
                                         "/",
                                         opt.merged_tree_root,
                                         orig_head->creator_name,
+                                        orig_head->username,
                                         head->commit_id,
                                         NULL,
                                         NULL);
@@ -1251,6 +1257,7 @@ seaf_repo_manager_repair_virtual_repo (char *repo_id)
                                         vinfo->path,
                                         opt.merged_tree_root,
                                         head->creator_name,
+                                        head->username,
                                         orig_head->commit_id,
                                         new_base_commit,
                                         NULL);

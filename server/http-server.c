@@ -968,7 +968,7 @@ retry:
         }
 
         merged_commit = seaf_commit_new(NULL, repo->id, opt.merged_tree_root,
-                                        new_commit->creator_name, EMPTY_SHA1,
+                                        new_commit->creator_name, new_commit->username, EMPTY_SHA1,
                                         desc,
                                         0);
         g_free (desc);

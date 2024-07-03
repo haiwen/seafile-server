@@ -572,6 +572,7 @@ copy_template_files_recursive (SeafileSession *session,
                                               repo_dir_path,
                                               name,
                                               "System",
+                                              "System",
                                               NULL);
             if (rc < 0)
                 seaf_warning ("Failed to add template file %s.\n", sub_path);
@@ -580,6 +581,7 @@ copy_template_files_recursive (SeafileSession *session,
                                              repo_id,
                                              repo_dir_path,
                                              name,
+                                             "System",
                                              "System",
                                              NULL);
             if (rc < 0) {

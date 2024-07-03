@@ -651,6 +651,7 @@ int
 seafile_revert_on_server (const char *repo_id,
                           const char *commit_id,
                           const char *user_name,
+                          const char *friendly_name,
                           GError **error);
 
 /**
@@ -665,7 +666,7 @@ seafile_revert_on_server (const char *repo_id,
 int
 seafile_post_file (const char *repo_id, const char *temp_file_path,
                   const char *parent_dir, const char *file_name,
-                  const char *user,
+                  const char *user, const char *friendly_name,
                   GError **error);
 
 /**
@@ -680,6 +681,7 @@ seafile_post_multi_files (const char *repo_id,
                           const char *filenames_json,
                           const char *paths_json,
                           const char *user,
+                          const char *friendly_name,
                           int replace,
                           GError **error);
 
@@ -704,6 +706,7 @@ seafile_post_multi_files (const char *repo_id,
 int
 seafile_post_empty_file (const char *repo_id, const char *parent_dir,
                          const char *new_file_name, const char *user,
+                         const char *friendly_name,
                          GError **error);
 
 /**
@@ -716,7 +719,8 @@ seafile_post_empty_file (const char *repo_id, const char *parent_dir,
 char *
 seafile_put_file (const char *repo_id, const char *temp_file_path,
                   const char *parent_dir, const char *file_name,
-                  const char *user, const char *head_id,
+                  const char *user, const char *friendly_name,
+                  const char *head_id,
                   GError **error);
 
 /**
@@ -735,10 +739,12 @@ seafile_put_file (const char *repo_id, const char *temp_file_path,
 int
 seafile_post_dir (const char *repo_id, const char *parent_dir,
                   const char *new_dir_name, const char *user,
+                  const char *friendly_name,
                   GError **error);
 int
 seafile_mkdir_with_parents (const char *repo_id, const char *parent_dir,
                             const char *new_dir_path, const char *user,
+                            const char *friendly_name,
                             GError **error);
 
 /**
@@ -751,7 +757,7 @@ seafile_mkdir_with_parents (const char *repo_id, const char *parent_dir,
 int
 seafile_del_file (const char *repo_id, 
                   const char *parent_dir, const char *file_name,
-                  const char *user,
+                  const char *user, const char *friendly_name,
                   GError **error);
 
 /**
@@ -765,6 +771,7 @@ seafile_copy_file (const char *src_repo_id,
                    const char *dst_dir,
                    const char *dst_filename,
                    const char *user,
+                   const char *friendly_name,
                    int need_progress,
                    int synchronous,
                    GError **error);
@@ -779,6 +786,7 @@ seafile_move_file (const char *src_repo_id,
                    const char *dst_filename,
                    int replace,
                    const char *user,
+                   const char *friendly_name,
                    int need_progress,
                    int synchronous,
                    GError **error);
@@ -795,6 +803,7 @@ seafile_rename_file (const char *repo_id,
                      const char *oldname,
                      const char *newname,
                      const char *user,
+                     const char *friendly_name,
                      GError **error);
 
 /**
@@ -852,6 +861,7 @@ seafile_revert_file (const char *repo_id,
                      const char *commit_id,
                      const char *path,
                      const char *user,
+                     const char *friendly_name,
                      GError **error);
 
 int
@@ -859,6 +869,7 @@ seafile_revert_dir (const char *repo_id,
                     const char *commit_id,
                     const char *path,
                     const char *user,
+                    const char *friendly_name,
                     GError **error);
 
 char *

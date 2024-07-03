@@ -150,7 +150,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_revert_on_server,
                                      "seafile_revert_on_server",
-                                     searpc_signature_int__string_string_string());
+                                     searpc_signature_int__string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_diff,
@@ -160,7 +160,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_post_file,
                                      "seafile_post_file",
-                    searpc_signature_int__string_string_string_string_string());
+                    searpc_signature_int__string_string_string_string_string_string());
 
     /* searpc_server_register_function ("seafserv-threaded-rpcserver", */
     /*                                  seafile_post_file_blocks, */
@@ -169,12 +169,12 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_post_multi_files,
                                      "seafile_post_multi_files",
-                    searpc_signature_string__string_string_string_string_string_int());
+                    searpc_signature_string__string_string_string_string_string_string_int());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_put_file,
                                      "seafile_put_file",
-                    searpc_signature_string__string_string_string_string_string_string());
+                    searpc_signature_string__string_string_string_string_string_string_string());
     /* searpc_server_register_function ("seafserv-threaded-rpcserver", */
     /*                                  seafile_put_file_blocks, */
     /*                                  "seafile_put_file_blocks", */
@@ -183,37 +183,37 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_post_empty_file,
                                      "seafile_post_empty_file",
-                        searpc_signature_int__string_string_string_string());
+                        searpc_signature_int__string_string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_post_dir,
                                      "seafile_post_dir",
-                        searpc_signature_int__string_string_string_string());
+                        searpc_signature_int__string_string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_mkdir_with_parents,
                                      "seafile_mkdir_with_parents",
-                        searpc_signature_int__string_string_string_string());
+                        searpc_signature_int__string_string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_del_file,
                                      "seafile_del_file",
-                        searpc_signature_int__string_string_string_string());
+                        searpc_signature_int__string_string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_copy_file,
                                      "seafile_copy_file",
-       searpc_signature_object__string_string_string_string_string_string_string_int_int());
+       searpc_signature_object__string_string_string_string_string_string_string_string_int_int());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_move_file,
                                      "seafile_move_file",
-       searpc_signature_object__string_string_string_string_string_string_int_string_int_int());
+       searpc_signature_object__string_string_string_string_string_string_int_string_string_int_int());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_rename_file,
                                      "seafile_rename_file",
-                    searpc_signature_int__string_string_string_string_string());
+                    searpc_signature_int__string_string_string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_is_valid_filename,
@@ -298,12 +298,12 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_revert_file,
                                      "seafile_revert_file",
-                                     searpc_signature_int__string_string_string_string());
+                                     searpc_signature_int__string_string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_revert_dir,
                                      "seafile_revert_dir",
-                                     searpc_signature_int__string_string_string_string());
+                                     searpc_signature_int__string_string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_check_repo_blocks_missing,

@@ -382,6 +382,7 @@ create_relative_path (RecvFSM *fsm, char *parent_dir, char *relative_path)
                                                parent_dir,
                                                relative_path,
                                                fsm->user,
+                                               NULL,
                                                &error);
     if (rc < 0) {
         if (error) {
@@ -574,6 +575,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
                                              filenames_json,
                                              tmp_files_json,
                                              fsm->user,
+                                             NULL,
                                              replace,
                                              &ret_json,
                                              fsm->need_idx_progress ? &task_id : NULL,
@@ -1189,6 +1191,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
                                              filenames_json,
                                              tmp_files_json,
                                              fsm->user,
+                                             NULL,
                                              0,
                                              &ret_json,
                                              fsm->need_idx_progress ? &task_id : NULL,
@@ -1347,6 +1350,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
                                          parent_dir,
                                          filename,
                                          fsm->user,
+                                         NULL,
                                          head_id,
                                          &new_file_id,
                                          &error);
@@ -1715,6 +1719,7 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
                                          parent_dir,
                                          filename,
                                          fsm->user,
+                                         NULL,
                                          head_id,
                                          &new_file_id,
                                          &error);
