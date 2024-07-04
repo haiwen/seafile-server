@@ -47,6 +47,7 @@ struct _SeafileSession {
     GKeyFile            *ccnet_config;
     SeafDB              *db;
     CcnetDB             *ccnet_db;
+    SeafDB              *seahub_db;
 
     SeafBlockManager    *block_mgr;
     SeafFSManager       *fs_mgr;
