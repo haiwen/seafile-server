@@ -113,7 +113,7 @@ def test_merge_virtual_repo(repo):
     create_test_dir(repo,'test')
 
     #test upload file to vritual repo root dir.
-    token = api.get_fileserver_access_token(v_repo_id, obj_id, 'upload', USER2, False)
+    token = api.get_fileserver_access_token(v_repo_id, obj_id, 'upload', USER2, USERNAME2, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
     m = MultipartEncoder(
             fields={
@@ -165,7 +165,7 @@ def test_merge_virtual_repo(repo):
 
     #test update file to virtual repo.
     write_file(file_path, file_content)
-    token = api.get_fileserver_access_token(v_repo_id, obj_id, 'update', USER2, False)
+    token = api.get_fileserver_access_token(v_repo_id, obj_id, 'update', USER2, USERNAME2, False)
     update_url_base = 'http://127.0.0.1:8082/update-api/' + token
     m = MultipartEncoder(
             fields={

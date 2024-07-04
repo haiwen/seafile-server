@@ -571,7 +571,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_web_get_access_token,
                                      "seafile_web_get_access_token",
-                                     searpc_signature_string__string_string_string_string_int());
+                                     searpc_signature_string__string_string_string_string_string_int());
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_web_query_access_token,
                                      "seafile_web_query_access_token",

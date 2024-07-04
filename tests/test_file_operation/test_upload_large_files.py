@@ -119,7 +119,7 @@ def test_large_files_ajax(repo):
 
     # upload large file by upload-aj
     file_id1 = sha1sum(file_path)
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, USERNAME, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-aj/'+ token
     m = MultipartEncoder(
             fields={
@@ -133,7 +133,7 @@ def test_large_files_ajax(repo):
     # download file and check sha1
     obj_id = api.get_file_id_by_path(repo.id, '/' + file_name)
     assert obj_id != None
-    token = api.get_fileserver_access_token (repo.id, obj_id, 'download', USER, False)
+    token = api.get_fileserver_access_token (repo.id, obj_id, 'download', USER, USERNAME, False)
     download_url = 'http://127.0.0.1:8082/files/' + token + '/' + file_name
     response = requests.get(download_url)
     assert response.status_code == 200
@@ -163,7 +163,7 @@ def test_large_files_ajax(repo):
     # download file and check sha1
     obj_id = api.get_file_id_by_path(repo.id, '/' + resumable_file_name)
     assert obj_id != None
-    token = api.get_fileserver_access_token (repo.id, obj_id, 'download', USER, False)
+    token = api.get_fileserver_access_token (repo.id, obj_id, 'download', USER, USERNAME, False)
     download_url = 'http://127.0.0.1:8082/files/' + token + '/' + resumable_file_name
     response = requests.get(download_url)
     assert response.status_code == 200
@@ -184,7 +184,7 @@ def test_large_files_api(repo):
     #test upload file to root dir.
     file_id1 = sha1sum(file_path)
     params = {'ret-json':'1'}
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, USERNAME, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
     m = MultipartEncoder(
             fields={
@@ -198,7 +198,7 @@ def test_large_files_api(repo):
     # download file and check sha1
     obj_id = api.get_file_id_by_path(repo.id, '/' + file_name)
     assert obj_id != None
-    token = api.get_fileserver_access_token (repo.id, obj_id, 'download', USER, False)
+    token = api.get_fileserver_access_token (repo.id, obj_id, 'download', USER, USERNAME, False)
     download_url = 'http://127.0.0.1:8082/files/' + token + '/' + file_name
     response = requests.get(download_url)
     assert response.status_code == 200
@@ -228,7 +228,7 @@ def test_large_files_api(repo):
 
     obj_id = api.get_file_id_by_path(repo.id, '/' + resumable_file_name)
     assert obj_id != None
-    token = api.get_fileserver_access_token (repo.id, obj_id, 'download', USER, False)
+    token = api.get_fileserver_access_token (repo.id, obj_id, 'download', USER, USERNAME, False)
     download_url = 'http://127.0.0.1:8082/files/' + token + '/' + resumable_file_name
     response = requests.get(download_url)
     assert response.status_code == 200

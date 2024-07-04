@@ -28,6 +28,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
                                       const char *obj_id,
                                       const char *op,
                                       const char *username,
+                                      const char *friendly_name,
                                       int use_onetime,
                                       GError **error);
 

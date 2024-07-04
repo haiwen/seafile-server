@@ -42,7 +42,7 @@ def test_zip_download():
     obj_id = {'obj_id': dir_id, 'dir_name': dir_name, 'is_windows': 0}
     obj_id_json_str = json.dumps(obj_id)
     token = api.get_fileserver_access_token(t_repo_id, obj_id_json_str,
-                                            'download-dir', USER)
+                                            'download-dir', USER, USERNAME)
 
     time.sleep(1)
     download_url = base_url + 'zip/' + token
@@ -80,7 +80,7 @@ def test_zip_download():
     obj_id = {'obj_id': dir_id, 'dir_name': empty_dir_name, 'is_windows': 0}
     obj_id_json_str = json.dumps(obj_id)
     token = api.get_fileserver_access_token(t_repo_id, obj_id_json_str,
-                                            'download-dir', USER)
+                                            'download-dir', USER, USERNAME)
     time.sleep(1)
     download_url = base_url + 'zip/' + token
     response = requests.get(download_url)
@@ -105,7 +105,7 @@ def test_zip_download():
     obj_id = {'parent_dir': '/', 'file_list': [file1_name, file2_name], 'is_windows' : 0}
     obj_id_json_str = json.dumps(obj_id)
     token = api.get_fileserver_access_token(t_repo_id, obj_id_json_str,
-                                            'download-multi', USER)
+                                            'download-multi', USER, USERNAME)
 
     time.sleep(1)
     download_url = base_url + 'zip/' + token

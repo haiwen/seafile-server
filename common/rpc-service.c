@@ -1399,6 +1399,7 @@ seafile_web_get_access_token (const char *repo_id,
                               const char *obj_id,
                               const char *op,
                               const char *username,
+                              const char *friendly_name,
                               int use_onetime,
                               GError **error)
 {
@@ -1411,7 +1412,8 @@ seafile_web_get_access_token (const char *repo_id,
 
     token = seaf_web_at_manager_get_access_token (seaf->web_at_mgr,
                                                   repo_id, obj_id, op,
-                                                  username, use_onetime, error);
+                                                  username, friendly_name,
+                                                  use_onetime, error);
     return token;
 }
 

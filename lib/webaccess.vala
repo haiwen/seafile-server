@@ -5,6 +5,7 @@ public class WebAccess : Object {
        public string obj_id { set; get; }
        public string op { set; get; }
        public string username { set; get; }
+       public string friendly_name { set; get; }
 }
 
 }

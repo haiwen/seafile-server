@@ -114,7 +114,7 @@ def test_ajax(repo):
     obj_id = '{"parent_dir":"/"}'
 
     #test upload file to test dir.
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, USERNAME, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-aj/'+ token
     m = MultipartEncoder(
             fields={
@@ -126,7 +126,7 @@ def test_ajax(repo):
     assert response.status_code == 403
 
     #test upload file to root dir.
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, USERNAME, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-aj/'+ token
     m = MultipartEncoder(
             fields={
@@ -258,7 +258,7 @@ def test_ajax(repo):
 
     #test update file.
     write_file(file_path, file_content)
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'update', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'update', USER, USERNAME, False)
     update_url_base = 'http://127.0.0.1:8082/update-aj/' + token
     m = MultipartEncoder(
             fields={
@@ -283,7 +283,7 @@ def test_api(repo):
     obj_id = '{"parent_dir":"/"}'
     create_test_dir(repo,'test')
     #test upload file to test dir instead of  root dir.
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, USERNAME, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
     m = MultipartEncoder(
             fields={
@@ -296,7 +296,7 @@ def test_api(repo):
 
     #test upload file to root dir.
     params = {'ret-json':'1'}
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, USERNAME, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
     m = MultipartEncoder(
             fields={
@@ -497,7 +497,7 @@ def test_api(repo):
 
     #test update file.
     write_file(file_path, file_content)
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'update', USER, False)
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'update', USER, USERNAME, False)
     update_url_base = 'http://127.0.0.1:8082/update-api/' + token
     m = MultipartEncoder(
             fields={

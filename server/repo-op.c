@@ -1506,6 +1506,7 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
                                       const char *file_name,
                                       const char *blockids_json,
                                       const char *user,
+                                      const char *friendly_name,
                                       gint64 file_size,
                                       int replace_existed,
                                       char **new_id,
@@ -1566,9 +1567,12 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
     }
 
     rawdata_to_hex(sha1, hex, 20);
+    const char *username = user;
+    if (friendly_name)
+        username = friendly_name;
     new_dent = seaf_dirent_new (dir_version_from_repo_version(repo->version),
                                 hex, STD_FILE_MODE, file_name,
-                                (gint64)time(NULL), user, file_size);
+                                (gint64)time(NULL), username, file_size);
 
     root_id = do_post_file_replace (repo, head_commit->root_id,
                                     canon_path, replace_existed, new_dent);
@@ -1584,7 +1588,7 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
     *new_id = g_strdup(hex);
     snprintf(buf, SEAF_PATH_MAX, "Added \"%s\"", file_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, NULL, buf, NULL, TRUE, error) < 0)
+                        user, friendly_name, buf, NULL, TRUE, error) < 0)
         ret = -1;
 
 out:

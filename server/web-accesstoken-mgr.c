@@ -34,6 +34,7 @@ typedef struct {
     char *obj_id;
     char *op;
     char *username;
+    char *friendly_name;
     long expire_time;
     gboolean use_onetime;
 } AccessInfo;
@@ -48,6 +49,7 @@ free_access_info (AccessInfo *info)
     g_free (info->obj_id);
     g_free (info->op);
     g_free (info->username);
+    g_free (info->friendly_name);
     g_free (info);
 }
 
@@ -128,6 +130,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
                                       const char *obj_id,
                                       const char *op,
                                       const char *username,
+                                      const char *friendly_name,
                                       int use_onetime,
                                       GError **error)
 {
@@ -167,6 +170,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
     info->obj_id = g_strdup (obj_id);
     info->op = g_strdup (op);
     info->username = g_strdup (username);
+    info->friendly_name = g_strdup (friendly_name);
     info->expire_time = expire;
     if (use_onetime) {
         info->use_onetime = TRUE;
@@ -188,6 +192,7 @@ seaf_web_at_manager_get_access_token (SeafWebAccessTokenManager *mgr,
                                       "obj_id", info->obj_id,
                                       "op", info->op,
                                       "username", info->username,
+                                      "friendly_name", info->friendly_name,
                                       NULL);
 
             if (zip_download_mgr_start_zip_task (seaf->zip_download_mgr,
@@ -231,6 +236,7 @@ seaf_web_at_manager_query_access_token (SeafWebAccessTokenManager *mgr,
                                       "obj_id", info->obj_id,
                                       "op", info->op,
                                       "username", info->username,
+                                      "friendly_name", info->friendly_name,
                                       NULL);
 
             if (info->use_onetime) {

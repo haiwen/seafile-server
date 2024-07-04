@@ -59,6 +59,7 @@ typedef struct RecvFSM {
 
     char *repo_id;
     char *user;
+    char *friendly_name;
     char *boundary;        /* boundary of multipart form-data. */
     char *input_name;      /* input name of the current form field. */
     char *parent_dir;
@@ -382,7 +383,7 @@ create_relative_path (RecvFSM *fsm, char *parent_dir, char *relative_path)
                                                parent_dir,
                                                relative_path,
                                                fsm->user,
-                                               NULL,
+                                               fsm->friendly_name,
                                                &error);
     if (rc < 0) {
         if (error) {
@@ -575,7 +576,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
                                              filenames_json,
                                              tmp_files_json,
                                              fsm->user,
-                                             NULL,
+                                             fsm->friendly_name,
                                              replace,
                                              &ret_json,
                                              fsm->need_idx_progress ? &task_id : NULL,
@@ -768,6 +769,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
                                                file_name,
                                                blockids_json,
                                                fsm->user,
+                                               fsm->friendly_name,
                                                file_size,
                                                replace,
                                                &new_file_id,
@@ -1191,7 +1193,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
                                              filenames_json,
                                              tmp_files_json,
                                              fsm->user,
-                                             NULL,
+                                             fsm->friendly_name,
                                              0,
                                              &ret_json,
                                              fsm->need_idx_progress ? &task_id : NULL,
@@ -1350,7 +1352,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
                                          parent_dir,
                                          filename,
                                          fsm->user,
-                                         NULL,
+                                         fsm->friendly_name,
                                          head_id,
                                          &new_file_id,
                                          &error);
@@ -1463,6 +1465,7 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
                                                filename,
                                                blockids_json,
                                                fsm->user,
+                                               fsm->friendly_name,
                                                file_size,
                                                1,
                                                &new_file_id,
@@ -1719,7 +1722,7 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
                                          parent_dir,
                                          filename,
                                          fsm->user,
-                                         NULL,
+                                         fsm->friendly_name,
                                          head_id,
                                          &new_file_id,
                                          &error);
@@ -2321,6 +2324,7 @@ check_access_token (const char *token,
                     char **repo_id,
                     char **parent_dir,
                     char **user,
+                    char **friendly_name,
                     char **token_type,
                     char **err_msg)
 {
@@ -2364,6 +2368,7 @@ check_access_token (const char *token,
 
     *repo_id = g_strdup (_repo_id);
     *user = g_strdup (seafile_web_access_get_username (webaccess));
+    *friendly_name = g_strdup (seafile_web_access_get_friendly_name (webaccess));
 
     _obj_id  = seafile_web_access_get_obj_id (webaccess);
     parent_dir_json = json_loadb (_obj_id, strlen (_obj_id), 0, NULL);
@@ -2460,7 +2465,7 @@ static evhtp_res
 upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
 {
     char **parts = NULL;
-    char *token, *repo_id = NULL, *user = NULL;
+    char *token, *repo_id = NULL, *user = NULL, *friendly_name = NULL;
     char *parent_dir = NULL;
     char *boundary = NULL;
     gint64 content_len;
@@ -2490,7 +2495,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     }
     char *url_op = parts[0];
 
-    if (check_access_token (token, url_op, &repo_id, &parent_dir, &user, &token_type, &err_msg) < 0) {
+    if (check_access_token (token, url_op, &repo_id, &parent_dir, &user, &friendly_name, &token_type, &err_msg) < 0) {
         error_code = EVHTP_RES_FORBIDDEN;
         goto err;
     }
@@ -2530,6 +2535,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     fsm->repo_id = repo_id;
     fsm->parent_dir = parent_dir;
     fsm->user = user;
+    fsm->friendly_name = friendly_name;
     fsm->token_type = token_type;
     fsm->rstart = rstart;
     fsm->rend = rend;
@@ -2575,6 +2581,7 @@ err:
 
     g_free (repo_id);
     g_free (user);
+    g_free (friendly_name);
     g_free (boundary);
     g_free (token_type);
     g_free (progress_id);

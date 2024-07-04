@@ -23,7 +23,7 @@ class SeafileAPI(object):
 
     # fileserver token
 
-    def get_fileserver_access_token(self, repo_id, obj_id, op, username, use_onetime=True):
+    def get_fileserver_access_token(self, repo_id, obj_id, op, username, friendly_name, use_onetime=True):
         """Generate token for access file/dir in fileserver
 
         op: the operation, can be 'view', 'download', 'download-dir', 'downloadblks',
@@ -33,7 +33,7 @@ class SeafileAPI(object):
         Return: the access token in string
         """
         onetime = 1 if bool(use_onetime) else 0
-        return seafserv_threaded_rpc.web_get_access_token(repo_id, obj_id, op, username,
+        return seafserv_threaded_rpc.web_get_access_token(repo_id, obj_id, op, username, friendly_name,
                                                           onetime)
 
     def query_fileserver_access_token(self, token):
