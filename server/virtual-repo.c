@@ -952,6 +952,10 @@ static void *merge_virtual_repo (void *vtask)
         memcpy (opt.remote_repo_id, repo_id, 36);
         memcpy (opt.remote_head, head->commit_id, 40);
         opt.do_merge = TRUE;
+        opt.email_to_nickname = g_hash_table_new_full(g_str_hash,
+                                                      g_str_equal,
+                                                      g_free,
+                                                      g_free);
 
         roots[0] = base_root; /* base */
         roots[1] = orig_root; /* head */
@@ -961,9 +965,11 @@ static void *merge_virtual_repo (void *vtask)
         if (seaf_merge_trees (orig_repo->store_id, orig_repo->version,
                               3, roots, &opt) < 0) {
             seaf_warning ("Failed to merge virtual repo %.10s.\n", repo_id);
+            g_hash_table_destroy (opt.email_to_nickname);
             ret = -1;
             goto out;
         }
+        g_hash_table_destroy (opt.email_to_nickname);
 
         seaf_debug ("Number of dirs visted in merge: %d.\n", opt.visit_dirs);
 
@@ -1216,6 +1222,10 @@ seaf_repo_manager_repair_virtual_repo (char *repo_id)
     opt.n_ways = 2;
     memcpy (opt.remote_repo_id, repo_id, 36);
     memcpy (opt.remote_head, head->commit_id, 40);
+    opt.email_to_nickname = g_hash_table_new_full(g_str_hash,
+                                                  g_str_equal,
+                                                  g_free,
+                                                  g_free);
 
     roots[0] = orig_root;
     roots[1] = root;
@@ -1224,9 +1234,11 @@ seaf_repo_manager_repair_virtual_repo (char *repo_id)
     if (seaf_merge_trees (orig_repo->store_id, orig_repo->version,
                           2, roots, &opt) < 0) {
         seaf_warning ("Failed to merge virtual repo %.10s.\n", repo_id);
+        g_hash_table_destroy (opt.email_to_nickname);
         ret = -1;
         goto out;
     }
+    g_hash_table_destroy (opt.email_to_nickname);
 
     seaf_debug ("Number of dirs visted in merge: %d.\n", opt.visit_dirs);
 

@@ -402,11 +402,11 @@ parse_seahub_db_config ()
                                &error);
 
     if (error != NULL) {
-        seaf_warning ("Failed to run parse_seahub_db.sh : %s\n", error->message);
+        seaf_warning ("Failed to run python parse_seahub_db.py : %s\n", error->message);
         return -1;
     }
     if (retcode != 0) {
-        seaf_warning ("Failed to run parse_seahub_db.sh [%d]: %s\n", retcode, strerror(errno));
+        seaf_warning ("Failed to run python parse_seahub_db.py [%d]: %s\n", retcode, strerror(errno));
         return -1;
     }
 

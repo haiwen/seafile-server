@@ -14,12 +14,40 @@ merge_trees_recursive (const char *store_id, int version,
                        MergeOptions *opt);
 
 static char *
+get_nickname_by_modifier (GHashTable *email_to_nickname, const char *modifier)
+{
+    const char *nickname;
+
+    if (!modifier) {
+        return NULL;
+    }
+
+    nickname = g_hash_table_lookup (email_to_nickname, modifier);
+    if (nickname) {
+        return g_strdup (nickname);
+    }
+
+    if (seaf->seahub_db) {
+        char *sql = "SELECT nickname from profile_profile WHERE user = ?";
+        nickname = seaf_db_statement_get_string(seaf->seahub_db, sql, 1, "string", modifier);
+    }
+
+    if (!nickname) {
+        nickname = modifier;
+    }
+    g_hash_table_insert (email_to_nickname, g_strdup(modifier), g_strdup(nickname));
+
+    return g_strdup (nickname);
+}
+
+static char *
 merge_conflict_filename (const char *store_id, int version,
                          MergeOptions *opt,
                          const char *basedir,
                          const char *filename)
 {
     char *path = NULL, *modifier = NULL, *conflict_name = NULL;
+    char *nickname = NULL;
     gint64 mtime;
     SeafCommit *commit;
 
@@ -46,11 +74,14 @@ merge_conflict_filename (const char *store_id, int version,
         seaf_commit_unref (commit);
     }
 
-    conflict_name = gen_conflict_path (filename, modifier, mtime);
+    nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
+
+    conflict_name = gen_conflict_path (filename, nickname, mtime);
 
 out:
     g_free (path);
     g_free (modifier);
+    g_free (nickname);
     return conflict_name;
 }
 
@@ -61,6 +92,7 @@ merge_conflict_dirname (const char *store_id, int version,
                         const char *dirname)
 {
     char *modifier = NULL, *conflict_name = NULL;
+    char *nickname = NULL;
     SeafCommit *commit;
 
     commit = seaf_commit_manager_get_commit (seaf->commit_mgr,
@@ -74,10 +106,13 @@ merge_conflict_dirname (const char *store_id, int version,
     modifier = g_strdup(commit->creator_name);
     seaf_commit_unref (commit);
 
-    conflict_name = gen_conflict_path (dirname, modifier, (gint64)time(NULL));
+    nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
+
+    conflict_name = gen_conflict_path (dirname, nickname, (gint64)time(NULL));
 
 out:
     g_free (modifier);
+    g_free (nickname);
     return conflict_name;
 }
 
