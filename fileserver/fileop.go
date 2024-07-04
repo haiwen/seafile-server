@@ -901,16 +901,17 @@ func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, par
 }
 
 type recvData struct {
-	parentDir   string
-	tokenType   string
-	repoID      string
-	user        string
-	rstart      int64
-	rend        int64
-	fsize       int64
-	fileNames   []string
-	files       []string
-	fileHeaders []*multipart.FileHeader
+	parentDir    string
+	tokenType    string
+	repoID       string
+	user         string
+	friendlyName string
+	rstart       int64
+	rend         int64
+	fsize        int64
+	fileNames    []string
+	files        []string
+	fileHeaders  []*multipart.FileHeader
 }
 
 func uploadAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
@@ -1109,7 +1110,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return &appError{nil, msg, seafHTTPResNoQuota}
 	}
 
-	if err := createRelativePath(repoID, parentDir, relativePath, user); err != nil {
+	if err := createRelativePath(repoID, parentDir, relativePath, user, fsm.friendlyName); err != nil {
 		return err
 	}
 
@@ -1195,12 +1196,12 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	return nil
 }
 
-func createRelativePath(repoID, parentDir, relativePath, user string) *appError {
+func createRelativePath(repoID, parentDir, relativePath, user, friendlyName string) *appError {
 	if relativePath == "" {
 		return nil
 	}
 
-	err := mkdirWithParents(repoID, parentDir, relativePath, user)
+	err := mkdirWithParents(repoID, parentDir, relativePath, user, friendlyName)
 	if err != nil {
 		msg := "Internal error.\n"
 		err := fmt.Errorf("Failed to create parent directory: %v", err)
@@ -1210,7 +1211,7 @@ func createRelativePath(repoID, parentDir, relativePath, user string) *appError 
 	return nil
 }
 
-func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
+func mkdirWithParents(repoID, parentDir, newDirPath, user, friendlyName string) error {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := fmt.Errorf("failed to get repo %s", repoID)
@@ -1259,14 +1260,18 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 	dent := fsmgr.NewDirent(dirID, filepath.Base(absPath), uint32(mode), mtime, "", 0)
 
 	var names []string
-	rootID, _ = doPostMultiFiles(repo, newRootID, filepath.Dir(absPath), []*fsmgr.SeafDirent{dent}, user, false, &names)
+	userName := user
+	if friendlyName != "" {
+		userName = friendlyName
+	}
+	rootID, _ = doPostMultiFiles(repo, newRootID, filepath.Dir(absPath), []*fsmgr.SeafDirent{dent}, userName, false, &names)
 	if rootID == "" {
 		err := fmt.Errorf("failed to put dir")
 		return err
 	}
 
 	buf := fmt.Sprintf("Added directory \"%s\"", relativeDirCan)
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf, true)
+	_, err = genNewCommit(repo, headCommit, rootID, user, friendlyName, buf, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return err
@@ -1527,7 +1532,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		}
 	}
 
-	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes)
+	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, fsm.friendlyName, canonPath, replace, ids, sizes)
 	if err != nil {
 		err := fmt.Errorf("failed to post files and gen commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -1583,7 +1588,7 @@ func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []st
 	return false
 }
 
-func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64) (string, error) {
+func postFilesAndGenCommit(fileNames []string, repoID string, user, friendlyName, canonPath string, replace bool, ids []string, sizes []int64) (string, error) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := fmt.Errorf("failed to get repo %s", repoID)
@@ -1597,6 +1602,11 @@ func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath st
 	var names []string
 	var retryCnt int
 
+	userName := user
+	if friendlyName != "" {
+		userName = friendlyName
+	}
+
 	var dents []*fsmgr.SeafDirent
 	for i, name := range fileNames {
 		if i > len(ids)-1 || i > len(sizes)-1 {
@@ -1609,7 +1619,7 @@ func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath st
 	}
 
 retry:
-	rootID, err := doPostMultiFiles(repo, headCommit.RootID, canonPath, dents, user, replace, &names)
+	rootID, err := doPostMultiFiles(repo, headCommit.RootID, canonPath, dents, userName, replace, &names)
 	if err != nil {
 		err := fmt.Errorf("failed to post files to %s in repo %s", canonPath, repo.ID)
 		return "", err
@@ -1622,7 +1632,7 @@ retry:
 		buf = fmt.Sprintf("Added \"%s\".", fileNames[0])
 	}
 
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf, false)
+	_, err = genNewCommit(repo, headCommit, rootID, user, friendlyName, buf, false)
 	if err != nil {
 		if err != ErrConflict {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
@@ -1686,10 +1696,10 @@ func getCanonPath(p string) string {
 
 var ErrConflict = fmt.Errorf("Concurent upload conflict")
 
-func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string, retryOnConflict bool) (string, error) {
+func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, friendlyName, desc string, retryOnConflict bool) (string, error) {
 	var retryCnt int
 	repoID := repo.ID
-	commit := commitmgr.NewCommit(repoID, base.CommitID, newRoot, user, desc)
+	commit := commitmgr.NewCommit(repoID, base.CommitID, newRoot, user, friendlyName, desc)
 	repomgr.RepoToCommit(repo, commit)
 	err := commitmgr.Save(commit)
 	if err != nil {
@@ -1701,7 +1711,7 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	maxRetryCnt := 10
 
 	for {
-		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, &commitID)
+		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, friendlyName, &commitID)
 		if err != nil {
 			return "", err
 		}
@@ -1734,7 +1744,7 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commitmgr.Commit) error {
 	var retryCnt int
 	for {
-		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, nil)
+		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, newCommit.UserName, nil)
 		if err != nil {
 			return err
 		}
@@ -1754,7 +1764,7 @@ func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commit
 	return nil
 }
 
-func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, commitID *string) (bool, error) {
+func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user, friendlyName string, commitID *string) (bool, error) {
 	var secondParentID string
 	repoID := repo.ID
 	var mergeDesc string
@@ -1787,7 +1797,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		}
 
 		secondParentID = commit.CommitID
-		mergedCommit = commitmgr.NewCommit(repoID, currentHead.CommitID, opt.mergedRoot, user, mergeDesc)
+		mergedCommit = commitmgr.NewCommit(repoID, currentHead.CommitID, opt.mergedRoot, user, friendlyName, mergeDesc)
 		repomgr.RepoToCommit(repo, mergedCommit)
 		mergedCommit.SecondParentID.SetValid(commit.CommitID)
 		mergedCommit.NewMerge = 1
@@ -2480,10 +2490,11 @@ func parseContentRange(ranges string, fsm *recvData) bool {
 }
 
 type webaccessInfo struct {
-	repoID string
-	objID  string
-	op     string
-	user   string
+	repoID       string
+	objID        string
+	op           string
+	user         string
+	friendlyName string
 }
 
 func parseWebaccessInfo(token string) (*webaccessInfo, *appError) {
@@ -2527,10 +2538,16 @@ func parseWebaccessInfo(token string) (*webaccessInfo, *appError) {
 	}
 	accessInfo.user = user
 
+	friendlyName, ok := webaccessMap["friendly-name"].(string)
+	if !ok {
+		return nil, &appError{nil, "", http.StatusInternalServerError}
+	}
+	accessInfo.friendlyName = friendlyName
+
 	return accessInfo, nil
 }
 
-func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
+func updateDir(repoID, dirPath, newDirID, user, friendlyName, headID string) (string, error) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := fmt.Errorf("failed to get repo %.10s", repoID)
@@ -2555,7 +2572,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		if commitDesc == "" {
 			commitDesc = fmt.Sprintf("Auto merge by system")
 		}
-		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc, true)
+		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, friendlyName, commitDesc, true)
 		if err != nil {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
 			return "", err
@@ -2596,7 +2613,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		commitDesc = fmt.Sprintf("Auto merge by system")
 	}
 
-	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc, true)
+	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, friendlyName, commitDesc, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", err
@@ -2972,19 +2989,24 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		return nil
 	}
 
+	userName := user
+	if fsm.friendlyName != "" {
+		userName = fsm.friendlyName
+	}
+
 	mtime := time.Now().Unix()
 	mode := (syscall.S_IFREG | 0644)
-	newDent := fsmgr.NewDirent(fileID, fileName, uint32(mode), mtime, user, size)
+	newDent := fsmgr.NewDirent(fileID, fileName, uint32(mode), mtime, userName, size)
 
 	var names []string
-	rootID, err := doPostMultiFiles(repo, headCommit.RootID, canonPath, []*fsmgr.SeafDirent{newDent}, user, true, &names)
+	rootID, err := doPostMultiFiles(repo, headCommit.RootID, canonPath, []*fsmgr.SeafDirent{newDent}, userName, true, &names)
 	if err != nil {
 		err := fmt.Errorf("failed to put file %s to %s in repo %s: %v", fileName, canonPath, repo.ID, err)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
 	desc := fmt.Sprintf("Modified \"%s\"", fileName)
-	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true)
+	_, err = genNewCommit(repo, headCommit, rootID, user, fsm.friendlyName, desc, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -3065,6 +3087,7 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 
 	repoID := fsm.repoID
 	user := fsm.user
+	friendlyName := fsm.friendlyName
 
 	replaceStr := r.FormValue("replace")
 	var replaceExisted bool
@@ -3123,7 +3146,7 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	fileID, appErr := commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user, fileSize, replaceExisted)
+	fileID, appErr := commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user, friendlyName, fileSize, replaceExisted)
 	if appErr != nil {
 		return appErr
 	}
@@ -3149,7 +3172,7 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 	return nil
 }
 
-func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fileSize int64, replace bool) (string, *appError) {
+func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user, friendlyName string, fileSize int64, replace bool) (string, *appError) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		msg := "Failed to get repo.\n"
@@ -3193,18 +3216,23 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 		return "", appErr
 	}
 
+	userName := user
+	if friendlyName != "" {
+		userName = friendlyName
+	}
+
 	mtime := time.Now().Unix()
 	mode := (syscall.S_IFREG | 0644)
-	newDent := fsmgr.NewDirent(fileID, fileName, uint32(mode), mtime, user, fileSize)
+	newDent := fsmgr.NewDirent(fileID, fileName, uint32(mode), mtime, userName, fileSize)
 	var names []string
-	rootID, err := doPostMultiFiles(repo, headCommit.RootID, canonPath, []*fsmgr.SeafDirent{newDent}, user, replace, &names)
+	rootID, err := doPostMultiFiles(repo, headCommit.RootID, canonPath, []*fsmgr.SeafDirent{newDent}, userName, replace, &names)
 	if err != nil {
 		err := fmt.Errorf("failed to post file %s to %s in repo %s: %v", fileName, canonPath, repo.ID, err)
 		return "", &appError{err, "", http.StatusInternalServerError}
 	}
 
 	desc := fmt.Sprintf("Added \"%s\"", fileName)
-	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true)
+	_, err = genNewCommit(repo, headCommit, rootID, user, friendlyName, desc, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", &appError{err, "", http.StatusInternalServerError}

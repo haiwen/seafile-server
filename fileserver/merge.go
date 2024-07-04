@@ -331,7 +331,11 @@ func mergeConflictFileName(storeID string, opt *mergeOptions, baseDir, fileName 
 			err := fmt.Errorf("failed to get head commit")
 			return "", err
 		}
-		modifier = commit.CreatorName
+		if commit.UserName != "" {
+			modifier = commit.UserName
+		} else {
+			modifier = commit.CreatorName
+		}
 		mtime = time.Now().Unix()
 	}
 

@@ -21,6 +21,7 @@ type Commit struct {
 	RepoID         string `json:"repo_id"`
 	RootID         string `json:"root_id"`
 	CreatorName    string `json:"creator_name,omitempty"`
+	UserName       string `json:"username,omitempty"`
 	CreatorID      string `json:"creator"`
 	Desc           string `json:"description"`
 	Ctime          int64  `json:"ctime"`
@@ -50,12 +51,13 @@ func Init(seafileConfPath string, seafileDataDir string) {
 }
 
 // NewCommit initializes a Commit object.
-func NewCommit(repoID, parentID, newRoot, user, desc string) *Commit {
+func NewCommit(repoID, parentID, newRoot, user, username, desc string) *Commit {
 	commit := new(Commit)
 	commit.RepoID = repoID
 	commit.RootID = newRoot
 	commit.Desc = desc
 	commit.CreatorName = user
+	commit.UserName = username
 	commit.CreatorID = "0000000000000000000000000000000000000000"
 	commit.Ctime = time.Now().Unix()
 	commit.CommitID = computeCommitID(commit)

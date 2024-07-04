@@ -71,7 +71,11 @@ merge_conflict_dirname (const char *store_id, int version,
                       opt->remote_repo_id, opt->remote_head);
         goto out;
     }
-    modifier = g_strdup(commit->creator_name);
+    if (commit->username) {
+        modifier = g_strdup(commit->username);
+    } else {
+        modifier = g_strdup(commit->creator_name);
+    }
     seaf_commit_unref (commit);
 
     conflict_name = gen_conflict_path (dirname, modifier, (gint64)time(NULL));

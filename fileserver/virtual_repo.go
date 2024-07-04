@@ -155,14 +155,14 @@ func mergeRepo(repoID string) error {
 
 	if root == origRoot {
 	} else if baseRoot == root {
-		_, err := updateDir(repoID, "/", origRoot, origHead.CreatorName, head.CommitID)
+		_, err := updateDir(repoID, "/", origRoot, origHead.CreatorName, origHead.UserName, head.CommitID)
 		if err != nil {
 			err := fmt.Errorf("failed to update root of virtual repo %.10s", repoID)
 			return err
 		}
 		repomgr.SetVirtualRepoBaseCommitPath(repo.ID, origRepo.HeadCommitID, vInfo.Path)
 	} else if baseRoot == origRoot {
-		newBaseCommit, err := updateDir(vInfo.OriginRepoID, vInfo.Path, root, head.CreatorName, origHead.CommitID)
+		newBaseCommit, err := updateDir(vInfo.OriginRepoID, vInfo.Path, root, head.CreatorName, head.UserName, origHead.CommitID)
 		if err != nil {
 			err := fmt.Errorf("merge repo %.8s failed: failed to update origin repo%.10s path %s", repoID, vInfo.OriginRepoID, vInfo.Path)
 			return err
@@ -182,13 +182,13 @@ func mergeRepo(repoID string) error {
 			return err
 		}
 
-		_, err = updateDir(repoID, "/", opt.mergedRoot, origHead.CreatorName, head.CommitID)
+		_, err = updateDir(repoID, "/", opt.mergedRoot, origHead.CreatorName, origHead.UserName, head.CommitID)
 		if err != nil {
 			err := fmt.Errorf("failed to update root of virtual repo %.10s", repoID)
 			return err
 		}
 
-		newBaseCommit, err := updateDir(vInfo.OriginRepoID, vInfo.Path, opt.mergedRoot, head.CreatorName, origHead.CommitID)
+		newBaseCommit, err := updateDir(vInfo.OriginRepoID, vInfo.Path, opt.mergedRoot, head.CreatorName, head.UserName, origHead.CommitID)
 		if err != nil {
 			err := fmt.Errorf("merge repo %.10s failed: failed to update origin repo %.10s path %s", repoID, vInfo.OriginRepoID, vInfo.Path)
 			return err
@@ -351,7 +351,7 @@ func editRepoNeedRetry(repoID, name, desc, user string) (bool, error) {
 		user = parent.CreatorName
 	}
 
-	commit := commitmgr.NewCommit(repoID, parent.CommitID, parent.RootID, user, "Changed library name or description")
+	commit := commitmgr.NewCommit(repoID, parent.CommitID, parent.RootID, user, parent.UserName, "Changed library name or description")
 	repomgr.RepoToCommit(repo, commit)
 	commit.RepoName = name
 	commit.RepoDesc = desc
