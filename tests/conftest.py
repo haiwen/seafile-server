@@ -7,7 +7,7 @@ import pytest
 from tenacity import retry, stop_after_attempt, wait_fixed
 from tests.config import (
     ADMIN_PASSWORD, ADMIN_USER, INACTIVE_PASSWORD, INACTIVE_USER, PASSWORD,
-    PASSWORD2, USER, USER2
+    PASSWORD2, USER, USER2, USERNAME
 )
 from tests.utils import create_and_get_repo, randstring, create_and_get_group
 
@@ -43,10 +43,10 @@ def encrypted_repo():
         'test_repo_{}'.format(randstring(10)), '', USER, passwd='123'
     )
     try:
-        seafile_api.post_dir(repo.id, '/', 'dir1', USER)
-        seafile_api.post_dir(repo.id, '/', 'dir2', USER)
-        seafile_api.post_dir(repo.id, '/dir1', 'subdir1', USER)
-        seafile_api.post_dir(repo.id, '/dir2', 'subdir2', USER)
+        seafile_api.post_dir(repo.id, '/', 'dir1', USER, USERNAME)
+        seafile_api.post_dir(repo.id, '/', 'dir2', USER, USERNAME)
+        seafile_api.post_dir(repo.id, '/dir1', 'subdir1', USER, USERNAME)
+        seafile_api.post_dir(repo.id, '/dir2', 'subdir2', USER, USERNAME)
         yield repo
     finally:
         if seafile_api.get_repo(repo.id):
@@ -59,8 +59,8 @@ def repo():
         'test_repo_{}'.format(randstring(10)), '', USER, passwd=None
     )
     try:
-        seafile_api.post_dir(repo.id, '/', 'dir1', USER)
-        seafile_api.post_dir(repo.id, '/', 'dir2', USER)
+        seafile_api.post_dir(repo.id, '/', 'dir1', USER, USERNAME)
+        seafile_api.post_dir(repo.id, '/', 'dir2', USER, USERNAME)
         yield repo
     finally:
         if seafile_api.get_repo(repo.id):

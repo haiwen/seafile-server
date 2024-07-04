@@ -1,7 +1,7 @@
 import pytest
 import os
 import time
-from tests.config import USER
+from tests.config import USER, USERNAME
 from seaserv import seafile_api as api
 
 file_name = 'test.txt'
@@ -21,9 +21,9 @@ def test_file_property_and_dir_listing ():
 
     create_the_file()
 
-    api.post_file(t_repo_id, file_path, '/', file_name, USER)
-    api.post_dir(t_repo_id, '/', dir_name, USER)
-    api.post_file(t_repo_id, file_path, '/' + dir_name, file_name, USER)
+    api.post_file(t_repo_id, file_path, '/', file_name, USER, USERNAME)
+    api.post_dir(t_repo_id, '/', dir_name, USER, USERNAME)
+    api.post_file(t_repo_id, file_path, '/' + dir_name, file_name, USER, USERNAME)
 
     #test is_valid_filename
     t_valid_file_name = 'valid_filename'
@@ -73,7 +73,7 @@ def test_file_property_and_dir_listing ():
     assert t_dirent_obj.mode == std_file_mode
     assert t_dirent_obj.version == t_repo_version
     assert t_dirent_obj.size == t_file_size
-    assert t_dirent_obj.modifier == USER
+    assert t_dirent_obj.modifier == USERNAME
 
     #test list_file_by_file_id
     t_block_list =  api.list_file_by_file_id(t_repo_id, t_file_id)
@@ -104,7 +104,7 @@ def test_file_property_and_dir_listing ():
     assert len(t_dir_list) == 1
 
     #test mkdir_with_parent
-    api.mkdir_with_parents (t_repo_id, '/test_dir', 'test_subdir', USER)
+    api.mkdir_with_parents (t_repo_id, '/test_dir', 'test_subdir', USER, USERNAME)
     t_dir_id = api.get_dir_id_by_path(t_repo_id, '/test_dir/test_subdir')
     assert t_dir_id
 

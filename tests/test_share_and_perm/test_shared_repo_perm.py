@@ -3,7 +3,7 @@ import time
 from seaserv import seafile_api as api
 from seaserv import ccnet_api
 
-from tests.config import ADMIN_USER, USER, USER2
+from tests.config import ADMIN_USER, USER, USER2, USERNAME
 from tests.utils import assert_repo_with_permission
 
 
@@ -112,7 +112,7 @@ def test_share_dir_to_user(repo, permission):
     users = api.get_shared_users_for_subdir(repo.id, '/dir1', USER)
     assert len(users) == 1 and users[0].user == USER2
 
-    assert api.del_file(repo.id, '/', '[\"dir1\"]', USER) == 0
+    assert api.del_file(repo.id, '/', '[\"dir1\"]', USER, USERNAME) == 0
     assert api.unshare_subdir_for_user(repo.id, '/dir2', USER, USER2) == 0
 
     time.sleep(2)
@@ -135,7 +135,7 @@ def test_share_dir_to_group(repo, group, permission):
     users = api.get_shared_groups_for_subdir(repo.id, '/dir1', USER)
     assert len(users) == 1
 
-    assert api.del_file(repo.id, '/', '[\"dir1\"]', USER) == 0
+    assert api.del_file(repo.id, '/', '[\"dir1\"]', USER, USERNAME) == 0
     assert api.unshare_subdir_for_group(repo.id, '/dir2', USER, group.id) == 0
 
     time.sleep(2)
@@ -205,8 +205,8 @@ def test_get_shared_users_by_repo(repo, group, permission):
 
 @pytest.mark.parametrize('permission', ['r', 'rw'])
 def test_subdir_permission_in_virtual_repo(repo, group, permission):
-    api.post_dir(repo.id, '/dir1', 'subdir1', USER)
-    api.post_dir(repo.id, '/dir2', 'subdir2', USER)
+    api.post_dir(repo.id, '/dir1', 'subdir1', USER, USERNAME)
+    api.post_dir(repo.id, '/dir2', 'subdir2', USER, USERNAME)
 
     v_repo_id_1 = api.share_subdir_to_user(repo.id, '/dir1', USER, USER2, permission)
     v_subdir_repo_id_1 = api.create_virtual_repo(v_repo_id_1, '/subdir1', 'subdir1', 'test_desc', USER, passwd='')

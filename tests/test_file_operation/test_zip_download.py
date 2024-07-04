@@ -4,7 +4,7 @@ import os
 import time
 import zipfile
 import json
-from tests.config import USER
+from tests.config import USER, USERNAME
 from seaserv import seafile_api as api
 
 file1_name = 'file1.txt'
@@ -34,9 +34,9 @@ def test_zip_download():
 
     #test zip download dir
     dir_name = 'dir'
-    api.post_dir(t_repo_id, '/', dir_name, USER)
-    api.post_file(t_repo_id, file1_path, '/dir', file1_name, USER)
-    api.post_file(t_repo_id, file2_path, '/dir', file2_name, USER)
+    api.post_dir(t_repo_id, '/', dir_name, USER, USERNAME)
+    api.post_file(t_repo_id, file1_path, '/dir', file1_name, USER, USERNAME)
+    api.post_file(t_repo_id, file2_path, '/dir', file2_name, USER, USERNAME)
 
     dir_id = api.get_dir_id_by_path(t_repo_id, '/dir')
     obj_id = {'obj_id': dir_id, 'dir_name': dir_name, 'is_windows': 0}
@@ -74,7 +74,7 @@ def test_zip_download():
 
     #test zip download empty dir
     empty_dir_name = 'empty_dir'
-    api.post_dir(t_repo_id, '/', empty_dir_name, USER)
+    api.post_dir(t_repo_id, '/', empty_dir_name, USER, USERNAME)
 
     dir_id = api.get_dir_id_by_path(t_repo_id, '/empty_dir')
     obj_id = {'obj_id': dir_id, 'dir_name': empty_dir_name, 'is_windows': 0}
@@ -100,8 +100,8 @@ def test_zip_download():
     os.remove(download_dir_path + '/empty_dir.zip')
 
     #test zip download mutliple files
-    api.post_file(t_repo_id, file1_path, '/', file1_name, USER)
-    api.post_file(t_repo_id, file2_path, '/', file2_name, USER)
+    api.post_file(t_repo_id, file1_path, '/', file1_name, USER, USERNAME)
+    api.post_file(t_repo_id, file2_path, '/', file2_name, USER, USERNAME)
     obj_id = {'parent_dir': '/', 'file_list': [file1_name, file2_name], 'is_windows' : 0}
     obj_id_json_str = json.dumps(obj_id)
     token = api.get_fileserver_access_token(t_repo_id, obj_id_json_str,

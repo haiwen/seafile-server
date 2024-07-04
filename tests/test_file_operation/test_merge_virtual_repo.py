@@ -2,7 +2,7 @@ import pytest
 import requests
 import os
 import time
-from tests.config import USER, USER2
+from tests.config import USER, USER2, USERNAME, USERNAME2
 from seaserv import seafile_api as api
 from requests_toolbelt import MultipartEncoder
 
@@ -36,7 +36,7 @@ def create_test_file():
 
 def create_test_dir(repo, dir_name):
     parent_dir = '/'
-    api.post_dir(repo.id,parent_dir,dir_name,USER)
+    api.post_dir(repo.id,parent_dir,dir_name,USER, USERNAME)
 
 def assert_upload_response(response, replace, file_exist):
     assert response.status_code == 200
@@ -103,8 +103,8 @@ def del_local_files():
     os.remove(chunked_part2_path)
 
 def test_merge_virtual_repo(repo):
-    api.post_dir(repo.id, '/dir1', 'subdir1', USER)
-    api.post_dir(repo.id, '/dir2', 'subdir2', USER)
+    api.post_dir(repo.id, '/dir1', 'subdir1', USER, USERNAME)
+    api.post_dir(repo.id, '/dir2', 'subdir2', USER, USERNAME)
     v_repo_id = api.share_subdir_to_user(repo.id, '/dir1', USER, USER2, 'rw')
 
     create_test_file()
@@ -183,7 +183,7 @@ def test_merge_virtual_repo(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size + file_size
 
-    api.del_file(v_repo_id, '/', '[\"'+file_name+'\"]', USER2)
+    api.del_file(v_repo_id, '/', '[\"'+file_name+'\"]', USER2, USERNAME2)
 
     time.sleep (1.5)
     v_repo_size = api.get_repo_size (v_repo_id)
@@ -192,7 +192,7 @@ def test_merge_virtual_repo(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == total_size
 
-    api.del_file(v_repo_id, '/', '[\"'+resumable_file_name+'\"]', USER2)
+    api.del_file(v_repo_id, '/', '[\"'+resumable_file_name+'\"]', USER2, USERNAME2)
 
     time.sleep (1.5)
     v_repo_size = api.get_repo_size (v_repo_id)
@@ -201,7 +201,7 @@ def test_merge_virtual_repo(repo):
     repo_size = api.get_repo_size (repo.id)
     assert repo_size == 0
 
-    api.del_file(repo.id, '/dir1', '[\"subdir1\"]', USER)
-    api.del_file(repo.id, '/dir2', '[\"subdir1\"]', USER)
+    api.del_file(repo.id, '/dir1', '[\"subdir1\"]', USER, USERNAME)
+    api.del_file(repo.id, '/dir2', '[\"subdir1\"]', USER, USERNAME)
     assert api.unshare_subdir_for_user(repo.id, '/dir1', USER, USER2) == 0
     del_local_files()

@@ -1,7 +1,7 @@
 import pytest
 import os
 import time
-from tests.config import USER
+from tests.config import USER, USERNAME
 from seaserv import seafile_api as api
 
 file_name = 'test.txt'
@@ -19,8 +19,8 @@ def test_file_operation():
 
     create_the_file()
 
-    assert api.post_file(t_repo_id1, file_path, '/', file_name, USER) == 0
-    assert api.post_dir(t_repo_id1, '/', dir_name, USER) == 0
+    assert api.post_file(t_repo_id1, file_path, '/', file_name, USER, USERNAME) == 0
+    assert api.post_dir(t_repo_id1, '/', dir_name, USER, USERNAME) == 0
 
     #test search files
     file_list = api.search_files (t_repo_id1, "test")

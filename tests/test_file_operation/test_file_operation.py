@@ -1,7 +1,7 @@
 import pytest
 import os
 import time
-from tests.config import USER
+from tests.config import USER, USERNAME
 from seaserv import seafile_api as api
 
 file_name = 'test.txt'
@@ -24,16 +24,16 @@ def test_file_operation():
     create_the_file()
 
     # test post_file
-    assert api.post_file(t_repo_id1, file_path, '/', file_name, USER) == 0
+    assert api.post_file(t_repo_id1, file_path, '/', file_name, USER, USERNAME) == 0
     t_file_id = api.get_file_id_by_path(t_repo_id1, '/' + file_name)
     t_file_size = len(file_content)
     assert t_file_size == api.get_file_size(t_repo_id1, t_repo_version, t_file_id)
 
     # test post_dir
-    assert api.post_dir(t_repo_id1, '/', dir_name, USER) == 0
+    assert api.post_dir(t_repo_id1, '/', dir_name, USER, USERNAME) == 0
 
     # test copy_file (synchronize)
-    t_copy_file_result1 = api.copy_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id1, '/', '[\"'+new_file_name+'\"]', USER, 0, 1)
+    t_copy_file_result1 = api.copy_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id1, '/', '[\"'+new_file_name+'\"]', USER, USERNAME, 0, 1)
     assert t_copy_file_result1
     assert t_copy_file_result1.task_id is None
     assert not t_copy_file_result1.background
@@ -44,7 +44,7 @@ def test_file_operation():
     t_repo_id2 = api.create_repo('test_file_operation2', '', USER, passwd = None)
     usage = api.get_user_self_usage (USER)
     api.set_user_quota(USER, usage + 1);
-    t_copy_file_result2 = api.copy_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id2, '/', '[\"'+file_name+'\"]', USER, 1, 0)
+    t_copy_file_result2 = api.copy_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id2, '/', '[\"'+file_name+'\"]', USER, USERNAME, 1, 0)
     assert t_copy_file_result2
     assert t_copy_file_result2.background
     while True:
@@ -56,7 +56,7 @@ def test_file_operation():
             break;
 
     api.set_user_quota(USER, -1);
-    t_copy_file_result2 = api.copy_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id2, '/', '[\"'+file_name+'\"]', USER, 1, 0)
+    t_copy_file_result2 = api.copy_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id2, '/', '[\"'+file_name+'\"]', USER, USERNAME, 1, 0)
     assert t_copy_file_result2
     assert t_copy_file_result2.task_id
     assert t_copy_file_result2.background
@@ -70,7 +70,7 @@ def test_file_operation():
 
     # test move_file (synchronize)
     t_move_file_info1 = api.get_dirent_by_path(t_repo_id1, '/' + new_file_name)
-    t_move_file_result1 = api.move_file(t_repo_id1, '/', '[\"'+new_file_name+'\"]', t_repo_id1, '/' + dir_name, '[\"'+new_file_name+'\"]', 1, USER, 0, 1)
+    t_move_file_result1 = api.move_file(t_repo_id1, '/', '[\"'+new_file_name+'\"]', t_repo_id1, '/' + dir_name, '[\"'+new_file_name+'\"]', 1, USER, USERNAME, 0, 1)
     assert t_move_file_result1
     t_move_file_info2 = api.get_dirent_by_path(t_repo_id1, '/' + dir_name + '/' + new_file_name)
     assert t_move_file_info1.mtime == t_move_file_info2.mtime
@@ -78,7 +78,7 @@ def test_file_operation():
     assert t_file_id is None
 
     # test move_file (synchronize)
-    t_move_file_result1 = api.move_file(t_repo_id1, '/' + dir_name, '[\"'+new_file_name+'\"]', t_repo_id1, '/', '[\"'+new_file_name_2+'\"]', 1, USER, 0, 1)
+    t_move_file_result1 = api.move_file(t_repo_id1, '/' + dir_name, '[\"'+new_file_name+'\"]', t_repo_id1, '/', '[\"'+new_file_name_2+'\"]', 1, USER, USERNAME, 0, 1)
     assert t_move_file_result1
     t_file_id = api.get_file_id_by_path(t_repo_id1, '/' + dir_name + '/' + new_file_name)
     assert t_file_id is None
@@ -86,7 +86,7 @@ def test_file_operation():
     # test move_file (asynchronous)
     usage = api.get_user_self_usage (USER)
     api.set_user_quota(USER, usage + 1);
-    t_move_file_result2 = api.move_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id2, '/' , '[\"'+new_file_name+'\"]', 1, USER, 1, 0)
+    t_move_file_result2 = api.move_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id2, '/' , '[\"'+new_file_name+'\"]', 1, USER, USERNAME, 1, 0)
     assert t_move_file_result2
     assert t_move_file_result2.task_id
     assert t_move_file_result2.background
@@ -99,7 +99,7 @@ def test_file_operation():
             break
 
     api.set_user_quota(USER, -1);
-    t_move_file_result2 = api.move_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id2, '/' , '[\"'+new_file_name+'\"]', 1, USER, 1, 0)
+    t_move_file_result2 = api.move_file(t_repo_id1, '/', '[\"'+file_name+'\"]', t_repo_id2, '/' , '[\"'+new_file_name+'\"]', 1, USER, USERNAME, 1, 0)
     assert t_move_file_result2
     assert t_move_file_result2.task_id
     assert t_move_file_result2.background
@@ -112,15 +112,15 @@ def test_file_operation():
     assert t_file_size == api.get_file_size(t_repo_id2, t_repo_version, t_file_id)
 
     # test post_empty_file
-    assert api.post_empty_file(t_repo_id1, '/' + dir_name, empty_file_name, USER) == 0
+    assert api.post_empty_file(t_repo_id1, '/' + dir_name, empty_file_name, USER, USERNAME) == 0
     t_file_id = api.get_file_id_by_path(t_repo_id1, '/' + dir_name + '/' + empty_file_name)
     assert api.get_file_size(t_repo_id1, t_repo_version, t_file_id) == 0
 
     # test rename_file
-    assert api.rename_file(t_repo_id1, '/' + dir_name, empty_file_name, new_empty_file_name, USER) == 0
+    assert api.rename_file(t_repo_id1, '/' + dir_name, empty_file_name, new_empty_file_name, USER, USERNAME) == 0
 
     #test put_file
-    t_new_file_id = api.put_file(t_repo_id1, file_path, '/' + dir_name, new_empty_file_name, USER, None)
+    t_new_file_id = api.put_file(t_repo_id1, file_path, '/' + dir_name, new_empty_file_name, USER, USERNAME, None)
     assert t_new_file_id
 
     # test get_file_revisions
@@ -130,7 +130,7 @@ def test_file_operation():
     assert t_commit_list[0].creator_name == USER
     
     # test del_file
-    assert api.del_file(t_repo_id2, '/', '[\"'+file_name+'\"]', USER) == 0
+    assert api.del_file(t_repo_id2, '/', '[\"'+file_name+'\"]', USER, USERNAME) == 0
 
     # test get_deleted
     t_deleted_file_list = api.get_deleted(t_repo_id2, 1)
@@ -140,12 +140,12 @@ def test_file_operation():
     assert t_deleted_file_list[0].basedir == '/'
 
     # test del a non-exist file. should return 0.
-    assert api.del_file(t_repo_id2, '/', '[\"'+file_name+'\"]', USER) == 0
+    assert api.del_file(t_repo_id2, '/', '[\"'+file_name+'\"]', USER, USERNAME) == 0
 
-    assert api.del_file(t_repo_id1, '/' + dir_name, '[\"'+new_empty_file_name+'\"]', USER) == 0
-    assert api.del_file(t_repo_id1, '/' + dir_name, '[\"'+new_file_name+'\"]', USER) == 0
-    assert api.del_file(t_repo_id2, '/', '[\"'+new_file_name+'\"]', USER) == 0
-    assert api.del_file(t_repo_id1, '/', '[\"'+new_file_name_2+'\"]', USER) == 0
+    assert api.del_file(t_repo_id1, '/' + dir_name, '[\"'+new_empty_file_name+'\"]', USER, USERNAME) == 0
+    assert api.del_file(t_repo_id1, '/' + dir_name, '[\"'+new_file_name+'\"]', USER, USERNAME) == 0
+    assert api.del_file(t_repo_id2, '/', '[\"'+new_file_name+'\"]', USER, USERNAME) == 0
+    assert api.del_file(t_repo_id1, '/', '[\"'+new_file_name_2+'\"]', USER, USERNAME) == 0
 
     time.sleep(1)
     api.remove_repo(t_repo_id1)

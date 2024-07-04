@@ -1,6 +1,8 @@
 USER = 'testuser@test.seafile.com'
+USERNAME = 'test_friendly_name'
 PASSWORD = 'testuser'
 USER2 = 'testuser2@test.seafile.com'
+USERNAME2 = 'test_friendly_name2'
 PASSWORD2 = 'testuser2'
 ADMIN_USER = 'adminuser@test.seafile.com'
 ADMIN_PASSWORD = 'adminuser'

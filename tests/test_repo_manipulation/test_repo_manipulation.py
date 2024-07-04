@@ -1,5 +1,5 @@
 import pytest
-from tests.config import USER, USER2
+from tests.config import USER, USER2, USERNAME
 from seaserv import seafile_api as api
 
 def get_repo_list_order_by(t_start, t_limit, order_by):
@@ -39,10 +39,10 @@ def test_repo_manipulation():
     #test revert_repo and get_commit
     t_commit_id_before_changing = t_repo.head_cmmt_id
 
-    api.post_dir(t_repo_id, '/', 'dir1', USER)
+    api.post_dir(t_repo_id, '/', 'dir1', USER, USERNAME)
     t_repo = api.get_repo(t_repo_id)
 
-    api.revert_repo(t_repo_id, t_commit_id_before_changing, USER)
+    api.revert_repo(t_repo_id, t_commit_id_before_changing, USER, USERNAME)
 
     t_repo = api.get_repo(t_repo_id)
     t_commit_id_after_revert = t_repo.head_cmmt_id

@@ -2,7 +2,7 @@ import pytest
 import requests
 import os
 import hashlib
-from tests.config import USER
+from tests.config import USER, USERNAME
 from seaserv import seafile_api as api
 from requests_toolbelt import MultipartEncoder
 
@@ -43,7 +43,7 @@ def create_test_file():
 
 def create_test_dir(repo, dir_name):
     parent_dir = '/'
-    api.post_dir(repo.id,parent_dir,dir_name,USER)
+    api.post_dir(repo.id,parent_dir,dir_name,USER, USERNAME)
 
 def assert_upload_response(response):
     assert response.status_code == 200
@@ -87,10 +87,10 @@ def write_file(file_path, file_content):
     fp.close()
 
 def del_repo_files(repo_id):
-    api.del_file(repo_id, '/', '[\"'+file_name+'\"]', USER)
-    api.del_file(repo_id, '/', '[\"'+file_name_not_replaced+'\"]', USER)
-    api.del_file(repo_id, '/', '[\"subdir\"]', USER)
-    api.del_file(repo_id, '/', '[\"'+resumable_file_name+'\"]', USER)
+    api.del_file(repo_id, '/', '[\"'+file_name+'\"]', USER, USERNAME)
+    api.del_file(repo_id, '/', '[\"'+file_name_not_replaced+'\"]', USER, USERNAME)
+    api.del_file(repo_id, '/', '[\"subdir\"]', USER, USERNAME)
+    api.del_file(repo_id, '/', '[\"'+resumable_file_name+'\"]', USER, USERNAME)
 
 def del_local_files():
     os.remove(file_path)
