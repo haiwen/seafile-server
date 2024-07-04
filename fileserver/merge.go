@@ -12,10 +12,11 @@ import (
 )
 
 type mergeOptions struct {
-	remoteRepoID string
-	remoteHead   string
-	mergedRoot   string
-	conflict     bool
+	remoteRepoID    string
+	remoteHead      string
+	mergedRoot      string
+	conflict        bool
+	emailToNickname map[string]string
 }
 
 func mergeTrees(storeID string, roots []string, opt *mergeOptions) error {
@@ -335,7 +336,9 @@ func mergeConflictFileName(storeID string, opt *mergeOptions, baseDir, fileName 
 		mtime = time.Now().Unix()
 	}
 
-	conflictName := genConflictPath(fileName, modifier, mtime)
+	nickname := getNickNameByModifier(opt.emailToNickname, modifier)
+
+	conflictName := genConflictPath(fileName, nickname, mtime)
 
 	return conflictName, nil
 }
@@ -364,6 +367,29 @@ func genConflictPath(originPath, modifier string, mtime int64) string {
 	}
 
 	return conflictPath
+}
+
+func getNickNameByModifier(emailToNickname map[string]string, modifier string) string {
+	if modifier == "" {
+		return ""
+	}
+	nickname, ok := emailToNickname[modifier]
+	if ok {
+		return nickname
+	}
+	if seahubDB != nil {
+		sqlStr := "SELECT nickname from profile_profile WHERE user = ?"
+		row := seahubDB.QueryRow(sqlStr, modifier)
+		row.Scan(&nickname)
+	}
+
+	if nickname == "" {
+		nickname = modifier
+	}
+
+	emailToNickname[modifier] = nickname
+
+	return nickname
 }
 
 func getFileModifierMtime(repoID, storeID, head, filePath string) (string, int64, error) {

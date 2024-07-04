@@ -1770,6 +1770,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		opt := new(mergeOptions)
 		opt.remoteRepoID = repoID
 		opt.remoteHead = commit.CommitID
+		opt.emailToNickname = make(map[string]string)
 
 		err := mergeTrees(repo.StoreID, roots, opt)
 		if err != nil {
