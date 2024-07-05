@@ -1110,6 +1110,16 @@ start_download_zip_file (evhtp_request_t *req, const char *token,
     return 0;
 }
 
+static void
+set_etag (evhtp_request_t *req,
+          const char *file_id)
+{
+    evhtp_kv_t *kv;
+
+    kv = evhtp_kv_new ("ETag", file_id, 1, 1);
+    evhtp_kvs_add_kv (req->headers_out, kv);
+}
+
 static gboolean
 can_use_cached_content (evhtp_request_t *req)
 {
@@ -1299,6 +1309,8 @@ access_cb(evhtp_request_t *req, void *arg)
         error_code = EVHTP_RES_FORBIDDEN;
         goto on_error;
     }
+
+    set_etag (req, data);
 
     if (can_use_cached_content (req)) {
         goto success;
