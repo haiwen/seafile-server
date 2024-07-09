@@ -149,6 +149,7 @@ func accessCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	now := time.Now()
+	rsp.Header().Set("ETag", objID)
 	rsp.Header().Set("Last-Modified", now.Format("Mon, 2 Jan 2006 15:04:05 GMT"))
 	rsp.Header().Set("Cache-Control", "max-age=3600")
 
