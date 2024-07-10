@@ -945,10 +945,6 @@ retry:
         memcpy (opt.remote_repo_id, repo_id, 36);
         memcpy (opt.remote_head, new_commit->commit_id, 40);
         opt.do_merge = TRUE;
-        opt.email_to_nickname = g_hash_table_new_full(g_str_hash,
-                                                      g_str_equal,
-                                                      g_free,
-                                                      g_free);
 
         roots[0] = base->root_id; /* base */
         roots[1] = current_head->root_id; /* head */
@@ -956,11 +952,9 @@ retry:
 
         if (seaf_merge_trees (repo->store_id, repo->version, 3, roots, &opt) < 0) {
             seaf_warning ("Failed to merge.\n");
-            g_hash_table_destroy (opt.email_to_nickname);
             ret = -1;
             goto out;
         }
-        g_hash_table_destroy (opt.email_to_nickname);
 
         if (!opt.conflict)
             desc = g_strdup("Auto merge by system");

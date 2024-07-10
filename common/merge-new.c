@@ -13,10 +13,10 @@ merge_trees_recursive (const char *store_id, int version,
                        const char *basedir,
                        MergeOptions *opt);
 
-static char *
+static const char *
 get_nickname_by_modifier (GHashTable *email_to_nickname, const char *modifier)
 {
-    const char *nickname;
+    const char *nickname = NULL;
 
     if (!modifier) {
         return NULL;
@@ -24,20 +24,18 @@ get_nickname_by_modifier (GHashTable *email_to_nickname, const char *modifier)
 
     nickname = g_hash_table_lookup (email_to_nickname, modifier);
     if (nickname) {
-        return g_strdup (nickname);
+        return nickname;
     }
 
-    if (seaf->seahub_db) {
-        char *sql = "SELECT nickname from profile_profile WHERE user = ?";
-        nickname = seaf_db_statement_get_string(seaf->seahub_db, sql, 1, "string", modifier);
-    }
+    char *sql = "SELECT nickname from profile_profile WHERE user = ?";
+    nickname = seaf_db_statement_get_string(seaf->seahub_db, sql, 1, "string", modifier);
 
     if (!nickname) {
         nickname = modifier;
     }
     g_hash_table_insert (email_to_nickname, g_strdup(modifier), g_strdup(nickname));
 
-    return g_strdup (nickname);
+    return nickname;
 }
 
 static char *
@@ -47,7 +45,7 @@ merge_conflict_filename (const char *store_id, int version,
                          const char *filename)
 {
     char *path = NULL, *modifier = NULL, *conflict_name = NULL;
-    char *nickname = NULL;
+    const char *nickname = NULL;
     gint64 mtime;
     SeafCommit *commit;
 
@@ -74,14 +72,15 @@ merge_conflict_filename (const char *store_id, int version,
         seaf_commit_unref (commit);
     }
 
-    nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
+    nickname = modifier;
+    if (seaf->seahub_db)
+        nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
 
     conflict_name = gen_conflict_path (filename, nickname, mtime);
 
 out:
     g_free (path);
     g_free (modifier);
-    g_free (nickname);
     return conflict_name;
 }
 
@@ -92,7 +91,7 @@ merge_conflict_dirname (const char *store_id, int version,
                         const char *dirname)
 {
     char *modifier = NULL, *conflict_name = NULL;
-    char *nickname = NULL;
+    const char *nickname = NULL;
     SeafCommit *commit;
 
     commit = seaf_commit_manager_get_commit (seaf->commit_mgr,
@@ -106,13 +105,14 @@ merge_conflict_dirname (const char *store_id, int version,
     modifier = g_strdup(commit->creator_name);
     seaf_commit_unref (commit);
 
-    nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
+    nickname = modifier;
+    if (seaf->seahub_db)
+        nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
 
     conflict_name = gen_conflict_path (dirname, nickname, (gint64)time(NULL));
 
 out:
     g_free (modifier);
-    g_free (nickname);
     return conflict_name;
 }
 
@@ -722,6 +722,11 @@ seaf_merge_trees (const char *store_id, int version,
 
     g_return_val_if_fail (n == 2 || n == 3, -1);
 
+    opt->email_to_nickname = g_hash_table_new_full(g_str_hash,
+                                                   g_str_equal,
+                                                   g_free,
+                                                   g_free);
+
     trees = g_new0 (SeafDir *, n);
     for (i = 0; i < n; ++i) {
         root = seaf_fs_manager_get_seafdir (seaf->fs_mgr, store_id, version, roots[i]);
@@ -738,6 +743,8 @@ seaf_merge_trees (const char *store_id, int version,
     for (i = 0; i < n; ++i)
         seaf_dir_free (trees[i]);
     g_free (trees);
+
+    g_hash_table_destroy (opt->email_to_nickname);
 
     return ret;
 }

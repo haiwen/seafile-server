@@ -254,7 +254,6 @@ func testMergeTrees1(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -276,7 +275,6 @@ func testMergeTrees2(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -298,7 +296,6 @@ func testMergeTrees3(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -320,7 +317,6 @@ func testMergeTrees4(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -342,7 +338,6 @@ func testMergeTrees5(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -363,7 +358,6 @@ func testMergeTrees6(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -384,7 +378,6 @@ func testMergeTrees7(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -405,7 +398,6 @@ func testMergeTrees8(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -426,7 +418,6 @@ func testMergeTrees9(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -447,7 +438,6 @@ func testMergeTrees10(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -468,7 +458,6 @@ func testMergeTrees11(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {
@@ -489,7 +478,6 @@ func testMergeTrees12(t *testing.T) {
 	opt := new(mergeOptions)
 	opt.remoteRepoID = mergeTestRepoID
 	opt.remoteHead = commit.CommitID
-	opt.emailToNickname = make(map[string]string)
 
 	err = mergeTrees(mergeTestRepoID, roots, opt)
 	if err != nil {

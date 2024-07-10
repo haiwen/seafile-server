@@ -380,7 +380,7 @@ load_ccnet_database_config (SeafileSession *session)
     return ret;
 }
 
-static int
+static char *
 parse_seahub_db_config ()
 {
     char buf[1024];
@@ -402,15 +402,21 @@ parse_seahub_db_config ()
                                &error);
 
     if (error != NULL) {
-        seaf_warning ("Failed to run python parse_seahub_db.py : %s\n", error->message);
-        return -1;
+        seaf_warning ("Failed to run python parse_seahub_db.py: %s\n", error->message);
+        g_free (binary_path);
+        g_clear_error (&error);
+        return NULL;
     }
-    if (retcode != 0) {
-        seaf_warning ("Failed to run python parse_seahub_db.py [%d]: %s\n", retcode, strerror(errno));
-        return -1;
+    g_spawn_check_exit_status (retcode, &error);
+    if (error != NULL) {
+        seaf_warning ("Failed to run python parse_seahub_db.py: %s\n", error->message);
+        g_free (binary_path);
+        g_clear_error (&error);
+        return NULL;
     }
 
-    return 0;
+    g_free (binary_path);
+    return g_strdup(child_stdout);
 }
 
 int
@@ -418,21 +424,21 @@ load_seahub_database_config (SeafileSession *session)
 {
     int ret = 0;
     json_t *object = NULL;
+    json_error_t err;
     const char *engine = NULL, *name = NULL, *user = NULL, *password = NULL, *host = NULL, *charset = NULL;
     int port;
+    char *json_str = NULL;
 
-
-    char *json_file = g_build_filename ("/tmp", "seahub_db.json", NULL);
-
-    if (parse_seahub_db_config () < 0) {
+    json_str = parse_seahub_db_config ();
+    if (!json_str){
         seaf_warning ("Failed to parse seahub database config.\n");
         ret = -1;
         goto out;
     }
 
-    object = json_load_file (json_file, 0, NULL);
+    object = json_loadb (json_str, strlen(json_str), 0, &err);
     if (!object) {
-        seaf_warning ("Failed to load seahub db json file: %s\n", json_file);
+        seaf_warning ("Failed to load seahub db json: %s: %s\n", json_str, err.text);
         ret = -1;
         goto out;
     }
@@ -449,17 +455,32 @@ load_seahub_database_config (SeafileSession *session)
     }
 
     if (!engine || strstr (engine, "sqlite") != NULL) {
-        seaf_message ("Use database sqlite\n");
-        session->seahub_db = seaf_db_new_sqlite (name, DEFAULT_MAX_CONNECTIONS);
-        if (!session->seahub_db) {
-            seaf_warning ("Failed to open seahub database.\n");
-            ret = -1;
-            goto out;
-        }
+        goto out;
     }
 #ifdef HAVE_MYSQL
     else if (strstr (engine, "mysql") != NULL) {
         seaf_message("Use database Mysql\n");
+        if (!host) {
+            seaf_warning ("Seahub DB host not set in config.\n");
+            ret = -1;
+            goto out;
+        }
+        if (!user) {
+            seaf_warning ("Seahub DB user not set in config.\n");
+            ret = -1;
+            goto out;
+        }
+        if (!password) {
+            seaf_warning ("Seahub DB password not set in config.\n");
+            ret = -1;
+            goto out;
+        }
+        if (!name) {
+            seaf_warning ("Seahub DB name not set in config.\n");
+            ret = -1;
+            goto out;
+        }
+
         session->seahub_db = seaf_db_new_mysql (host, port, user, password, name, NULL, FALSE, FALSE, NULL, charset, DEFAULT_MAX_CONNECTIONS);
         if (!session->seahub_db) {
             seaf_warning ("Failed to open seahub database.\n");
@@ -476,6 +497,6 @@ load_seahub_database_config (SeafileSession *session)
 out:
     if (object)
         json_decref (object);
-    g_free (json_file);
+    g_free (json_str);
     return ret;
 }

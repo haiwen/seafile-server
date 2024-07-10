@@ -175,7 +175,6 @@ func mergeRepo(repoID string) error {
 		opt := new(mergeOptions)
 		opt.remoteRepoID = repoID
 		opt.remoteHead = head.CommitID
-		opt.emailToNickname = make(map[string]string)
 
 		err := mergeTrees(origRepo.StoreID, roots, opt)
 		if err != nil {

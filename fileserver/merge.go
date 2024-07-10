@@ -25,6 +25,8 @@ func mergeTrees(storeID string, roots []string, opt *mergeOptions) error {
 		return err
 	}
 
+	opt.emailToNickname = make(map[string]string)
+
 	var trees []*fsmgr.SeafDir
 	for i := 0; i < 3; i++ {
 		dir, err := fsmgr.GetSeafdir(storeID, roots[i])

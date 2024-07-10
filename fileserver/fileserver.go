@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
@@ -60,7 +61,6 @@ func init() {
 
 const (
 	timestampFormat = "[2006-01-02 15:04:05] "
-	seahubDBPath    = "/tmp/seahub_db.json"
 )
 
 type LogFormatter struct{}
@@ -273,9 +273,15 @@ func loadSeafileDB() {
 }
 
 func loadSeahubDB() {
-	dbData, err := ioutil.ReadFile(seahubDBPath)
+	scriptPath, err := exec.LookPath("parse_seahub_db.py")
 	if err != nil {
-		log.Warnf("Failed to read seahub database json file: %v", err)
+		log.Warnf("Failed to find script of parse_seahub_db.py: %v", err)
+		return
+	}
+	cmd := exec.Command("python3", scriptPath)
+	dbData, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Warnf("Failed to run python parse_seahub_db.py: %v", err)
 		return
 	}
 
@@ -299,6 +305,23 @@ func loadSeahubDB() {
 		if err != nil || port <= 0 {
 			port = 3306
 		}
+		if dbName == "" {
+			log.Warnf("Seahub DB name not set in config")
+			return
+		}
+		if user == "" {
+			log.Warnf("Seahub DB user not set in config")
+			return
+		}
+		if password == "" {
+			log.Warnf("Seahub DB password not set in config")
+			return
+		}
+		if host == "" {
+			log.Warnf("Seahub DB host not set in config")
+			return
+		}
+
 		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, false)
 
 		seahubDB, err = sql.Open("mysql", dsn)
@@ -306,10 +329,7 @@ func loadSeahubDB() {
 			log.Warnf("Failed to open database: %v", err)
 		}
 	} else if strings.Index(dbEngine, "sqlite") >= 0 {
-		seahubDB, err = sql.Open("sqlite3", dbName)
-		if err != nil {
-			log.Warnf("Failed to open database %s: %v", dbName, err)
-		}
+		return
 	} else {
 		log.Warnf("Unsupported database %s.", dbEngine)
 	}
