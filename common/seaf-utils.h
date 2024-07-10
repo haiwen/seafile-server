@@ -16,4 +16,7 @@ load_database_config (struct _SeafileSession *session);
 int
 load_ccnet_database_config (struct _SeafileSession *session);
 
+int
+load_seahub_database_config (SeafileSession *session);
+
 #endif

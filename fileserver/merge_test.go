@@ -30,24 +30,27 @@ var mergeTestTree4CommitID string
 var mergeTestTree5CommitID string
 
 /*
-   test directory structure:
-   tree1
-   |--bbb
-      |-- testfile(size:1)
+test directory structure:
+tree1
+|--bbb
 
-   tree2
-   |--bbb
-      |-- testfile(size:10)
+	|-- testfile(size:1)
 
-   tree3
-   |--bbb
+tree2
+|--bbb
 
-   tree4
-   |--bbb
-      |-- testfile(size:100)
+	|-- testfile(size:10)
 
-   tree5
-   |--
+tree3
+|--bbb
+
+tree4
+|--bbb
+
+	|-- testfile(size:100)
+
+tree5
+|--
 */
 func mergeTestCreateTestDir() error {
 	modeDir := uint32(syscall.S_IFDIR | 0644)
