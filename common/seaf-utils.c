@@ -404,6 +404,8 @@ parse_seahub_db_config ()
     if (error != NULL) {
         seaf_warning ("Failed to run python parse_seahub_db.py: %s\n", error->message);
         g_free (binary_path);
+        g_free (child_stdout);
+        g_free (child_stderr);
         g_clear_error (&error);
         return NULL;
     }
@@ -411,12 +413,15 @@ parse_seahub_db_config ()
     if (error != NULL) {
         seaf_warning ("Failed to run python parse_seahub_db.py: %s\n", error->message);
         g_free (binary_path);
+        g_free (child_stdout);
+        g_free (child_stderr);
         g_clear_error (&error);
         return NULL;
     }
 
     g_free (binary_path);
-    return g_strdup(child_stdout);
+    g_free (child_stderr);
+    return child_stdout;
 }
 
 int
