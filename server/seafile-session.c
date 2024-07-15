@@ -122,8 +122,6 @@ seafile_session_new(const char *central_config_dir,
     char *notif_server = NULL;
     int notif_port = 8083;
     char *private_key = NULL;
-    char *pwd_hash_algo = NULL;
-    char *pwd_hash_params = NULL;
 
     abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
     abs_seafile_dir = ccnet_expand_path (seafile_dir);
@@ -209,17 +207,6 @@ seafile_session_new(const char *central_config_dir,
                                              NULL);
         session->private_key = private_key;
     }
-
-    pwd_hash_algo = g_key_file_get_string (config,
-                                          "password_hash", "pwd_hash_algo",
-                                           NULL);
-
-    pwd_hash_params = g_key_file_get_string (config,
-                                            "password_hash", "pwd_hash_params",
-                                            NULL);
-    seafile_crypt_init (pwd_hash_algo, pwd_hash_params);
-    g_free (pwd_hash_algo);
-    g_free (pwd_hash_params);
 
     if (load_database_config (session) < 0) {
         seaf_warning ("Failed to load database config.\n");
@@ -322,8 +309,6 @@ onerror:
     free (abs_seafile_dir);
     free (abs_ccnet_dir);
     g_free (tmp_file_dir);
-    g_free (pwd_hash_algo);
-    g_free (pwd_hash_params);
     g_free (session);
     return NULL;    
 }
@@ -534,7 +519,7 @@ create_system_default_repo (void *data)
                                                  "My Library Template",
                                                  "Template for creating 'My Library' for users",
                                                  "System",
-                                                 NULL, -1, NULL);
+                                                 NULL, -1, NULL, NULL, NULL);
     if (!repo_id) {
         seaf_warning ("Failed to create system default repo.\n");
         return data;

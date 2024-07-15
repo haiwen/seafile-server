@@ -27,17 +27,8 @@ struct SeafileCrypt {
 
 typedef struct SeafileCrypt SeafileCrypt;
 
-void
-seafile_crypt_init (const char *algo, const char *params);
-
 SeafileCrypt *
 seafile_crypt_new (int version, unsigned char *key, unsigned char *iv);
-
-const char *
-seafile_crypt_get_default_pwd_hash_algo ();
-
-const char *
-seafile_crypt_get_default_pwd_hash_params ();
 
 /*
   Derive key and iv used by AES encryption from @data_in.

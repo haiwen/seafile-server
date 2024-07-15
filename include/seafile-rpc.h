@@ -912,6 +912,8 @@ seafile_create_repo (const char *repo_name,
                      const char *owner_email,
                      const char *passwd,
                      int enc_version,
+                     const char *pwd_hash_algo,
+                     const char *pwd_hash_params,
                      GError **error);
 
 char *

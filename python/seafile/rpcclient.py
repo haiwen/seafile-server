@@ -6,8 +6,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         NamedPipeClient.__init__(self, pipe_path, "seafserv-threaded-rpcserver")
 
     # repo manipulation
-    @searpc_func("string", ["string", "string", "string", "string", "int"])
-    def seafile_create_repo(name, desc, owner_email, passwd, enc_version):
+    @searpc_func("string", ["string", "string", "string", "string", "int", "string", "string"])
+    def seafile_create_repo(name, desc, owner_email, passwd, enc_version, pwd_hash_algo, pwd_hash_params):
         pass
     create_repo = seafile_create_repo
 
