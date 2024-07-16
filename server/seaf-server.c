@@ -222,7 +222,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_create_repo,
                                      "seafile_create_repo",
-                                     searpc_signature_string__string_string_string_string_int());
+                                     searpc_signature_string__string_string_string_string_int_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_create_enc_repo,

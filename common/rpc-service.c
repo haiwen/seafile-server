@@ -715,40 +715,19 @@ seafile_generate_magic_and_random_key(int enc_version,
         return NULL;
     }
 
-    const char *algo = NULL;
-    const char *params = NULL;
-    algo = seafile_crypt_get_default_pwd_hash_algo ();
-    params = seafile_crypt_get_default_pwd_hash_params ();
-
-    if (algo != NULL) {
-        seafile_generate_pwd_hash (repo_id, passwd, salt, algo, params, pwd_hash);
-    } else {
-        seafile_generate_magic (enc_version, repo_id, passwd, salt, magic);
-    }
+    seafile_generate_magic (enc_version, repo_id, passwd, salt, magic);
     if (seafile_generate_random_key (passwd, enc_version, salt, random_key) < 0) {
         return NULL;
     }
 
     SeafileEncryptionInfo *sinfo;
-    if (algo != NULL) {
-        sinfo = g_object_new (SEAFILE_TYPE_ENCRYPTION_INFO,
-                              "repo_id", repo_id,
-                              "passwd", passwd,
-                              "enc_version", enc_version,
-                              "pwd_hash", pwd_hash,
-                              "pwd_hash_algo", algo,
-                              "pwd_hash_params", params,
-                              "random_key", random_key,
-                              NULL);
-    } else {
-        sinfo = g_object_new (SEAFILE_TYPE_ENCRYPTION_INFO,
-                              "repo_id", repo_id,
-                              "passwd", passwd,
-                              "enc_version", enc_version,
-                              "magic", magic,
-                              "random_key", random_key,
-                              NULL);
-    }
+    sinfo = g_object_new (SEAFILE_TYPE_ENCRYPTION_INFO,
+                          "repo_id", repo_id,
+                          "passwd", passwd,
+                          "enc_version", enc_version,
+                          "magic", magic,
+                          "random_key", random_key,
+                          NULL);
     if (enc_version >= 3)
         g_object_set (sinfo, "salt", salt, NULL);
 
@@ -3080,6 +3059,8 @@ seafile_create_repo (const char *repo_name,
                      const char *owner_email,
                      const char *passwd,
                      int enc_version,
+                     const char *pwd_hash_algo,
+                     const char *pwd_hash_params,
                      GError **error)
 {
     if (!repo_name || !repo_desc || !owner_email) {
@@ -3094,6 +3075,8 @@ seafile_create_repo (const char *repo_name,
                                                  owner_email,
                                                  passwd,
                                                  enc_version,
+                                                 pwd_hash_algo,
+                                                 pwd_hash_params,
                                                  error);
     return repo_id;
 }

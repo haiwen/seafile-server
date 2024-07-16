@@ -56,6 +56,7 @@ func_table = [
     [ "string", ["string", "string", "string", "int"] ],
     [ "string", ["string", "string", "string", "string"] ],
     [ "string", ["string", "string", "string", "string", "int"] ],
+    [ "string", ["string", "string", "string", "string", "int", "string", "string"] ],
     [ "string", ["string", "string", "string", "string", "string"] ],
     [ "string", ["string", "string", "string", "string", "string", "int"] ],
     [ "string", ["string", "string", "string", "int", "string", "string"] ],

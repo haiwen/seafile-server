@@ -3927,12 +3927,14 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
                                    const char *owner_email,
                                    const char *passwd,
                                    int enc_version,
+                                   const char *pwd_hash_algo,
+                                   const char *pwd_hash_params,
                                    GError **error)
 {
     char *repo_id = NULL;
     char salt[65], magic[65], pwd_hash[65], random_key[97];
-    const char *algo = seafile_crypt_get_default_pwd_hash_algo ();
-    const char *params = seafile_crypt_get_default_pwd_hash_params ();
+    const char *algo = pwd_hash_algo;
+    const char *params = pwd_hash_params;
 
     repo_id = gen_uuid ();
 

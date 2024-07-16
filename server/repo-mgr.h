@@ -505,6 +505,8 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
                                    const char *owner_email,
                                    const char *passwd,
                                    int enc_version,
+                                   const char *pwd_hash_algo,
+                                   const char *pwd_hash_params,
                                    GError **error);
 
 char *

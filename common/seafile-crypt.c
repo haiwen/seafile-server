@@ -23,14 +23,6 @@
 /* Should generate random salt for each repo. */
 static unsigned char salt[8] = { 0xda, 0x90, 0x45, 0xc3, 0x06, 0xc7, 0xcc, 0x26 };
 
-static PwdHashParams default_params;
-
-void
-seafile_crypt_init (const char *algo, const char *params)
-{
-    parse_pwd_hash_params (algo, params, &default_params);
-}
-
 SeafileCrypt *
 seafile_crypt_new (int version, unsigned char *key, unsigned char *iv)
 {
@@ -42,18 +34,6 @@ seafile_crypt_new (int version, unsigned char *key, unsigned char *iv)
         memcpy (crypt->key, key, 32);
     memcpy (crypt->iv, iv, 16);
     return crypt;
-}
-
-const char *
-seafile_crypt_get_default_pwd_hash_algo ()
-{
-    return default_params.algo;
-}
-
-const char *
-seafile_crypt_get_default_pwd_hash_params ()
-{
-    return default_params.params_str;
 }
 
 int
