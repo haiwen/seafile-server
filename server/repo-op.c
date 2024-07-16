@@ -48,6 +48,7 @@ post_files_and_gen_commit (GList *filenames,
                           const char *user,
                           char **ret_json,
                           int replace_existed,
+                          gint64 mtime,
                           const char *canon_path,
                           GList *id_list,
                           GList *size_list,
@@ -904,6 +905,7 @@ do_post_multi_files (SeafRepo *repo,
                      GList *size_list,
                      const char *user,
                      int replace_existed,
+                     gint64 mtime,
                      GList **name_list)
 {
     SeafDirent *dent;
@@ -925,7 +927,11 @@ do_post_multi_files (SeafRepo *repo,
         dent->id[40] = '\0';
         dent->size = *size;
         dent->mode = STD_FILE_MODE;
-        dent->mtime = (gint64)time(NULL);
+        if (mtime > 0) {
+            dent->mtime = mtime;
+        } else {
+            dent->mtime = (gint64)time(NULL);
+        }
 
         dents = g_list_append (dents, dent);
     }
@@ -1069,6 +1075,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                     const char *paths_json,
                                     const char *user,
                                     int replace_existed,
+                                    gint64 mtime,
                                     char **ret_json,
                                     char **task_id,
                                     GError **error)
@@ -1166,6 +1173,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                          user,
                                          ret_json,
                                          replace_existed,
+                                         mtime,
                                          canon_path,
                                          id_list,
                                          size_list,
@@ -1204,6 +1212,7 @@ post_files_and_gen_commit (GList *filenames,
                            const char *user,
                            char **ret_json,
                            int replace_existed,
+                           gint64 mtime,
                            const char *canon_path,
                            GList *id_list,
                            GList *size_list,
@@ -1224,7 +1233,7 @@ retry:
     /* Add the files to parent dir and commit. */
     root_id = do_post_multi_files (repo, head_commit->root_id, canon_path,
                                    filenames, id_list, size_list, user,
-                                   replace_existed, &name_list);
+                                   replace_existed, mtime, &name_list);
     if (!root_id) {
         seaf_warning ("[post multi-file] Failed to post files to %s in repo %s.\n",
                       canon_path, repo->id);

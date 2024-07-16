@@ -428,6 +428,8 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     RecvFSM *fsm = arg;
     char *parent_dir, *replace_str;
     char *relative_path = NULL, *new_parent_dir = NULL;
+    char *last_modify = NULL;
+    gint64 mtime = 0;
     GError *error = NULL;
     int error_code = -1;
     char *filenames_json, *tmp_files_json;
@@ -466,6 +468,11 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         seaf_debug ("[upload] No file uploaded.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "No file uploaded.\n");
         return;
+    }
+
+    last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
+    if (last_modify) {
+        mtime = atoll(last_modify);
     }
 
     replace_str = g_hash_table_lookup (fsm->form_kvs, "replace");
@@ -575,6 +582,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
                                              tmp_files_json,
                                              fsm->user,
                                              replace,
+                                             mtime,
                                              &ret_json,
                                              fsm->need_idx_progress ? &task_id : NULL,
                                              &error);
@@ -1051,6 +1059,8 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 {
     RecvFSM *fsm = arg;
     char *parent_dir = NULL, *relative_path = NULL, *new_parent_dir = NULL;
+    char *last_modify = NULL;
+    gint64 mtime = 0;
     GError *error = NULL;
     int error_code = -1;
     char *filenames_json, *tmp_files_json;
@@ -1089,6 +1099,11 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
         seaf_debug ("[upload] No parent dir given.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid parent dir.");
         return;
+    }
+
+    last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
+    if (last_modify) {
+        mtime = atoll(last_modify);
     }
 
     if (!fsm->filenames) {
@@ -1190,6 +1205,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
                                              tmp_files_json,
                                              fsm->user,
                                              0,
+                                             mtime,
                                              &ret_json,
                                              fsm->need_idx_progress ? &task_id : NULL,
                                              &error);
