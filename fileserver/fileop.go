@@ -1002,6 +1002,12 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
+	var lastModify int64
+	if lastModifyStr != "" {
+		lastModify, _ = strconv.ParseInt(lastModifyStr, 10, 64)
+	}
+
 	relativePath := normalizeUTF8Path(r.FormValue("relative_path"))
 	if relativePath != "" {
 		if relativePath[0] == '/' || relativePath[0] == '\\' {
@@ -1114,7 +1120,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	}
 
 	if err := postMultiFiles(rsp, r, repoID, newParentDir, user, fsm,
-		replaceExisted, isAjax); err != nil {
+		replaceExisted, lastModify, isAjax); err != nil {
 		return err
 	}
 
@@ -1459,7 +1465,7 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 	return fsm, nil
 }
 
-func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user string, fsm *recvData, replace bool, isAjax bool) *appError {
+func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user string, fsm *recvData, replace bool, lastModify int64, isAjax bool) *appError {
 
 	fileNames := fsm.fileNames
 	files := fsm.files
@@ -1527,7 +1533,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		}
 	}
 
-	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes)
+	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, lastModify, ids, sizes)
 	if err != nil {
 		err := fmt.Errorf("failed to post files and gen commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -1583,7 +1589,7 @@ func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []st
 	return false
 }
 
-func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64) (string, error) {
+func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, lastModify int64, ids []string, sizes []int64) (string, error) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := fmt.Errorf("failed to get repo %s", repoID)
@@ -1603,7 +1609,10 @@ func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath st
 			break
 		}
 		mode := (syscall.S_IFREG | 0644)
-		mtime := time.Now().Unix()
+		mtime := lastModify
+		if mtime <= 0 {
+			mtime = time.Now().Unix()
+		}
 		dent := fsmgr.NewDirent(ids[i], name, uint32(mode), mtime, "", sizes[i])
 		dents = append(dents, dent)
 	}
