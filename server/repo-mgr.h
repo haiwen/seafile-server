@@ -932,4 +932,7 @@ seaf_repo_manager_set_repo_status(SeafRepoManager *mgr,
 int
 seaf_repo_manager_get_repo_status(SeafRepoManager *mgr,
                                   const char *repo_id);
+
+int
+seaf_repo_manager_repair_virtual_repo (char *repo_id);
 #endif
