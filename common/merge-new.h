@@ -25,8 +25,6 @@ typedef struct MergeOptions {
     char                merged_tree_root[41]; /* merge result */
     int                 visit_dirs;
     gboolean            conflict;
-
-    GHashTable          *email_to_nickname;
 } MergeOptions;
 
 int

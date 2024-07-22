@@ -5,18 +5,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -44,7 +41,7 @@ var pidFilePath string
 var logFp *os.File
 
 var dbType string
-var seafileDB, ccnetDB, seahubDB *sql.DB
+var seafileDB, ccnetDB *sql.DB
 
 // when SQLite is used, user and group db are separated.
 var userDB, groupDB *sql.DB
@@ -272,69 +269,6 @@ func loadSeafileDB() {
 	dbType = dbEngine
 }
 
-func loadSeahubDB() {
-	scriptPath, err := exec.LookPath("parse_seahub_db.py")
-	if err != nil {
-		log.Warnf("Failed to find script of parse_seahub_db.py: %v", err)
-		return
-	}
-	cmd := exec.Command("python3", scriptPath)
-	dbData, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Warnf("Failed to run python parse_seahub_db.py: %v", err)
-		return
-	}
-
-	dbConfig := make(map[string]string)
-
-	err = json.Unmarshal(dbData, &dbConfig)
-	if err != nil {
-		log.Warnf("Failed to decode seahub database json file: %v", err)
-		return
-	}
-
-	dbEngine := dbConfig["ENGINE"]
-	dbName := dbConfig["NAME"]
-	user := dbConfig["USER"]
-	password := dbConfig["PASSWORD"]
-	host := dbConfig["HOST"]
-	portStr := dbConfig["PORT"]
-
-	if strings.Index(dbEngine, "mysql") >= 0 {
-		port, err := strconv.ParseInt(portStr, 10, 64)
-		if err != nil || port <= 0 {
-			port = 3306
-		}
-		if dbName == "" {
-			log.Warnf("Seahub DB name not set in config")
-			return
-		}
-		if user == "" {
-			log.Warnf("Seahub DB user not set in config")
-			return
-		}
-		if password == "" {
-			log.Warnf("Seahub DB password not set in config")
-			return
-		}
-		if host == "" {
-			log.Warnf("Seahub DB host not set in config")
-			return
-		}
-
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, false)
-
-		seahubDB, err = sql.Open("mysql", dsn)
-		if err != nil {
-			log.Warnf("Failed to open database: %v", err)
-		}
-	} else if strings.Index(dbEngine, "sqlite") >= 0 {
-		return
-	} else {
-		log.Warnf("Unsupported database %s.", dbEngine)
-	}
-}
-
 func writePidFile(pid_file_path string) error {
 	file, err := os.OpenFile(pid_file_path, os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
@@ -432,8 +366,6 @@ func main() {
 		// We need to close the old fp, because it has beed duped.
 		fp.Close()
 	}
-
-	loadSeahubDB()
 
 	repomgr.Init(seafileDB)
 
