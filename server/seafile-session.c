@@ -218,8 +218,6 @@ seafile_session_new(const char *central_config_dir,
         goto onerror;
     }
 
-    load_seahub_database_config (session);
-
     session->cfg_mgr = seaf_cfg_manager_new (session);
     if (!session->cfg_mgr)
         goto onerror;
