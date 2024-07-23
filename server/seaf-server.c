@@ -32,7 +32,7 @@ SeafileSession *seaf;
 
 char *pidfile = NULL;
 
-static const char *short_options = "hvc:d:l:fP:D:F:p:t";
+static const char *short_options = "hvc:d:l:fP:D:F:p:tr:";
 static struct option long_options[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
@@ -45,6 +45,7 @@ static struct option long_options[] = {
     { "pidfile", required_argument, NULL, 'P' },
     { "rpc-pipe-path", required_argument, NULL, 'p' },
     { "test-config", no_argument, NULL, 't' },
+    { "repair-repo", required_argument, NULL, 'r' },
     { NULL, 0, NULL, 0, },
 };
 
@@ -222,12 +223,12 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_create_repo,
                                      "seafile_create_repo",
-                                     searpc_signature_string__string_string_string_string_int());
+                                     searpc_signature_string__string_string_string_string_int_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_create_enc_repo,
                                      "seafile_create_enc_repo",
-                                     searpc_signature_string__string_string_string_string_string_string_string_int());
+                                     searpc_signature_string__string_string_string_string_string_string_string_int_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_get_commit,
@@ -1211,6 +1212,7 @@ main (int argc, char **argv)
     const char *debug_str = NULL;
     int daemon_mode = 1;
     gboolean test_config = FALSE;
+    char *repo_id = NULL;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -1252,6 +1254,9 @@ main (int argc, char **argv)
             break;
         case 't':
             test_config = TRUE;
+            break;
+        case 'r':
+            repo_id = g_strdup (optarg);
             break;
         default:
             usage ();
@@ -1314,6 +1319,16 @@ main (int argc, char **argv)
     }
 
     event_init ();
+
+    if (repo_id) {
+        seaf = seafile_repair_session_new (central_config_dir, seafile_dir, ccnet_dir);
+        if (!seaf) {
+            seaf_warning ("Failed to create repair seafile session.\n");
+            exit (1);
+        }
+        seaf_repo_manager_repair_virtual_repo (repo_id);
+        exit (0);
+    }
 
     seaf = seafile_session_new (central_config_dir, seafile_dir, ccnet_dir);
     if (!seaf) {

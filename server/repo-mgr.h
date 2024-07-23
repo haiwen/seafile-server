@@ -33,12 +33,16 @@ struct _SeafRepo {
     gboolean    encrypted;
     int         enc_version;
     gchar       magic[65];       /* hash(repo_id + passwd), key stretched. */
+    gchar       pwd_hash[65];       /* hash(repo_id + passwd), key stretched. */
+    gchar       *pwd_hash_algo;
+    gchar       *pwd_hash_params;
     gchar       random_key[97];
     gchar       salt[65];
     gboolean    no_local_history;
     gint64      last_modify;
     gint64      size;
     gint64      file_count;
+    gchar       *type;
 
     int         status;
 
@@ -501,6 +505,8 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
                                    const char *owner_email,
                                    const char *passwd,
                                    int enc_version,
+                                   const char *pwd_hash_algo,
+                                   const char *pwd_hash_params,
                                    GError **error);
 
 char *
@@ -513,6 +519,9 @@ seaf_repo_manager_create_enc_repo (SeafRepoManager *mgr,
                                    const char *random_key,
                                    const char *salt,
                                    int enc_version,
+                                   const char *pwd_hash,
+                                   const char *pwd_hash_algo,
+                                   const char *pwd_hash_params,
                                    GError **error);
 
 /* Give a repo and a path in this repo, returns a list of commits, where every
@@ -923,4 +932,7 @@ seaf_repo_manager_set_repo_status(SeafRepoManager *mgr,
 int
 seaf_repo_manager_get_repo_status(SeafRepoManager *mgr,
                                   const char *repo_id);
+
+int
+seaf_repo_manager_repair_virtual_repo (char *repo_id);
 #endif

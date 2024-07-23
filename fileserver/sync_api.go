@@ -352,6 +352,9 @@ func getAccessibleRepoListCB(rsp http.ResponseWriter, r *http.Request) *appError
 
 	var repoObjects []*share.SharedRepo
 	for _, repo := range repos {
+		if repo.RepoType != "" {
+			continue
+		}
 		if _, ok := obtainedRepos[repo.ID]; !ok {
 			obtainedRepos[repo.ID] = repo.ID
 		}
@@ -368,6 +371,9 @@ func getAccessibleRepoListCB(rsp http.ResponseWriter, r *http.Request) *appError
 	}
 	for _, sRepo := range repos {
 		if _, ok := obtainedRepos[sRepo.ID]; ok {
+			continue
+		}
+		if sRepo.RepoType != "" {
 			continue
 		}
 		sRepo.Type = "srepo"
@@ -402,6 +408,9 @@ func getAccessibleRepoListCB(rsp http.ResponseWriter, r *http.Request) *appError
 		if _, ok := obtainedRepos[sRepo.ID]; ok {
 			continue
 		}
+		if sRepo.RepoType != "" {
+			continue
+		}
 
 		sRepo.Type = "grepo"
 		sRepo.Owner = "Organization"
@@ -428,6 +437,9 @@ func filterGroupRepos(repos []*share.SharedRepo) map[string]*share.SharedRepo {
 	table := make(map[string]*share.SharedRepo)
 
 	for _, repo := range repos {
+		if repo.RepoType != "" {
+			continue
+		}
 		if repoPrev, ok := table[repo.ID]; ok {
 			if repo.Permission == "rw" && repoPrev.Permission == "r" {
 				table[repo.ID] = repo

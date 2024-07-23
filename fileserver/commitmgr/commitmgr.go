@@ -36,6 +36,9 @@ type Commit struct {
 	Magic          string `json:"magic,omitempty"`
 	RandomKey      string `json:"key,omitempty"`
 	Salt           string `json:"salt,omitempty"`
+	PwdHash        string `json:"pwd_hash,omitempty"`
+	PwdHashAlgo    string `json:"pwd_hash_algo,omitempty"`
+	PwdHashParams  string `json:"pwd_hash_params,omitempty"`
 	Version        int    `json:"version,omitempty"`
 	Conflict       int    `json:"conflict,omitempty"`
 	NewMerge       int    `json:"new_merge,omitempty"`

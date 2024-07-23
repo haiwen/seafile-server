@@ -218,6 +218,8 @@ seafile_session_new(const char *central_config_dir,
         goto onerror;
     }
 
+    load_seahub_database_config (session);
+
     session->cfg_mgr = seaf_cfg_manager_new (session);
     if (!session->cfg_mgr)
         goto onerror;
@@ -311,6 +313,113 @@ onerror:
     g_free (tmp_file_dir);
     g_free (session);
     return NULL;    
+}
+
+SeafileSession *
+seafile_repair_session_new(const char *central_config_dir,
+                           const char *seafile_dir,
+                           const char *ccnet_dir)
+{
+    char *abs_central_config_dir = NULL;
+    char *abs_seafile_dir;
+    char *abs_ccnet_dir = NULL;
+    char *tmp_file_dir;
+    char *config_file_path;
+    char *config_file_ccnet;
+    GKeyFile *config;
+    GKeyFile *ccnet_config;
+    SeafileSession *session = NULL;
+    gboolean notif_enabled = FALSE;
+    int notif_port = 8083;
+    gboolean cluster_mode;
+    gboolean use_block_cache;
+    int block_cache_size_limit;
+    char **block_cache_file_types;
+    gint64 repo_file_number_limit = -1;
+
+    abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
+    abs_seafile_dir = ccnet_expand_path (seafile_dir);
+    tmp_file_dir = g_build_filename (abs_seafile_dir, "tmpfiles", NULL);
+    if (central_config_dir) {
+        abs_central_config_dir = ccnet_expand_path (central_config_dir);
+    }
+
+    config_file_path = g_build_filename(
+        abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir,
+        "seafile.conf", NULL);
+
+    config_file_ccnet = g_build_filename(
+        abs_central_config_dir ? abs_central_config_dir : abs_ccnet_dir,
+        "ccnet.conf", NULL);
+
+    GError *error = NULL;
+    config = g_key_file_new ();
+    if (!g_key_file_load_from_file (config, config_file_path, 
+                                    G_KEY_FILE_NONE, &error)) {
+        seaf_warning ("Failed to load config file.\n");
+        g_key_file_free (config);
+        g_free (config_file_path);
+        goto onerror;
+    }
+    ccnet_config = g_key_file_new ();
+    g_key_file_set_list_separator (ccnet_config, ',');
+    if (!g_key_file_load_from_file (ccnet_config, config_file_ccnet,
+                                    G_KEY_FILE_KEEP_COMMENTS, NULL))
+    {
+        seaf_warning ("Can't load ccnet config file %s.\n", config_file_ccnet);
+        g_key_file_free (ccnet_config);
+        g_free (config_file_ccnet);
+        goto onerror;
+    }
+    g_free (config_file_path);
+    g_free (config_file_ccnet);
+
+    session = g_new0(SeafileSession, 1);
+    session->seaf_dir = abs_seafile_dir;
+    session->ccnet_dir = abs_ccnet_dir;
+    session->tmp_file_dir = tmp_file_dir;
+    session->config = config;
+    session->ccnet_config = ccnet_config;
+    session->is_repair = TRUE;
+
+    if (load_database_config (session) < 0) {
+        seaf_warning ("Failed to load database config.\n");
+        goto onerror;
+    }
+
+    if (load_ccnet_database_config (session) < 0) {
+        seaf_warning ("Failed to load ccnet database config.\n");
+        goto onerror;
+    }
+
+    session->fs_mgr = seaf_fs_manager_new (session, abs_seafile_dir);
+    if (!session->fs_mgr)
+        goto onerror;
+    session->block_mgr = seaf_block_manager_new (session, abs_seafile_dir);
+    if (!session->block_mgr)
+        goto onerror;
+    session->commit_mgr = seaf_commit_manager_new (session);
+    if (!session->commit_mgr)
+        goto onerror;
+    session->repo_mgr = seaf_repo_manager_new (session);
+    if (!session->repo_mgr)
+        goto onerror;
+    session->branch_mgr = seaf_branch_manager_new (session);
+    if (!session->branch_mgr)
+        goto onerror;
+
+    session->job_mgr = ccnet_job_manager_new (DEFAULT_THREAD_POOL_SIZE);
+
+    session->size_sched = size_scheduler_new (session);
+
+    return session;
+
+onerror:
+    free (abs_seafile_dir);
+    free (abs_ccnet_dir);
+    g_free (tmp_file_dir);
+    g_free (session);
+    return NULL;
 }
 
 int
@@ -519,7 +628,7 @@ create_system_default_repo (void *data)
                                                  "My Library Template",
                                                  "Template for creating 'My Library' for users",
                                                  "System",
-                                                 NULL, -1, NULL);
+                                                 NULL, -1, NULL, NULL, NULL);
     if (!repo_id) {
         seaf_warning ("Failed to create system default repo.\n");
         return data;

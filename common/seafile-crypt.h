@@ -77,12 +77,28 @@ seafile_generate_magic (int version, const char *repo_id,
                         const char *repo_salt,
                         char *magic);
 
+void
+seafile_generate_pwd_hash (const char *repo_id,
+                           const char *passwd,
+                           const char *repo_salt,
+                           const char *algo,
+                           const char *params_str,
+                           char *pwd_hash);
+
 int
 seafile_verify_repo_passwd (const char *repo_id,
                             const char *passwd,
                             const char *magic,
                             int version,
                             const char *repo_salt);
+
+int
+seafile_pwd_hash_verify_repo_passwd (const char *repo_id,
+                                     const char *passwd,
+                                     const char *repo_salt,
+                                     const char *pwd_hash,
+                                     const char *algo,
+                                     const char *params_str);
 
 int
 seafile_decrypt_repo_enc_key (int enc_version,

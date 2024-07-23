@@ -125,12 +125,23 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
         return -1;
     }
 
-    if (seafile_verify_repo_passwd (repo->id, passwd,
-                                    repo->magic, repo->enc_version, repo->salt) < 0) {
-        seaf_repo_unref (repo);
-        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                     "Incorrect password");
-        return -1;
+    if (repo->pwd_hash_algo) {
+        if (seafile_pwd_hash_verify_repo_passwd (repo->id, passwd, repo->salt,
+                                                 repo->pwd_hash, repo->pwd_hash_algo, repo->pwd_hash_params) < 0) {
+            seaf_repo_unref (repo);
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "Incorrect password");
+            return -1;
+        }
+    } else {
+        if (seafile_verify_repo_passwd (repo->id, passwd,
+                                        repo->magic,
+                                        repo->enc_version, repo->salt) < 0) {
+            seaf_repo_unref (repo);
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "Incorrect password");
+            return -1;
+        }
     }
 
     crypt_key = g_new0 (DecryptKey, 1);

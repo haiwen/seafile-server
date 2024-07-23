@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS FolderGroupPerm (repo_id CHAR(36) NOT NULL, path TEXT
 CREATE INDEX IF NOT EXISTS folder_group_perm_idx ON FolderGroupPerm(repo_id);
 CREATE TABLE IF NOT EXISTS FolderPermTimestamp (repo_id CHAR(36) PRIMARY KEY, timestamp INTEGER);
 CREATE TABLE IF NOT EXISTS WebUploadTempFiles (repo_id CHAR(40) NOT NULL, file_path TEXT NOT NULL, tmp_file_path TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, name VARCHAR(255) NOT NULL, update_time INTEGER, version INTEGER, is_encrypted INTEGER, last_modifier VARCHAR(255), status INTEGER DEFAULT 0);
+CREATE TABLE IF NOT EXISTS RepoInfo (repo_id CHAR(36) PRIMARY KEY, name VARCHAR(255) NOT NULL, update_time INTEGER, version INTEGER, is_encrypted INTEGER, last_modifier VARCHAR(255), status INTEGER DEFAULT 0, type VARCHAR(10));
+CREATE INDEX IF NOT EXISTS RepoInfoTypeIndex on RepoInfo (type);
 CREATE TABLE IF NOT EXISTS RepoStorageId (repo_id CHAR(40) NOT NULL, storage_id VARCHAR(255) NOT NULL);
 CREATE TABLE IF NOT EXISTS UserQuota (user VARCHAR(255) PRIMARY KEY, quota BIGINT);
 CREATE TABLE IF NOT EXISTS UserShareQuota (user VARCHAR(255) PRIMARY KEY, quota BIGINT);

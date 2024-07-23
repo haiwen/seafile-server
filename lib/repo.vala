@@ -41,6 +41,7 @@ public class Repo : Object {
     public string head_cmmt_id { get; set; }
     public string root { get; set; }
     public int    status { get; set; }
+    public string repo_type { get; set; }
 
     // To be compatible with obsoleted SharedRepo object
     public string repo_id { get; set; }
@@ -56,6 +57,9 @@ public class Repo : Object {
     public int enc_version { get; set; }
     public string random_key { get; set; }
     public string salt { get; set; }
+    public string pwd_hash { get; set; }
+    public string pwd_hash_algo { get; set; }
+    public string pwd_hash_params { get; set; }
 
     // Section 3: Client only information
     // Should be set for all client repo objects
@@ -202,6 +206,9 @@ public class EncryptionInfo: Object {
     public string magic { get; set; }
     public string random_key { get; set; }
     public string salt { get; set; }
+    public string pwd_hash { get; set; }
+    public string pwd_hash_algo { get; set; }
+    public string pwd_hash_params { get; set; }
 }
 
 public class UserQuotaUsage: Object {

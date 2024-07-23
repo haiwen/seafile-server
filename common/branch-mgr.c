@@ -356,6 +356,8 @@ notify_repo_update (const char *repo_id, const char *commit_id)
 static void
 on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)
 {
+    if (seaf->is_repair)
+        return;
     seaf_repo_manager_update_repo_info (seaf->repo_mgr, branch->repo_id, branch->commit_id);
 
     notify_repo_update(branch->repo_id, branch->commit_id);

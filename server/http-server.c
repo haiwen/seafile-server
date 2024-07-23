@@ -2482,6 +2482,7 @@ fill_obj_from_seafilerepo (SeafileRepo *srepo, GHashTable *table)
     char *repo_name = NULL;
     char *permission = NULL;
     char *owner = NULL;
+    char *type = NULL;
     gint64 last_modify = 0;
     json_t *obj = NULL;
 
@@ -2492,10 +2493,15 @@ fill_obj_from_seafilerepo (SeafileRepo *srepo, GHashTable *table)
                          "last_modify", &last_modify,
                          "permission", &permission,
                          "user", &owner,
+                         "repo_type", &type,
                          NULL);
 
     if (!repo_id)
         goto out;
+    if (type) {
+        g_free (repo_id);
+        goto out;
+    }
     //the repo_id will be free when the table is destroyed.
     if (g_hash_table_lookup (table, repo_id)) {
         g_free (repo_id);
@@ -2516,6 +2522,7 @@ out:
     g_free (repo_name);
     g_free (permission);
     g_free (owner);
+    g_free (type);
     return obj;
 }
 
@@ -2532,6 +2539,7 @@ filter_group_repos (GList *repos)
     char *permission = NULL;
     char *permission_prev = NULL;
     char *repo_id = NULL;
+    char *type = NULL;
 
     table = g_hash_table_new_full (g_str_hash, g_str_equal,
                                    g_free,
@@ -2541,7 +2549,15 @@ filter_group_repos (GList *repos)
         srepo = iter->data;
         g_object_get (srepo, "id", &repo_id,
                              "permission", &permission,
+                             "repo_type", &type,
                              NULL);
+        if (type) {
+            g_free (repo_id);
+            g_free (permission);
+            g_free (type);
+            g_object_unref (srepo);
+            continue;
+        }
         srepo_tmp = g_hash_table_lookup (table, repo_id);
         if (srepo_tmp) {
             g_object_get (srepo_tmp, "permission", &permission_prev,
@@ -2557,10 +2573,11 @@ filter_group_repos (GList *repos)
         } else {
             g_hash_table_insert (table, g_strdup (repo_id), srepo);
         }
+        g_free (repo_id);
+        g_free (permission);
+        g_free (type);
     }
 
-    g_free (repo_id);
-    g_free (permission);
     return table;
 }
 
@@ -2627,6 +2644,10 @@ get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
 
     for (iter = repos; iter; iter = iter->next) {
         repo = iter->data;
+        if (repo->type) {
+            seaf_repo_unref (repo);
+            continue;
+        }
 
         if (!repo->is_corrupted) {
             if (!g_hash_table_lookup (obtained_repos, repo->id)) {
