@@ -406,6 +406,7 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
                             const char *file_name,
                             const char *user,
                             const char *head_id,
+                            gint64 mtime,
                             char **new_file_id,                            
                             GError **error);
 
@@ -912,10 +913,10 @@ post_files_and_gen_commit (GList *filenames,
                           const char *user,
                           char **ret_json,
                           int replace_existed,
-                          gint64 mtime,
                           const char *canon_path,
                           GList *id_list,
                           GList *size_list,
+                          gint64 mtime,
                           GError **error);
 
 char *

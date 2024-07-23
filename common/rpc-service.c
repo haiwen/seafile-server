@@ -2620,6 +2620,7 @@ seafile_put_file (const char *repo_id, const char *temp_file_path,
     seaf_repo_manager_put_file (seaf->repo_mgr, repo_id,
                                 temp_file_path, rpath,
                                 norm_file_name, user, head_id,
+                                0,
                                 &new_file_id, error);
 
 out:

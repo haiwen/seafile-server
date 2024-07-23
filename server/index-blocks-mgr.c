@@ -175,10 +175,10 @@ start_index_task (gpointer data, gpointer user_data)
                                      idx_para->user,
                                      idx_para->ret_json ? &ret_json : NULL,
                                      idx_para->replace_existed,
-                                     0,
                                      idx_para->canon_path,
                                      id_list,
                                      size_list,
+                                     0,
                                      NULL);
     progress->status = ret;
     if (idx_para->ret_json) {

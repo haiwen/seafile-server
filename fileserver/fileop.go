@@ -1005,7 +1005,10 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
 	var lastModify int64
 	if lastModifyStr != "" {
-		lastModify, _ = strconv.ParseInt(lastModifyStr, 10, 64)
+		t, err := time.Parse(time.RFC3339, lastModifyStr)
+		if err == nil {
+			lastModify = t.Unix()
+		}
 	}
 
 	relativePath := normalizeUTF8Path(r.FormValue("relative_path"))
@@ -1533,7 +1536,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		}
 	}
 
-	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, lastModify, ids, sizes)
+	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes, lastModify)
 	if err != nil {
 		err := fmt.Errorf("failed to post files and gen commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -1589,7 +1592,7 @@ func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []st
 	return false
 }
 
-func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, lastModify int64, ids []string, sizes []int64) (string, error) {
+func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64, lastModify int64) (string, error) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := fmt.Errorf("failed to get repo %s", repoID)
@@ -2771,6 +2774,15 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
+	var lastModify int64
+	if lastModifyStr != "" {
+		t, err := time.Parse(time.RFC3339, lastModifyStr)
+		if err == nil {
+			lastModify = t.Unix()
+		}
+	}
+
 	parentDir := filepath.Dir(targetFile)
 	fileName := filepath.Base(targetFile)
 
@@ -2877,7 +2889,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		headID = headIDs[0]
 	}
 
-	if err := putFile(rsp, r, repoID, parentDir, user, fileName, fsm, headID, isAjax); err != nil {
+	if err := putFile(rsp, r, repoID, parentDir, user, fileName, fsm, headID, lastModify, isAjax); err != nil {
 		return err
 	}
 
@@ -2887,7 +2899,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	return nil
 }
 
-func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, fileName string, fsm *recvData, headID string, isAjax bool) *appError {
+func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, fileName string, fsm *recvData, headID string, lastModify int64, isAjax bool) *appError {
 	files := fsm.files
 	repo := repomgr.Get(repoID)
 	if repo == nil {
@@ -2982,6 +2994,9 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 	}
 
 	mtime := time.Now().Unix()
+	if lastModify > 0 {
+		mtime = lastModify
+	}
 	mode := (syscall.S_IFREG | 0644)
 	newDent := fsmgr.NewDirent(fileID, fileName, uint32(mode), mtime, user, size)
 

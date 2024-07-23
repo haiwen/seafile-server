@@ -48,10 +48,10 @@ post_files_and_gen_commit (GList *filenames,
                           const char *user,
                           char **ret_json,
                           int replace_existed,
-                          gint64 mtime,
                           const char *canon_path,
                           GList *id_list,
                           GList *size_list,
+                          gint64 mtime,
                           GError **error);
 
 /*
@@ -1173,10 +1173,10 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                          user,
                                          ret_json,
                                          replace_existed,
-                                         mtime,
                                          canon_path,
                                          id_list,
                                          size_list,
+                                         mtime,
                                          error);
     } else {
         ret = index_blocks_mgr_start_index (seaf->index_blocks_mgr,
@@ -1212,10 +1212,10 @@ post_files_and_gen_commit (GList *filenames,
                            const char *user,
                            char **ret_json,
                            int replace_existed,
-                           gint64 mtime,
                            const char *canon_path,
                            GList *id_list,
                            GList *size_list,
+                           gint64 mtime,
                            GError **error)
 {
     SeafRepo *repo = NULL;
@@ -4321,6 +4321,7 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
                             const char *file_name,
                             const char *user,
                             const char *head_id,
+                            gint64 mtime,
                             char **new_file_id,
                             GError **error)
 {
@@ -4398,9 +4399,12 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
     }
         
     rawdata_to_hex(sha1, hex, 20);
+    if (mtime <= 0) {
+        mtime = (gint64)time(NULL);
+    }
     new_dent = seaf_dirent_new (dir_version_from_repo_version(repo->version),
                                 hex, STD_FILE_MODE, file_name,
-                                (gint64)time(NULL), user, size);
+                                mtime, user, size);
 
     if (!fullpath)
         fullpath = g_build_filename(parent_dir, file_name, NULL);

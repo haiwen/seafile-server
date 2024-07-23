@@ -422,6 +422,22 @@ file_id_list_from_json (const char *ret_json)
     return g_string_free (id_list, FALSE);
 }
 
+static gint64
+rfc3339_to_timestamp (const char *last_modify)
+{
+    if (!last_modify) {
+        return -1;
+    }
+    GDateTime *date_time = g_date_time_new_from_iso8601(last_modify, NULL);
+    if (!date_time) {
+        return -1;
+    }
+    gint64 mtime = g_date_time_to_unix(date_time);
+
+    g_date_time_unref(date_time);
+    return mtime;
+}
+
 static void
 upload_api_cb(evhtp_request_t *req, void *arg)
 {
@@ -472,7 +488,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
     last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
     if (last_modify) {
-        mtime = atoll(last_modify);
+        mtime = rfc3339_to_timestamp (last_modify);
     }
 
     replace_str = g_hash_table_lookup (fsm->form_kvs, "replace");
@@ -1103,7 +1119,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
     last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
     if (last_modify) {
-        mtime = atoll(last_modify);
+        mtime = rfc3339_to_timestamp (last_modify);
     }
 
     if (!fsm->filenames) {
@@ -1252,6 +1268,8 @@ update_api_cb(evhtp_request_t *req, void *arg)
 {
     RecvFSM *fsm = arg;
     char *target_file, *parent_dir = NULL, *filename = NULL;
+    char *last_modify = NULL;
+    gint64 mtime = 0;
     const char *head_id = NULL;
     GError *error = NULL;
     int error_code = -1;
@@ -1292,6 +1310,11 @@ update_api_cb(evhtp_request_t *req, void *arg)
         seaf_debug ("[Update] No target file given.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "No target file.\n");
         return;
+    }
+
+    last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
+    if (last_modify) {
+        mtime = rfc3339_to_timestamp (last_modify);
     }
 
     parent_dir = g_path_get_dirname (target_file);
@@ -1364,6 +1387,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
                                          filename,
                                          fsm->user,
                                          head_id,
+                                         mtime,
                                          &new_file_id,
                                          &error);
     if (rc < 0) {
@@ -1653,6 +1677,8 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
 {
     RecvFSM *fsm = arg;
     char *target_file, *parent_dir = NULL, *filename = NULL;
+    char *last_modify = NULL;
+    gint64 mtime = 0;
     const char *head_id = NULL;
     GError *error = NULL;
     int error_code = -1;
@@ -1697,6 +1723,11 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
         return;
     }
 
+    last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
+    if (last_modify) {
+        mtime = rfc3339_to_timestamp (last_modify);
+    }
+
     parent_dir = g_path_get_dirname (target_file);
     filename = g_path_get_basename (target_file);
 
@@ -1732,6 +1763,7 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
                                          filename,
                                          fsm->user,
                                          head_id,
+                                         mtime,
                                          &new_file_id,
                                          &error);
 

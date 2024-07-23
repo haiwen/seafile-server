@@ -519,7 +519,7 @@ def test_api(repo):
 def test_ajax_mtime(repo):
     create_test_file()
     obj_id = '{"parent_dir":"/"}'
-    mtime = '1695809905'
+    mtime = '2023-09-27T18:18:25+08:00'
 
     token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-aj/'+ token
@@ -541,7 +541,7 @@ def test_api_mtime(repo):
     create_test_file()
     params = {'ret-json':'1'}
     obj_id = '{"parent_dir":"/"}'
-    mtime = '1695809905'
+    mtime = '2023-09-27T18:18:25+08:00'
 
     token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
