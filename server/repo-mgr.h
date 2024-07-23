@@ -364,6 +364,7 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
                                       const char *user,
                                       gint64 file_size,
                                       int replace_existed,
+                                      gint64 mtime,
                                       char **new_id,
                                       GError **error);
 

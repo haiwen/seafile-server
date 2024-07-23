@@ -3109,6 +3109,15 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
+	var lastModify int64
+	if lastModifyStr != "" {
+		t, err := time.Parse(time.RFC3339, lastModifyStr)
+		if err == nil {
+			lastModify = t.Unix()
+		}
+	}
+
 	fileName := normalizeUTF8Path(r.FormValue("file_name"))
 	if fileName == "" {
 		msg := "No file_name given.\n"
@@ -3147,7 +3156,7 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	fileID, appErr := commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user, fileSize, replaceExisted)
+	fileID, appErr := commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user, fileSize, replaceExisted, lastModify)
 	if appErr != nil {
 		return appErr
 	}
@@ -3173,7 +3182,7 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 	return nil
 }
 
-func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fileSize int64, replace bool) (string, *appError) {
+func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fileSize int64, replace bool, lastModify int64) (string, *appError) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		msg := "Failed to get repo.\n"
@@ -3218,6 +3227,9 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 	}
 
 	mtime := time.Now().Unix()
+	if lastModify > 0 {
+		mtime = lastModify
+	}
 	mode := (syscall.S_IFREG | 0644)
 	newDent := fsmgr.NewDirent(fileID, fileName, uint32(mode), mtime, user, fileSize)
 	var names []string

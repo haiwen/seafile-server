@@ -1505,6 +1505,7 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
                                       const char *user,
                                       gint64 file_size,
                                       int replace_existed,
+                                      gint64 mtime,
                                       char **new_id,
                                       GError **error)
 {
@@ -1563,9 +1564,12 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
     }
 
     rawdata_to_hex(sha1, hex, 20);
+    if (mtime <= 0) {
+        mtime = (gint64)time(NULL);
+    }
     new_dent = seaf_dirent_new (dir_version_from_repo_version(repo->version),
                                 hex, STD_FILE_MODE, file_name,
-                                (gint64)time(NULL), user, file_size);
+                                mtime, user, file_size);
 
     root_id = do_post_file_replace (repo, head_commit->root_id,
                                     canon_path, replace_existed, new_dent);

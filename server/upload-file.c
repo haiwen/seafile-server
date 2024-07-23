@@ -705,6 +705,8 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
 {
     RecvFSM *fsm = arg;
     const char *parent_dir, *file_name, *size_str, *replace_str, *commitonly_str;
+    char *last_modify = NULL;
+    gint64 mtime = 0;
     GError *error = NULL;
     int error_code = -1;
     char *blockids_json;
@@ -733,6 +735,11 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
     if (size_str)
         file_size = atoll(size_str);
     commitonly_str = evhtp_kv_find (req->uri->query, "commitonly");
+
+    last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
+    if (last_modify) {
+        mtime = rfc3339_to_timestamp (last_modify);
+    }
 
     if (!file_name || !parent_dir || !size_str || file_size < 0) {
         seaf_debug ("[upload-blks] No parent dir or file name given.\n");
@@ -792,6 +799,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
                                                fsm->user,
                                                file_size,
                                                replace,
+                                               mtime,
                                                &new_file_id,
                                                &error);
     if (rc < 0) {
@@ -1428,6 +1436,8 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
 {
     RecvFSM *fsm = arg;
     char *target_file, *parent_dir = NULL, *filename = NULL, *size_str = NULL;
+    char *last_modify = NULL;
+    gint64 mtime = 0;
     const char *commitonly_str;
     GError *error = NULL;
     int error_code = -1;
@@ -1449,6 +1459,11 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
     if (!commitonly_str) {
         send_error_reply (req, EVHTP_RES_BADREQ, "Only commit supported.\n");
         return;
+    }
+
+    last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
+    if (last_modify) {
+        mtime = rfc3339_to_timestamp (last_modify);
     }
 
     parent_dir = g_path_get_dirname (target_file);
@@ -1501,6 +1516,7 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
                                                fsm->user,
                                                file_size,
                                                1,
+                                               mtime,
                                                &new_file_id,
                                                &error);
 
