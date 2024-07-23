@@ -515,3 +515,47 @@ def test_api(repo):
     time.sleep(1)
     del_repo_files(repo.id)
     del_local_files()
+
+def test_ajax_mtime(repo):
+    create_test_file()
+    obj_id = '{"parent_dir":"/"}'
+    mtime = '2023-09-27T18:18:25+08:00'
+
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+    upload_url_base = 'http://127.0.0.1:8082/upload-aj/'+ token
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'last_modify': mtime,
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base,
+                             data = m, headers = {'Content-Type': m.content_type})
+    assert_upload_response(response, False, False)
+
+    dent = api.get_dirent_by_path(repo.id, '/' + file_name)
+
+    assert dent.mtime == 1695809905
+
+def test_api_mtime(repo):
+    create_test_file()
+    params = {'ret-json':'1'}
+    obj_id = '{"parent_dir":"/"}'
+    mtime = '2023-09-27T18:18:25+08:00'
+
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+    upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
+    m = MultipartEncoder(
+            fields={
+                    'parent_dir': '/',
+                    'last_modify': mtime,
+                    'file': (file_name, open(file_path, 'rb'), 'application/octet-stream')
+            })
+    response = requests.post(upload_url_base, params = params,
+                             data = m, headers = {'Content-Type': m.content_type})
+    assert_upload_response(response, False, False)
+
+    dent = api.get_dirent_by_path(repo.id, '/' + file_name)
+
+    assert dent.mtime == 1695809905
+

@@ -51,6 +51,7 @@ post_files_and_gen_commit (GList *filenames,
                           const char *canon_path,
                           GList *id_list,
                           GList *size_list,
+                          gint64 mtime,
                           GError **error);
 
 /*
@@ -904,6 +905,7 @@ do_post_multi_files (SeafRepo *repo,
                      GList *size_list,
                      const char *user,
                      int replace_existed,
+                     gint64 mtime,
                      GList **name_list)
 {
     SeafDirent *dent;
@@ -925,7 +927,11 @@ do_post_multi_files (SeafRepo *repo,
         dent->id[40] = '\0';
         dent->size = *size;
         dent->mode = STD_FILE_MODE;
-        dent->mtime = (gint64)time(NULL);
+        if (mtime > 0) {
+            dent->mtime = mtime;
+        } else {
+            dent->mtime = (gint64)time(NULL);
+        }
 
         dents = g_list_append (dents, dent);
     }
@@ -1069,6 +1075,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                     const char *paths_json,
                                     const char *user,
                                     int replace_existed,
+                                    gint64 mtime,
                                     char **ret_json,
                                     char **task_id,
                                     GError **error)
@@ -1169,6 +1176,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                          canon_path,
                                          id_list,
                                          size_list,
+                                         mtime,
                                          error);
     } else {
         ret = index_blocks_mgr_start_index (seaf->index_blocks_mgr,
@@ -1207,6 +1215,7 @@ post_files_and_gen_commit (GList *filenames,
                            const char *canon_path,
                            GList *id_list,
                            GList *size_list,
+                           gint64 mtime,
                            GError **error)
 {
     SeafRepo *repo = NULL;
@@ -1224,7 +1233,7 @@ retry:
     /* Add the files to parent dir and commit. */
     root_id = do_post_multi_files (repo, head_commit->root_id, canon_path,
                                    filenames, id_list, size_list, user,
-                                   replace_existed, &name_list);
+                                   replace_existed, mtime, &name_list);
     if (!root_id) {
         seaf_warning ("[post multi-file] Failed to post files to %s in repo %s.\n",
                       canon_path, repo->id);
@@ -1496,6 +1505,7 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
                                       const char *user,
                                       gint64 file_size,
                                       int replace_existed,
+                                      gint64 mtime,
                                       char **new_id,
                                       GError **error)
 {
@@ -1554,9 +1564,12 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
     }
 
     rawdata_to_hex(sha1, hex, 20);
+    if (mtime <= 0) {
+        mtime = (gint64)time(NULL);
+    }
     new_dent = seaf_dirent_new (dir_version_from_repo_version(repo->version),
                                 hex, STD_FILE_MODE, file_name,
-                                (gint64)time(NULL), user, file_size);
+                                mtime, user, file_size);
 
     root_id = do_post_file_replace (repo, head_commit->root_id,
                                     canon_path, replace_existed, new_dent);
@@ -4120,6 +4133,7 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
                             const char *file_name,
                             const char *user,
                             const char *head_id,
+                            gint64 mtime,
                             char **new_file_id,
                             GError **error)
 {
@@ -4197,9 +4211,12 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
     }
         
     rawdata_to_hex(sha1, hex, 20);
+    if (mtime <= 0) {
+        mtime = (gint64)time(NULL);
+    }
     new_dent = seaf_dirent_new (dir_version_from_repo_version(repo->version),
                                 hex, STD_FILE_MODE, file_name,
-                                (gint64)time(NULL), user, size);
+                                mtime, user, size);
 
     if (!fullpath)
         fullpath = g_build_filename(parent_dir, file_name, NULL);

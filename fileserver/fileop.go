@@ -1003,6 +1003,15 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
+	var lastModify int64
+	if lastModifyStr != "" {
+		t, err := time.Parse(time.RFC3339, lastModifyStr)
+		if err == nil {
+			lastModify = t.Unix()
+		}
+	}
+
 	relativePath := normalizeUTF8Path(r.FormValue("relative_path"))
 	if relativePath != "" {
 		if relativePath[0] == '/' || relativePath[0] == '\\' {
@@ -1115,7 +1124,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	}
 
 	if err := postMultiFiles(rsp, r, repoID, newParentDir, user, fsm,
-		replaceExisted, isAjax); err != nil {
+		replaceExisted, lastModify, isAjax); err != nil {
 		return err
 	}
 
@@ -1460,7 +1469,7 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 	return fsm, nil
 }
 
-func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user string, fsm *recvData, replace bool, isAjax bool) *appError {
+func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user string, fsm *recvData, replace bool, lastModify int64, isAjax bool) *appError {
 
 	fileNames := fsm.fileNames
 	files := fsm.files
@@ -1528,7 +1537,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		}
 	}
 
-	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes)
+	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes, lastModify)
 	if err != nil {
 		err := fmt.Errorf("failed to post files and gen commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -1584,7 +1593,7 @@ func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []st
 	return false
 }
 
-func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64) (string, error) {
+func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64, lastModify int64) (string, error) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := fmt.Errorf("failed to get repo %s", repoID)
@@ -1604,7 +1613,10 @@ func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath st
 			break
 		}
 		mode := (syscall.S_IFREG | 0644)
-		mtime := time.Now().Unix()
+		mtime := lastModify
+		if mtime <= 0 {
+			mtime = time.Now().Unix()
+		}
 		dent := fsmgr.NewDirent(ids[i], name, uint32(mode), mtime, "", sizes[i])
 		dents = append(dents, dent)
 	}
@@ -2763,6 +2775,15 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
+	var lastModify int64
+	if lastModifyStr != "" {
+		t, err := time.Parse(time.RFC3339, lastModifyStr)
+		if err == nil {
+			lastModify = t.Unix()
+		}
+	}
+
 	parentDir := filepath.Dir(targetFile)
 	fileName := filepath.Base(targetFile)
 
@@ -2869,7 +2890,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		headID = headIDs[0]
 	}
 
-	if err := putFile(rsp, r, repoID, parentDir, user, fileName, fsm, headID, isAjax); err != nil {
+	if err := putFile(rsp, r, repoID, parentDir, user, fileName, fsm, headID, lastModify, isAjax); err != nil {
 		return err
 	}
 
@@ -2879,7 +2900,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	return nil
 }
 
-func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, fileName string, fsm *recvData, headID string, isAjax bool) *appError {
+func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, fileName string, fsm *recvData, headID string, lastModify int64, isAjax bool) *appError {
 	files := fsm.files
 	repo := repomgr.Get(repoID)
 	if repo == nil {
@@ -2974,6 +2995,9 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 	}
 
 	mtime := time.Now().Unix()
+	if lastModify > 0 {
+		mtime = lastModify
+	}
 	mode := (syscall.S_IFREG | 0644)
 	newDent := fsmgr.NewDirent(fileID, fileName, uint32(mode), mtime, user, size)
 
@@ -3086,6 +3110,15 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
+	var lastModify int64
+	if lastModifyStr != "" {
+		t, err := time.Parse(time.RFC3339, lastModifyStr)
+		if err == nil {
+			lastModify = t.Unix()
+		}
+	}
+
 	fileName := normalizeUTF8Path(r.FormValue("file_name"))
 	if fileName == "" {
 		msg := "No file_name given.\n"
@@ -3124,7 +3157,7 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	fileID, appErr := commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user, fileSize, replaceExisted)
+	fileID, appErr := commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user, fileSize, replaceExisted, lastModify)
 	if appErr != nil {
 		return appErr
 	}
@@ -3150,7 +3183,7 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 	return nil
 }
 
-func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fileSize int64, replace bool) (string, *appError) {
+func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fileSize int64, replace bool, lastModify int64) (string, *appError) {
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		msg := "Failed to get repo.\n"
@@ -3195,6 +3228,9 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 	}
 
 	mtime := time.Now().Unix()
+	if lastModify > 0 {
+		mtime = lastModify
+	}
 	mode := (syscall.S_IFREG | 0644)
 	newDent := fsmgr.NewDirent(fileID, fileName, uint32(mode), mtime, user, fileSize)
 	var names []string

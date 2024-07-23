@@ -329,6 +329,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                     const char *paths_json,
                                     const char *user,
                                     int replace_existed,
+                                    gint64 mtime,
                                     char **new_ids,
                                     char **task_id,
                                     GError **error);
@@ -363,6 +364,7 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
                                       const char *user,
                                       gint64 file_size,
                                       int replace_existed,
+                                      gint64 mtime,
                                       char **new_id,
                                       GError **error);
 
@@ -405,6 +407,7 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
                             const char *file_name,
                             const char *user,
                             const char *head_id,
+                            gint64 mtime,
                             char **new_file_id,                            
                             GError **error);
 
@@ -916,6 +919,7 @@ post_files_and_gen_commit (GList *filenames,
                           const char *canon_path,
                           GList *id_list,
                           GList *size_list,
+                          gint64 mtime,
                           GError **error);
 
 char *
