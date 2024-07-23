@@ -4722,7 +4722,6 @@ seaf_repo_manager_revert_file (SeafRepoManager *mgr,
     char buf[SEAF_PATH_MAX];
     char time_str[512];
     gboolean parent_dir_exist = FALSE;
-    gboolean revert_to_root = FALSE;
     gboolean skipped = FALSE;
     int ret = 0;
 
@@ -4786,14 +4785,31 @@ seaf_repo_manager_revert_file (SeafRepoManager *mgr,
     }
     
     if (!parent_dir_exist) {
-        /* When parent dir does not exist, revert this file to root dir. */
-        revert_to_root = TRUE;
-        root_id = revert_file_to_root (repo,
-                                       head_commit->root_id,
-                                       old_dent,
-                                       &skipped, error);
+        /* When parent dir does not exist, create the parent dir first. */
+        const char *relative_path = parent_dir;
+        if (parent_dir[0] == '/') {
+            relative_path = parent_dir + 1;
+        }
+        seaf_repo_manager_mkdir_with_parents (mgr, repo_id, "/", relative_path, user, error);
+        if (*error) {
+            seaf_warning ("[revert file] failed to create parent dir: %s\n", (*error)->message);
+            g_clear_error (error);
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "internal error");
+            ret = -1;
+            goto out;
+        }
+
+        // Get head commit again, after mkdir with parents.
+        seaf_repo_unref (repo);
+        seaf_commit_unref (head_commit);
+        GET_REPO_OR_FAIL(repo, repo_id);
+        GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
+        root_id = revert_file_to_parent_dir (repo,
+                                             head_commit->root_id, parent_dir,
+                                             old_dent,
+                                             &skipped, error);
     } else {
-        revert_to_root = FALSE;
         root_id = revert_file_to_parent_dir (repo,
                                              head_commit->root_id, parent_dir,
                                              old_dent,
@@ -4853,11 +4869,7 @@ out:
     g_free (canon_path);
     seaf_dirent_free (old_dent);
 
-#define REVERT_TO_ROOT              0x1
     if (ret == 0) {
-        if (revert_to_root)
-            ret |= REVERT_TO_ROOT;
-
         update_repo_size (repo_id);
     }
 
@@ -4942,7 +4954,6 @@ seaf_repo_manager_revert_dir (SeafRepoManager *mgr,
     char *canon_path = NULL, *root_id = NULL;
     char buf[SEAF_PATH_MAX];
     gboolean parent_dir_exist = FALSE;
-    gboolean revert_to_root = FALSE;
     gboolean skipped = FALSE;
     int ret = 0;
 
@@ -5000,15 +5011,33 @@ seaf_repo_manager_revert_dir (SeafRepoManager *mgr,
     }
     
     if (!parent_dir_exist) {
-        /* When parent dir does not exist, revert this file to root dir. */
-        revert_to_root = TRUE;
+        /* When parent dir does not exist, create the parent dir first. */
+        const char *relative_path = parent_dir;
+        if (parent_dir[0] == '/') {
+            relative_path = parent_dir + 1;
+        }
+        seaf_repo_manager_mkdir_with_parents (mgr, repo_id, "/", relative_path, user, error);
+        if (*error) {
+            seaf_warning ("[revert file] failed to create parent dir: %s\n", (*error)->message);
+            g_clear_error (error);
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "internal error");
+            ret = -1;
+            goto out;
+        }
+
+        // Get head commit again, after mkdir with parents.
+        seaf_repo_unref (repo);
+        seaf_commit_unref (head_commit);
+        GET_REPO_OR_FAIL(repo, repo_id);
+        GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
+
         root_id = revert_dir (repo,
                               head_commit->root_id,
-                              "/",
+                              parent_dir,
                               old_dent,
                               &skipped, error);
     } else {
-        revert_to_root = FALSE;
         root_id = revert_dir (repo,
                               head_commit->root_id,
                               parent_dir,
@@ -5064,9 +5093,6 @@ out:
 
 #define REVERT_TO_ROOT              0x1
     if (ret == 0) {
-        if (revert_to_root)
-            ret |= REVERT_TO_ROOT;
-
         update_repo_size (repo_id);
     }
 
