@@ -29,6 +29,7 @@
 #include "zip-download-mgr.h"
 #include "index-blocks-mgr.h"
 #include "notif-mgr.h"
+#include "http-tx-mgr.h"
 
 #include <searpc-client.h>
 
@@ -47,7 +48,8 @@ struct _SeafileSession {
     GKeyFile            *ccnet_config;
     SeafDB              *db;
     CcnetDB             *ccnet_db;
-    SeafDB              *seahub_db;
+    char                *seahub_pk;
+    ConnectionPool      *seahub_conn_pool;
 
     SeafBlockManager    *block_mgr;
     SeafFSManager       *fs_mgr;

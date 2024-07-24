@@ -218,7 +218,7 @@ seafile_session_new(const char *central_config_dir,
         goto onerror;
     }
 
-    load_seahub_database_config (session);
+    load_seahub_private_key (session, abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir);
 
     session->cfg_mgr = seaf_cfg_manager_new (session);
     if (!session->cfg_mgr)

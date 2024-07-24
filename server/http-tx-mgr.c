@@ -5,6 +5,7 @@
 #include <jansson.h>
 
 #include <timer.h>
+#include <jwt.h>
 
 #include "seafile-session.h"
 #include "http-tx-mgr.h"
@@ -289,29 +290,13 @@ send_request (void *ptr, size_t size, size_t nmemb, void *userp)
     return copy_size;
 }
 
-int
-http_post (Connection *conn, const char *url, const char *token,
-           const char *req_content, gint64 req_size,
-           int *rsp_status, char **rsp_content, gint64 *rsp_size,
-           gboolean timeout, int timeout_sec)
+static int
+http_post_common (CURL *curl, const char *url, const char *token,
+                  const char *req_content, gint64 req_size,
+                  int *rsp_status, char **rsp_content, gint64 *rsp_size,
+                  gboolean timeout, int timeout_sec)
 {
-    char *token_header;
-    struct curl_slist *headers = NULL;
     int ret = 0;
-    CURL *curl;
-
-    curl = conn->curl;
-
-    g_return_val_if_fail (req_content != NULL, -1);
-
-    headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
-
-    if (token) {
-        token_header = g_strdup_printf ("Seafile-Repo-Token: %s", token);
-        headers = curl_slist_append (headers, token_header);
-        g_free (token_header);
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    }
 
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
@@ -378,9 +363,192 @@ http_post (Connection *conn, const char *url, const char *token,
 
 out:
     if (ret < 0) {
-        conn->release = TRUE;
         g_free (rsp.content);
+    }
+    return ret;
+}
+
+int
+http_post (Connection *conn, const char *url, const char *token,
+           const char *req_content, gint64 req_size,
+           int *rsp_status, char **rsp_content, gint64 *rsp_size,
+           gboolean timeout, int timeout_sec)
+{
+    char *token_header;
+    struct curl_slist *headers = NULL;
+    int ret = 0;
+    CURL *curl;
+
+    curl = conn->curl;
+
+    headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
+
+    if (token) {
+        token_header = g_strdup_printf ("Seafile-Repo-Token: %s", token);
+        headers = curl_slist_append (headers, token_header);
+        g_free (token_header);
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    }
+
+    g_return_val_if_fail (req_content != NULL, -1);
+
+    ret = http_post_common (curl, url, token, req_content, req_size,
+                            rsp_status, rsp_content, rsp_size, timeout, timeout_sec);
+    if (ret < 0) {
+        conn->release = TRUE;
     }
     curl_slist_free_all (headers);
     return ret;
+}
+
+static char *
+parse_nickname (const char *rsp_content, int rsp_size)
+{
+    json_t *array = NULL, *object, *member;
+    json_error_t jerror;
+    size_t n;
+    int i;
+    char *nickname = NULL;
+
+    object = json_loadb (rsp_content, rsp_size, 0, &jerror);
+    if (!object) {
+        seaf_warning ("Parse response failed: %s.\n", jerror.text);
+        return NULL;
+    }
+
+    array = json_object_get (object, "user_list");
+    if (!array) {
+        goto out;
+    }
+
+    n = json_array_size (array);
+    for (i = 0; i < n; ++i) {
+        json_t *obj = json_array_get (array, i);
+
+        member = json_object_get (obj, "name");
+        if (!member) {
+            continue;
+        }
+        nickname = g_strdup (json_string_value(member));
+        break;
+    }
+out:
+    json_decref (object);
+    return nickname;
+}
+
+static char *
+gen_jwt_token ()
+{
+    char *jwt_token = NULL;
+    gint64 now = (gint64)time(NULL);
+
+    jwt_t *jwt = NULL;
+
+    if (!seaf->seahub_pk) {
+        return NULL;
+    }
+
+    int ret = jwt_new (&jwt);
+    if (ret != 0 || jwt == NULL) {
+        seaf_warning ("Failed to create jwt\n");
+        goto out;
+    }
+
+    ret = jwt_add_grant_bool (jwt, "is_internal", TRUE);
+    if (ret != 0) {
+        seaf_warning ("Failed to add is_internal to jwt\n");
+        goto out;
+    }
+
+    ret = jwt_add_grant_int (jwt, "exp", now + 300);
+    if (ret != 0) {
+        seaf_warning ("Failed to add expire time to jwt\n");
+        goto out;
+    }
+    ret = jwt_set_alg (jwt, JWT_ALG_HS256, (unsigned char *)seaf->seahub_pk, strlen(seaf->seahub_pk));
+    if (ret != 0) {
+        seaf_warning ("Failed to set alg\n");
+        goto out;
+    }
+
+    jwt_token = jwt_encode_str (jwt);
+
+out:
+    jwt_free (jwt);
+    return jwt_token;
+}
+
+char *
+http_tx_manager_get_nickname (const char *modifier)
+{
+    Connection *conn = NULL;
+    char *token_header;
+    struct curl_slist *headers = NULL;
+    int ret = 0;
+    CURL *curl;
+    json_t *content = NULL;
+    json_t *array = NULL;
+    int rsp_status;
+    char *req_url = NULL;
+    char *req_content = NULL;
+    char *jwt_token = NULL;
+    char *rsp_content = NULL;
+    char *nickname = NULL;
+    gint64 rsp_size;
+
+    jwt_token = gen_jwt_token ();
+    if (!jwt_token) {
+        return NULL;
+    }
+
+    conn = connection_pool_get_connection (seaf->seahub_conn_pool);
+    if (!conn) {
+        g_free (jwt_token);
+        seaf_warning ("Failed to get connection: out of memory.\n");
+        return NULL;
+    }
+
+    req_url = "http://127.0.0.1:8000/api/v2.1/internal/user-list/";
+
+    content = json_object ();
+    array = json_array ();
+    json_array_append_new (array, json_string (modifier));
+    json_object_set_new (content, "user_id_list", array);
+    req_content  = json_dumps (content, JSON_COMPACT);
+    if (!req_content) {
+        json_decref (content);
+        seaf_warning ("Failed to dump json request.\n");
+        goto out;
+    }
+    json_decref (content);
+
+    curl = conn->curl;
+    headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
+    token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
+    headers = curl_slist_append (headers, token_header);
+    headers = curl_slist_append (headers, "Content-Type: application/json");
+    g_free (token_header);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    ret = http_post_common (curl, req_url, jwt_token, req_content, strlen(req_content),
+                            &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
+    if (ret < 0) {
+        conn->release = TRUE;
+        goto out;
+    }
+
+    if (rsp_status != HTTP_OK) {
+        seaf_warning ("Failed to get user list from seahub %d.\n",
+                      rsp_status);
+    }
+
+    nickname = parse_nickname (rsp_content, rsp_size);
+
+out:
+    g_free (jwt_token);
+    g_free (req_content);
+    connection_pool_return_connection (seaf->seahub_conn_pool, conn);
+
+    return nickname;
 }
