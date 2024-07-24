@@ -1,14 +1,19 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 )
 
 type mergeOptions struct {
@@ -379,10 +384,8 @@ func getNickNameByModifier(emailToNickname map[string]string, modifier string) s
 	if ok {
 		return nickname
 	}
-	if seahubDB != nil {
-		sqlStr := "SELECT nickname from profile_profile WHERE user = ?"
-		row := seahubDB.QueryRow(sqlStr, modifier)
-		row.Scan(&nickname)
+	if seahubPK != "" {
+		nickname = postGetNickName(modifier)
 	}
 
 	if nickname == "" {
@@ -390,6 +393,72 @@ func getNickNameByModifier(emailToNickname map[string]string, modifier string) s
 	}
 
 	emailToNickname[modifier] = nickname
+
+	return nickname
+}
+
+type SeahubClaims struct {
+	Exp        int64
+	IsInternal bool `json:"is_internal"`
+}
+
+func (*SeahubClaims) Valid() error {
+	return nil
+}
+
+func postGetNickName(modifier string) string {
+	claims := SeahubClaims{
+		time.Now().Add(time.Second * 300).Unix(),
+		true,
+	}
+
+	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
+	tokenString, err := token.SignedString([]byte(seahubPK))
+	if err != nil {
+		return ""
+	}
+
+	header := map[string][]string{
+		"Authorization": {"Token " + tokenString},
+		"Content-Type":  {"application/json"},
+	}
+
+	data, err := json.Marshal(map[string]interface{}{
+		"user_id_list": []string{modifier},
+	})
+	if err != nil {
+		return ""
+	}
+
+	status, body, err := utils.HttpCommon("POST", seahubURL, header, bytes.NewReader(data))
+	if err != nil {
+		return ""
+	}
+	if status != http.StatusOK {
+		return ""
+	}
+
+	results := make(map[string]interface{})
+	err = json.Unmarshal(body, &results)
+	if err != nil {
+		return ""
+	}
+
+	userList, ok := results["user_list"].([]interface{})
+	if !ok {
+		return ""
+	}
+	nickname := ""
+	for _, element := range userList {
+		list, ok := element.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		nickname, _ = list["name"].(string)
+		if nickname != "" {
+			break
+		}
+	}
 
 	return nickname
 }

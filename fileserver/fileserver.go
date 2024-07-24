@@ -2,21 +2,19 @@
 package main
 
 import (
+	"bufio"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -44,7 +42,8 @@ var pidFilePath string
 var logFp *os.File
 
 var dbType string
-var seafileDB, ccnetDB, seahubDB *sql.DB
+var seafileDB, ccnetDB *sql.DB
+var seahubURL, seahubPK string
 
 // when SQLite is used, user and group db are separated.
 var userDB, groupDB *sql.DB
@@ -272,66 +271,40 @@ func loadSeafileDB() {
 	dbType = dbEngine
 }
 
-func loadSeahubDB() {
-	scriptPath, err := exec.LookPath("parse_seahub_db.py")
+func loadSeahubPK() {
+	confPath := filepath.Join(centralDir, "seahub_settings.py")
+
+	file, err := os.Open(confPath)
 	if err != nil {
-		log.Warnf("Failed to find script of parse_seahub_db.py: %v", err)
+		log.Warnf("Failed to open seahub_settings.py: %v", err)
 		return
 	}
-	cmd := exec.Command("python3", scriptPath)
-	dbData, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Warnf("Failed to run python parse_seahub_db.py: %v", err)
-		return
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+
+	siteRoot := ""
+	for scanner.Scan() {
+		line := scanner.Text()
+		strs := strings.SplitN(line, "=", 2)
+		if len(strs) != 2 {
+			continue
+		}
+		key := strs[0]
+		value := strs[1]
+		if strings.Index(key, "SECRET_KEY") >= 0 {
+			value = strings.Trim(value, " ")
+			seahubPK = strings.Trim(value, "'")
+		}
+		if strings.Index(key, "SITE_ROOT") >= 0 {
+			value = strings.Trim(value, " ")
+			siteRoot = strings.Trim(value, "'")
+		}
 	}
-
-	dbConfig := make(map[string]string)
-
-	err = json.Unmarshal(dbData, &dbConfig)
-	if err != nil {
-		log.Warnf("Failed to decode seahub database json file: %v", err)
-		return
-	}
-
-	dbEngine := dbConfig["ENGINE"]
-	dbName := dbConfig["NAME"]
-	user := dbConfig["USER"]
-	password := dbConfig["PASSWORD"]
-	host := dbConfig["HOST"]
-	portStr := dbConfig["PORT"]
-
-	if strings.Index(dbEngine, "mysql") >= 0 {
-		port, err := strconv.ParseInt(portStr, 10, 64)
-		if err != nil || port <= 0 {
-			port = 3306
-		}
-		if dbName == "" {
-			log.Warnf("Seahub DB name not set in config")
-			return
-		}
-		if user == "" {
-			log.Warnf("Seahub DB user not set in config")
-			return
-		}
-		if password == "" {
-			log.Warnf("Seahub DB password not set in config")
-			return
-		}
-		if host == "" {
-			log.Warnf("Seahub DB host not set in config")
-			return
-		}
-
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, false)
-
-		seahubDB, err = sql.Open("mysql", dsn)
-		if err != nil {
-			log.Warnf("Failed to open database: %v", err)
-		}
-	} else if strings.Index(dbEngine, "sqlite") >= 0 {
-		return
+	if siteRoot != "" {
+		seahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal/user-list/", siteRoot)
 	} else {
-		log.Warnf("Unsupported database %s.", dbEngine)
+		seahubURL = ("http://127.0.0.1:8000/api/v2.1/internal/user-list/")
 	}
 }
 
@@ -433,7 +406,7 @@ func main() {
 		fp.Close()
 	}
 
-	loadSeahubDB()
+	loadSeahubPK()
 
 	repomgr.Init(seafileDB)
 

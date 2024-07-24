@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 char *
 seafile_session_get_tmp_file_path (SeafileSession *session,
@@ -387,7 +388,6 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir)
 {
     char *conf_path = g_build_filename(conf_dir, "seahub_settings.py", NULL);
     char *data = NULL;
-    gsize tmp_len;
     GRegex *regex = NULL;
     GError *error = NULL;
 
@@ -406,15 +406,18 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir)
 
     char line[256];
     char *key, *value, *saveptr;
+    char *site_root = NULL;
     while (fgets(line, sizeof(line), file)) {
         char *p;
         key = strtok_r(line, "=", &saveptr);
         value = strtok_r(NULL, "\n", &saveptr);
 
         // Trim space of the start
-        for(p = key;p != '\0';p++) {
+        for(p = key;p && *p != '\0';p++) {
             if (isspace(*p)) {
                 key++;
+            } else {
+                break;
             }
         }
 
@@ -423,12 +426,22 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir)
             if (g_regex_match (regex, value, 0, &match_info)) {
                 char *sk = g_match_info_fetch (match_info, 1);
                 session->seahub_pk = sk;
-                break;
+            }
+        }
+        if (key && value && strncmp(key, "SITE_ROOT", 9) == 0) {
+            GMatchInfo *match_info;
+            if (g_regex_match (regex, value, 0, &match_info)) {
+                site_root = g_match_info_fetch (match_info, 1);
             }
         }
     }
 
     if (session->seahub_pk) {
+        if (site_root) {
+            session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal/user-list/", site_root);
+        } else {
+            session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal/user-list/");
+        }
         session->seahub_conn_pool = connection_pool_new ();
     }
 

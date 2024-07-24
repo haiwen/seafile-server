@@ -490,7 +490,6 @@ http_tx_manager_get_nickname (const char *modifier)
     json_t *content = NULL;
     json_t *array = NULL;
     int rsp_status;
-    char *req_url = NULL;
     char *req_content = NULL;
     char *jwt_token = NULL;
     char *rsp_content = NULL;
@@ -508,8 +507,6 @@ http_tx_manager_get_nickname (const char *modifier)
         seaf_warning ("Failed to get connection: out of memory.\n");
         return NULL;
     }
-
-    req_url = "http://127.0.0.1:8000/api/v2.1/internal/user-list/";
 
     content = json_object ();
     array = json_array ();
@@ -531,7 +528,7 @@ http_tx_manager_get_nickname (const char *modifier)
     g_free (token_header);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-    ret = http_post_common (curl, req_url, jwt_token, req_content, strlen(req_content),
+    ret = http_post_common (curl, seaf->seahub_url, jwt_token, req_content, strlen(req_content),
                             &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
     if (ret < 0) {
         conn->release = TRUE;
