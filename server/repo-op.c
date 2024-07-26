@@ -456,8 +456,7 @@ gen_new_commit (const char *repo_id,
                 const char *user,
                 const char *desc,
                 char *new_commit_id,
-                gboolean retry_on_conflict,
-                gboolean skip_merge,
+                gboolean handle_concurrent_update,
                 GError **error)
 {
 #define MAX_RETRY_COUNT 10
@@ -504,8 +503,8 @@ retry:
 
     /* Merge if base and head are not the same. */
     if (strcmp (base->commit_id, current_head->commit_id) != 0) {
-        if (skip_merge) {
-            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_SKIP_MERGE, "Skip merge");
+        if (!handle_concurrent_update) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_CONCURRENT_UPLOAD, "Concurrent upload");
             ret = -1;
             goto out;
         }
@@ -576,7 +575,7 @@ retry:
                                                    repo->head,
                                                    current_head->commit_id) < 0)
     {
-        if (!retry_on_conflict) {
+        if (!handle_concurrent_update) {
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_CONCURRENT_UPLOAD, "Concurrent upload");
             ret = -1;
             goto out;
@@ -723,15 +722,10 @@ retry:
 
     snprintf(buf, SEAF_PATH_MAX, "Added \"%s\"", file_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, FALSE, TRUE, error) < 0) {
-        if (*error == NULL || ((*error)->code != SEAF_ERR_CONCURRENT_UPLOAD &&
-                    (*error)->code != SEAF_ERR_SKIP_MERGE)) {
+                        user, buf, NULL, FALSE, error) < 0) {
+        if (*error == NULL || (*error)->code != SEAF_ERR_CONCURRENT_UPLOAD) {
             ret = -1;
             goto out;
-        }
-
-        if ((*error)->code == SEAF_ERR_SKIP_MERGE) {
-            retry_cnt = 0;
         }
 
         retry_cnt++;
@@ -1236,10 +1230,10 @@ post_files_and_gen_commit (GList *filenames,
     char *root_id = NULL;
     int ret = 0;
     int retry_cnt = 0;
-    gboolean skip_merge = FALSE;
+    gboolean handle_concurrent_update = TRUE;
 
     if (replace_existed == 0) {
-        skip_merge = TRUE;
+        handle_concurrent_update = FALSE;
     }
 
     GET_REPO_OR_FAIL(repo, repo_id);
@@ -1266,15 +1260,10 @@ retry:
         g_string_printf (buf, "Added \"%s\".", (char *)(filenames->data));
 
     if (gen_new_commit (repo->id, head_commit, root_id,
-                        user, buf->str, NULL, FALSE, skip_merge, error) < 0) {
-        if (*error == NULL || ((*error)->code != SEAF_ERR_CONCURRENT_UPLOAD && 
-                    (*error)->code != SEAF_ERR_SKIP_MERGE)) {
+                        user, buf->str, NULL, handle_concurrent_update, error) < 0) {
+        if (*error == NULL || (*error)->code != SEAF_ERR_CONCURRENT_UPLOAD) {
             ret = -1;
             goto out;
-        }
-
-        if ((*error)->code == SEAF_ERR_SKIP_MERGE) {
-            retry_cnt = 0;
         }
 
         retry_cnt++;
@@ -1606,7 +1595,7 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
     *new_id = g_strdup(hex);
     snprintf(buf, SEAF_PATH_MAX, "Added \"%s\"", file_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, FALSE, error) < 0)
+                        user, buf, NULL, TRUE, error) < 0)
         ret = -1;
 
 out:
@@ -1830,7 +1819,7 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
     }
 
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, FALSE, error) < 0) {
+                        user, buf, NULL, TRUE, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -1967,7 +1956,7 @@ put_dirent_and_commit (SeafRepo *repo,
     }
 
     if (gen_new_commit (repo->id, head_commit, root_id,
-                        user, buf, NULL, TRUE, FALSE, error) < 0)
+                        user, buf, NULL, TRUE, error) < 0)
         ret = -1;
 
 out:
@@ -3061,7 +3050,7 @@ move_file_same_repo (const char *repo_id,
     }
 
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, FALSE, error) < 0)
+                        user, buf, NULL, TRUE, error) < 0)
         ret = -1;
     
 out:
@@ -3679,7 +3668,7 @@ seaf_repo_manager_mkdir_with_parents (SeafRepoManager *mgr,
         /* Commit. */
         snprintf(buf, SEAF_PATH_MAX, "Added directory \"%s\"", relative_dir_can);
         if (gen_new_commit (repo_id, head_commit, root_id,
-                            user, buf, NULL, TRUE, FALSE, error) < 0) {
+                            user, buf, NULL, TRUE, error) < 0) {
             ret = -1;
             g_free (root_id);
             goto out;
@@ -3760,7 +3749,7 @@ seaf_repo_manager_post_dir (SeafRepoManager *mgr,
     /* Commit. */
     snprintf(buf, SEAF_PATH_MAX, "Added directory \"%s\"", new_dir_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, FALSE, error) < 0) {
+                        user, buf, NULL, TRUE, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -3832,7 +3821,7 @@ seaf_repo_manager_post_empty_file (SeafRepoManager *mgr,
     /* Commit. */
     snprintf(buf, SEAF_PATH_MAX, "Added \"%s\"", new_file_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, FALSE, error) < 0) {
+                        user, buf, NULL, TRUE, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -4025,7 +4014,7 @@ seaf_repo_manager_rename_file (SeafRepoManager *mgr,
     }
 
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, FALSE, error) < 0) {
+                        user, buf, NULL, TRUE, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -4265,7 +4254,7 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
 
     /* Commit. */
     snprintf(buf, SEAF_PATH_MAX, "Modified \"%s\"", file_name);
-    if (gen_new_commit (repo_id, head_commit, root_id, user, buf, NULL, TRUE, FALSE, error) < 0) {
+    if (gen_new_commit (repo_id, head_commit, root_id, user, buf, NULL, TRUE, error) < 0) {
         ret = -1;
         goto out;       
     }
@@ -4347,7 +4336,7 @@ seaf_repo_manager_update_dir (SeafRepoManager *mgr,
             commit_desc = g_strdup("Auto merge by system");
 
         if (gen_new_commit (repo_id, head_commit, new_dir_id,
-                            user, commit_desc, new_commit_id, TRUE, FALSE, error) < 0)
+                            user, commit_desc, new_commit_id, TRUE, error) < 0)
             ret = -1;
         g_free (commit_desc);
         goto out;
@@ -4380,7 +4369,7 @@ seaf_repo_manager_update_dir (SeafRepoManager *mgr,
         commit_desc = g_strdup("Auto merge by system");
 
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, commit_desc, new_commit_id, TRUE, FALSE, error) < 0) {
+                        user, commit_desc, new_commit_id, TRUE, error) < 0) {
         ret = -1;
         g_free (commit_desc);
         goto out;
@@ -4885,7 +4874,7 @@ seaf_repo_manager_revert_file (SeafRepoManager *mgr,
 #endif
     snprintf(buf, SEAF_PATH_MAX, "Reverted file \"%s\" to status at %s", filename, time_str);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, FALSE, error) < 0) {
+                        user, buf, NULL, TRUE, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -5107,7 +5096,7 @@ seaf_repo_manager_revert_dir (SeafRepoManager *mgr,
     /* Commit. */
     snprintf(buf, SEAF_PATH_MAX, "Recovered deleted directory \"%s\"", dirname);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, FALSE, error) < 0) {
+                        user, buf, NULL, TRUE, error) < 0) {
         ret = -1;
         goto out;
     }
