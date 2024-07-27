@@ -1594,6 +1594,10 @@ func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []st
 }
 
 func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64, lastModify int64) (string, error) {
+	handleConncurrentUpdate := true
+	if !replace {
+		handleConncurrentUpdate = false
+	}
 	repo := repomgr.Get(repoID)
 	if repo == nil {
 		err := fmt.Errorf("failed to get repo %s", repoID)
@@ -1635,7 +1639,7 @@ retry:
 		buf = fmt.Sprintf("Added \"%s\".", fileNames[0])
 	}
 
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf, false)
+	_, err = genNewCommit(repo, headCommit, rootID, user, buf, handleConncurrentUpdate)
 	if err != nil {
 		if err != ErrConflict {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
@@ -1699,7 +1703,7 @@ func getCanonPath(p string) string {
 
 var ErrConflict = fmt.Errorf("Concurent upload conflict")
 
-func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string, retryOnConflict bool) (string, error) {
+func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string, handleConncurrentUpdate bool) (string, error) {
 	var retryCnt int
 	repoID := repo.ID
 	commit := commitmgr.NewCommit(repoID, base.CommitID, newRoot, user, desc)
@@ -1714,14 +1718,14 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	maxRetryCnt := 10
 
 	for {
-		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, &commitID)
+		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, handleConncurrentUpdate, &commitID)
 		if err != nil {
 			return "", err
 		}
 		if !retry {
 			break
 		}
-		if !retryOnConflict {
+		if !handleConncurrentUpdate {
 			return "", ErrConflict
 		}
 
@@ -1747,7 +1751,7 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commitmgr.Commit) error {
 	var retryCnt int
 	for {
-		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, nil)
+		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, true, nil)
 		if err != nil {
 			return err
 		}
@@ -1767,7 +1771,7 @@ func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commit
 	return nil
 }
 
-func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, commitID *string) (bool, error) {
+func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, handleConncurrentUpdate bool, commitID *string) (bool, error) {
 	var secondParentID string
 	repoID := repo.ID
 	var mergeDesc string
@@ -1779,6 +1783,9 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 	}
 
 	if base.CommitID != currentHead.CommitID {
+		if !handleConncurrentUpdate {
+			return false, ErrConflict
+		}
 		roots := []string{base.RootID, currentHead.RootID, newRoot}
 		opt := new(mergeOptions)
 		opt.remoteRepoID = repoID

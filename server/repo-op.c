@@ -456,7 +456,7 @@ gen_new_commit (const char *repo_id,
                 const char *user,
                 const char *desc,
                 char *new_commit_id,
-                gboolean retry_on_conflict,
+                gboolean handle_concurrent_update,
                 GError **error)
 {
 #define MAX_RETRY_COUNT 10
@@ -503,6 +503,11 @@ retry:
 
     /* Merge if base and head are not the same. */
     if (strcmp (base->commit_id, current_head->commit_id) != 0) {
+        if (!handle_concurrent_update) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_CONCURRENT_UPLOAD, "Concurrent upload");
+            ret = -1;
+            goto out;
+        }
         MergeOptions opt;
         const char *roots[3];
         char *desc = NULL;
@@ -570,7 +575,7 @@ retry:
                                                    repo->head,
                                                    current_head->commit_id) < 0)
     {
-        if (!retry_on_conflict) {
+        if (!handle_concurrent_update) {
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_CONCURRENT_UPLOAD, "Concurrent upload");
             ret = -1;
             goto out;
@@ -1225,6 +1230,11 @@ post_files_and_gen_commit (GList *filenames,
     char *root_id = NULL;
     int ret = 0;
     int retry_cnt = 0;
+    gboolean handle_concurrent_update = TRUE;
+
+    if (replace_existed == 0) {
+        handle_concurrent_update = FALSE;
+    }
 
     GET_REPO_OR_FAIL(repo, repo_id);
     GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
@@ -1250,7 +1260,7 @@ retry:
         g_string_printf (buf, "Added \"%s\".", (char *)(filenames->data));
 
     if (gen_new_commit (repo->id, head_commit, root_id,
-                        user, buf->str, NULL, FALSE, error) < 0) {
+                        user, buf->str, NULL, handle_concurrent_update, error) < 0) {
         if (*error == NULL || (*error)->code != SEAF_ERR_CONCURRENT_UPLOAD) {
             ret = -1;
             goto out;
