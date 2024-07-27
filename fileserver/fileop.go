@@ -1276,7 +1276,7 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 	}
 
 	buf := fmt.Sprintf("Added directory \"%s\"", relativeDirCan)
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf, true, false)
+	_, err = genNewCommit(repo, headCommit, rootID, user, buf, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return err
@@ -1594,9 +1594,9 @@ func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []st
 }
 
 func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64, lastModify int64) (string, error) {
-	skipMerge := false
+	handleConncurrentUpdate := true
 	if !replace {
-		skipMerge = true
+		handleConncurrentUpdate = false
 	}
 	repo := repomgr.Get(repoID)
 	if repo == nil {
@@ -1639,14 +1639,11 @@ retry:
 		buf = fmt.Sprintf("Added \"%s\".", fileNames[0])
 	}
 
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf, false, skipMerge)
+	_, err = genNewCommit(repo, headCommit, rootID, user, buf, handleConncurrentUpdate)
 	if err != nil {
-		if err != ErrConflict && err != ErrSkipMerge {
+		if err != ErrConflict {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
 			return "", err
-		}
-		if err == ErrSkipMerge {
-			retryCnt = 0
 		}
 		retryCnt++
 		/* Sleep random time between 0 and 3 seconds. */
@@ -1705,9 +1702,8 @@ func getCanonPath(p string) string {
 }
 
 var ErrConflict = fmt.Errorf("Concurent upload conflict")
-var ErrSkipMerge = fmt.Errorf("Concurent upload skip merge")
 
-func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string, retryOnConflict, skipMerge bool) (string, error) {
+func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string, handleConncurrentUpdate bool) (string, error) {
 	var retryCnt int
 	repoID := repo.ID
 	commit := commitmgr.NewCommit(repoID, base.CommitID, newRoot, user, desc)
@@ -1722,14 +1718,14 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	maxRetryCnt := 10
 
 	for {
-		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, skipMerge, &commitID)
+		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, handleConncurrentUpdate, &commitID)
 		if err != nil {
 			return "", err
 		}
 		if !retry {
 			break
 		}
-		if !retryOnConflict {
+		if !handleConncurrentUpdate {
 			return "", ErrConflict
 		}
 
@@ -1755,7 +1751,7 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commitmgr.Commit) error {
 	var retryCnt int
 	for {
-		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, false, nil)
+		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, true, nil)
 		if err != nil {
 			return err
 		}
@@ -1775,7 +1771,7 @@ func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commit
 	return nil
 }
 
-func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, skipMerge bool, commitID *string) (bool, error) {
+func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, handleConncurrentUpdate bool, commitID *string) (bool, error) {
 	var secondParentID string
 	repoID := repo.ID
 	var mergeDesc string
@@ -1787,8 +1783,8 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 	}
 
 	if base.CommitID != currentHead.CommitID {
-		if skipMerge {
-			return false, ErrSkipMerge
+		if !handleConncurrentUpdate {
+			return false, ErrConflict
 		}
 		roots := []string{base.RootID, currentHead.RootID, newRoot}
 		opt := new(mergeOptions)
@@ -2579,7 +2575,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		if commitDesc == "" {
 			commitDesc = fmt.Sprintf("Auto merge by system")
 		}
-		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc, true, false)
+		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc, true)
 		if err != nil {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
 			return "", err
@@ -2620,7 +2616,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		commitDesc = fmt.Sprintf("Auto merge by system")
 	}
 
-	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc, true, false)
+	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", err
@@ -3020,7 +3016,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 	}
 
 	desc := fmt.Sprintf("Modified \"%s\"", fileName)
-	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, false)
+	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -3252,7 +3248,7 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 	}
 
 	desc := fmt.Sprintf("Added \"%s\"", fileName)
-	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, false)
+	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", &appError{err, "", http.StatusInternalServerError}
