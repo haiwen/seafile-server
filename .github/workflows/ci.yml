@@ -1,39 +1,20 @@
+---
 name: Seafile CI
 
 on: [push, pull_request]
 
 jobs:
-  golangci-lint:
-    name: Golang CI
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.22
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install dependencies
-        run: cd ./fileserver && go mod tidy
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
-        with:
-          args: --timeout=3m
-          working-directory: ./fileserver
-  build:
-    name: Seafile CI
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-        with:
-          fetch-depth: 1
-      - uses: actions/setup-python@v1
-        with:
-          python-version: "3.8"
-      - name: install dependencies and test
-        run: |
-          cd $GITHUB_WORKSPACE
-          ./ci/install-deps.sh
-          ./ci/run.py
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v1
+              with:
+                  fetch-depth: 1
+            - uses: actions/setup-python@v1
+              with:
+                  python-version: '3.8'
+            - name: install dependencies and test
+              run: |
+                  cd $GITHUB_WORKSPACE
+                  ./ci/install-deps.sh
+                  ./ci/run.py

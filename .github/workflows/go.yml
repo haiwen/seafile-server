@@ -1,0 +1,38 @@
+---
+name: Linters
+
+on: [push, pull_request]
+
+permissions:
+    contents: read
+    packages: read
+    statuses: write
+
+jobs:
+    golangci-lint:
+        name: Golang CI
+        runs-on: ubuntu-latest
+        steps:
+            - name: Setup Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: 1.22
+            - name: Checkout Code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+            - name: Install dependencies
+              run: cd ./fileserver &&
+                  go mod tidy &&
+                  cd ./notification-server &&
+                  go mod tidy
+            - name: Lint fileserver
+              uses: golangci/golangci-lint-action@v6
+              with:
+                  args: --timeout=3m
+                  working-directory: ./fileserver
+            - name: Lint notification server
+              uses: golangci/golangci-lint-action@v6
+              with:
+                  args: --timeout=3m
+                  working-directory: ./notification-server
