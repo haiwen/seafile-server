@@ -11,7 +11,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/mattn/go-sqlite3 v1.14.0
 	github.com/sirupsen/logrus v1.8.1
-	golang.org/x/text v0.3.7
+	golang.org/x/text v0.3.8
 	gopkg.in/ini.v1 v1.55.0
 )
 
