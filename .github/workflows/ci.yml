@@ -3,9 +3,27 @@ name: Seafile CI
 on: [push, pull_request]
 
 jobs:
-  build:
+  golangci-lint:
+    name: Golang CI
     runs-on: ubuntu-latest
-
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Install dependencies
+        run: go mod tidy
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          args: --timeout=3m
+  build:
+    name: Seafile CI
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
         with:
