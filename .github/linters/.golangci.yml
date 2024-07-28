@@ -59,6 +59,8 @@ linters:
     - wastedassign
     - goimports
     - mnd
+  exclude-rules:
+    - path: ".*_test.go"
 
 linters-settings:
   wsl:
