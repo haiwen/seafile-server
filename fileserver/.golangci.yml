@@ -48,9 +48,11 @@ linters:
     - wastedassign
     - goimports
     - mnd
-  exclude-rules:
-    - path: ".*_test.go"
 
 linters-settings:
   wsl:
     allow-cuddle-declarations: true
+
+issues:
+  exclude-files:
+    - ".*_test.go"
