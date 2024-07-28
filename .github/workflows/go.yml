@@ -9,8 +9,7 @@ permissions:
     statuses: write
 
 jobs:
-    golangci-lint:
-        name: Golang CI
+    golangci-lint-fileserver:
         runs-on: ubuntu-latest
         steps:
             - name: Setup Go
@@ -19,19 +18,24 @@ jobs:
                   go-version: 1.22
             - name: Checkout Code
               uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
             - name: Install dependencies
-              run: cd ./fileserver &&
-                  go mod tidy &&
-                  cd .. &&
-                  cd ./notification-server &&
-                  go mod tidy
+              run: cd ./fileserver && go mod tidy
             - name: Lint fileserver
               uses: golangci/golangci-lint-action@v6
               with:
                   args: --timeout=3m
                   working-directory: ./fileserver
+    golangci-lint-notification-server:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Setup Go
+              uses: actions/setup-go@v5
+              with:
+                  go-version: 1.22
+            - name: Checkout Code
+              uses: actions/checkout@v4
+            - name: Install dependencies
+              run: cd ./notification-server && go mod tidy
             - name: Lint notification server
               uses: golangci/golangci-lint-action@v6
               with:

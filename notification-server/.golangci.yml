@@ -1,0 +1,54 @@
+---
+
+run:
+  timeout: 60s
+
+linters:
+  enable-all: true
+  disable:
+    - cyclop
+    - exhaustive
+    - exhaustruct
+    - forbidigo
+    - funlen
+    - gochecknoglobals
+    - godot
+    - err113
+    - gofmt
+    - gofumpt
+    - gomnd
+    - lll
+    - nakedret
+    - nestif
+    - nlreturn
+    - tagliatelle
+    - varnamelen
+    - wsl
+    - nonamedreturns
+    - contextcheck
+    - gocognit
+    - gocyclo
+    - maintidx
+    - wrapcheck
+    - nolintlint
+    - errorlint
+    - noctx
+    - gochecknoinits
+    - prealloc
+    - godox
+    - dupl
+    - goconst
+    - nilerr
+    - ireturn
+    - nosprintfhostport
+    - depguard
+    - gci
+    - rowserrcheck
+    - sqlclosecheck
+    - wastedassign
+    - goimports
+    - mnd
+
+linters-settings:
+  wsl:
+    allow-cuddle-declarations: true
