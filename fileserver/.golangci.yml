@@ -6,16 +6,8 @@ run:
 linters:
   enable-all: true
   disable:
-    - golint
-    - interfacer
-    - maligned
-    - scopelint
-    - deadcode
-    - varcheck
-    - structcheck
     - cyclop
     - exhaustive
-    - exhaustivestruct
     - exhaustruct
     - forbidigo
     - funlen
@@ -46,21 +38,18 @@ linters:
     - godox
     - dupl
     - goconst
-    - ifshort
     - nilerr
     - ireturn
     - nosprintfhostport
     - depguard
     - gci
-    - nosnakecase
     - rowserrcheck
     - sqlclosecheck
-    - structcheck
     - wastedassign
     - goimports
     - mnd
-  exclude:
-    - ".*_test.go"
+  exclude-rules:
+    - path: ".*_test.go"
 
 linters-settings:
   wsl:
