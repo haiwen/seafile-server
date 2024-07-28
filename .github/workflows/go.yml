@@ -24,6 +24,7 @@ jobs:
             - name: Install dependencies
               run: cd ./fileserver &&
                   go mod tidy &&
+                  cd .. &&
                   cd ./notification-server &&
                   go mod tidy
             - name: Lint fileserver
