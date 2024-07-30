@@ -16,7 +16,9 @@ load_database_config (struct _SeafileSession *session);
 int
 load_ccnet_database_config (struct _SeafileSession *session);
 
-int
-load_seahub_database_config (SeafileSession *session);
+#ifdef FULL_FEATURE
+void
+load_seahub_private_key (SeafileSession *session, const char *conf_dir);
+#endif
 
 #endif

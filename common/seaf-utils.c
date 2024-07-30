@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 char *
 seafile_session_get_tmp_file_path (SeafileSession *session,
@@ -380,128 +381,64 @@ load_ccnet_database_config (SeafileSession *session)
     return ret;
 }
 
-static char *
-parse_seahub_db_config ()
+#ifdef FULL_FEATURE
+
+void
+load_seahub_private_key (SeafileSession *session, const char *conf_dir)
 {
-    char buf[1024];
+    char *conf_path = g_build_filename(conf_dir, "seahub_settings.py", NULL);
+    char *data = NULL;
+    GRegex *secret_key_regex = NULL;
+    GRegex *site_root_regex = NULL;
     GError *error = NULL;
-    int retcode = 0;
-    char *child_stdout = NULL;
-    char *child_stderr = NULL;
 
-    char *binary_path = g_find_program_in_path ("parse_seahub_db.py");
+    FILE *file = fopen(conf_path, "r");
+    if (!file) {
+        seaf_warning ("Failed to open seahub_settings.py: %s\n", strerror(errno));
+        goto out;
+    }
 
-    snprintf (buf,
-          sizeof(buf),
-          "python3 %s",
-          binary_path);
-    g_spawn_command_line_sync (buf,
-                               &child_stdout,
-                               &child_stderr,
-                               &retcode,
-                               &error);
-
-    if (error != NULL) {
-        seaf_warning ("Failed to run python parse_seahub_db.py: %s\n", error->message);
-        g_free (binary_path);
-        g_free (child_stdout);
-        g_free (child_stderr);
+    secret_key_regex = g_regex_new ("SECRET_KEY\\s*=\\s*'(.+)'", 0, 0, &error);
+    if (error) {
         g_clear_error (&error);
-        return NULL;
+        seaf_warning ("Failed to create secret key regex: %s\n", error->message);
+        goto out;
     }
-    g_spawn_check_exit_status (retcode, &error);
-    if (error != NULL) {
-        seaf_warning ("Failed to run python parse_seahub_db.py: %s\n", error->message);
-        g_free (binary_path);
-        g_free (child_stdout);
-        g_free (child_stderr);
+
+    site_root_regex = g_regex_new ("SITE_ROOT\\s*=\\s*'(.+)'", 0, 0, &error);
+    if (error) {
         g_clear_error (&error);
-        return NULL;
-    }
-
-    g_free (binary_path);
-    g_free (child_stderr);
-    return child_stdout;
-}
-
-int
-load_seahub_database_config (SeafileSession *session)
-{
-    int ret = 0;
-    json_t *object = NULL;
-    json_error_t err;
-    const char *engine = NULL, *name = NULL, *user = NULL, *password = NULL, *host = NULL, *charset = NULL;
-    int port;
-    char *json_str = NULL;
-
-    json_str = parse_seahub_db_config ();
-    if (!json_str){
-        seaf_warning ("Failed to parse seahub database config.\n");
-        ret = -1;
+        seaf_warning ("Failed to create site root regex: %s\n", error->message);
         goto out;
     }
 
-    object = json_loadb (json_str, strlen(json_str), 0, &err);
-    if (!object) {
-        seaf_warning ("Failed to load seahub db json: %s: %s\n", json_str, err.text);
-        ret = -1;
-        goto out;
-    }
-
-    engine = json_object_get_string_member (object, "ENGINE");
-    name = json_object_get_string_member (object, "NAME");
-    user = json_object_get_string_member (object, "USER");
-    password = json_object_get_string_member (object, "PASSWORD");
-    host = json_object_get_string_member (object, "HOST");
-    charset = json_object_get_string_member (object, "CHARSET");
-    port = json_object_get_int_member (object, "PORT");
-    if (port <= 0) {
-        port = MYSQL_DEFAULT_PORT;
-    }
-
-    if (!engine || strstr (engine, "sqlite") != NULL) {
-        goto out;
-    }
-#ifdef HAVE_MYSQL
-    else if (strstr (engine, "mysql") != NULL) {
-        seaf_message("Use database Mysql\n");
-        if (!host) {
-            seaf_warning ("Seahub DB host not set in config.\n");
-            ret = -1;
-            goto out;
-        }
-        if (!user) {
-            seaf_warning ("Seahub DB user not set in config.\n");
-            ret = -1;
-            goto out;
-        }
-        if (!password) {
-            seaf_warning ("Seahub DB password not set in config.\n");
-            ret = -1;
-            goto out;
-        }
-        if (!name) {
-            seaf_warning ("Seahub DB name not set in config.\n");
-            ret = -1;
-            goto out;
+    char line[256];
+    char *site_root = NULL;
+    while (fgets(line, sizeof(line), file)) {
+        GMatchInfo *match_info;
+        if (g_regex_match (secret_key_regex, line, 0, &match_info)) {
+            char *sk = g_match_info_fetch (match_info, 1);
+            session->seahub_pk = sk;
         }
 
-        session->seahub_db = seaf_db_new_mysql (host, port, user, password, name, NULL, FALSE, FALSE, NULL, charset, DEFAULT_MAX_CONNECTIONS);
-        if (!session->seahub_db) {
-            seaf_warning ("Failed to open seahub database.\n");
-            ret = -1;
-            goto out;
+        if (g_regex_match (site_root_regex, line, 0, &match_info)) {
+            site_root = g_match_info_fetch (match_info, 1);
         }
     }
-#endif
-    else {
-        seaf_warning ("Unknown database type: %s.\n", engine);
-        ret = -1;
+
+    if (session->seahub_pk) {
+        if (site_root) {
+            session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal/user-list/", site_root);
+        } else {
+            session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal/user-list/");
+        }
+        session->seahub_conn_pool = connection_pool_new ();
     }
 
 out:
-    if (object)
-        json_decref (object);
-    g_free (json_str);
-    return ret;
+    g_regex_unref (secret_key_regex);
+    g_regex_unref (site_root_regex);
+    g_free (conf_path);
+    g_free (data);
 }
+#endif

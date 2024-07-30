@@ -45,4 +45,7 @@ http_post (Connection *conn, const char *url, const char *token,
 
 void
 http_tx_manager_init ();
+
+char *
+http_tx_manager_get_nickname (const char *modifier);
 #endif

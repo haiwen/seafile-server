@@ -27,13 +27,12 @@ get_nickname_by_modifier (GHashTable *email_to_nickname, const char *modifier)
         return nickname;
     }
 
-    char *sql = "SELECT nickname from profile_profile WHERE user = ?";
-    nickname = seaf_db_statement_get_string(seaf->seahub_db, sql, 1, "string", modifier);
+    nickname = http_tx_manager_get_nickname (modifier);
 
     if (!nickname) {
-        nickname = modifier;
+        nickname = g_strdup (modifier);
     }
-    g_hash_table_insert (email_to_nickname, g_strdup(modifier), g_strdup(nickname));
+    g_hash_table_insert (email_to_nickname, g_strdup(modifier), nickname);
 
     return nickname;
 }
@@ -73,7 +72,7 @@ merge_conflict_filename (const char *store_id, int version,
     }
 
     nickname = modifier;
-    if (seaf->seahub_db)
+    if (seaf->seahub_pk)
         nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
 
     conflict_name = gen_conflict_path (filename, nickname, mtime);
@@ -106,7 +105,7 @@ merge_conflict_dirname (const char *store_id, int version,
     seaf_commit_unref (commit);
 
     nickname = modifier;
-    if (seaf->seahub_db)
+    if (seaf->seahub_pk)
         nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
 
     conflict_name = gen_conflict_path (dirname, nickname, (gint64)time(NULL));
