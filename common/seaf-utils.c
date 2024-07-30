@@ -388,7 +388,8 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir)
 {
     char *conf_path = g_build_filename(conf_dir, "seahub_settings.py", NULL);
     char *data = NULL;
-    GRegex *regex = NULL;
+    GRegex *secret_key_regex = NULL;
+    GRegex *site_root_regex = NULL;
     GError *error = NULL;
 
     FILE *file = fopen(conf_path, "r");
@@ -397,42 +398,31 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir)
         goto out;
     }
 
-    regex = g_regex_new ("'(.+)'", 0, 0, &error);
+    secret_key_regex = g_regex_new ("SECRET_KEY\\s*=\\s*'(.+)'", 0, 0, &error);
     if (error) {
         g_clear_error (&error);
-        seaf_warning ("Failed to create regex: %s\n", error->message);
+        seaf_warning ("Failed to create secret key regex: %s\n", error->message);
+        goto out;
+    }
+
+    site_root_regex = g_regex_new ("SITE_ROOT\\s*=\\s*'(.+)'", 0, 0, &error);
+    if (error) {
+        g_clear_error (&error);
+        seaf_warning ("Failed to create site root regex: %s\n", error->message);
         goto out;
     }
 
     char line[256];
-    char *key, *value, *saveptr;
     char *site_root = NULL;
     while (fgets(line, sizeof(line), file)) {
-        char *p;
-        key = strtok_r(line, "=", &saveptr);
-        value = strtok_r(NULL, "\n", &saveptr);
-
-        // Trim space of the start
-        for(p = key;p && *p != '\0';p++) {
-            if (isspace(*p)) {
-                key++;
-            } else {
-                break;
-            }
+        GMatchInfo *match_info;
+        if (g_regex_match (secret_key_regex, line, 0, &match_info)) {
+            char *sk = g_match_info_fetch (match_info, 1);
+            session->seahub_pk = sk;
         }
 
-        if (key && value && strncmp(key, "SECRET_KEY", 10) == 0) {
-            GMatchInfo *match_info;
-            if (g_regex_match (regex, value, 0, &match_info)) {
-                char *sk = g_match_info_fetch (match_info, 1);
-                session->seahub_pk = sk;
-            }
-        }
-        if (key && value && strncmp(key, "SITE_ROOT", 9) == 0) {
-            GMatchInfo *match_info;
-            if (g_regex_match (regex, value, 0, &match_info)) {
-                site_root = g_match_info_fetch (match_info, 1);
-            }
+        if (g_regex_match (site_root_regex, line, 0, &match_info)) {
+            site_root = g_match_info_fetch (match_info, 1);
         }
     }
 
@@ -446,7 +436,8 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir)
     }
 
 out:
-    g_regex_unref (regex);
+    g_regex_unref (secret_key_regex);
+    g_regex_unref (site_root_regex);
     g_free (conf_path);
     g_free (data);
 }

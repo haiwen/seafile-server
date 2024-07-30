@@ -545,6 +545,7 @@ http_tx_manager_get_nickname (const char *modifier)
 out:
     g_free (jwt_token);
     g_free (req_content);
+    g_free (rsp_content);
     connection_pool_return_connection (seaf->seahub_conn_pool, conn);
 
     return nickname;

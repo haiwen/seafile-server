@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"runtime/debug"
 	"strings"
 	"syscall"
@@ -283,22 +284,27 @@ func loadSeahubPK() {
 
 	scanner := bufio.NewScanner(file)
 
+	pkRe, err := regexp.Compile("SECRET_KEY\\s*=\\s*'([^']*)'")
+	if err != nil {
+		log.Warnf("Failed to compile regex: %v", err)
+		return
+	}
+	siteRootRe, err := regexp.Compile("SITE_ROOT\\s*=\\s*'([^']*)'")
+	if err != nil {
+		log.Warnf("Failed to compile regex: %v", err)
+		return
+	}
+
 	siteRoot := ""
 	for scanner.Scan() {
 		line := scanner.Text()
-		strs := strings.SplitN(line, "=", 2)
-		if len(strs) != 2 {
-			continue
+		matches := pkRe.FindStringSubmatch(line)
+		if matches != nil {
+			seahubPK = matches[1]
 		}
-		key := strs[0]
-		value := strs[1]
-		if strings.Index(key, "SECRET_KEY") >= 0 {
-			value = strings.Trim(value, " ")
-			seahubPK = strings.Trim(value, "'")
-		}
-		if strings.Index(key, "SITE_ROOT") >= 0 {
-			value = strings.Trim(value, " ")
-			siteRoot = strings.Trim(value, "'")
+		matches = siteRootRe.FindStringSubmatch(line)
+		if matches != nil {
+			siteRoot = matches[1]
 		}
 	}
 	if siteRoot != "" {
