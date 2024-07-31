@@ -1149,6 +1149,9 @@ seafile_search_files (const char *repo_id, const char *str, GError **error);
 GList *
 seafile_search_files_by_path (const char *repo_id, const char *path, const char *str, GError **error);
 
+char *
+seafile_generate_jwt_token (const char *repo_id, const char *username, GError **error);
+
 /*Following is ccnet rpc*/
 int
 ccnet_rpc_add_emailuser (const char *email, const char *passwd,

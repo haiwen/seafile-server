@@ -9,6 +9,7 @@
 #include "utils.h"
 
 #include "seafile-session.h"
+#include "seaf-utils.h"
 #include "fs-mgr.h"
 #include "repo-mgr.h"
 #include "seafile-error.h"
@@ -4602,6 +4603,17 @@ seafile_search_files_by_path (const char *repo_id, const char *path, const char 
     }
 
     return g_list_reverse (ret);
+}
+
+char *
+seafile_generate_jwt_token (const char *repo_id, const char *username, GError **error)
+{
+    if (!repo_id || !username) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return NULL;
+    }
+
+    return seaf_gen_jwt_token (repo_id, username);
 }
 
 /*RPC functions merged from ccnet-server*/
