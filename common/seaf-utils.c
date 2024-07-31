@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <jwt.h>
+
+#define JWT_TOKEN_EXPIRE_TIME 3*24*3600 /* 3 days*/
 
 char *
 seafile_session_get_tmp_file_path (SeafileSession *session,
@@ -440,5 +443,52 @@ out:
     g_regex_unref (site_root_regex);
     g_free (conf_path);
     g_free (data);
+}
+
+char *
+seaf_gen_notif_server_jwt (const char *repo_id, const char *username)
+{
+    char *jwt_token = NULL;
+    gint64 now = (gint64)time(NULL);
+
+    jwt_t *jwt = NULL;
+
+    if (!seaf->notif_server_private_key) {
+        seaf_warning ("No private key is configured for generating jwt token\n");
+        return NULL;
+    }
+
+    int ret = jwt_new (&jwt);
+    if (ret != 0 || jwt == NULL) {
+        seaf_warning ("Failed to create jwt\n");
+        goto out;
+    }
+
+    ret = jwt_add_grant (jwt, "repo_id", repo_id);
+    if (ret != 0) {
+        seaf_warning ("Failed to add repo_id to jwt\n");
+        goto out;
+    }
+    ret = jwt_add_grant (jwt, "username", username);
+    if (ret != 0) {
+        seaf_warning ("Failed to add username to jwt\n");
+        goto out;
+    }
+    ret = jwt_add_grant_int (jwt, "exp", now + JWT_TOKEN_EXPIRE_TIME);
+    if (ret != 0) {
+        seaf_warning ("Failed to expire time to jwt\n");
+        goto out;
+    }
+    ret = jwt_set_alg (jwt, JWT_ALG_HS256, (unsigned char *)seaf->notif_server_private_key, strlen(seaf->notif_server_private_key));
+    if (ret != 0) {
+        seaf_warning ("Failed to set alg\n");
+        goto out;
+    }
+
+    jwt_token = jwt_encode_str (jwt);
+
+out:
+    jwt_free (jwt);
+    return jwt_token;
 }
 #endif

@@ -858,6 +858,9 @@ class SeafileAPI(object):
 
     def search_files_by_path (self, repo_id, path, search_str):
         return seafserv_threaded_rpc.search_files_by_path(repo_id, path, search_str)
+
+    def gen_notif_server_jwt (self, repo_id, username):
+        return seafserv_threaded_rpc.generate_notif_server_jwt (repo_id, username)
     
 seafile_api = SeafileAPI()
 

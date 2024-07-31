@@ -25,6 +25,7 @@
 #include "diff-simple.h"
 #include "merge-new.h"
 #include "seaf-db.h"
+#include "seaf-utils.h"
 
 #include "access-file.h"
 #include "upload-file.h"
@@ -56,7 +57,6 @@
 #define TOKEN_EXPIRE_TIME 7200	    /* 2 hours */
 #define PERM_EXPIRE_TIME 7200       /* 2 hours */
 #define VIRINFO_EXPIRE_TIME 7200       /* 2 hours */
-#define JWT_TOKEN_EXPIRE_TIME 3*24*3600 /* 3 days*/
 
 #define FS_ID_LIST_MAX_WORKERS 3
 #define FS_ID_LIST_TOKEN_LEN 36
@@ -2378,53 +2378,6 @@ out:
     g_strfreev (parts);
 }
 
-static char *
-gen_jwt_token (const char *repo_id, const char *username)
-{
-    char *jwt_token = NULL;
-    gint64 now = (gint64)time(NULL);
-
-    jwt_t *jwt = NULL;
-
-    if (!seaf->private_key) {
-        seaf_warning ("No private key is configured for generating jwt token\n");
-        return NULL;
-    }
-
-    int ret = jwt_new (&jwt);
-    if (ret != 0 || jwt == NULL) {
-        seaf_warning ("Failed to create jwt\n");
-        goto out;
-    }
-
-    ret = jwt_add_grant (jwt, "repo_id", repo_id);
-    if (ret != 0) {
-        seaf_warning ("Failed to add repo_id to jwt\n");
-        goto out;
-    }
-    ret = jwt_add_grant (jwt, "username", username);
-    if (ret != 0) {
-        seaf_warning ("Failed to add username to jwt\n");
-        goto out;
-    }
-    ret = jwt_add_grant_int (jwt, "exp", now + JWT_TOKEN_EXPIRE_TIME);
-    if (ret != 0) {
-        seaf_warning ("Failed to expire time to jwt\n");
-        goto out;
-    }
-    ret = jwt_set_alg (jwt, JWT_ALG_HS256, (unsigned char *)seaf->private_key, strlen(seaf->private_key));
-    if (ret != 0) {
-        seaf_warning ("Failed to set alg\n");
-        goto out;
-    }
-
-    jwt_token = jwt_encode_str (jwt);
-
-out:
-    jwt_free (jwt);
-    return jwt_token;
-}
-
 static void
 get_jwt_token_cb (evhtp_request_t *req, void *arg)
 {
@@ -2449,7 +2402,7 @@ get_jwt_token_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
-    jwt_token = gen_jwt_token (repo_id, username);
+    jwt_token = seaf_gen_notif_server_jwt (repo_id, username);
     if (!jwt_token) {
         seaf_warning ("Failed to gen jwt token for repo %s\n", repo_id);
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
