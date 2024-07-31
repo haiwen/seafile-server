@@ -847,8 +847,13 @@ validate_passwd_pbkdf2_sha256 (const char *passwd, const char *db_passwd)
     guint8 salt[SHA256_DIGEST_LENGTH];
     char hashed_passwd[SHA256_DIGEST_LENGTH*2+1];
 
+    if (g_strcmp0 (db_passwd, "!") == 0)
+        return FALSE;
+
     tokens = g_strsplit (db_passwd, "$", -1);
     if (!tokens || g_strv_length (tokens) != 4) {
+        if (tokens)
+            g_strfreev (tokens);
         ccnet_warning ("Invalide db passwd format %s.\n", db_passwd);
         return FALSE;
     }
