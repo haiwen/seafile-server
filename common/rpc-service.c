@@ -4613,7 +4613,12 @@ seafile_generate_jwt_token (const char *repo_id, const char *username, GError **
         return NULL;
     }
 
-    return seaf_gen_jwt_token (repo_id, username);
+    char *token = seaf_gen_jwt_token (repo_id, username);
+    if (!token) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_INTERNAL,
+                     "Failed to generate jwt token");
+    }
+    return token;
 }
 
 /*RPC functions merged from ccnet-server*/
