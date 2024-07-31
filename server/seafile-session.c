@@ -121,7 +121,7 @@ seafile_session_new(const char *central_config_dir,
     gboolean notif_enabled = FALSE;
     char *notif_server = NULL;
     int notif_port = 8083;
-    char *private_key = NULL;
+    char *notif_server_private_key = NULL;
 
     abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
     abs_seafile_dir = ccnet_expand_path (seafile_dir);
@@ -202,10 +202,10 @@ seafile_session_new(const char *central_config_dir,
                                              "notification", "port",
                                               NULL);
 
-        private_key = g_key_file_get_string (config,
+        notif_server_private_key = g_key_file_get_string (config,
                                              "notification", "jwt_private_key",
                                              NULL);
-        session->private_key = private_key;
+        session->notif_server_private_key = notif_server_private_key;
     }
 
     if (load_database_config (session) < 0) {
@@ -307,7 +307,7 @@ seafile_session_new(const char *central_config_dir,
 
 onerror:
     g_free (notif_server);
-    g_free (private_key);
+    g_free (notif_server_private_key);
     free (abs_seafile_dir);
     free (abs_ccnet_dir);
     g_free (tmp_file_dir);

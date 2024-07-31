@@ -1150,7 +1150,7 @@ GList *
 seafile_search_files_by_path (const char *repo_id, const char *path, const char *str, GError **error);
 
 char *
-seafile_generate_jwt_token (const char *repo_id, const char *username, GError **error);
+seafile_generate_notif_server_jwt (const char *repo_id, const char *username, GError **error);
 
 /*Following is ccnet rpc*/
 int

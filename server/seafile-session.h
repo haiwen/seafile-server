@@ -93,7 +93,7 @@ struct _SeafileSession {
 
     // For notification server
     NotifManager *notif_mgr;
-    char         *private_key;
+    char         *notif_server_private_key;
 
     gboolean is_repair;
 };

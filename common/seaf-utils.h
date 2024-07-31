@@ -22,6 +22,6 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir);
 #endif
 
 char *
-seaf_gen_jwt_token (const char *repo_id, const char *username);
+seaf_gen_notif_server_jwt (const char *repo_id, const char *username);
 
 #endif

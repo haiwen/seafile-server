@@ -446,14 +446,14 @@ out:
 }
 
 char *
-seaf_gen_jwt_token (const char *repo_id, const char *username)
+seaf_gen_notif_server_jwt (const char *repo_id, const char *username)
 {
     char *jwt_token = NULL;
     gint64 now = (gint64)time(NULL);
 
     jwt_t *jwt = NULL;
 
-    if (!seaf->private_key) {
+    if (!seaf->notif_server_private_key) {
         seaf_warning ("No private key is configured for generating jwt token\n");
         return NULL;
     }
@@ -479,7 +479,7 @@ seaf_gen_jwt_token (const char *repo_id, const char *username)
         seaf_warning ("Failed to expire time to jwt\n");
         goto out;
     }
-    ret = jwt_set_alg (jwt, JWT_ALG_HS256, (unsigned char *)seaf->private_key, strlen(seaf->private_key));
+    ret = jwt_set_alg (jwt, JWT_ALG_HS256, (unsigned char *)seaf->notif_server_private_key, strlen(seaf->notif_server_private_key));
     if (ret != 0) {
         seaf_warning ("Failed to set alg\n");
         goto out;

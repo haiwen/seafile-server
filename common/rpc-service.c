@@ -4606,14 +4606,14 @@ seafile_search_files_by_path (const char *repo_id, const char *path, const char 
 }
 
 char *
-seafile_generate_jwt_token (const char *repo_id, const char *username, GError **error)
+seafile_generate_notif_server_jwt (const char *repo_id, const char *username, GError **error)
 {
     if (!repo_id || !username) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Argument should not be null");
         return NULL;
     }
 
-    char *token = seaf_gen_jwt_token (repo_id, username);
+    char *token = seaf_gen_notif_server_jwt (repo_id, username);
     if (!token) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_INTERNAL,
                      "Failed to generate jwt token");

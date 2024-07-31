@@ -822,7 +822,7 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
 
     @searpc_func("string", ["string", "string"])
-    def generate_jwt_token(self, repo_id, username):
+    def generate_notif_server_jwt(self, repo_id, username):
         pass
 
     #user management
