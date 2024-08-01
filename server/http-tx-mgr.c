@@ -384,7 +384,7 @@ http_post (Connection *conn, const char *url, const char *token,
     headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
 
     if (token) {
-        token_header = g_strdup_printf ("Seafile-Repo-Token: %s", token);
+        token_header = g_strdup_printf ("Authorization: Token %s", token);
         headers = curl_slist_append (headers, token_header);
         g_free (token_header);
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);

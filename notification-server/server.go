@@ -282,7 +282,7 @@ func messageCB(rsp http.ResponseWriter, r *http.Request) *appError {
 func eventCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	msg := Message{}
 
-	token := r.Header.Get("Seafile-Repo-Token")
+	token := getAuthorizationToken(r.Header)
 	if !checkAuthToken(token) {
 		return &appError{Error: nil,
 			Message: "Notification token not match",
@@ -308,6 +308,15 @@ func eventCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	Notify(&msg)
 
 	return nil
+}
+
+func getAuthorizationToken(h http.Header) string {
+	auth := h.Get("Authorization")
+	splitResult := strings.Split(auth, " ")
+	if len(splitResult) > 1 {
+		return splitResult[1]
+	}
+	return ""
 }
 
 func checkAuthToken(tokenString string) bool {

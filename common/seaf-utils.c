@@ -439,8 +439,10 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir)
     }
 
 out:
-    g_regex_unref (secret_key_regex);
-    g_regex_unref (site_root_regex);
+    if (secret_key_regex)
+        g_regex_unref (secret_key_regex);
+    if (site_root_regex)
+        g_regex_unref (site_root_regex);
     g_free (conf_path);
     g_free (data);
 }
