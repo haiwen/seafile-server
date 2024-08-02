@@ -1948,8 +1948,8 @@ func notifRepoUpdate(repoID string, commitID string) error {
 		return err
 	}
 	header := map[string][]string{
-		"Seafile-Repo-Token": {token},
-		"Content-Type":       {"application/json"},
+		"Authorization": {"Token " + token},
+		"Content-Type":  {"application/json"},
 	}
 	_, _, err = httpCommon("POST", url, header, bytes.NewReader(msg))
 	if err != nil {
