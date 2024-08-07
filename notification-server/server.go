@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	_ "github.com/go-sql-driver/mysql"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"

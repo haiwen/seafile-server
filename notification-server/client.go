@@ -6,7 +6,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
@@ -43,6 +43,7 @@ type myClaims struct {
 	Exp      int64
 	RepoID   string `json:"repo_id"`
 	UserName string `json:"username"`
+	jwt.RegisteredClaims
 }
 
 func (*myClaims) Valid() error {

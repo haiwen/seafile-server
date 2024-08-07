@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
@@ -729,6 +729,7 @@ type MyClaims struct {
 	Exp      int64
 	RepoID   string `json:"repo_id"`
 	UserName string `json:"username"`
+	jwt.RegisteredClaims
 }
 
 func (*MyClaims) Valid() error {
@@ -765,6 +766,7 @@ func genJWTToken(repoID, user string) (string, error) {
 		time.Now().Add(time.Hour * 72).Unix(),
 		repoID,
 		user,
+		jwt.RegisteredClaims{},
 	}
 
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
