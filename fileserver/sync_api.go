@@ -18,7 +18,6 @@ import (
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
@@ -777,11 +776,6 @@ func genJWTToken(repoID, user string) (string, error) {
 	}
 
 	return tokenString, nil
-}
-
-func isValidUUID(u string) bool {
-	_, err := uuid.Parse(u)
-	return err == nil
 }
 
 func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {

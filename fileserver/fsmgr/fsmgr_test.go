@@ -65,7 +65,7 @@ func delFile() error {
 }
 
 func TestMain(m *testing.M) {
-	Init(seafileConfPath, seafileDataDir)
+	Init(seafileConfPath, seafileDataDir, 2<<30)
 	err := createFile()
 	if err != nil {
 		fmt.Printf("Failed to create test file : %v.\n", err)

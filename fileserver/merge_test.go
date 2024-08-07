@@ -27,7 +27,6 @@ var mergeTestTree1CommitID string
 var mergeTestTree2CommitID string
 var mergeTestTree3CommitID string
 var mergeTestTree4CommitID string
-var mergeTestTree5CommitID string
 
 /*
 test directory structure:

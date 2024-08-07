@@ -233,7 +233,6 @@ func mergeEntries(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt
 			mergedDents = append(mergedDents, head)
 			opt.conflict = true
 		}
-	} else if base != nil && head == nil && remote == nil {
 	}
 
 	return mergedDents, nil
@@ -264,7 +263,6 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 		if dents[0].ID == dents[1].ID {
 			return mergedDents, nil
 		}
-		break
 	case 4:
 		mergedDents = append(mergedDents, dents[2])
 		return mergedDents, nil
@@ -272,9 +270,7 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 		if dents[0].ID == dents[2].ID {
 			return mergedDents, nil
 		}
-		break
-	case 6:
-	case 7:
+	case 6, 7:
 		if dents[1].ID == dents[2].ID {
 			mergedDents = append(mergedDents, dents[1])
 			return mergedDents, nil
@@ -285,7 +281,6 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 			mergedDents = append(mergedDents, dents[1])
 			return mergedDents, nil
 		}
-		break
 	default:
 		err := fmt.Errorf("wrong dir mask for merge")
 		return nil, err
