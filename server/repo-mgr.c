@@ -1095,7 +1095,7 @@ create_tables_mysql (SeafRepoManager *mgr)
 
     sql = "CREATE TABLE IF NOT EXISTS WebUploadTempFiles ( "
         "id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, repo_id CHAR(40) NOT NULL, "
-        "file_path TEXT NOT NULL, tmp_file_path TEXT NOT NULL, UNIQUE INDEX(repo_id)) ENGINE=INNODB";
+        "file_path TEXT NOT NULL, tmp_file_path TEXT NOT NULL, INDEX(repo_id)) ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 

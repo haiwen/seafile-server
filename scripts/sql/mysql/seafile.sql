@@ -324,5 +324,6 @@ CREATE TABLE IF NOT EXISTS WebUploadTempFiles (
   id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
   repo_id CHAR(40) NOT NULL,
   file_path TEXT NOT NULL,
-  tmp_file_path TEXT NOT NULL
+  tmp_file_path TEXT NOT NULL,
+  INDEX(repo_id)
 ) ENGINE=INNODB;
