@@ -189,8 +189,6 @@ func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
 		commit.Encrypted = "false"
 	}
 	commit.Version = repo.Version
-
-	return
 }
 
 // GetEx return repo object even if it's corrupted.

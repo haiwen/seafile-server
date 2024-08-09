@@ -6,12 +6,13 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-sql-driver/mysql v1.5.0
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/json-iterator/go v1.1.12
 	github.com/mattn/go-sqlite3 v1.14.0
 	github.com/sirupsen/logrus v1.8.1
-	golang.org/x/text v0.3.7
+	golang.org/x/text v0.3.8
 	gopkg.in/ini.v1 v1.55.0
 )
 
@@ -23,5 +24,5 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
-	golang.org/x/sys v0.0.0-20221010170243-090e33056c14 // indirect
+	golang.org/x/sys v0.1.0 // indirect
 )

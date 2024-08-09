@@ -188,7 +188,7 @@ func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions
 func direntSame(dentA, dentB *fsmgr.SeafDirent) bool {
 	return dentA.ID == dentB.ID &&
 		dentA.Mode == dentB.Mode &&
-		dentA.Mtime == dentA.Mtime
+		dentA.Mtime == dentB.Mtime
 }
 
 // Diff type and diff status.

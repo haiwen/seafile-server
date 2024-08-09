@@ -44,7 +44,7 @@ var diffTestDirID2 string
 */
 
 func TestDiffTrees(t *testing.T) {
-	fsmgr.Init(diffTestSeafileConfPath, diffTestSeafileDataDir)
+	fsmgr.Init(diffTestSeafileConfPath, diffTestSeafileDataDir, 2<<30)
 
 	err := diffTestCreateTestDir()
 	if err != nil {
