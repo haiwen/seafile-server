@@ -52,14 +52,12 @@ fsck_verify_seafobj (const char *store_id,
                                                 obj_id, TRUE, io_error);
         if (!valid && !*io_error && repair) {
             seaf_message ("File %s is damaged, remove it.\n", obj_id);
-            seaf_fs_manager_delete_object (seaf->fs_mgr, store_id, version, obj_id);
         }
     } else if (type == VERIFY_DIR) {
         valid = seaf_fs_manager_verify_seafdir (seaf->fs_mgr, store_id, version,
                                                 obj_id, TRUE, io_error);
         if (!valid && !*io_error && repair) {
             seaf_message ("Dir %s is damaged, remove it.\n", obj_id);
-            seaf_fs_manager_delete_object (seaf->fs_mgr, store_id, version, obj_id);
         }
     }
 
@@ -115,9 +113,6 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
             } else {
                 if (fsck_data->repair) {
                     seaf_message ("Repo[%.8s] block %s is damaged, remove it.\n", repo->id, block_id);
-                    seaf_block_manager_remove_block (seaf->block_mgr,
-                                                     store_id, version,
-                                                     block_id);
                 } else {
                     seaf_message ("Repo[%.8s] block %s is damaged.\n", repo->id, block_id);
                 }
