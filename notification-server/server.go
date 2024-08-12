@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	_ "github.com/go-sql-driver/mysql"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
@@ -212,20 +212,17 @@ func main() {
 	addr := fmt.Sprintf("%s:%d", host, port)
 	err = http.ListenAndServe(addr, router)
 	if err != nil {
-		log.Info("notificationserver exiting: %v", err)
+		log.Infof("notificationserver exiting: %v", err)
 	}
 }
 
 func handleUser1Signal() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGUSR1)
-	<-signalChan
 
 	for {
-		select {
-		case <-signalChan:
-			logRotate()
-		}
+		<-signalChan
+		logRotate()
 	}
 }
 

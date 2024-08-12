@@ -17,8 +17,7 @@ import (
 	"sync"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
-	"github.com/google/uuid"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
@@ -729,6 +728,7 @@ type MyClaims struct {
 	Exp      int64
 	RepoID   string `json:"repo_id"`
 	UserName string `json:"username"`
+	jwt.RegisteredClaims
 }
 
 func (*MyClaims) Valid() error {
@@ -765,6 +765,7 @@ func genJWTToken(repoID, user string) (string, error) {
 		time.Now().Add(time.Hour * 72).Unix(),
 		repoID,
 		user,
+		jwt.RegisteredClaims{},
 	}
 
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
@@ -775,11 +776,6 @@ func genJWTToken(repoID, user string) (string, error) {
 	}
 
 	return tokenString, nil
-}
-
-func isValidUUID(u string) bool {
-	_, err := uuid.Parse(u)
-	return err == nil
 }
 
 func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {

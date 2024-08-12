@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	jwt "github.com/dgrijalva/jwt-go"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/utils"
@@ -233,8 +233,9 @@ func mergeEntries(storeID string, dents []*fsmgr.SeafDirent, baseDir string, opt
 			mergedDents = append(mergedDents, head)
 			opt.conflict = true
 		}
-	} else if base != nil && head == nil && remote == nil {
-	}
+	} /* else if base != nil && head == nil && remote == nil {
+	    Don't need to add anything to mergeDents.
+	}*/
 
 	return mergedDents, nil
 }
@@ -264,7 +265,6 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 		if dents[0].ID == dents[1].ID {
 			return mergedDents, nil
 		}
-		break
 	case 4:
 		mergedDents = append(mergedDents, dents[2])
 		return mergedDents, nil
@@ -272,9 +272,7 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 		if dents[0].ID == dents[2].ID {
 			return mergedDents, nil
 		}
-		break
-	case 6:
-	case 7:
+	case 6, 7:
 		if dents[1].ID == dents[2].ID {
 			mergedDents = append(mergedDents, dents[1])
 			return mergedDents, nil
@@ -285,7 +283,6 @@ func mergeDirectories(storeID string, dents []*fsmgr.SeafDirent, baseDir string,
 			mergedDents = append(mergedDents, dents[1])
 			return mergedDents, nil
 		}
-		break
 	default:
 		err := fmt.Errorf("wrong dir mask for merge")
 		return nil, err
@@ -400,6 +397,7 @@ func getNickNameByModifier(emailToNickname map[string]string, modifier string) s
 type SeahubClaims struct {
 	Exp        int64
 	IsInternal bool `json:"is_internal"`
+	jwt.RegisteredClaims
 }
 
 func (*SeahubClaims) Valid() error {
@@ -410,6 +408,7 @@ func postGetNickName(modifier string) string {
 	claims := SeahubClaims{
 		time.Now().Add(time.Second * 300).Unix(),
 		true,
+		jwt.RegisteredClaims{},
 	}
 
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)

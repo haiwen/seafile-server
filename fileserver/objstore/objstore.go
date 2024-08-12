@@ -35,17 +35,17 @@ func New(seafileConfPath string, seafileDataDir string, objType string) *ObjectS
 	return obj
 }
 
-//Read data from storage backends.
+// Read data from storage backends.
 func (s *ObjectStore) Read(repoID string, objID string, w io.Writer) (err error) {
 	return s.backend.read(repoID, objID, w)
 }
 
-//Write data to storage backends.
+// Write data to storage backends.
 func (s *ObjectStore) Write(repoID string, objID string, r io.Reader, sync bool) (err error) {
 	return s.backend.write(repoID, objID, r, sync)
 }
 
-//Check whether object exists.
+// Check whether object exists.
 func (s *ObjectStore) Exists(repoID string, objID string) (res bool, err error) {
 	return s.backend.exists(repoID, objID)
 }

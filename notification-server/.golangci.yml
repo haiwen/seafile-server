@@ -1,0 +1,14 @@
+run:
+  timeout: 2m
+
+linters:
+  enable:
+   - govet
+   - gocyclo
+   - gosimple
+   - ineffassign
+   - staticcheck
+   - unused
+   - gofmt
+  disable:
+   - errcheck

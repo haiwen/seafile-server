@@ -295,10 +295,7 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 
 func isNetworkErr(err error) bool {
 	_, ok := err.(net.Error)
-	if ok {
-		return true
-	}
-	return false
+	return ok
 }
 
 type blockMap struct {
@@ -513,7 +510,7 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 	fileType := parseContentType(fileName)
 	if fileType != "" {
 		var contentType string
-		if strings.Index(fileType, "text") != -1 {
+		if strings.Contains(fileType, "text") {
 			contentType = fileType + "; " + "charset=gbk"
 		} else {
 			contentType = fileType
@@ -1392,8 +1389,6 @@ func clearTmpFile(fsm *recvData, parentDir string) {
 		}
 		repomgr.DelUploadTmpFile(fsm.repoID, filePath)
 	}
-
-	return
 }
 
 func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
@@ -1493,7 +1488,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 	}
-	if strings.Index(parentDir, "//") != -1 {
+	if strings.Contains(parentDir, "//") {
 		msg := "parent_dir contains // sequence.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
@@ -1798,11 +1793,11 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		}
 
 		if !opt.conflict {
-			mergeDesc = fmt.Sprintf("Auto merge by system")
+			mergeDesc = "Auto merge by system"
 		} else {
 			mergeDesc = genMergeDesc(repo, opt.mergedRoot, currentHead.RootID, newRoot)
 			if mergeDesc == "" {
-				mergeDesc = fmt.Sprintf("Auto merge by system")
+				mergeDesc = "Auto merge by system"
 			}
 		}
 
@@ -2155,7 +2150,7 @@ func shouldIgnoreFile(fileName string) bool {
 		return true
 	}
 
-	if strings.Index(fileName, "/") != -1 {
+	if strings.Contains(fileName, "/") {
 		return true
 	}
 
@@ -2343,7 +2338,7 @@ func chunkFile(job chunkingData) (string, error) {
 		defer f.Close()
 		file = f
 	}
-	_, err := file.Seek(offset, os.SEEK_SET)
+	_, err := file.Seek(offset, io.SeekStart)
 	if err != nil {
 		err := fmt.Errorf("failed to seek file: %v", err)
 		return "", err
@@ -2456,11 +2451,7 @@ func checkParentDir(repoID string, parentDir string) *appError {
 func isParentMatched(uploadDir, parentDir string) bool {
 	uploadCanon := filepath.Join("/", uploadDir)
 	parentCanon := filepath.Join("/", parentDir)
-	if uploadCanon != parentCanon {
-		return false
-	}
-
-	return true
+	return uploadCanon == parentCanon
 }
 
 func parseContentRange(ranges string, fsm *recvData) bool {
@@ -2573,7 +2564,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 	if dirPath == "/" {
 		commitDesc := genCommitDesc(repo, newDirID, headCommit.RootID)
 		if commitDesc == "" {
-			commitDesc = fmt.Sprintf("Auto merge by system")
+			commitDesc = "Auto merge by system"
 		}
 		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc, true)
 		if err != nil {
@@ -2613,7 +2604,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 
 	commitDesc := genCommitDesc(repo, rootID, headCommit.RootID)
 	if commitDesc == "" {
-		commitDesc = fmt.Sprintf("Auto merge by system")
+		commitDesc = "Auto merge by system"
 	}
 
 	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc, true)
@@ -2937,7 +2928,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	if strings.Index(parentDir, "//") != -1 {
+	if strings.Contains(parentDir, "//") {
 		msg := "parent_dir contains // sequence.\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
@@ -3212,7 +3203,7 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 		return "", &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	if strings.Index(parentDir, "//") != -1 {
+	if strings.Contains(parentDir, "//") {
 		msg := "parent_dir contains // sequence.\n"
 		return "", &appError{nil, msg, http.StatusBadRequest}
 	}

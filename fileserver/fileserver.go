@@ -46,9 +46,6 @@ var dbType string
 var seafileDB, ccnetDB *sql.DB
 var seahubURL, seahubPK string
 
-// when SQLite is used, user and group db are separated.
-var userDB, groupDB *sql.DB
-
 func init() {
 	flag.StringVar(&centralDir, "F", "", "central config directory")
 	flag.StringVar(&dataDir, "d", "", "seafile data directory")
@@ -284,12 +281,12 @@ func loadSeahubPK() {
 
 	scanner := bufio.NewScanner(file)
 
-	pkRe, err := regexp.Compile("SECRET_KEY\\s*=\\s*'([^']*)'")
+	pkRe, err := regexp.Compile(`SECRET_KEY\\s*=\\s*'([^']*)'`)
 	if err != nil {
 		log.Warnf("Failed to compile regex: %v", err)
 		return
 	}
-	siteRootRe, err := regexp.Compile("SITE_ROOT\\s*=\\s*'([^']*)'")
+	siteRootRe, err := regexp.Compile(`SITE_ROOT\\s*=\\s*'([^']*)'`)
 	if err != nil {
 		log.Warnf("Failed to compile regex: %v", err)
 		return
@@ -461,13 +458,10 @@ func handleSignals() {
 func handleUser1Signal() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGUSR1)
-	<-signalChan
 
 	for {
-		select {
-		case <-signalChan:
-			logRotate()
-		}
+		<-signalChan
+		logRotate()
 	}
 }
 
