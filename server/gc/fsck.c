@@ -184,6 +184,9 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                 memcpy (seaf_dent->id, EMPTY_SHA1, 40);
                 seaf_dent->mtime = (gint64)time(NULL);
                 seaf_dent->size = 0;
+
+                fsck_data->repaired_files = g_list_prepend (fsck_data->repaired_files,
+                                                            g_strdup(path));
             } else {
                 if (check_blocks (seaf_dent->id, fsck_data, &io_error) < 0) {
                     if (io_error) {
@@ -204,12 +207,12 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                     memcpy (seaf_dent->id, EMPTY_SHA1, 40);
                     seaf_dent->mtime = (gint64)time(NULL);
                     seaf_dent->size = 0;
+
+                    fsck_data->repaired_files = g_list_prepend (fsck_data->repaired_files,
+                                                                g_strdup(path));
                 }
             }
 
-            if (is_corrupted)
-                fsck_data->repaired_files = g_list_prepend (fsck_data->repaired_files,
-                                                            g_strdup(path));
             g_free (path);
         } else if (S_ISDIR(seaf_dent->mode)) {
             path = g_strdup_printf ("%s%s/", parent_dir, seaf_dent->name);
