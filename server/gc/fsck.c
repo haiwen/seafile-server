@@ -51,15 +51,13 @@ fsck_verify_seafobj (const char *store_id,
         valid = seaf_fs_manager_verify_seafile (seaf->fs_mgr, store_id, version,
                                                 obj_id, TRUE, io_error);
         if (!valid && !*io_error && repair) {
-            seaf_message ("File %s is damaged, remove it.\n", obj_id);
-            seaf_fs_manager_delete_object (seaf->fs_mgr, store_id, version, obj_id);
+            seaf_message ("File %s is damaged.\n", obj_id);
         }
     } else if (type == VERIFY_DIR) {
         valid = seaf_fs_manager_verify_seafdir (seaf->fs_mgr, store_id, version,
                                                 obj_id, TRUE, io_error);
         if (!valid && !*io_error && repair) {
-            seaf_message ("Dir %s is damaged, remove it.\n", obj_id);
-            seaf_fs_manager_delete_object (seaf->fs_mgr, store_id, version, obj_id);
+            seaf_message ("Dir %s is damaged.\n", obj_id);
         }
     }
 
