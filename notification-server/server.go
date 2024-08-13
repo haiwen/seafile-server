@@ -142,9 +142,9 @@ func loadCcnetDB() {
 	}
 	var dsn string
 	if unixSocket == "" {
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t&readTimeout=60s&writeTimeout=60s", user, password, host, port, dbName, useTLS)
 	} else {
-		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
+		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?readTimeout=60s&writeTimeout=60s", user, password, unixSocket, dbName)
 	}
 	ccnetDB, err = sql.Open("mysql", dsn)
 	if err != nil {
@@ -153,6 +153,9 @@ func loadCcnetDB() {
 	if err := ccnetDB.Ping(); err != nil {
 		log.Fatalf("Failed to connected to mysql: %v", err)
 	}
+	ccnetDB.SetConnMaxLifetime(5 * time.Minute)
+	ccnetDB.SetMaxOpenConns(8)
+	ccnetDB.SetMaxIdleConns(8)
 }
 
 func main() {
