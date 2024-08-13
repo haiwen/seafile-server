@@ -153,6 +153,9 @@ func loadCcnetDB() {
 	if err := ccnetDB.Ping(); err != nil {
 		log.Fatalf("Failed to connected to mysql: %v", err)
 	}
+	ccnetDB.SetConnMaxLifetime(5 * time.Minute)
+	ccnetDB.SetMaxOpenConns(8)
+	ccnetDB.SetMaxIdleConns(8)
 }
 
 func main() {

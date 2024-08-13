@@ -2,6 +2,7 @@
 package repomgr
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -9,6 +10,7 @@ import (
 	// Change to non-blank imports when use
 	_ "github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -56,10 +58,10 @@ type VRepoInfo struct {
 	BaseCommitID string
 }
 
-var seafileDB *sql.DB
+var seafileDB *utils.DB
 
 // Init initialize status of repomgr package
-func Init(seafDB *sql.DB) {
+func Init(seafDB *utils.DB) {
 	seafileDB = seafDB
 }
 
@@ -70,14 +72,18 @@ func Get(id string) *Repo {
 		`LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id ` +
 		`WHERE r.repo_id = ? AND b.name = 'master'`
 
-	stmt, err := seafileDB.Prepare(query)
+	timeout := 60 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
 		log.Printf("failed to prepare sql : %s ：%v", query, err)
 		return nil
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(id)
+	rows, err := stmt.QueryContext(ctx, id)
 	if err != nil {
 		log.Printf("failed to query sql : %v", err)
 		return nil
@@ -198,14 +204,18 @@ func GetEx(id string) *Repo {
 		`LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id ` +
 		`WHERE r.repo_id = ? AND b.name = 'master'`
 
-	stmt, err := seafileDB.Prepare(query)
+	timeout := 60 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
 		log.Printf("failed to prepare sql : %s ：%v", query, err)
 		return nil
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(id)
+	rows, err := stmt.QueryContext(ctx, id)
 	if err != nil {
 		log.Printf("failed to query sql : %v", err)
 		return nil

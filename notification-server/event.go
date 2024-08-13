@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"runtime/debug"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -113,15 +115,19 @@ func Notify(msg *Message) {
 }
 
 func getGroupMembers(group int) map[string]struct{} {
+	timeout := 60 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
 	query := `SELECT user_name FROM GroupUser WHERE group_id = ?`
-	stmt, err := ccnetDB.Prepare(query)
+	stmt, err := ccnetDB.PrepareContext(ctx, query)
 	if err != nil {
 		log.Printf("failed to prepare sql: %s：%v", query, err)
 		return nil
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(group)
+	rows, err := stmt.QueryContext(ctx, group)
 	if err != nil {
 		log.Printf("failed to query sql: %v", err)
 		return nil

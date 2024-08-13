@@ -1,6 +1,6 @@
 module github.com/haiwen/seafile-server/fileserver
 
-go 1.17
+go 1.18
 
 require (
 	github.com/dgraph-io/ristretto v0.1.1

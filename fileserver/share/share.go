@@ -3,13 +3,16 @@
 package share
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -21,13 +24,13 @@ type group struct {
 	parentGroupID int
 }
 
-var ccnetDB *sql.DB
-var seafileDB *sql.DB
+var ccnetDB *utils.DB
+var seafileDB *utils.DB
 var groupTableName string
 var cloudMode bool
 
 // Init ccnetDB, seafileDB, groupTableName, cloudMode
-func Init(cnDB *sql.DB, seafDB *sql.DB, grpTableName string, clMode bool) {
+func Init(cnDB *utils.DB, seafDB *utils.DB, grpTableName string, clMode bool) {
 	ccnetDB = cnDB
 	seafileDB = seafDB
 	groupTableName = grpTableName
@@ -428,13 +431,17 @@ func GetReposByOwner(email string) ([]*SharedRepo, error) {
 		"v.repo_id IS NULL " +
 		"ORDER BY i.update_time DESC, o.repo_id"
 
-	stmt, err := seafileDB.Prepare(query)
+	timeout := 60 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query(email)
+	rows, err := stmt.QueryContext(ctx, email)
 
 	if err != nil {
 		return nil, err
@@ -483,13 +490,17 @@ func ListInnerPubRepos() ([]*SharedRepo, error) {
 		"WHERE InnerPubRepo.repo_id=RepoOwner.repo_id AND " +
 		"InnerPubRepo.repo_id = Branch.repo_id AND Branch.name = 'master'"
 
-	stmt, err := seafileDB.Prepare(query)
+	timeout := 60 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
 
-	rows, err := stmt.Query()
+	rows, err := stmt.QueryContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -552,14 +563,18 @@ func ListShareRepos(email, columnType string) ([]*SharedRepo, error) {
 		return nil, err
 	}
 
-	stmt, err := seafileDB.Prepare(query)
+	timeout := 60 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
 
 	defer stmt.Close()
 
-	rows, err := stmt.Query(email)
+	rows, err := stmt.QueryContext(ctx, email)
 	if err != nil {
 		return nil, err
 	}

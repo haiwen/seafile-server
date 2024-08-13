@@ -18,6 +18,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -28,6 +29,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/searpc"
 	"github.com/haiwen/seafile-server/fileserver/share"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
@@ -43,7 +45,7 @@ var pidFilePath string
 var logFp *os.File
 
 var dbType string
-var seafileDB, ccnetDB *sql.DB
+var seafileDB, ccnetDB *utils.DB
 var seahubURL, seahubPK string
 
 func init() {
@@ -145,16 +147,15 @@ func loadCcnetDB() {
 		} else {
 			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
 		}
-		ccnetDB, err = sql.Open("mysql", dsn)
+		db, err := sql.Open("mysql", dsn)
 		if err != nil {
 			log.Fatalf("Failed to open database: %v", err)
 		}
-	} else if strings.EqualFold(dbEngine, "sqlite") {
-		ccnetDBPath := filepath.Join(centralDir, "groupmgr.db")
-		ccnetDB, err = sql.Open("sqlite3", ccnetDBPath)
-		if err != nil {
-			log.Fatalf("Failed to open database %s: %v", ccnetDBPath, err)
-		}
+		db.SetConnMaxLifetime(5 * time.Minute)
+		db.SetMaxOpenConns(8)
+		db.SetMaxIdleConns(8)
+		ccnetDB = new(utils.DB)
+		ccnetDB.DB = db
 	} else {
 		log.Fatalf("Unsupported database %s.", dbEngine)
 	}
@@ -253,16 +254,15 @@ func loadSeafileDB() {
 			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
 		}
 
-		seafileDB, err = sql.Open("mysql", dsn)
+		db, err := sql.Open("mysql", dsn)
 		if err != nil {
 			log.Fatalf("Failed to open database: %v", err)
 		}
-	} else if strings.EqualFold(dbEngine, "sqlite") {
-		seafileDBPath := filepath.Join(absDataDir, "seafile.db")
-		seafileDB, err = sql.Open("sqlite3", seafileDBPath)
-		if err != nil {
-			log.Fatalf("Failed to open database %s: %v", seafileDBPath, err)
-		}
+		db.SetConnMaxLifetime(5 * time.Minute)
+		db.SetMaxOpenConns(8)
+		db.SetMaxIdleConns(8)
+		seafileDB = new(utils.DB)
+		seafileDB.DB = db
 	} else {
 		log.Fatalf("Unsupported database %s.", dbEngine)
 	}

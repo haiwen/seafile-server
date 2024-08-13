@@ -9,6 +9,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/searpc"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 )
 
 const (
@@ -60,10 +61,11 @@ func TestMain(m *testing.M) {
 	client = searpc.Init(pipePath, service)
 	repoID = createRepo()
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
-	seafDB, err := sql.Open("mysql", dsn)
+	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		fmt.Printf("Failed to open database: %v", err)
 	}
+	seafDB := &utils.DB{DB: db}
 	Init(seafDB)
 	commitmgr.Init(seafileConfPath, seafileDataDir)
 	code := m.Run()
