@@ -10,6 +10,7 @@ typedef struct Progress {
     int zipped;
     int total;
     char *zip_file_path;
+    char *zip_file_name;
     gint64 expire_ts;
     gboolean canceled;
     gboolean size_too_large;

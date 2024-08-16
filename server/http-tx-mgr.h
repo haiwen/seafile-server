@@ -48,4 +48,7 @@ http_tx_manager_init ();
 
 char *
 http_tx_manager_get_nickname (const char *modifier);
+
+SeafileShareLinkInfo *
+http_tx_manager_query_access_token (const char *token, const char *type);
 #endif

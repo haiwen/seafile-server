@@ -642,11 +642,11 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 
 func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	parts := strings.Split(r.URL.Path[1:], "/")
-	if len(parts) != 2 {
+	if len(parts) != 4 {
 		msg := "Invalid URL"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
-	token := parts[1]
+	token := parts[3]
 
 	accessInfo, err := parseWebaccessInfo(token)
 	if err != nil {
@@ -677,6 +677,10 @@ func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	return nil
+}
+
+func accessZipLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	return &appError{nil, "", http.StatusNotFound}
 }
 
 func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, user, op string) *appError {

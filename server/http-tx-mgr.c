@@ -184,27 +184,13 @@ recv_response (void *contents, size_t size, size_t nmemb, void *userp)
  * the server sometimes takes more than 45 seconds to calculate the result,
  * the client will time out.
  */
-int
-http_get (Connection *conn, const char *url, const char *token,
-          int *rsp_status, char **rsp_content, gint64 *rsp_size,
-          HttpRecvCallback callback, void *cb_data,
-          gboolean timeout)
+static int
+http_get_common (CURL *curl, const char *url, const char *token,
+                 int *rsp_status, char **rsp_content, gint64 *rsp_size,
+                 HttpRecvCallback callback, void *cb_data,
+                 gboolean timeout)
 {
-    char *token_header;
-    struct curl_slist *headers = NULL;
     int ret = 0;
-    CURL *curl;
-
-    curl = conn->curl;
-
-    headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
-
-    if (token) {
-        token_header = g_strdup_printf ("Seafile-Repo-Token: %s", token);
-        headers = curl_slist_append (headers, token_header);
-        g_free (token_header);
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    }
 
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
@@ -260,10 +246,8 @@ http_get (Connection *conn, const char *url, const char *token,
 
 out:
     if (ret < 0) {
-        conn->release = TRUE;
         g_free (rsp.content);
     }
-    curl_slist_free_all (headers);
     return ret;
 }
 
@@ -495,6 +479,7 @@ http_tx_manager_get_nickname (const char *modifier)
     char *rsp_content = NULL;
     char *nickname = NULL;
     gint64 rsp_size;
+    char *url = NULL;
 
     jwt_token = gen_jwt_token ();
     if (!jwt_token) {
@@ -528,7 +513,8 @@ http_tx_manager_get_nickname (const char *modifier)
     g_free (token_header);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-    ret = http_post_common (curl, seaf->seahub_url, jwt_token, req_content, strlen(req_content),
+    url = g_strdup_printf("%s/user-list/", seaf->seahub_url);
+    ret = http_post_common (curl, url, jwt_token, req_content, strlen(req_content),
                             &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
     if (ret < 0) {
         conn->release = TRUE;
@@ -543,10 +529,109 @@ http_tx_manager_get_nickname (const char *modifier)
     nickname = parse_nickname (rsp_content, rsp_size);
 
 out:
+    g_free (url);
     g_free (jwt_token);
     g_free (req_content);
     g_free (rsp_content);
+    curl_slist_free_all (headers);
     connection_pool_return_connection (seaf->seahub_conn_pool, conn);
 
     return nickname;
+}
+
+static SeafileShareLinkInfo *
+parse_share_link_info (const char *rsp_content, int rsp_size)
+{
+    json_t *object;
+    json_error_t jerror;
+    size_t n;
+    int i;
+    const char *repo_id = NULL;
+    const char *file_path = NULL;
+    const char *parent_dir = NULL;
+    SeafileShareLinkInfo *info = NULL;
+
+    object = json_loadb (rsp_content, rsp_size, 0, &jerror);
+    if (!object) {
+        seaf_warning ("Parse response failed: %s.\n", jerror.text);
+        return NULL;
+    }
+
+    repo_id = json_object_get_string_member (object, "repo_id");
+    if (!repo_id) {
+        seaf_warning ("Failed to find repo_id in json.\n");
+        goto out;
+    }
+    file_path = json_object_get_string_member (object, "file_path");
+    parent_dir = json_object_get_string_member (object, "parent_dir");
+
+    info = g_object_new (SEAFILE_TYPE_SHARE_LINK_INFO,
+                         "repo_id", repo_id,
+                         "file_path", file_path,
+                         "parent_dir", parent_dir,
+                         NULL);
+
+out:
+    json_decref (object);
+    return info;
+}
+
+SeafileShareLinkInfo *
+http_tx_manager_query_access_token (const char *token, const char *type)
+{
+    Connection *conn = NULL;
+    char *token_header;
+    struct curl_slist *headers = NULL;
+    int ret = 0;
+    CURL *curl;
+    int rsp_status;
+    char *jwt_token = NULL;
+    char *rsp_content = NULL;
+    gint64 rsp_size;
+    SeafileShareLinkInfo *info = NULL;
+    char *url = NULL;
+
+    jwt_token = gen_jwt_token ();
+    if (!jwt_token) {
+        return NULL;
+    }
+
+    conn = connection_pool_get_connection (seaf->seahub_conn_pool);
+    if (!conn) {
+        g_free (jwt_token);
+        seaf_warning ("Failed to get connection: out of memory.\n");
+        return NULL;
+    }
+
+    curl = conn->curl;
+    headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
+    token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
+    headers = curl_slist_append (headers, token_header);
+    headers = curl_slist_append (headers, "Content-Type: application/json");
+    g_free (token_header);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    url = g_strdup_printf("%s/share-link-info/", seaf->seahub_url);
+    ret = http_get_common (curl, url, jwt_token, &rsp_status,
+                           &rsp_content, &rsp_size, NULL, NULL, TRUE);
+    if (ret < 0) {
+        conn->release = TRUE;
+        goto out;
+    }
+
+    if (rsp_status != HTTP_OK) {
+        seaf_warning ("Failed to query access token from seahub: %d.\n",
+                      rsp_status);
+    }
+
+    info = parse_share_link_info (rsp_content, rsp_size);
+
+out:
+    g_free (url);
+    g_free (jwt_token);
+    g_free (rsp_content);
+    curl_slist_free_all (headers);
+    connection_pool_return_connection (seaf->seahub_conn_pool, conn);
+
+    return info;
 }

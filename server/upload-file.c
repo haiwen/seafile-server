@@ -1810,6 +1810,12 @@ out:
     return;
 }
 
+static void
+upload_link_cb(evhtp_request_t *req, void *arg)
+{
+    return upload_api_cb (req, arg);
+}
+
 static evhtp_res
 upload_finish_cb (evhtp_request_t *req, void *arg)
 {
@@ -2641,6 +2647,150 @@ err:
     return EVHTP_RES_OK;
 }
 
+static evhtp_res
+upload_link_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
+{
+    char **parts = NULL;
+    char *token = NULL;
+    const char *repo_id = NULL, *parent_dir = NULL;
+    char *r_parent_dir = NULL;
+    char *user = NULL;
+    char *boundary = NULL;
+    gint64 content_len;
+    char *progress_id = NULL;
+    char *err_msg = NULL;
+    RecvFSM *fsm = NULL;
+    Progress *progress = NULL;
+    int error_code = EVHTP_RES_BADREQ;
+    SeafileShareLinkInfo *info = NULL;
+
+    if (!seaf->seahub_pk) {
+        seaf_warning ("No seahub private key is configured.\n");
+        return EVHTP_RES_NOTFOUND;
+    }
+
+    if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
+         return EVHTP_RES_OK;
+    }
+
+    token = req->uri->path->file;
+    if (!token) {
+        seaf_debug ("[upload] No token in url.\n");
+        err_msg = "No token in url";
+        goto err;
+    }
+
+    parts = g_strsplit (req->uri->path->full + 1, "/", 0);
+    if (!parts || g_strv_length (parts) < 2) {
+        err_msg = "Invalid URL";
+        goto err;
+    }
+
+    info = http_tx_manager_query_access_token (token, "upload");
+    if (!info) {
+        err_msg = "Access token not found\n";
+        error_code = EVHTP_RES_FORBIDDEN;
+        goto err;
+    }
+    repo_id = seafile_share_link_info_get_repo_id (info);
+    parent_dir = seafile_share_link_info_get_parent_dir (info);
+    if (!parent_dir) {
+        err_msg = "No parent_dir\n";
+        goto err;
+    }
+    r_parent_dir = format_dir_path (parent_dir);
+
+    user = seaf_repo_manager_get_repo_owner (seaf->repo_mgr, repo_id);
+
+    boundary = get_boundary (hdr);
+    if (!boundary) {
+        err_msg = "Wrong boundary in url";
+        goto err;
+    }
+
+    if (get_progress_info (req, hdr, &content_len, &progress_id) < 0) {
+        err_msg = "No progress info";
+        goto err;
+    }
+
+    if (progress_id != NULL) {
+        pthread_mutex_lock (&pg_lock);
+        if (g_hash_table_lookup (upload_progress, progress_id)) {
+            pthread_mutex_unlock (&pg_lock);
+            err_msg = "Duplicate progress id.\n";
+            goto err;
+        }
+        pthread_mutex_unlock (&pg_lock);
+    }
+
+    gint64 rstart = -1;
+    gint64 rend = -1;
+    gint64 fsize = -1;
+    if (!parse_range_val (hdr, &rstart, &rend, &fsize)) {
+        seaf_warning ("Invalid Seafile-Content-Range value.\n");
+        err_msg = "Invalid Seafile-Content-Range";
+        goto err;
+    }
+
+    fsm = g_new0 (RecvFSM, 1);
+    fsm->boundary = boundary;
+    fsm->repo_id = g_strdup (repo_id);
+    fsm->parent_dir = r_parent_dir;
+    fsm->user = user;
+    fsm->token_type = "upload-link";
+    fsm->rstart = rstart;
+    fsm->rend = rend;
+    fsm->fsize = fsize;
+    fsm->line = evbuffer_new ();
+    fsm->form_kvs = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                           g_free, g_free);
+    /* const char *need_idx_progress = evhtp_kv_find (req->uri->query, "need_idx_progress"); */
+    /* if (g_strcmp0(need_idx_progress, "true") == 0) */
+    /*     fsm->need_idx_progress = TRUE; */
+    fsm->need_idx_progress = FALSE;
+
+    if (progress_id != NULL) {
+        progress = g_new0 (Progress, 1);
+        progress->size = content_len;
+        fsm->progress_id = progress_id;
+        fsm->progress = progress;
+
+        pthread_mutex_lock (&pg_lock);
+        g_hash_table_insert (upload_progress, g_strdup(progress_id), progress);
+        pthread_mutex_unlock (&pg_lock);
+    }
+
+    /* Set up per-request hooks, so that we can read file data piece by piece. */
+    evhtp_set_hook (&req->hooks, evhtp_hook_on_read, upload_read_cb, fsm);
+    evhtp_set_hook (&req->hooks, evhtp_hook_on_request_fini, upload_finish_cb, fsm);
+    /* Set arg for upload_cb or update_cb. */
+    req->cbarg = fsm;
+
+    g_strfreev (parts);
+    g_object_unref (info);
+
+    return EVHTP_RES_OK;
+
+err:
+    /* Don't receive any data before the connection is closed. */
+    //evhtp_request_pause (req);
+
+    /* Set keepalive to 0. This will cause evhtp to close the
+     * connection after sending the reply.
+     */
+    req->keepalive = 0;
+    send_error_reply (req, error_code, err_msg);
+
+    g_free (r_parent_dir);
+    g_free (user);
+    g_free (boundary);
+    g_free (progress_id);
+    g_strfreev (parts);
+    if (info)
+        g_object_unref (info);
+    return EVHTP_RES_OK;
+}
+
 static void
 idx_progress_cb(evhtp_request_t *req, void *arg)
 {
@@ -2756,6 +2906,10 @@ upload_file_init (evhtp_t *htp, const char *http_temp_dir)
 
     cb = evhtp_set_regex_cb (htp, "^/update-aj/.*", update_ajax_cb, NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
+
+    // upload links
+    cb = evhtp_set_regex_cb (htp, "^/u/.*", upload_link_cb, NULL);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_link_headers_cb, NULL);
 
     evhtp_set_regex_cb (htp, "^/upload_progress.*", upload_progress_cb, NULL);
 

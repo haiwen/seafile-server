@@ -5,6 +5,8 @@
 
 #include "seafile-object.h"
 
+#define MULTI_DOWNLOAD_FILE_PREFIX "documents-export-"
+
 struct ZipDownloadMgrPriv;
 
 typedef struct ZipDownloadMgr {
@@ -21,11 +23,22 @@ zip_download_mgr_start_zip_task (ZipDownloadMgr *mgr,
                                  GError **error);
 
 char *
+zip_download_mgr_start_zip_task_v2 (ZipDownloadMgr *mgr,
+                                    const char *repo_id,
+                                    const char *operation,
+                                    const char *user,
+                                    GList *dirent_list);
+
+char *
 zip_download_mgr_query_zip_progress (ZipDownloadMgr *mgr,
                                      const char *token, GError **error);
 
 char *
 zip_download_mgr_get_zip_file_path (ZipDownloadMgr *mgr,
+                                    const char *token);
+
+char *
+zip_download_mgr_get_zip_file_name (ZipDownloadMgr *mgr,
                                     const char *token);
 
 void
