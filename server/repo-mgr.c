@@ -611,7 +611,9 @@ del_repo:
     }
 
     seaf_db_statement_query (mgr->seaf->db,
-                             "DELETE FROM RepoUserToken WHERE repo_id = ?",
+                             "DELETE t.*, i.* FROM RepoUserToken t, "
+                             "RepoTokenPeerInfo i WHERE t.token=i.token AND "
+                             "t.repo_id=?",
                              1, "string", repo_id);
 
     seaf_db_statement_query (mgr->seaf->db,
