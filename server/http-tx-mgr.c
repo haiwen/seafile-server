@@ -611,7 +611,7 @@ http_tx_manager_query_access_token (const char *token, const char *type)
     g_free (token_header);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-    url = g_strdup_printf("%s/share-link-info/", seaf->seahub_url);
+    url = g_strdup_printf("%s/share-link-info/?token=%s&type=%s", seaf->seahub_url, token, type);
     ret = http_get_common (curl, url, jwt_token, &rsp_status,
                            &rsp_content, &rsp_size, NULL, NULL, TRUE);
     if (ret < 0) {

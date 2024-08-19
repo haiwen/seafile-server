@@ -2654,6 +2654,7 @@ upload_link_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     char *token = NULL;
     const char *repo_id = NULL, *parent_dir = NULL;
     char *r_parent_dir = NULL;
+    char *norm_parent_dir = NULL;
     char *user = NULL;
     char *boundary = NULL;
     gint64 content_len;
@@ -2698,7 +2699,8 @@ upload_link_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
         err_msg = "No parent_dir\n";
         goto err;
     }
-    r_parent_dir = format_dir_path (parent_dir);
+    norm_parent_dir = normalize_utf8_path (parent_dir); 
+    r_parent_dir = format_dir_path (norm_parent_dir);
 
     user = seaf_repo_manager_get_repo_owner (seaf->repo_mgr, repo_id);
 
@@ -2766,6 +2768,7 @@ upload_link_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     /* Set arg for upload_cb or update_cb. */
     req->cbarg = fsm;
 
+    g_free (norm_parent_dir);
     g_strfreev (parts);
     g_object_unref (info);
 
@@ -2781,6 +2784,7 @@ err:
     req->keepalive = 0;
     send_error_reply (req, error_code, err_msg);
 
+    g_free (norm_parent_dir);
     g_free (r_parent_dir);
     g_free (user);
     g_free (boundary);

@@ -1644,6 +1644,7 @@ access_link_cb(evhtp_request_t *req, void *arg)
     char *filename = NULL;
     char *file_id = NULL;
     char *user = NULL;
+    char *norm_file_path = NULL;
     const char *repo_id = NULL;
     const char *file_path = NULL;
     const char *byte_ranges = NULL;
@@ -1687,7 +1688,8 @@ access_link_cb(evhtp_request_t *req, void *arg)
         goto on_error;
     }
 
-    rpath = format_dir_path (file_path);
+    norm_file_path = normalize_utf8_path(file_path);
+    rpath = format_dir_path (norm_file_path);
     filename = g_path_get_basename (rpath);
 
     repo = seaf_repo_manager_get_repo(seaf->repo_mgr, repo_id);
@@ -1739,6 +1741,7 @@ access_link_cb(evhtp_request_t *req, void *arg)
 success:
     g_strfreev (parts);
     g_free (user);
+    g_free (norm_file_path);
     g_free (rpath);
     g_free (filename);
     g_free (file_id);
@@ -1754,6 +1757,7 @@ success:
 on_error:
     g_strfreev (parts);
     g_free (user);
+    g_free (norm_file_path);
     g_free (rpath);
     g_free (filename);
     g_free (file_id);
@@ -1775,7 +1779,8 @@ json_to_dirent_list (SeafRepo *repo, const char *parent_dir, const char *dirents
     json_error_t jerror;
     int i;
     int len;
-    const char *file_name;
+    const char *tmp_file_name;
+    char *file_name = NULL;
     GList *dirent_list = NULL, *p = NULL;
     SeafDir *dir;
     SeafDirent *dirent;
@@ -1815,13 +1820,15 @@ json_to_dirent_list (SeafRepo *repo, const char *parent_dir, const char *dirents
     }
 
     for (i = 0; i < len; i++) {
-        file_name = json_string_value (json_array_get (array, i));
+        tmp_file_name = json_string_value (json_array_get (array, i));
+        file_name = normalize_utf8_path(tmp_file_name);
         if (strcmp (file_name, "") == 0 || strchr (file_name, '/') != NULL) {
             seaf_warning ("Invalid download file name: %s.\n", file_name);
             if (dirent_list) {
                 g_list_free_full (dirent_list, (GDestroyNotify)seaf_dirent_free);
                 dirent_list = NULL;
             }
+            g_free (file_name);
             break;
         }
 
@@ -1833,10 +1840,12 @@ json_to_dirent_list (SeafRepo *repo, const char *parent_dir, const char *dirents
                 g_list_free_full (dirent_list, (GDestroyNotify)seaf_dirent_free);
                 dirent_list = NULL;
             }
+            g_free (file_name);
             break;
         }
 
         dirent_list = g_list_prepend (dirent_list, seaf_dirent_dup(dirent));
+        g_free (file_name);
     }
 
     g_hash_table_unref(dirent_hash);
@@ -1884,6 +1893,8 @@ access_dir_link_cb(evhtp_request_t *req, void *arg)
     char *fullpath = NULL;
     char *file_id = NULL;
     char *filename = NULL;
+    char *norm_parent_dir = NULL;
+    char *norm_path = NULL;
     char *user = NULL;
     char *tmp_parent_dir = NULL;
     char *dirents = NULL;
@@ -1974,7 +1985,8 @@ access_dir_link_cb(evhtp_request_t *req, void *arg)
         }
         g_free (body);
 
-        r_parent_dir = format_dir_path (tmp_parent_dir);
+        norm_parent_dir = normalize_utf8_path (tmp_parent_dir);
+        r_parent_dir = format_dir_path (norm_parent_dir);
         GList *dirent_list = json_to_dirent_list (repo, r_parent_dir, dirents);
         if (!dirent_list) {
             error_str = "Invalid dirents\n";
@@ -2003,8 +2015,10 @@ access_dir_link_cb(evhtp_request_t *req, void *arg)
     }
 
     parent_dir = seafile_share_link_info_get_parent_dir (info);
-    r_parent_dir = format_dir_path (parent_dir);
-    fullpath = g_build_filename(r_parent_dir, path, NULL);
+    norm_parent_dir = normalize_utf8_path (parent_dir);
+    norm_path = normalize_utf8_path (path);
+    r_parent_dir = format_dir_path (norm_parent_dir);
+    fullpath = g_build_filename(r_parent_dir, norm_path, NULL);
     filename = g_path_get_basename (fullpath);
 
     file_id = seaf_fs_manager_get_seafile_id_by_path (seaf->fs_mgr, repo->store_id, repo->version, repo->root_id, fullpath, &error);
@@ -2050,6 +2064,8 @@ success:
     g_free (tmp_parent_dir);
     g_free (dirents);
     g_free (user);
+    g_free (norm_parent_dir);
+    g_free (norm_path);
     g_free (r_parent_dir);
     g_free (fullpath);
     g_free (filename);
@@ -2068,6 +2084,8 @@ on_error:
     g_free (tmp_parent_dir);
     g_free (dirents);
     g_free (user);
+    g_free (norm_parent_dir);
+    g_free (norm_path);
     g_free (r_parent_dir);
     g_free (fullpath);
     g_free (filename);
