@@ -30,12 +30,14 @@ import (
 	"sort"
 	"syscall"
 
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/text/unicode/norm"
 )
@@ -3414,6 +3416,122 @@ func indexRawBlocks(repoID string, blockIDs []string, fileHeaders []*multipart.F
 	}
 
 	return nil
+}
+
+func uploadLinksCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	if seahubPK == "" {
+		return &appError{nil, "", http.StatusNotFound}
+	}
+	if r.Method == "OPTIONS" {
+		setAccessControl(rsp)
+		rsp.WriteHeader(http.StatusOK)
+		return nil
+	}
+
+	fsm, err := parseUploadLinkHeaders(r)
+	if err != nil {
+		return err
+	}
+
+	if err := doUpload(rsp, r, fsm, false); err != nil {
+		formatJSONError(rsp, err)
+		return err
+	}
+
+	return nil
+}
+
+func parseUploadLinkHeaders(r *http.Request) (*recvData, *appError) {
+	tokenLen := 36
+	parts := strings.Split(r.URL.Path[1:], "/")
+	if len(parts) < 2 {
+		msg := "Invalid URL"
+		return nil, &appError{nil, msg, http.StatusBadRequest}
+	}
+	if len(parts[1]) < tokenLen {
+		msg := "Invalid URL"
+		return nil, &appError{nil, msg, http.StatusBadRequest}
+	}
+	token := parts[1][:tokenLen]
+
+	info, appErr := queryAccessToken(token, "upload")
+	if appErr != nil {
+		return nil, appErr
+	}
+
+	repoID := info.RepoID
+	parentDir := normalizeUTF8Path(info.ParentDir)
+
+	status, err := repomgr.GetRepoStatus(repoID)
+	if err != nil {
+		return nil, &appError{err, "", http.StatusInternalServerError}
+	}
+	if status != repomgr.RepoStatusNormal && status != -1 {
+		msg := "Repo status not writable."
+		return nil, &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	user, _ := repomgr.GetRepoOwner(repoID)
+
+	fsm := new(recvData)
+
+	fsm.parentDir = parentDir
+	fsm.tokenType = "upload-link"
+	fsm.repoID = repoID
+	fsm.user = user
+	fsm.rstart = -1
+	fsm.rend = -1
+	fsm.fsize = -1
+
+	ranges := r.Header.Get("Content-Range")
+	if ranges != "" {
+		parseContentRange(ranges, fsm)
+	}
+
+	return fsm, nil
+}
+
+type ShareLinkInfo struct {
+	RepoID    string `json:"repo_id"`
+	FilePath  string `json:"file_path"`
+	ParentDir string `json:"parent_dir"`
+}
+
+func queryAccessToken(token, opType string) (*ShareLinkInfo, *appError) {
+	claims := SeahubClaims{
+		time.Now().Add(time.Second * 300).Unix(),
+		true,
+		jwt.RegisteredClaims{},
+	}
+
+	jwtToken := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
+	tokenString, err := jwtToken.SignedString([]byte(seahubPK))
+	if err != nil {
+		err := fmt.Errorf("failed to sign jwt token: %v", err)
+		return nil, &appError{err, "", http.StatusInternalServerError}
+	}
+	url := fmt.Sprintf("%s?token=%s&type=%s", seahubURL+"/share-link-info/", token, opType)
+	header := map[string][]string{
+		"Authorization": {"Token " + tokenString},
+	}
+	status, body, err := utils.HttpCommon("GET", url, header, nil)
+	if err != nil {
+		err := fmt.Errorf("failed to get share link info: %v", err)
+		return nil, &appError{err, "", http.StatusInternalServerError}
+	}
+	if status != http.StatusOK {
+		msg := "Access token not found"
+		return nil, &appError{nil, msg, http.StatusForbidden}
+	}
+
+	info := new(ShareLinkInfo)
+	err = json.Unmarshal(body, &info)
+	if err != nil {
+		err := fmt.Errorf("failed to decode share link info: %v", err)
+		return nil, &appError{err, "", http.StatusInternalServerError}
+	}
+
+	return info, nil
 }
 
 func removeFileopExpireCache() {
