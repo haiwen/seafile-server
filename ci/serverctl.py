@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 class ServerCtl(object):
     def __init__(self, topdir, projectdir, datadir, fileserver, db='sqlite3', seaf_server_bin='seaf-server', ccnet_server_bin='ccnet-server'):
         self.db = db
+        self.topdir = topdir
         self.datadir = datadir
         self.central_conf_dir = join(datadir, 'conf')
         self.seafile_conf_dir = join(datadir, 'seafile-data')
@@ -54,7 +55,7 @@ class ServerCtl(object):
         os.mkdir (self.central_conf_dir, 0o755)
         os.mkdir (self.seafile_conf_dir, 0o755)
         os.mkdir (self.ccnet_conf_dir, 0o755)
-        src = join(topdir, 'tests/conf/seahub_settings.py')
+        src = join(self.projectdir, 'tests/conf/seahub_settings.py')
         dst = join(self.central_conf_dir, 'seahub_settings.py')
         shutil.copyfile(src, dst)
 
