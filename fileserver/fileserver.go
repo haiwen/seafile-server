@@ -281,12 +281,14 @@ func loadSeahubPK() {
 
 	scanner := bufio.NewScanner(file)
 
-	pkRe, err := regexp.Compile(`SECRET_KEY\\s*=\\s*'([^']*)'`)
+	pkExp := "SECRET_KEY\\s*=\\s*'([^']*)'"
+	pkRe, err := regexp.Compile(pkExp)
 	if err != nil {
 		log.Warnf("Failed to compile regex: %v", err)
 		return
 	}
-	siteRootRe, err := regexp.Compile(`SITE_ROOT\\s*=\\s*'([^']*)'`)
+	siteRootExpr := "SITE_ROOT\\s*=\\s*'([^']*)'"
+	siteRootRe, err := regexp.Compile(siteRootExpr)
 	if err != nil {
 		log.Warnf("Failed to compile regex: %v", err)
 		return
@@ -305,9 +307,12 @@ func loadSeahubPK() {
 		}
 	}
 	if siteRoot != "" {
-		seahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal/user-list/", siteRoot)
+		seahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal", siteRoot)
 	} else {
-		seahubURL = ("http://127.0.0.1:8000/api/v2.1/internal/user-list/")
+		seahubURL = ("http://127.0.0.1:8000/api/v2.1/internal")
+	}
+	if seahubPK == "" {
+		log.Warnf("No seahub private key is configured")
 	}
 }
 
@@ -504,7 +509,6 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/files/{.*}/{.*}", appHandler(accessCB))
 	r.Handle("/blks/{.*}/{.*}", appHandler(accessBlksCB))
 	r.Handle("/zip/{.*}", appHandler(accessZipLinkCB))
-	r.Handle("/repos/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/zip/{.*}", appHandler(accessZipCB))
 	r.Handle("/upload-api/{.*}", appHandler(uploadAPICB))
 	r.Handle("/upload-aj/{.*}", appHandler(uploadAjaxCB))
 	r.Handle("/update-api/{.*}", appHandler(updateAPICB))
@@ -513,7 +517,10 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/upload-raw-blks-api/{.*}", appHandler(uploadRawBlksAPICB))
 
 	// links api
-	r.Handle("/u/{.*}", appHandler(uploadLinksCB))
+	r.Handle("/u/{.*}", appHandler(uploadLinkCB))
+	r.Handle("/f/{.*}", appHandler(accessLinkCB))
+	r.Handle("/d/{.*}", appHandler(accessDirLinkCB))
+	r.Handle("/repos/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/zip/{.*}", appHandler(accessZipCB))
 
 	// file syncing api
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check{slash:\\/?}",

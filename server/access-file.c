@@ -2014,6 +2014,10 @@ access_dir_link_cb(evhtp_request_t *req, void *arg)
         goto success;
     }
 
+    if (can_use_cached_content (req)) {
+        goto success;
+    }
+
     parent_dir = seafile_share_link_info_get_parent_dir (info);
     norm_parent_dir = normalize_utf8_path (parent_dir);
     norm_path = normalize_utf8_path (path);

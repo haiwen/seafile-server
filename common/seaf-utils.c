@@ -439,6 +439,8 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir)
             session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal");
         }
         session->seahub_conn_pool = connection_pool_new ();
+    } else {
+        seaf_warning ("No seahub private key is configured.\n");
     }
     g_free (site_root);
 

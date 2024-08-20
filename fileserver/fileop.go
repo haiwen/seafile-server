@@ -643,6 +643,10 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 }
 
 func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	if seahubPK == "" {
+		err := fmt.Errorf("no seahub private key is configured")
+		return &appError{err, "", http.StatusNotFound}
+	}
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) != 4 {
 		msg := "Invalid URL"
@@ -681,6 +685,7 @@ func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
+// Go don't need the zip API.
 func accessZipLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return &appError{nil, "", http.StatusNotFound}
 }
@@ -3418,9 +3423,10 @@ func indexRawBlocks(repoID string, blockIDs []string, fileHeaders []*multipart.F
 	return nil
 }
 
-func uploadLinksCB(rsp http.ResponseWriter, r *http.Request) *appError {
+func uploadLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if seahubPK == "" {
-		return &appError{nil, "", http.StatusNotFound}
+		err := fmt.Errorf("no seahub private key is configured")
+		return &appError{err, "", http.StatusNotFound}
 	}
 	if r.Method == "OPTIONS" {
 		setAccessControl(rsp)
@@ -3532,6 +3538,252 @@ func queryAccessToken(token, opType string) (*ShareLinkInfo, *appError) {
 	}
 
 	return info, nil
+}
+
+func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	if seahubPK == "" {
+		err := fmt.Errorf("no seahub private key is configured")
+		return &appError{err, "", http.StatusNotFound}
+	}
+
+	parts := strings.Split(r.URL.Path[1:], "/")
+	if len(parts) < 2 {
+		msg := "Invalid URL"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+	token := parts[1]
+	info, appErr := queryAccessToken(token, "file")
+	if appErr != nil {
+		return appErr
+	}
+
+	if info.FilePath == "" {
+		msg := "Invalid file_path\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	repoID := info.RepoID
+	filePath := normalizeUTF8Path(info.FilePath)
+	fileName := filepath.Base(filePath)
+	op := "download-link"
+
+	if _, ok := r.Header["If-Modified-Since"]; ok {
+		return &appError{nil, "", http.StatusNotModified}
+	}
+
+	now := time.Now()
+	rsp.Header().Set("Last-Modified", now.Format("Mon, 2 Jan 2006 15:04:05 GMT"))
+	rsp.Header().Set("Cache-Control", "max-age=3600")
+
+	ranges := r.Header["Range"]
+	byteRanges := strings.Join(ranges, "")
+
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		msg := "Bad repo id\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	user, _ := repomgr.GetRepoOwner(repoID)
+
+	fileID, _, err := fsmgr.GetObjIDByPath(repo.StoreID, repo.RootID, filePath)
+	if err != nil {
+		msg := "Invalid file_path\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+	rsp.Header().Set("ETag", fileID)
+
+	var cryptKey *seafileCrypt
+	if repo.IsEncrypted {
+		key, err := parseCryptKey(rsp, repoID, user, repo.EncVersion)
+		if err != nil {
+			return err
+		}
+		cryptKey = key
+	}
+
+	exists, _ := fsmgr.Exists(repo.StoreID, fileID)
+	if !exists {
+		msg := "Invalid file id"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	if !repo.IsEncrypted && len(byteRanges) != 0 {
+		if err := doFileRange(rsp, r, repo, fileID, fileName, op, byteRanges, user); err != nil {
+			return err
+		}
+	} else if err := doFile(rsp, r, repo, fileID, fileName, op, cryptKey, user); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func accessDirLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
+	if seahubPK == "" {
+		err := fmt.Errorf("no seahub private key is configured")
+		return &appError{err, "", http.StatusNotFound}
+	}
+
+	parts := strings.Split(r.URL.Path[1:], "/")
+	if len(parts) < 2 {
+		msg := "Invalid URL"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+	token := parts[1]
+	info, appErr := queryAccessToken(token, "dir")
+	if appErr != nil {
+		return appErr
+	}
+
+	repoID := info.RepoID
+	parentDir := normalizeUTF8Path(info.ParentDir)
+	op := "download-link"
+
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		msg := "Bad repo id\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+	user, _ := repomgr.GetRepoOwner(repoID)
+
+	filePath := r.URL.Query().Get("p")
+	if filePath == "" {
+		err := r.ParseForm()
+		if err != nil {
+			msg := "Invalid form\n"
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+		parentDir := r.FormValue("parent_dir")
+		if parentDir == "" {
+			msg := "Invalid parent_dir\n"
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+		parentDir = normalizeUTF8Path(parentDir)
+		parentDir = getCanonPath(parentDir)
+		dirents := r.FormValue("dirents")
+		if dirents == "" {
+			msg := "Invalid dirents\n"
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+		// opStr:=r.FormVale("op")
+		list, err := jsonToDirentList(repo, parentDir, dirents)
+		if err != nil {
+			log.Warnf("failed to parse dirent list: %v", err)
+			msg := "Invalid dirents\n"
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+		if len(list) == 0 {
+			msg := "Invalid dirents\n"
+			return &appError{nil, msg, http.StatusBadRequest}
+		}
+
+		obj := make(map[string]interface{})
+		if len(list) == 1 {
+			dent := list[0]
+			op = "download-dir-link"
+			obj["dir_name"] = dent.Name
+			obj["obj_id"] = dent.ID
+		} else {
+			op = "download-multi-link"
+			obj["parent_dir"] = parentDir
+			var fileList []string
+			for _, dent := range list {
+				fileList = append(fileList, dent.Name)
+			}
+			obj["file_list"] = fileList
+		}
+		data, err := json.Marshal(obj)
+		if err != nil {
+			err := fmt.Errorf("failed to encode zip obj: %v", err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
+		if err := downloadZipFile(rsp, r, string(data), repoID, user, op); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// file path is not empty string
+	if _, ok := r.Header["If-Modified-Since"]; ok {
+		return &appError{nil, "", http.StatusNotModified}
+	}
+
+	filePath = normalizeUTF8Path(filePath)
+	fullPath := filepath.Join(parentDir, filePath)
+	fileName := filepath.Base(filePath)
+
+	fileID, _, err := fsmgr.GetObjIDByPath(repo.StoreID, repo.RootID, fullPath)
+	if err != nil {
+		msg := "Invalid file_path\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+	rsp.Header().Set("ETag", fileID)
+
+	now := time.Now()
+	rsp.Header().Set("Last-Modified", now.Format("Mon, 2 Jan 2006 15:04:05 GMT"))
+	rsp.Header().Set("Cache-Control", "max-age=3600")
+
+	ranges := r.Header["Range"]
+	byteRanges := strings.Join(ranges, "")
+
+	var cryptKey *seafileCrypt
+	if repo.IsEncrypted {
+		key, err := parseCryptKey(rsp, repoID, user, repo.EncVersion)
+		if err != nil {
+			return err
+		}
+		cryptKey = key
+	}
+
+	exists, _ := fsmgr.Exists(repo.StoreID, fileID)
+	if !exists {
+		msg := "Invalid file id"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	if !repo.IsEncrypted && len(byteRanges) != 0 {
+		if err := doFileRange(rsp, r, repo, fileID, fileName, op, byteRanges, user); err != nil {
+			return err
+		}
+	} else if err := doFile(rsp, r, repo, fileID, fileName, op, cryptKey, user); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func jsonToDirentList(repo *repomgr.Repo, parentDir, dirents string) ([]*fsmgr.SeafDirent, error) {
+	var list []string
+	err := json.Unmarshal([]byte(dirents), &list)
+	if err != nil {
+		return nil, err
+	}
+
+	dir, err := fsmgr.GetSeafdirByPath(repo.StoreID, repo.RootID, parentDir)
+	if err != nil {
+		return nil, err
+	}
+
+	direntHash := make(map[string]*fsmgr.SeafDirent)
+	for _, dent := range dir.Entries {
+		direntHash[dent.Name] = dent
+	}
+
+	var direntList []*fsmgr.SeafDirent
+	for _, path := range list {
+		normPath := normalizeUTF8Path(path)
+		if normPath == "" || normPath == "/" {
+			return nil, fmt.Errorf("Invalid download file name: %s\n", normPath)
+		}
+		dent, ok := direntHash[normPath]
+		if !ok {
+			return nil, fmt.Errorf("failed to get dient for %s in dir %s in repo %s", normPath, parentDir, repo.StoreID)
+		}
+		direntList = append(direntList, dent)
+	}
+
+	return direntList, nil
 }
 
 func removeFileopExpireCache() {

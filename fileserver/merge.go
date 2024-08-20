@@ -429,7 +429,8 @@ func postGetNickName(modifier string) string {
 		return ""
 	}
 
-	status, body, err := utils.HttpCommon("POST", seahubURL, header, bytes.NewReader(data))
+	url := seahubURL + "/user-list/"
+	status, body, err := utils.HttpCommon("POST", url, header, bytes.NewReader(data))
 	if err != nil {
 		return ""
 	}
