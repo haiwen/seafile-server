@@ -18,6 +18,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
@@ -129,32 +130,30 @@ func loadCcnetDB() {
 			skipVerify, _ = key.Bool()
 		}
 		var dsn string
+		timeout := "&readTimeout=60s" + "&writeTimeout=60s"
 		if unixSocket == "" {
 			if useTLS && skipVerify {
-				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify", user, password, host, port, dbName)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify%s", user, password, host, port, dbName, timeout)
 			} else if useTLS && !skipVerify {
 				capath := ""
 				if key, err = section.GetKey("CA_PATH"); err == nil {
 					capath = key.String()
 				}
 				registerCA(capath)
-				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom", user, password, host, port, dbName)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom%s", user, password, host, port, dbName, timeout)
 			} else {
-				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t%s", user, password, host, port, dbName, useTLS, timeout)
 			}
 		} else {
-			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
+			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?readTimeout=60s&writeTimeout=60s", user, password, unixSocket, dbName)
 		}
 		ccnetDB, err = sql.Open("mysql", dsn)
 		if err != nil {
 			log.Fatalf("Failed to open database: %v", err)
 		}
-	} else if strings.EqualFold(dbEngine, "sqlite") {
-		ccnetDBPath := filepath.Join(centralDir, "groupmgr.db")
-		ccnetDB, err = sql.Open("sqlite3", ccnetDBPath)
-		if err != nil {
-			log.Fatalf("Failed to open database %s: %v", ccnetDBPath, err)
-		}
+		ccnetDB.SetConnMaxLifetime(5 * time.Minute)
+		ccnetDB.SetMaxOpenConns(8)
+		ccnetDB.SetMaxIdleConns(8)
 	} else {
 		log.Fatalf("Unsupported database %s.", dbEngine)
 	}
@@ -236,33 +235,31 @@ func loadSeafileDB() {
 		}
 
 		var dsn string
+		timeout := "&readTimeout=60s" + "&writeTimeout=60s"
 		if unixSocket == "" {
 			if useTLS && skipVerify {
-				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify", user, password, host, port, dbName)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify%s", user, password, host, port, dbName, timeout)
 			} else if useTLS && !skipVerify {
 				capath := ""
 				if key, err = section.GetKey("ca_path"); err == nil {
 					capath = key.String()
 				}
 				registerCA(capath)
-				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom", user, password, host, port, dbName)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom%s", user, password, host, port, dbName, timeout)
 			} else {
-				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
+				dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t%s", user, password, host, port, dbName, useTLS, timeout)
 			}
 		} else {
-			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s", user, password, unixSocket, dbName)
+			dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?readTimeout=60s&writeTimeout=60s", user, password, unixSocket, dbName)
 		}
 
 		seafileDB, err = sql.Open("mysql", dsn)
 		if err != nil {
 			log.Fatalf("Failed to open database: %v", err)
 		}
-	} else if strings.EqualFold(dbEngine, "sqlite") {
-		seafileDBPath := filepath.Join(absDataDir, "seafile.db")
-		seafileDB, err = sql.Open("sqlite3", seafileDBPath)
-		if err != nil {
-			log.Fatalf("Failed to open database %s: %v", seafileDBPath, err)
-		}
+		seafileDB.SetConnMaxLifetime(5 * time.Minute)
+		seafileDB.SetMaxOpenConns(8)
+		seafileDB.SetMaxIdleConns(8)
 	} else {
 		log.Fatalf("Unsupported database %s.", dbEngine)
 	}
