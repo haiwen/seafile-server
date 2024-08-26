@@ -1852,12 +1852,14 @@ func updateBranch(repoID, newCommitID, oldCommitID, secondParentID string) error
 		sqlStr = "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ?"
 	}
 
-	trans, err := seafileDB.Begin()
+	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	defer cancel()
+	trans, err := seafileDB.BeginTx(ctx, nil)
 	if err != nil {
 		err := fmt.Errorf("failed to start transaction: %v", err)
 		return err
 	}
-	row := trans.QueryRow(sqlStr, name, repoID)
+	row := trans.QueryRowContext(ctx, sqlStr, name, repoID)
 	if err := row.Scan(&commitID); err != nil {
 		if err != sql.ErrNoRows {
 			trans.Rollback()
@@ -1871,7 +1873,7 @@ func updateBranch(repoID, newCommitID, oldCommitID, secondParentID string) error
 	}
 
 	sqlStr = "UPDATE Branch SET commit_id = ? WHERE name = ? AND repo_id = ?"
-	_, err = trans.Exec(sqlStr, newCommitID, name, repoID)
+	_, err = trans.ExecContext(ctx, sqlStr, newCommitID, name, repoID)
 	if err != nil {
 		trans.Rollback()
 		return err

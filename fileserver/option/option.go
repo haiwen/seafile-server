@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/ini.v1"
 )
@@ -60,6 +61,9 @@ var (
 
 	// Go log level
 	LogLevel string
+
+	// DB default timeout
+	DefaultTimeout time.Duration
 )
 
 func initDefaultOptions() {
@@ -73,6 +77,7 @@ func initDefaultOptions() {
 	DefaultQuota = InfiniteQuota
 	FsCacheLimit = 2 << 30
 	FsIdListRequestTimeout = -1
+	DefaultTimeout = 60 * time.Second
 }
 
 func LoadFileServerOptions(centralDir string) {
