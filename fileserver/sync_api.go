@@ -654,7 +654,7 @@ func headCommitsMultiCB(rsp http.ResponseWriter, r *http.Request) *appError {
 			"repo_id IN (%s) LOCK IN SHARE MODE",
 		repoIDs.String())
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	rows, err := seafileDB.QueryContext(ctx, sqlStr)
 	if err != nil {
@@ -909,7 +909,7 @@ func getRepoStoreID(repoID string) (string, error) {
 	var vInfo virtualRepoInfo
 	var rID, originRepoID sql.NullString
 	sqlStr := "SELECT repo_id, origin_repo FROM VirtualRepo where repo_id = ?"
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&rID, &originRepoID); err != nil {
@@ -1081,7 +1081,7 @@ func getHeadCommit(rsp http.ResponseWriter, r *http.Request) *appError {
 	repoID := vars["repoid"]
 	sqlStr := "SELECT EXISTS(SELECT 1 FROM Repo WHERE repo_id=?)"
 	var exists bool
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&exists); err != nil {

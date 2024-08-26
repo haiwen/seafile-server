@@ -72,7 +72,7 @@ func Get(id string) *Repo {
 		`LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id ` +
 		`WHERE r.repo_id = ? AND b.name = 'master'`
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
@@ -202,7 +202,7 @@ func GetEx(id string) *Repo {
 		`LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id ` +
 		`WHERE r.repo_id = ? AND b.name = 'master'`
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
@@ -297,7 +297,7 @@ func GetVirtualRepoInfo(repoID string) (*VRepoInfo, error) {
 	sqlStr := "SELECT repo_id, origin_repo, path, base_commit FROM VirtualRepo WHERE repo_id = ?"
 	vRepoInfo := new(VRepoInfo)
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&vRepoInfo.RepoID, &vRepoInfo.OriginRepoID, &vRepoInfo.Path, &vRepoInfo.BaseCommitID); err != nil {
@@ -314,7 +314,7 @@ func GetVirtualRepoInfoByOrigin(originRepo string) ([]*VRepoInfo, error) {
 	sqlStr := "SELECT repo_id, origin_repo, path, base_commit " +
 		"FROM VirtualRepo WHERE origin_repo=?"
 	var vRepos []*VRepoInfo
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row, err := seafileDB.QueryContext(ctx, sqlStr, originRepo)
 	if err != nil {
@@ -339,7 +339,7 @@ func GetEmailByToken(repoID string, token string) (string, error) {
 	var email string
 	sqlStr := "SELECT email FROM RepoUserToken WHERE repo_id = ? AND token = ?"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID, token)
 	if err := row.Scan(&email); err != nil {
@@ -355,7 +355,7 @@ func GetRepoStatus(repoID string) (int, error) {
 	var status int
 	sqlStr := "SELECT status FROM RepoInfo WHERE repo_id=?"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&status); err != nil {
@@ -371,7 +371,7 @@ func TokenPeerInfoExists(token string) (bool, error) {
 	var exists string
 	sqlStr := "SELECT token FROM RepoTokenPeerInfo WHERE token=?"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, token)
 	if err := row.Scan(&exists); err != nil {
@@ -388,7 +388,7 @@ func AddTokenPeerInfo(token, peerID, peerIP, peerName, clientVer string, syncTim
 	sqlStr := "INSERT INTO RepoTokenPeerInfo (token, peer_id, peer_ip, peer_name, sync_time, client_ver)" +
 		"VALUES (?, ?, ?, ?, ?, ?)"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	if _, err := seafileDB.ExecContext(ctx, sqlStr, token, peerID, peerIP, peerName, syncTime, clientVer); err != nil {
 		return err
@@ -400,7 +400,7 @@ func AddTokenPeerInfo(token, peerID, peerIP, peerName, clientVer string, syncTim
 func UpdateTokenPeerInfo(token, peerID, clientVer string, syncTime int64) error {
 	sqlStr := "UPDATE RepoTokenPeerInfo SET " +
 		"peer_ip=?, sync_time=?, client_ver=? WHERE token=?"
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	if _, err := seafileDB.ExecContext(ctx, sqlStr, peerID, syncTime, clientVer, token); err != nil {
 		return err
@@ -421,7 +421,7 @@ func GetUploadTmpFile(repoID, filePath string) (string, error) {
 	var tmpFile string
 	sqlStr := "SELECT tmp_file_path FROM WebUploadTempFiles WHERE repo_id = ? AND file_path = ?"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID, filePath)
 	if err := row.Scan(&tmpFile); err != nil {
@@ -449,7 +449,7 @@ func AddUploadTmpFile(repoID, filePath, tmpFile string) error {
 
 	sqlStr := "INSERT INTO WebUploadTempFiles (repo_id, file_path, tmp_file_path) VALUES (?, ?, ?)"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	_, err := seafileDB.ExecContext(ctx, sqlStr, repoID, filePath, tmpFile)
 	if err != nil {
@@ -471,7 +471,7 @@ func DelUploadTmpFile(repoID, filePath string) error {
 
 	sqlStr := "DELETE FROM WebUploadTempFiles WHERE repo_id = ? AND file_path IN (?, ?)"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	_, err := seafileDB.ExecContext(ctx, sqlStr, repoID, filePath, filePathNoSlash)
 	if err != nil {
@@ -486,7 +486,7 @@ func setRepoCommitToDb(repoID, repoName string, updateTime int64, version int, i
 	var encrypted int
 
 	sqlStr := "SELECT 1 FROM RepoInfo WHERE repo_id=?"
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&exists); err != nil {
@@ -522,7 +522,7 @@ func setRepoCommitToDb(repoID, repoName string, updateTime int64, version int, i
 // SetVirtualRepoBaseCommitPath updates the table of VirtualRepo.
 func SetVirtualRepoBaseCommitPath(repoID, baseCommitID, newPath string) error {
 	sqlStr := "UPDATE VirtualRepo SET base_commit=?, path=? WHERE repo_id=?"
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	if _, err := seafileDB.ExecContext(ctx, sqlStr, baseCommitID, newPath, repoID); err != nil {
 		return err
@@ -536,7 +536,7 @@ func GetVirtualRepoIDsByOrigin(repoID string) ([]string, error) {
 
 	var id string
 	var ids []string
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row, err := seafileDB.QueryContext(ctx, sqlStr, repoID)
 	if err != nil {
@@ -563,7 +563,7 @@ func DelVirtualRepo(repoID string, cloudMode bool) error {
 		return err
 	}
 	sqlStr := "DELETE FROM VirtualRepo WHERE repo_id = ?"
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	_, err = seafileDB.ExecContext(ctx, sqlStr, repoID)
 	if err != nil {
@@ -575,7 +575,7 @@ func DelVirtualRepo(repoID string, cloudMode bool) error {
 
 func removeVirtualRepoOndisk(repoID string, cloudMode bool) error {
 	sqlStr := "DELETE FROM Repo WHERE repo_id = ?"
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	_, err := seafileDB.ExecContext(ctx, sqlStr, repoID)
 	if err != nil {
@@ -679,7 +679,7 @@ func IsVirtualRepo(repoID string) (bool, error) {
 	var exists int
 	sqlStr := "SELECT 1 FROM VirtualRepo WHERE repo_id = ?"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&exists); err != nil {
@@ -697,7 +697,7 @@ func GetRepoOwner(repoID string) (string, error) {
 	var owner string
 	sqlStr := "SELECT owner_id FROM RepoOwner WHERE repo_id=?"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&owner); err != nil {

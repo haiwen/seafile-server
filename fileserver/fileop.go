@@ -1852,7 +1852,7 @@ func updateBranch(repoID, newCommitID, oldCommitID, secondParentID string) error
 		sqlStr = "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ?"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	trans, err := seafileDB.BeginTx(ctx, nil)
 	if err != nil {

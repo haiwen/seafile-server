@@ -63,7 +63,7 @@ var (
 	LogLevel string
 
 	// DB default timeout
-	DefaultTimeout time.Duration
+	DBOpTimeout time.Duration
 )
 
 func initDefaultOptions() {
@@ -77,7 +77,7 @@ func initDefaultOptions() {
 	DefaultQuota = InfiniteQuota
 	FsCacheLimit = 2 << 30
 	FsIdListRequestTimeout = -1
-	DefaultTimeout = 60 * time.Second
+	DBOpTimeout = 60 * time.Second
 }
 
 func LoadFileServerOptions(centralDir string) {

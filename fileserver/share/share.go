@@ -72,7 +72,7 @@ func checkVirtualRepoPerm(repoID, originRepoID, user, vPath string) string {
 }
 
 func getUserGroups(sqlStr string, args ...interface{}) ([]group, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	rows, err := ccnetDB.QueryContext(ctx, sqlStr, args...)
 	if err != nil {
@@ -152,7 +152,7 @@ func getGroupsByUser(userName string, returnAncestors bool) ([]group, error) {
 
 func getGroupPaths(sqlStr string) (string, error) {
 	var paths string
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	rows, err := ccnetDB.QueryContext(ctx, sqlStr)
 	if err != nil {
@@ -196,7 +196,7 @@ func checkGroupPermByUser(repoID string, userName string) (string, error) {
 	}
 	sqlBuilder.WriteString(")")
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	rows, err := seafileDB.QueryContext(ctx, sqlBuilder.String(), repoID)
 	if err != nil {
@@ -228,7 +228,7 @@ func checkGroupPermByUser(repoID string, userName string) (string, error) {
 
 func checkSharedRepoPerm(repoID string, email string) (string, error) {
 	sqlStr := "SELECT permission FROM SharedRepo WHERE repo_id=? AND to_email=?"
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID, email)
 
@@ -244,7 +244,7 @@ func checkSharedRepoPerm(repoID string, email string) (string, error) {
 
 func checkInnerPubRepoPerm(repoID string) (string, error) {
 	sqlStr := "SELECT permission FROM InnerPubRepo WHERE repo_id=?"
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 
@@ -298,7 +298,7 @@ func getSharedDirsToUser(originRepoID string, toEmail string) (map[string]string
 	sqlStr := "SELECT v.path, s.permission FROM SharedRepo s, VirtualRepo v WHERE " +
 		"s.repo_id = v.repo_id AND s.to_email = ? AND v.origin_repo = ?"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	rows, err := seafileDB.QueryContext(ctx, sqlStr, toEmail, originRepoID)
 	if err != nil {
@@ -356,7 +356,7 @@ func getSharedDirsToGroup(originRepoID string, groups []group) (map[string]strin
 		"s.repo_id = v.repo_id AND v.origin_repo = ? "+
 		"AND s.group_id in (%s)", groupIDs)
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	rows, err := seafileDB.QueryContext(ctx, sqlStr, originRepoID)
 	if err != nil {
@@ -444,7 +444,7 @@ func GetReposByOwner(email string) ([]*SharedRepo, error) {
 		"v.repo_id IS NULL " +
 		"ORDER BY i.update_time DESC, o.repo_id"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
@@ -501,7 +501,7 @@ func ListInnerPubRepos() ([]*SharedRepo, error) {
 		"WHERE InnerPubRepo.repo_id=RepoOwner.repo_id AND " +
 		"InnerPubRepo.repo_id = Branch.repo_id AND Branch.name = 'master'"
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
@@ -572,7 +572,7 @@ func ListShareRepos(email, columnType string) ([]*SharedRepo, error) {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
@@ -654,7 +654,7 @@ func GetGroupReposByUser(user string, orgID int) ([]*SharedRepo, error) {
 	}
 	sqlBuilder.WriteString(" ) ORDER BY group_id")
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	rows, err := seafileDB.QueryContext(ctx, sqlBuilder.String())
 	if err != nil {

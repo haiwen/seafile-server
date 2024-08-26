@@ -123,7 +123,7 @@ func computeRepoSize(args ...interface{}) error {
 }
 
 func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) error {
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	trans, err := seafileDB.BeginTx(ctx, nil)
 	if err != nil {
@@ -201,7 +201,7 @@ func getOldRepoInfo(repoID string) (*RepoInfo, error) {
 		"s.repo_id=f.repo_id WHERE s.repo_id=?"
 
 	repoInfo := new(RepoInfo)
-	ctx, cancel := context.WithTimeout(context.Background(), option.DefaultTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&repoInfo.HeadID, &repoInfo.Size, &repoInfo.FileCount); err != nil {
