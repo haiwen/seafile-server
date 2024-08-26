@@ -1160,8 +1160,11 @@ func checkPermission(repoID, user, op string, skipCache bool) *appError {
 func validateToken(r *http.Request, repoID string, skipCache bool) (string, *appError) {
 	token := r.Header.Get("Seafile-Repo-Token")
 	if token == "" {
-		msg := "token is null"
-		return "", &appError{nil, msg, http.StatusBadRequest}
+		token = utils.GetAuthorizationToken(r.Header)
+		if token == "" {
+			msg := "token is null"
+			return "", &appError{nil, msg, http.StatusBadRequest}
+		}
 	}
 
 	if value, ok := tokenCache.Load(token); ok {

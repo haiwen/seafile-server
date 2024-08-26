@@ -494,3 +494,29 @@ out:
     return jwt_token;
 }
 #endif
+
+char *
+seaf_parse_auth_token (const char *auth_token)
+{
+    char *token = NULL;
+    char **parts = NULL;
+
+    if (!auth_token) {
+        return NULL;
+    }
+
+    parts = g_strsplit (auth_token, " ", 2);
+    if (!parts) {
+        return NULL;
+    }
+
+    if (g_strv_length (parts) < 2) {
+        g_strfreev (parts);
+        return NULL;
+    }
+
+    token = g_strdup(parts[1]);
+
+    g_strfreev (parts);
+    return token;
+}
