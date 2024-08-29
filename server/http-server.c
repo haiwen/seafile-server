@@ -235,11 +235,17 @@ validate_token (HttpServer *htp_server, evhtp_request_t *req,
 {
     char *email = NULL;
     TokenInfo *token_info;
+    char *tmp_token = NULL;
 
     const char *token = evhtp_kv_find (req->headers_in, "Seafile-Repo-Token");
     if (token == NULL) {
-        evhtp_send_reply (req, EVHTP_RES_BADREQ);
-        return EVHTP_RES_BADREQ;
+        const char *auth_token = evhtp_kv_find (req->headers_in, "Authorization");
+        tmp_token = seaf_parse_auth_token (auth_token);
+        if (tmp_token == NULL) {
+            evhtp_send_reply (req, EVHTP_RES_BADREQ);
+            return EVHTP_RES_BADREQ;
+        }
+        token = tmp_token;
     }
 
     if (!skip_cache) {
@@ -249,12 +255,14 @@ validate_token (HttpServer *htp_server, evhtp_request_t *req,
         if (token_info) {
             if (strcmp (token_info->repo_id, repo_id) != 0) {
                 pthread_mutex_unlock (&htp_server->token_cache_lock);
+                g_free (tmp_token);
                 return EVHTP_RES_FORBIDDEN;
             }
 
             if (username)
                 *username = g_strdup(token_info->email);
             pthread_mutex_unlock (&htp_server->token_cache_lock);
+            g_free (tmp_token);
             return EVHTP_RES_OK;
         }
 
@@ -267,6 +275,7 @@ validate_token (HttpServer *htp_server, evhtp_request_t *req,
         pthread_mutex_lock (&htp_server->token_cache_lock);
         g_hash_table_remove (htp_server->token_cache, token);
         pthread_mutex_unlock (&htp_server->token_cache_lock);
+        g_free (tmp_token);
         return EVHTP_RES_FORBIDDEN;
     }
 
@@ -281,6 +290,7 @@ validate_token (HttpServer *htp_server, evhtp_request_t *req,
 
     if (username)
         *username = g_strdup(email);
+    g_free (tmp_token);
     return EVHTP_RES_OK;
 }
 

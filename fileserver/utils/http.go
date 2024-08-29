@@ -5,9 +5,19 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 var HttpReqContext, HttpReqCancel = context.WithCancel(context.Background())
+
+func GetAuthorizationToken(h http.Header) string {
+	auth := h.Get("Authorization")
+	splitResult := strings.Split(auth, " ")
+	if len(splitResult) > 1 {
+		return splitResult[1]
+	}
+	return ""
+}
 
 func HttpCommon(method, url string, header map[string][]string, reader io.Reader) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(HttpReqContext, method, url, reader)
