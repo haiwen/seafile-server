@@ -1077,6 +1077,8 @@ static void start_rpc_service (const char *seafile_dir,
         exit (1);
     }
 
+    rpc_server->use_epoll = TRUE;
+
     if (searpc_named_pipe_server_start(rpc_server) < 0) {
         seaf_warning ("Failed to start rpc server.\n");
         exit (1);
