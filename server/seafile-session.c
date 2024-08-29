@@ -107,7 +107,8 @@ load_fileserver_config (SeafileSession *session)
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
-                    const char *ccnet_dir)
+                    const char *ccnet_dir,
+                    const char *private_key)
 {
     char *abs_central_config_dir = NULL;
     char *abs_seafile_dir;
@@ -218,7 +219,11 @@ seafile_session_new(const char *central_config_dir,
         goto onerror;
     }
 
-    load_seahub_private_key (session, abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir);
+    session->seahub_pk = g_strdup (private_key);
+    if (load_seahub_config (session, abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir) < 0) {
+        seaf_warning ("Failed to load seahub config.\n");
+        goto onerror;
+    }
 
     session->cfg_mgr = seaf_cfg_manager_new (session);
     if (!session->cfg_mgr)
