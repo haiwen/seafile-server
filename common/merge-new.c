@@ -71,9 +71,7 @@ merge_conflict_filename (const char *store_id, int version,
         seaf_commit_unref (commit);
     }
 
-    nickname = modifier;
-    if (seaf->seahub_pk)
-        nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
+    nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
 
     conflict_name = gen_conflict_path (filename, nickname, mtime);
 
@@ -104,9 +102,7 @@ merge_conflict_dirname (const char *store_id, int version,
     modifier = g_strdup(commit->creator_name);
     seaf_commit_unref (commit);
 
-    nickname = modifier;
-    if (seaf->seahub_pk)
-        nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
+    nickname = get_nickname_by_modifier (opt->email_to_nickname, modifier);
 
     conflict_name = gen_conflict_path (dirname, nickname, (gint64)time(NULL));
 

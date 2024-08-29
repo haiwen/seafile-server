@@ -48,7 +48,6 @@ struct _SeafileSession {
     GKeyFile            *ccnet_config;
     SeafDB              *db;
     CcnetDB             *ccnet_db;
-    char                *seahub_pk;
     char                *seahub_url;
     ConnectionPool      *seahub_conn_pool;
 

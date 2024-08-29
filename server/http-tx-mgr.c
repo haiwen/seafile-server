@@ -437,48 +437,6 @@ out:
     return nickname;
 }
 
-static char *
-gen_jwt_token ()
-{
-    char *jwt_token = NULL;
-    gint64 now = (gint64)time(NULL);
-
-    jwt_t *jwt = NULL;
-
-    if (!seaf->seahub_pk) {
-        return NULL;
-    }
-
-    int ret = jwt_new (&jwt);
-    if (ret != 0 || jwt == NULL) {
-        seaf_warning ("Failed to create jwt\n");
-        goto out;
-    }
-
-    ret = jwt_add_grant_bool (jwt, "is_internal", TRUE);
-    if (ret != 0) {
-        seaf_warning ("Failed to add is_internal to jwt\n");
-        goto out;
-    }
-
-    ret = jwt_add_grant_int (jwt, "exp", now + 300);
-    if (ret != 0) {
-        seaf_warning ("Failed to add expire time to jwt\n");
-        goto out;
-    }
-    ret = jwt_set_alg (jwt, JWT_ALG_HS256, (unsigned char *)seaf->seahub_pk, strlen(seaf->seahub_pk));
-    if (ret != 0) {
-        seaf_warning ("Failed to set alg\n");
-        goto out;
-    }
-
-    jwt_token = jwt_encode_str (jwt);
-
-out:
-    jwt_free (jwt);
-    return jwt_token;
-}
-
 char *
 http_tx_manager_get_nickname (const char *modifier)
 {
@@ -491,19 +449,12 @@ http_tx_manager_get_nickname (const char *modifier)
     json_t *array = NULL;
     int rsp_status;
     char *req_content = NULL;
-    char *jwt_token = NULL;
     char *rsp_content = NULL;
     char *nickname = NULL;
     gint64 rsp_size;
 
-    jwt_token = gen_jwt_token ();
-    if (!jwt_token) {
-        return NULL;
-    }
-
     conn = connection_pool_get_connection (seaf->seahub_conn_pool);
     if (!conn) {
-        g_free (jwt_token);
         seaf_warning ("Failed to get connection: out of memory.\n");
         return NULL;
     }
@@ -522,13 +473,12 @@ http_tx_manager_get_nickname (const char *modifier)
 
     curl = conn->curl;
     headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
-    token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
     headers = curl_slist_append (headers, token_header);
     headers = curl_slist_append (headers, "Content-Type: application/json");
     g_free (token_header);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
-    ret = http_post_common (curl, seaf->seahub_url, jwt_token, req_content, strlen(req_content),
+    ret = http_post_common (curl, seaf->seahub_url, NULL, req_content, strlen(req_content),
                             &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
     if (ret < 0) {
         conn->release = TRUE;
@@ -543,7 +493,6 @@ http_tx_manager_get_nickname (const char *modifier)
     nickname = parse_nickname (rsp_content, rsp_size);
 
 out:
-    g_free (jwt_token);
     g_free (req_content);
     g_free (rsp_content);
     connection_pool_return_connection (seaf->seahub_conn_pool, conn);

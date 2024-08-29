@@ -386,31 +386,26 @@ load_ccnet_database_config (SeafileSession *session)
 
 #ifdef FULL_FEATURE
 
-void
-load_seahub_private_key (SeafileSession *session, const char *conf_dir)
+int
+load_seahub_config (SeafileSession *session, const char *conf_dir)
 {
     char *conf_path = g_build_filename(conf_dir, "seahub_settings.py", NULL);
     char *data = NULL;
-    GRegex *secret_key_regex = NULL;
     GRegex *site_root_regex = NULL;
     GError *error = NULL;
+    int ret = 0;
 
     FILE *file = fopen(conf_path, "r");
     if (!file) {
+        ret = -1;
         seaf_warning ("Failed to open seahub_settings.py: %s\n", strerror(errno));
-        goto out;
-    }
-
-    secret_key_regex = g_regex_new ("SECRET_KEY\\s*=\\s*'(.+)'", 0, 0, &error);
-    if (error) {
-        g_clear_error (&error);
-        seaf_warning ("Failed to create secret key regex: %s\n", error->message);
         goto out;
     }
 
     site_root_regex = g_regex_new ("SITE_ROOT\\s*=\\s*'(.+)'", 0, 0, &error);
     if (error) {
         g_clear_error (&error);
+        ret = -1;
         seaf_warning ("Failed to create site root regex: %s\n", error->message);
         goto out;
     }
@@ -419,32 +414,25 @@ load_seahub_private_key (SeafileSession *session, const char *conf_dir)
     char *site_root = NULL;
     while (fgets(line, sizeof(line), file)) {
         GMatchInfo *match_info;
-        if (g_regex_match (secret_key_regex, line, 0, &match_info)) {
-            char *sk = g_match_info_fetch (match_info, 1);
-            session->seahub_pk = sk;
-        }
-
         if (g_regex_match (site_root_regex, line, 0, &match_info)) {
             site_root = g_match_info_fetch (match_info, 1);
         }
     }
 
-    if (session->seahub_pk) {
-        if (site_root) {
-            session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal/user-list/", site_root);
-        } else {
-            session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal/user-list/");
-        }
-        session->seahub_conn_pool = connection_pool_new ();
+    if (site_root) {
+        session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal/user-list/", site_root);
+    } else {
+        session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal/user-list/");
     }
+    session->seahub_conn_pool = connection_pool_new ();
 
 out:
-    if (secret_key_regex)
-        g_regex_unref (secret_key_regex);
     if (site_root_regex)
         g_regex_unref (site_root_regex);
     g_free (conf_path);
     g_free (data);
+
+    return ret;
 }
 
 char *
