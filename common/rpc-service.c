@@ -1046,7 +1046,7 @@ retry:
     }
 
     if (repo->pwd_hash_algo) {
-        if (seafile_pwd_hash_verify_repo_passwd (repo_id, old_passwd, repo->salt,
+        if (seafile_pwd_hash_verify_repo_passwd (repo->enc_version, repo_id, old_passwd, repo->salt,
                                                  repo->pwd_hash, repo->pwd_hash_algo, repo->pwd_hash_params) < 0) {
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Incorrect password");
             return -1;
@@ -1072,7 +1072,7 @@ retry:
     char new_magic[65], new_pwd_hash[65], new_random_key[97];
 
     if (repo->pwd_hash_algo) {
-        seafile_generate_pwd_hash (repo_id, new_passwd, repo->salt,
+        seafile_generate_pwd_hash (repo->enc_version, repo_id, new_passwd, repo->salt,
                                    repo->pwd_hash_algo, repo->pwd_hash_params, new_pwd_hash);
     } else {
         seafile_generate_magic (repo->enc_version, repo_id, new_passwd, repo->salt,

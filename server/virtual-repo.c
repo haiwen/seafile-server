@@ -90,7 +90,7 @@ do_create_virtual_repo (SeafRepoManager *mgr,
             if (origin_repo->pwd_hash_params)
                 repo->pwd_hash_params = g_strdup (origin_repo->pwd_hash_params);
             if (repo->pwd_hash_algo) {
-                seafile_generate_pwd_hash (repo_id, passwd, repo->salt,
+                seafile_generate_pwd_hash (repo->enc_version, repo_id, passwd, repo->salt,
                                            repo->pwd_hash_algo, repo->pwd_hash_params, repo->pwd_hash);
                 memcpy (repo->magic, repo->pwd_hash, 32);
             } else
@@ -231,7 +231,8 @@ create_virtual_repo_common (SeafRepoManager *mgr,
         }
 
         if (origin_repo->pwd_hash_algo) {
-            if (seafile_pwd_hash_verify_repo_passwd (origin_repo_id,
+            if (seafile_pwd_hash_verify_repo_passwd (origin_repo->enc_version,
+                                                     origin_repo_id,
                                                      passwd,
                                                      origin_repo->salt,
                                                      origin_repo->pwd_hash,

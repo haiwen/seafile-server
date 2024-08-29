@@ -126,7 +126,7 @@ seaf_passwd_manager_set_passwd (SeafPasswdManager *mgr,
     }
 
     if (repo->pwd_hash_algo) {
-        if (seafile_pwd_hash_verify_repo_passwd (repo->id, passwd, repo->salt,
+        if (seafile_pwd_hash_verify_repo_passwd (repo->enc_version, repo->id, passwd, repo->salt,
                                                  repo->pwd_hash, repo->pwd_hash_algo, repo->pwd_hash_params) < 0) {
             seaf_repo_unref (repo);
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
