@@ -38,7 +38,6 @@ free_progress (Progress *progress)
         g_unlink (progress->zip_file_path);
     }
     g_free (progress->zip_file_path);
-    g_free (progress->zip_file_name);
     g_free (progress);
 }
 
@@ -573,6 +572,7 @@ out:
     return ret;
 }
 
+/*
 #define TOKEN_LEN 36
 static char *
 gen_new_token (GHashTable *token_hash)
@@ -584,7 +584,7 @@ gen_new_token (GHashTable *token_hash)
         gen_uuid_inplace (uuid);
         token = g_strndup(uuid, TOKEN_LEN);
 
-        /* Make sure the new token doesn't conflict with an existing one. */
+        // Make sure the new token doesn't conflict with an existing one.
         if (g_hash_table_lookup (token_hash, token) != NULL)
             g_free (token);
         else
@@ -636,9 +636,8 @@ zip_download_mgr_start_zip_task_v2 (ZipDownloadMgr *mgr,
     }
 
     progress = g_new0 (Progress, 1);
-    /* Set to real total in worker thread. Here to just prevent the client from thinking
-     * the zip has been finished too early.
-     */
+    // Set to real total in worker thread. Here to just prevent the client from thinking
+    // the zip has been finished too early.
     progress->total = 1;
     progress->expire_ts = time(NULL) + PROGRESS_TTL;
     progress->zip_file_name = filename;
@@ -655,6 +654,7 @@ zip_download_mgr_start_zip_task_v2 (ZipDownloadMgr *mgr,
 
     return task_id;
 }
+*/
 
 static Progress *
 get_progress_obj (ZipDownloadMgrPriv *priv, const char *token)
@@ -720,6 +720,7 @@ zip_download_mgr_get_zip_file_path (struct ZipDownloadMgr *mgr,
     return progress->zip_file_path;
 }
 
+/*
 char *
 zip_download_mgr_get_zip_file_name (struct ZipDownloadMgr *mgr,
                                     const char *token)
@@ -732,6 +733,7 @@ zip_download_mgr_get_zip_file_name (struct ZipDownloadMgr *mgr,
     }
     return progress->zip_file_name;
 }
+*/
 
 void
 zip_download_mgr_del_zip_progress (ZipDownloadMgr *mgr,

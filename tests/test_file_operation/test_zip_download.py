@@ -45,7 +45,7 @@ def test_zip_download():
                                             'download-dir', USER)
 
     time.sleep(1)
-    download_url = base_url + 'repos/' + t_repo_id + '/zip/' + token
+    download_url = base_url + 'zip/' + token
     response = requests.get(download_url)
     assert response.status_code == 200
 
@@ -82,7 +82,7 @@ def test_zip_download():
     token = api.get_fileserver_access_token(t_repo_id, obj_id_json_str,
                                             'download-dir', USER)
     time.sleep(1)
-    download_url = base_url + 'repos/' + t_repo_id + '/zip/' + token
+    download_url = base_url + 'zip/' + token
     response = requests.get(download_url)
     assert response.status_code == 200
 
@@ -108,7 +108,7 @@ def test_zip_download():
                                             'download-multi', USER)
 
     time.sleep(1)
-    download_url = base_url + 'repos/' + t_repo_id + '/zip/' + token
+    download_url = base_url + 'zip/' + token
     response = requests.get(download_url)
     assert response.status_code == 200
 

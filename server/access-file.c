@@ -1169,13 +1169,13 @@ access_zip_cb (evhtp_request_t *req, void *arg)
     int error_code;
 
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
-    if (g_strv_length (parts) != 4) {
+    if (g_strv_length (parts) != 2) {
         error = "Invalid URL\n";
         error_code = EVHTP_RES_BADREQ;
         goto out;
     }
 
-    token = parts[3];
+    token = parts[1];
     info = seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
     // Here only check token exist, follow will get zip file path, if zip file path exist
     // then the token is valid, because it pass some validations in zip stage
@@ -1266,6 +1266,7 @@ out:
     }
 }
 
+/*
 static void
 access_zip_link_cb (evhtp_request_t *req, void *arg)
 {
@@ -1295,7 +1296,7 @@ access_zip_link_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
-    info = http_tx_manager_query_access_token (token, "dir");
+    info = http_tx_manager_query_share_link_info (token, "dir");
     if (!info) {
         error = "Access token not found\n";
         error_code = EVHTP_RES_FORBIDDEN;
@@ -1345,6 +1346,7 @@ out:
         evhtp_send_reply(req, error_code);
     }
 }
+*/
 
 static void
 access_cb(evhtp_request_t *req, void *arg)
@@ -1647,6 +1649,7 @@ access_link_cb(evhtp_request_t *req, void *arg)
     char *norm_file_path = NULL;
     const char *repo_id = NULL;
     const char *file_path = NULL;
+    const char *share_type = NULL;
     const char *byte_ranges = NULL;
     int error_code = EVHTP_RES_BADREQ;
 
@@ -1665,27 +1668,35 @@ access_link_cb(evhtp_request_t *req, void *arg)
     if (!parts || g_strv_length (parts) < 2 ||
         strcmp (parts[0], "f") != 0) {
         error_str = "Invalid URL\n";
-        goto on_error;
+        goto out;
     }
 
     token = parts[1];
 
     if (can_use_cached_content (req)) {
-        goto success;
+        error_code = EVHTP_RES_OK;
+        goto out;
     }
 
-    info = http_tx_manager_query_access_token (token, "file");
+    info = http_tx_manager_query_share_link_info (token, "file");
     if (!info) {
-        error_str = "Access token not found\n";
+        error_str = "Link token not found\n";
         error_code = EVHTP_RES_FORBIDDEN;
-        goto on_error;
+        goto out;
     }
 
     repo_id = seafile_share_link_info_get_repo_id (info);
     file_path = seafile_share_link_info_get_file_path (info);
     if (!file_path) {
-        error_str = "Invalid file_path\n";
-        goto on_error;
+        error_str = "Internal server error\n";
+        error_code = EVHTP_RES_SERVERR;
+        seaf_warning ("Failed to get file_path by token %s\n", token);
+        goto out;
+    }
+    share_type = seafile_share_link_info_get_share_type (info);
+    if (g_strcmp0 (share_type, "f") != 0) {
+        error_str = "Link type mismatch";
+        goto out;
     }
 
     norm_file_path = normalize_utf8_path(file_path);
@@ -1695,7 +1706,7 @@ access_link_cb(evhtp_request_t *req, void *arg)
     repo = seaf_repo_manager_get_repo(seaf->repo_mgr, repo_id);
     if (!repo) {
         error_str = "Bad repo id\n";
-        goto on_error;
+        goto out;
     }
     user = seaf_repo_manager_get_repo_owner (seaf->repo_mgr, repo_id);
 
@@ -1704,7 +1715,7 @@ access_link_cb(evhtp_request_t *req, void *arg)
         error_str = "Invalid file_path\n";
         if (error)
             g_clear_error(&error);
-        goto on_error;
+        goto out;
     }
 
     set_etag (req, file_id);
@@ -1716,45 +1727,31 @@ access_link_cb(evhtp_request_t *req, void *arg)
                                                    repo_id, user);
         if (!key) {
             error_str = "Repo is encrypted. Please provide password to view it.";
-            goto on_error;
+            goto out;
         }
     }
 
     if (!seaf_fs_manager_object_exists (seaf->fs_mgr,
                                         repo->store_id, repo->version, file_id)) {
         error_str = "Invalid file id\n";
-        goto on_error;
+        goto out;
     }
 
     if (!repo->encrypted && byte_ranges) {
         if (do_file_range (req, repo, file_id, filename, "download-link", byte_ranges, user) < 0) {
             error_str = "Internal server error\n";
             error_code = EVHTP_RES_SERVERR;
-            goto on_error;
+            goto out;
         }
     } else if (do_file(req, repo, file_id, filename, "download-link", key, user) < 0) {
         error_str = "Internal server error\n";
         error_code = EVHTP_RES_SERVERR;
-        goto on_error;
+        goto out;
     }
 
-success:
-    g_strfreev (parts);
-    g_free (user);
-    g_free (norm_file_path);
-    g_free (rpath);
-    g_free (filename);
-    g_free (file_id);
-    if (repo != NULL)
-        seaf_repo_unref (repo);
-    if (key != NULL)
-        g_object_unref (key);
-    if (info)
-        g_object_unref (info);
+    error_code = EVHTP_RES_OK;
 
-    return;
-
-on_error:
+out:
     g_strfreev (parts);
     g_free (user);
     g_free (norm_file_path);
@@ -1768,8 +1765,10 @@ on_error:
     if (info != NULL)
         g_object_unref (info);
 
-    evbuffer_add_printf(req->buffer_out, "%s\n", error_str);
-    evhtp_send_reply(req, error_code);
+    if (error_code != EVHTP_RES_OK) {
+        evbuffer_add_printf(req->buffer_out, "%s\n", error_str);
+        evhtp_send_reply(req, error_code);
+    }
 }
 
 static GList *
@@ -1883,6 +1882,7 @@ get_form_field (const char *body_str, const char *field_name)
     return result;
 }
 
+/*
 static void
 access_dir_link_cb(evhtp_request_t *req, void *arg)
 {
@@ -1914,7 +1914,7 @@ access_dir_link_cb(evhtp_request_t *req, void *arg)
         return;
     }
 
-    /* Skip the first '/'. */
+    // Skip the first '/'.
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     if (!parts || g_strv_length (parts) < 2 ||
         strcmp (parts[0], "d") != 0) {
@@ -1944,9 +1944,9 @@ access_dir_link_cb(evhtp_request_t *req, void *arg)
         goto success;
     }
 
-    info = http_tx_manager_query_access_token (token, "dir");
+    info = http_tx_manager_query_share_link_info (token, "dir");
     if (!info) {
-        error_str = "Access token not found\n";
+        error_str = "Link token not found\n";
         error_code = EVHTP_RES_FORBIDDEN;
         goto on_error;
     }
@@ -2104,16 +2104,16 @@ on_error:
     evbuffer_add_printf(req->buffer_out, "%s\n", error_str);
     evhtp_send_reply(req, error_code);
 }
+*/
 
 int
 access_file_init (evhtp_t *htp)
 {
     evhtp_set_regex_cb (htp, "^/files/.*", access_cb, NULL);
     evhtp_set_regex_cb (htp, "^/blks/.*", access_blks_cb, NULL);
-    evhtp_set_regex_cb (htp, "^/zip/.*", access_zip_link_cb, NULL);
-    evhtp_set_regex_cb (htp, "^/repos/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/zip/.*", access_zip_cb, NULL);
+    evhtp_set_regex_cb (htp, "^/zip/.*", access_zip_cb, NULL);
     evhtp_set_regex_cb (htp, "^/f/.*", access_link_cb, NULL);
-    evhtp_set_regex_cb (htp, "^/d/.*", access_dir_link_cb, NULL);
+    //evhtp_set_regex_cb (htp, "^/d/.*", access_dir_link_cb, NULL);
 
     return 0;
 }

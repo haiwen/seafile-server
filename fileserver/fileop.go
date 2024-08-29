@@ -648,11 +648,11 @@ func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusNotFound}
 	}
 	parts := strings.Split(r.URL.Path[1:], "/")
-	if len(parts) != 4 {
+	if len(parts) != 2 {
 		msg := "Invalid URL"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
-	token := parts[3]
+	token := parts[1]
 
 	accessInfo, err := parseWebaccessInfo(token)
 	if err != nil {
@@ -683,11 +683,6 @@ func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	return nil
-}
-
-// Go don't need the zip API.
-func accessZipLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
-	return &appError{nil, "", http.StatusNotFound}
 }
 
 func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, user, op string) *appError {
@@ -3423,6 +3418,7 @@ func indexRawBlocks(repoID string, blockIDs []string, fileHeaders []*multipart.F
 	return nil
 }
 
+/*
 func uploadLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if seahubPK == "" {
 		err := fmt.Errorf("no seahub private key is configured")
@@ -3460,7 +3456,7 @@ func parseUploadLinkHeaders(r *http.Request) (*recvData, *appError) {
 	}
 	token := parts[1][:tokenLen]
 
-	info, appErr := queryAccessToken(token, "upload")
+	info, appErr := queryShareLinkInfo(token, "upload")
 	if appErr != nil {
 		return nil, appErr
 	}
@@ -3496,14 +3492,16 @@ func parseUploadLinkHeaders(r *http.Request) (*recvData, *appError) {
 
 	return fsm, nil
 }
+*/
 
 type ShareLinkInfo struct {
 	RepoID    string `json:"repo_id"`
 	FilePath  string `json:"file_path"`
 	ParentDir string `json:"parent_dir"`
+	ShareType string `json:"share_type"`
 }
 
-func queryAccessToken(token, opType string) (*ShareLinkInfo, *appError) {
+func queryShareLinkInfo(token, opType string) (*ShareLinkInfo, *appError) {
 	claims := SeahubClaims{
 		time.Now().Add(time.Second * 300).Unix(),
 		true,
@@ -3526,7 +3524,7 @@ func queryAccessToken(token, opType string) (*ShareLinkInfo, *appError) {
 		return nil, &appError{err, "", http.StatusInternalServerError}
 	}
 	if status != http.StatusOK {
-		msg := "Access token not found"
+		msg := "Link token not found"
 		return nil, &appError{nil, msg, http.StatusForbidden}
 	}
 
@@ -3552,13 +3550,18 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 	token := parts[1]
-	info, appErr := queryAccessToken(token, "file")
+	info, appErr := queryShareLinkInfo(token, "file")
 	if appErr != nil {
 		return appErr
 	}
 
 	if info.FilePath == "" {
-		msg := "Invalid file_path\n"
+		msg := "Internal server error\n"
+		err := fmt.Errorf("failed to get file_path by token %s", token)
+		return &appError{err, msg, http.StatusInternalServerError}
+	}
+	if info.ShareType != "f" {
+		msg := "Link type mismatch"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
@@ -3619,6 +3622,7 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
+/*
 func accessDirLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if seahubPK == "" {
 		err := fmt.Errorf("no seahub private key is configured")
@@ -3631,7 +3635,7 @@ func accessDirLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 	token := parts[1]
-	info, appErr := queryAccessToken(token, "dir")
+	info, appErr := queryShareLinkInfo(token, "dir")
 	if appErr != nil {
 		return appErr
 	}
@@ -3785,6 +3789,7 @@ func jsonToDirentList(repo *repomgr.Repo, parentDir, dirents string) ([]*fsmgr.S
 
 	return direntList, nil
 }
+*/
 
 func removeFileopExpireCache() {
 	deleteBlockMaps := func(key interface{}, value interface{}) bool {

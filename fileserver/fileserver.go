@@ -508,7 +508,7 @@ func newHTTPRouter() *mux.Router {
 	r.HandleFunc("/protocol-version{slash:\\/?}", handleProtocolVersion)
 	r.Handle("/files/{.*}/{.*}", appHandler(accessCB))
 	r.Handle("/blks/{.*}/{.*}", appHandler(accessBlksCB))
-	r.Handle("/zip/{.*}", appHandler(accessZipLinkCB))
+	r.Handle("/zip/{.*}", appHandler(accessZipCB))
 	r.Handle("/upload-api/{.*}", appHandler(uploadAPICB))
 	r.Handle("/upload-aj/{.*}", appHandler(uploadAjaxCB))
 	r.Handle("/update-api/{.*}", appHandler(updateAPICB))
@@ -517,10 +517,9 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/upload-raw-blks-api/{.*}", appHandler(uploadRawBlksAPICB))
 
 	// links api
-	r.Handle("/u/{.*}", appHandler(uploadLinkCB))
+	//r.Handle("/u/{.*}", appHandler(uploadLinkCB))
 	r.Handle("/f/{.*}", appHandler(accessLinkCB))
-	r.Handle("/d/{.*}", appHandler(accessDirLinkCB))
-	r.Handle("/repos/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/zip/{.*}", appHandler(accessZipCB))
+	//r.Handle("/d/{.*}", appHandler(accessDirLinkCB))
 
 	// file syncing api
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check{slash:\\/?}",

@@ -549,6 +549,7 @@ parse_share_link_info (const char *rsp_content, int rsp_size)
     const char *repo_id = NULL;
     const char *file_path = NULL;
     const char *parent_dir = NULL;
+    const char *share_type = NULL;
     SeafileShareLinkInfo *info = NULL;
 
     object = json_loadb (rsp_content, rsp_size, 0, &jerror);
@@ -564,11 +565,13 @@ parse_share_link_info (const char *rsp_content, int rsp_size)
     }
     file_path = json_object_get_string_member (object, "file_path");
     parent_dir = json_object_get_string_member (object, "parent_dir");
+    share_type = json_object_get_string_member (object, "share_type");
 
     info = g_object_new (SEAFILE_TYPE_SHARE_LINK_INFO,
                          "repo_id", repo_id,
                          "file_path", file_path,
                          "parent_dir", parent_dir,
+                         "share_type", share_type,
                          NULL);
 
 out:
@@ -577,7 +580,7 @@ out:
 }
 
 SeafileShareLinkInfo *
-http_tx_manager_query_access_token (const char *token, const char *type)
+http_tx_manager_query_share_link_info (const char *token, const char *type)
 {
     Connection *conn = NULL;
     char *token_header;

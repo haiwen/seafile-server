@@ -1810,11 +1810,13 @@ out:
     return;
 }
 
+/*
 static void
 upload_link_cb(evhtp_request_t *req, void *arg)
 {
     return upload_api_cb (req, arg);
 }
+*/
 
 static evhtp_res
 upload_finish_cb (evhtp_request_t *req, void *arg)
@@ -2647,6 +2649,7 @@ err:
     return EVHTP_RES_OK;
 }
 
+/*
 static evhtp_res
 upload_link_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
 {
@@ -2746,9 +2749,9 @@ upload_link_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     fsm->line = evbuffer_new ();
     fsm->form_kvs = g_hash_table_new_full (g_str_hash, g_str_equal,
                                            g_free, g_free);
-    /* const char *need_idx_progress = evhtp_kv_find (req->uri->query, "need_idx_progress"); */
-    /* if (g_strcmp0(need_idx_progress, "true") == 0) */
-    /*     fsm->need_idx_progress = TRUE; */
+    // const char *need_idx_progress = evhtp_kv_find (req->uri->query, "need_idx_progress");
+    // if (g_strcmp0(need_idx_progress, "true") == 0) 
+    //     fsm->need_idx_progress = TRUE; 
     fsm->need_idx_progress = FALSE;
 
     if (progress_id != NULL) {
@@ -2762,10 +2765,10 @@ upload_link_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
         pthread_mutex_unlock (&pg_lock);
     }
 
-    /* Set up per-request hooks, so that we can read file data piece by piece. */
+    // Set up per-request hooks, so that we can read file data piece by piece.
     evhtp_set_hook (&req->hooks, evhtp_hook_on_read, upload_read_cb, fsm);
     evhtp_set_hook (&req->hooks, evhtp_hook_on_request_fini, upload_finish_cb, fsm);
-    /* Set arg for upload_cb or update_cb. */
+    // Set arg for upload_cb or update_cb.
     req->cbarg = fsm;
 
     g_free (norm_parent_dir);
@@ -2775,12 +2778,11 @@ upload_link_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     return EVHTP_RES_OK;
 
 err:
-    /* Don't receive any data before the connection is closed. */
-    //evhtp_request_pause (req);
+    // Don't receive any data before the connection is closed.
+    // evhtp_request_pause (req);
 
-    /* Set keepalive to 0. This will cause evhtp to close the
-     * connection after sending the reply.
-     */
+    // Set keepalive to 0. This will cause evhtp to close the
+    // connection after sending the reply.
     req->keepalive = 0;
     send_error_reply (req, error_code, err_msg);
 
@@ -2794,6 +2796,7 @@ err:
         g_object_unref (info);
     return EVHTP_RES_OK;
 }
+*/
 
 static void
 idx_progress_cb(evhtp_request_t *req, void *arg)
@@ -2912,8 +2915,8 @@ upload_file_init (evhtp_t *htp, const char *http_temp_dir)
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_headers_cb, NULL);
 
     // upload links
-    cb = evhtp_set_regex_cb (htp, "^/u/.*", upload_link_cb, NULL);
-    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_link_headers_cb, NULL);
+    // cb = evhtp_set_regex_cb (htp, "^/u/.*", upload_link_cb, NULL);
+    //evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, upload_link_headers_cb, NULL);
 
     evhtp_set_regex_cb (htp, "^/upload_progress.*", upload_progress_cb, NULL);
 
