@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/workerpool"
 	log "github.com/sirupsen/logrus"
@@ -121,7 +123,9 @@ func computeRepoSize(args ...interface{}) error {
 }
 
 func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) error {
-	trans, err := seafileDB.Begin()
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
+	defer cancel()
+	trans, err := seafileDB.BeginTx(ctx, nil)
 	if err != nil {
 		err := fmt.Errorf("failed to start transaction: %v", err)
 		return err
@@ -130,7 +134,7 @@ func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) er
 	var headID string
 	sqlStr := "SELECT head_id FROM RepoSize WHERE repo_id=?"
 
-	row := trans.QueryRow(sqlStr, repoID)
+	row := trans.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&headID); err != nil {
 		if err != sql.ErrNoRows {
 			trans.Rollback()
@@ -140,14 +144,14 @@ func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) er
 
 	if headID == "" {
 		sqlStr := "INSERT INTO RepoSize (repo_id, size, head_id) VALUES (?, ?, ?)"
-		_, err = trans.Exec(sqlStr, repoID, size, newHeadID)
+		_, err = trans.ExecContext(ctx, sqlStr, repoID, size, newHeadID)
 		if err != nil {
 			trans.Rollback()
 			return err
 		}
 	} else {
 		sqlStr = "UPDATE RepoSize SET size = ?, head_id = ? WHERE repo_id = ?"
-		_, err = trans.Exec(sqlStr, size, newHeadID, repoID)
+		_, err = trans.ExecContext(ctx, sqlStr, size, newHeadID, repoID)
 		if err != nil {
 			trans.Rollback()
 			return err
@@ -156,7 +160,7 @@ func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) er
 
 	var exist int
 	sqlStr = "SELECT 1 FROM RepoFileCount WHERE repo_id=?"
-	row = trans.QueryRow(sqlStr, repoID)
+	row = trans.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&exist); err != nil {
 		if err != sql.ErrNoRows {
 			trans.Rollback()
@@ -166,14 +170,14 @@ func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) er
 
 	if exist != 0 {
 		sqlStr := "UPDATE RepoFileCount SET file_count=? WHERE repo_id=?"
-		_, err = trans.Exec(sqlStr, fileCount, repoID)
+		_, err = trans.ExecContext(ctx, sqlStr, fileCount, repoID)
 		if err != nil {
 			trans.Rollback()
 			return err
 		}
 	} else {
 		sqlStr := "INSERT INTO RepoFileCount (repo_id,file_count) VALUES (?,?)"
-		_, err = trans.Exec(sqlStr, repoID, fileCount)
+		_, err = trans.ExecContext(ctx, sqlStr, repoID, fileCount)
 		if err != nil {
 			trans.Rollback()
 			return err
@@ -197,7 +201,9 @@ func getOldRepoInfo(repoID string) (*RepoInfo, error) {
 		"s.repo_id=f.repo_id WHERE s.repo_id=?"
 
 	repoInfo := new(RepoInfo)
-	row := seafileDB.QueryRow(sqlStr, repoID)
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
+	defer cancel()
+	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&repoInfo.HeadID, &repoInfo.Size, &repoInfo.FileCount); err != nil {
 		if err != sql.ErrNoRows {
 			return nil, err
