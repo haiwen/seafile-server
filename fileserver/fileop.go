@@ -3574,10 +3574,6 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, "", http.StatusNotModified}
 	}
 
-	now := time.Now()
-	rsp.Header().Set("Last-Modified", now.Format("Mon, 2 Jan 2006 15:04:05 GMT"))
-	rsp.Header().Set("Cache-Control", "max-age=3600")
-
 	ranges := r.Header["Range"]
 	byteRanges := strings.Join(ranges, "")
 
@@ -3594,7 +3590,14 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		msg := "Invalid file_path\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
+
+	etag := r.Header.Get("If-None-Match")
+	if etag == fileID {
+		return &appError{nil, "", http.StatusNotModified}
+	}
+
 	rsp.Header().Set("ETag", fileID)
+	rsp.Header().Set("Cache-Control", "no-chche")
 
 	var cryptKey *seafileCrypt
 	if repo.IsEncrypted {

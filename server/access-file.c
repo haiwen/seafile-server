@@ -1673,11 +1673,6 @@ access_link_cb(evhtp_request_t *req, void *arg)
 
     token = parts[1];
 
-    if (can_use_cached_content (req)) {
-        error_code = EVHTP_RES_OK;
-        goto out;
-    }
-
     info = http_tx_manager_query_share_link_info (token, "file");
     if (!info) {
         error_str = "Link token not found\n";
@@ -1718,6 +1713,12 @@ access_link_cb(evhtp_request_t *req, void *arg)
         goto out;
     }
 
+    const char *etag = evhtp_kv_find (req->headers_in, "If-None-Match");
+    if (g_strcmp0 (etag, file_id) == 0) {
+        evhtp_send_reply (req, EVHTP_RES_NOTMOD);
+        error_code = EVHTP_RES_OK;
+        goto out;
+    }
     set_etag (req, file_id);
 
     byte_ranges = evhtp_kv_find (req->headers_in, "Range");
