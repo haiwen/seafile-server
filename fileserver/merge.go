@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/utils"
@@ -381,9 +380,8 @@ func getNickNameByModifier(emailToNickname map[string]string, modifier string) s
 	if ok {
 		return nickname
 	}
-	if seahubPK != "" {
-		nickname = postGetNickName(modifier)
-	}
+
+	nickname = postGetNickName(modifier)
 
 	if nickname == "" {
 		nickname = modifier
@@ -394,32 +392,9 @@ func getNickNameByModifier(emailToNickname map[string]string, modifier string) s
 	return nickname
 }
 
-type SeahubClaims struct {
-	Exp        int64
-	IsInternal bool `json:"is_internal"`
-	jwt.RegisteredClaims
-}
-
-func (*SeahubClaims) Valid() error {
-	return nil
-}
-
 func postGetNickName(modifier string) string {
-	claims := SeahubClaims{
-		time.Now().Add(time.Second * 300).Unix(),
-		true,
-		jwt.RegisteredClaims{},
-	}
-
-	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
-	tokenString, err := token.SignedString([]byte(seahubPK))
-	if err != nil {
-		return ""
-	}
-
 	header := map[string][]string{
-		"Authorization": {"Token " + tokenString},
-		"Content-Type":  {"application/json"},
+		"Content-Type": {"application/json"},
 	}
 
 	data, err := json.Marshal(map[string]interface{}{
