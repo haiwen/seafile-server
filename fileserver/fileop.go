@@ -643,10 +643,6 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 }
 
 func accessZipCB(rsp http.ResponseWriter, r *http.Request) *appError {
-	if seahubPK == "" {
-		err := fmt.Errorf("no seahub private key is configured")
-		return &appError{err, "", http.StatusNotFound}
-	}
 	parts := strings.Split(r.URL.Path[1:], "/")
 	if len(parts) != 2 {
 		msg := "Invalid URL"
@@ -3570,10 +3566,6 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	fileName := filepath.Base(filePath)
 	op := "download-link"
 
-	if _, ok := r.Header["If-Modified-Since"]; ok {
-		return &appError{nil, "", http.StatusNotModified}
-	}
-
 	ranges := r.Header["Range"]
 	byteRanges := strings.Join(ranges, "")
 
@@ -3591,13 +3583,14 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	// Check for file changes by comparing the ETag in the If-None-Match header with the file ID. Set no-cache to allow clients to validate file changes before using the cache.
 	etag := r.Header.Get("If-None-Match")
 	if etag == fileID {
 		return &appError{nil, "", http.StatusNotModified}
 	}
 
 	rsp.Header().Set("ETag", fileID)
-	rsp.Header().Set("Cache-Control", "no-chche")
+	rsp.Header().Set("Cache-Control", "no-cache")
 
 	var cryptKey *seafileCrypt
 	if repo.IsEncrypted {

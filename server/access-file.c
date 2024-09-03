@@ -1119,6 +1119,15 @@ set_etag (evhtp_request_t *req,
     evhtp_kvs_add_kv (req->headers_out, kv);
 }
 
+static void
+set_no_cache (evhtp_request_t *req)
+{
+    evhtp_kv_t *kv;
+
+    kv = evhtp_kv_new ("Cache-Control", "no-cache", 1, 1);
+    evhtp_kvs_add_kv (req->headers_out, kv);
+}
+
 static gboolean
 can_use_cached_content (evhtp_request_t *req)
 {
@@ -1720,6 +1729,7 @@ access_link_cb(evhtp_request_t *req, void *arg)
         goto out;
     }
     set_etag (req, file_id);
+    set_no_cache (req);
 
     byte_ranges = evhtp_kv_find (req->headers_in, "Range");
 
@@ -1772,6 +1782,7 @@ out:
     }
 }
 
+/*
 static GList *
 json_to_dirent_list (SeafRepo *repo, const char *parent_dir, const char *dirents)
 {
@@ -1882,6 +1893,7 @@ get_form_field (const char *body_str, const char *field_name)
     g_free (value);
     return result;
 }
+*/
 
 /*
 static void
