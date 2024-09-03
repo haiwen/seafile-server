@@ -266,39 +266,31 @@ func loadSeafileDB() {
 	dbType = dbEngine
 }
 
-func loadSeahubPK() {
+func loadSeahubConfig() error {
+	seahubPK = os.Getenv("JWT_PRIVATE_KEY")
+	if seahubPK == "" {
+		return fmt.Errorf("failed to read JWT_PRIVATE_KEY")
+	}
 	confPath := filepath.Join(centralDir, "seahub_settings.py")
 
 	file, err := os.Open(confPath)
 	if err != nil {
-		log.Warnf("Failed to open seahub_settings.py: %v", err)
-		return
+		return fmt.Errorf("Failed to open seahub_settings.py: %v", err)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 
-	pkExp := "SECRET_KEY\\s*=\\s*'([^']*)'"
-	pkRe, err := regexp.Compile(pkExp)
-	if err != nil {
-		log.Warnf("Failed to compile regex: %v", err)
-		return
-	}
 	siteRootExpr := "SITE_ROOT\\s*=\\s*'([^']*)'"
 	siteRootRe, err := regexp.Compile(siteRootExpr)
 	if err != nil {
-		log.Warnf("Failed to compile regex: %v", err)
-		return
+		return fmt.Errorf("Failed to compile regex: %v", err)
 	}
 
 	siteRoot := ""
 	for scanner.Scan() {
 		line := scanner.Text()
-		matches := pkRe.FindStringSubmatch(line)
-		if matches != nil {
-			seahubPK = matches[1]
-		}
-		matches = siteRootRe.FindStringSubmatch(line)
+		matches := siteRootRe.FindStringSubmatch(line)
 		if matches != nil {
 			siteRoot = matches[1]
 		}
@@ -306,11 +298,10 @@ func loadSeahubPK() {
 	if siteRoot != "" {
 		seahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal", siteRoot)
 	} else {
-		seahubURL = ("http://127.0.0.1:8000/api/v2.1/internal")
+		seahubURL = "http://127.0.0.1:8000/api/v2.1/internal"
 	}
-	if seahubPK == "" {
-		log.Warnf("No seahub private key is configured")
-	}
+
+	return nil
 }
 
 func writePidFile(pid_file_path string) error {
@@ -411,7 +402,9 @@ func main() {
 		fp.Close()
 	}
 
-	loadSeahubPK()
+	if err := loadSeahubConfig(); err != nil {
+		log.Fatalf("Failed to read seahub config: %v", err)
+	}
 
 	repomgr.Init(seafileDB)
 

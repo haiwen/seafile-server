@@ -62,6 +62,8 @@ def make_build_env():
     _env_add('PKG_CONFIG_PATH', ccnet_dir)
     _env_add('LD_LIBRARY_PATH', join(PREFIX, 'lib'))
 
+    _env_add('JWT_PRIVATE_KEY', '@%ukmcl$k=9u-grs4azdljk(sn0kd!=mzc17xd7x8#!u$1x@kl')
+
     # Prepend the seafile-server/python to PYTHONPATH so we don't need to "make
     # install" each time after editing python files.
     _env_add('PYTHONPATH', join(SeafileServer().projectdir, 'python'))

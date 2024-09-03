@@ -103,7 +103,8 @@ extern SeafileSession *seaf;
 SeafileSession *
 seafile_session_new(const char *central_config_dir, 
                     const char *seafile_dir,
-                    const char *ccnet_dir);
+                    const char *ccnet_dir,
+                    const char *private_key);
 
 SeafileSession *
 seafile_repair_session_new(const char *central_config_dir,
