@@ -278,12 +278,14 @@ func loadSeahubPK() {
 
 	scanner := bufio.NewScanner(file)
 
-	pkRe, err := regexp.Compile(`SECRET_KEY\\s*=\\s*'([^']*)'`)
+	pkExp := "SECRET_KEY\\s*=\\s*'([^']*)'"
+	pkRe, err := regexp.Compile(pkExp)
 	if err != nil {
 		log.Warnf("Failed to compile regex: %v", err)
 		return
 	}
-	siteRootRe, err := regexp.Compile(`SITE_ROOT\\s*=\\s*'([^']*)'`)
+	siteRootExpr := "SITE_ROOT\\s*=\\s*'([^']*)'"
+	siteRootRe, err := regexp.Compile(siteRootExpr)
 	if err != nil {
 		log.Warnf("Failed to compile regex: %v", err)
 		return
@@ -302,9 +304,12 @@ func loadSeahubPK() {
 		}
 	}
 	if siteRoot != "" {
-		seahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal/user-list/", siteRoot)
+		seahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal", siteRoot)
 	} else {
-		seahubURL = ("http://127.0.0.1:8000/api/v2.1/internal/user-list/")
+		seahubURL = ("http://127.0.0.1:8000/api/v2.1/internal")
+	}
+	if seahubPK == "" {
+		log.Warnf("No seahub private key is configured")
 	}
 }
 
@@ -507,6 +512,12 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/update-aj/{.*}", appHandler(updateAjaxCB))
 	r.Handle("/upload-blks-api/{.*}", appHandler(uploadBlksAPICB))
 	r.Handle("/upload-raw-blks-api/{.*}", appHandler(uploadRawBlksAPICB))
+
+	// links api
+	//r.Handle("/u/{.*}", appHandler(uploadLinkCB))
+	r.Handle("/f/{.*}", appHandler(accessLinkCB))
+	//r.Handle("/d/{.*}", appHandler(accessDirLinkCB))
+
 	// file syncing api
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check{slash:\\/?}",
 		appHandler(permissionCheckCB))
