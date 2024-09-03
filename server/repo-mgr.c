@@ -3945,7 +3945,7 @@ seaf_repo_manager_create_new_repo (SeafRepoManager *mgr,
             goto bad;
         }
         if (algo != NULL) {
-            seafile_generate_pwd_hash (repo_id, passwd, salt, algo, params, pwd_hash);
+            seafile_generate_pwd_hash (enc_version, repo_id, passwd, salt, algo, params, pwd_hash);
         } else {
             seafile_generate_magic (enc_version, repo_id, passwd, salt, magic);
         }
