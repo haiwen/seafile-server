@@ -3499,7 +3499,7 @@ type ShareLinkInfo struct {
 	ShareType string `json:"share_type"`
 }
 
-func queryShareLinkInfo(token, opType string) (*ShareLinkInfo, *appError) {
+func queryShareLinkInfo(token, cookie, opType string) (*ShareLinkInfo, *appError) {
 	claims := SeahubClaims{
 		time.Now().Add(time.Second * 300).Unix(),
 		true,
@@ -3512,9 +3512,12 @@ func queryShareLinkInfo(token, opType string) (*ShareLinkInfo, *appError) {
 		err := fmt.Errorf("failed to sign jwt token: %v", err)
 		return nil, &appError{err, "", http.StatusInternalServerError}
 	}
-	url := fmt.Sprintf("%s?token=%s&type=%s", seahubURL+"/share-link-info/", token, opType)
+	url := fmt.Sprintf("%s?token=%s&type=%s", seahubURL+"/check-share-link-access/", token, opType)
 	header := map[string][]string{
 		"Authorization": {"Token " + tokenString},
+	}
+	if cookie != "" {
+		header["Cookie"] = []string{cookie}
 	}
 	status, body, err := utils.HttpCommon("GET", url, header, nil)
 	if err != nil {
@@ -3548,7 +3551,8 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 	token := parts[1]
-	info, appErr := queryShareLinkInfo(token, "file")
+	cookie := r.Header.Get("Cookie")
+	info, appErr := queryShareLinkInfo(token, cookie, "file")
 	if appErr != nil {
 		return appErr
 	}

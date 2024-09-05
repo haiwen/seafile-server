@@ -1682,7 +1682,8 @@ access_link_cb(evhtp_request_t *req, void *arg)
 
     token = parts[1];
 
-    info = http_tx_manager_query_share_link_info (token, "file");
+    const char *cookie = evhtp_kv_find (req->headers_in, "Cookie");
+    info = http_tx_manager_query_share_link_info (token, cookie, "file");
     if (!info) {
         error_str = "Link token not found\n";
         error_code = EVHTP_RES_FORBIDDEN;
