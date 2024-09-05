@@ -365,7 +365,7 @@ http_post (Connection *conn, const char *url, const char *token,
 
     curl = conn->curl;
 
-    headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
+    headers = curl_slist_append (headers, "User-Agent: Seafile Server/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
 
     if (token) {
         token_header = g_strdup_printf ("Authorization: Token %s", token);
@@ -506,7 +506,7 @@ http_tx_manager_get_nickname (const char *modifier)
     json_decref (content);
 
     curl = conn->curl;
-    headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
+    headers = curl_slist_append (headers, "User-Agent: Seafile Server/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
     token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
     headers = curl_slist_append (headers, token_header);
     headers = curl_slist_append (headers, "Content-Type: application/json");
@@ -608,16 +608,16 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
     }
 
     curl = conn->curl;
-    headers = curl_slist_append (headers, "User-Agent: Seafile/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
+    headers = curl_slist_append (headers, "User-Agent: Seafile Server/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
     token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
+    headers = curl_slist_append (headers, token_header);
+    g_free (token_header);
     if (cookie) {
         cookie_header = g_strdup_printf ("Cookie: %s", cookie);
         headers = curl_slist_append (headers, cookie_header);
         g_free (cookie_header);
     }
-    headers = curl_slist_append (headers, token_header);
     headers = curl_slist_append (headers, "Content-Type: application/json");
-    g_free (token_header);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     url = g_strdup_printf("%s/check-share-link-access/?token=%s&type=%s", seaf->seahub_url, token, type);
