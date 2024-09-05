@@ -527,7 +527,7 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 		operation == "downloadblks" {
 		// Since the file name downloaded by safari will be garbled, we need to encode the filename.
 		// Safari cannot parse unencoded utf8 characters.
-		contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\"", url.PathEscape(fileName))
+		contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\";filename=\"%s\"", url.PathEscape(fileName), url.PathEscape(fileName))
 	} else {
 		contFileName = fmt.Sprintf("inline;filename*=\"utf-8' '%s\"", url.PathEscape(fileName))
 	}

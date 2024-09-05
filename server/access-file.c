@@ -605,7 +605,7 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
         strcmp(operation, "download-link") == 0) {
         /* Safari doesn't support 'utf8', 'utf-8' is compatible with most of browsers. */
         snprintf(cont_filename, SEAF_PATH_MAX,
-                 "attachment;filename*=\"utf-8\' \'%s\"", filename);
+                 "attachment;filename*=\"utf-8\' \'%s\";filename=\"%s\"", filename, filename);
     } else {
         if (test_firefox (req)) {
             snprintf(cont_filename, SEAF_PATH_MAX,
