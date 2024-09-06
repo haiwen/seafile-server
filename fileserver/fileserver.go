@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bufio"
 	"crypto/tls"
 	"crypto/x509"
 	"database/sql"
@@ -14,7 +13,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"runtime/debug"
 	"strings"
 	"syscall"
@@ -271,30 +269,8 @@ func loadSeahubConfig() error {
 	if seahubPK == "" {
 		return fmt.Errorf("failed to read JWT_PRIVATE_KEY")
 	}
-	confPath := filepath.Join(centralDir, "seahub_settings.py")
 
-	file, err := os.Open(confPath)
-	if err != nil {
-		return fmt.Errorf("Failed to open seahub_settings.py: %v", err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-
-	siteRootExpr := "SITE_ROOT\\s*=\\s*'([^']*)'"
-	siteRootRe, err := regexp.Compile(siteRootExpr)
-	if err != nil {
-		return fmt.Errorf("Failed to compile regex: %v", err)
-	}
-
-	siteRoot := ""
-	for scanner.Scan() {
-		line := scanner.Text()
-		matches := siteRootRe.FindStringSubmatch(line)
-		if matches != nil {
-			siteRoot = matches[1]
-		}
-	}
+	siteRoot := os.Getenv("SITE_ROOT")
 	if siteRoot != "" {
 		seahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal", siteRoot)
 	} else {
@@ -508,7 +484,7 @@ func newHTTPRouter() *mux.Router {
 
 	// links api
 	//r.Handle("/u/{.*}", appHandler(uploadLinkCB))
-	r.Handle("/f/{.*}", appHandler(accessLinkCB))
+	r.Handle("/f/{.*}{slash:\\/?}", appHandler(accessLinkCB))
 	//r.Handle("/d/{.*}", appHandler(accessDirLinkCB))
 
 	// file syncing api

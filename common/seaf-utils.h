@@ -17,8 +17,6 @@ int
 load_ccnet_database_config (struct _SeafileSession *session);
 
 #ifdef FULL_FEATURE
-int
-load_seahub_config (SeafileSession *session, const char *conf_dir);
 #endif
 
 char *

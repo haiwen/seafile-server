@@ -386,61 +386,6 @@ load_ccnet_database_config (SeafileSession *session)
 
 #ifdef FULL_FEATURE
 
-int
-load_seahub_config (SeafileSession *session, const char *conf_dir)
-{
-    char *conf_path = g_build_filename(conf_dir, "seahub_settings.py", NULL);
-    char *data = NULL;
-    GRegex *site_root_regex = NULL;
-    GError *error = NULL;
-    int ret = 0;
-
-    FILE *file = fopen(conf_path, "r");
-    if (!file) {
-        ret = -1;
-        seaf_warning ("Failed to open seahub_settings.py: %s\n", strerror(errno));
-        goto out;
-    }
-
-    site_root_regex = g_regex_new ("SITE_ROOT\\s*=\\s*'(.+)'", 0, 0, &error);
-    if (error) {
-        g_clear_error (&error);
-        ret = -1;
-        seaf_warning ("Failed to create site root regex: %s\n", error->message);
-        goto out;
-    }
-
-    char line[256];
-    char *site_root = NULL;
-    while (fgets(line, sizeof(line), file)) {
-        GMatchInfo *match_info;
-        if (g_regex_match (site_root_regex, line, 0, &match_info)) {
-            site_root = g_match_info_fetch (match_info, 1);
-        }
-        g_match_info_free (match_info);
-    }
-
-    if (session->seahub_pk) {
-        if (site_root) {
-            session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal", site_root);
-        } else {
-            session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal");
-        }
-        session->seahub_conn_pool = connection_pool_new ();
-    } else {
-        seaf_warning ("No seahub private key is configured.\n");
-    }
-    g_free (site_root);
-
-out:
-    if (site_root_regex)
-        g_regex_unref (site_root_regex);
-    g_free (conf_path);
-    g_free (data);
-
-    return ret;
-}
-
 char *
 seaf_gen_notif_server_jwt (const char *repo_id, const char *username)
 {
