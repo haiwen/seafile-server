@@ -527,9 +527,9 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 		operation == "downloadblks" {
 		// Since the file name downloaded by safari will be garbled, we need to encode the filename.
 		// Safari cannot parse unencoded utf8 characters.
-		contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\";filename=\"%s\"", url.PathEscape(fileName), url.PathEscape(fileName))
+		contFileName = fmt.Sprintf("attachment;filename*=utf-8''%s;filename=\"%s\"", url.PathEscape(fileName), fileName)
 	} else {
-		contFileName = fmt.Sprintf("inline;filename*=\"utf-8' '%s\"", url.PathEscape(fileName))
+		contFileName = fmt.Sprintf("inline;filename*=utf-8''%s;filename=\"%s\"", url.PathEscape(fileName), fileName)
 	}
 	rsp.Header().Set("Content-Disposition", contFileName)
 
@@ -725,7 +725,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 
 		// The zip name downloaded by safari will be garbled if we encode the zip name,
 		// because we download zip file using chunk encoding.
-		contFileName := fmt.Sprintf("attachment;filename=\"%s\"", zipName)
+		contFileName := fmt.Sprintf("attachment;filename=\"%s\";filename*=utf-8''%s", zipName, url.PathEscape(zipName))
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 
@@ -744,7 +744,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		zipName := fmt.Sprintf("documents-export-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
 
 		setCommonHeaders(rsp, r, "download", zipName)
-		contFileName := fmt.Sprintf("attachment;filename=\"%s\"", zipName)
+		contFileName := fmt.Sprintf("attachment;filename=\"%s\";filename*=utf8''%s", zipName, url.PathEscape(zipName))
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 
