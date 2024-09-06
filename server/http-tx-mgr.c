@@ -17,22 +17,6 @@
 #define DEBUG_FLAG SEAFILE_DEBUG_TRANSFER
 #include "log.h"
 
-#ifndef SEAFILE_CLIENT_VERSION
-#define SEAFILE_CLIENT_VERSION PACKAGE_VERSION
-#endif
-
-#ifdef WIN32
-#define USER_AGENT_OS "Windows NT"
-#endif
-
-#ifdef __APPLE__
-#define USER_AGENT_OS "Apple OS X"
-#endif
-
-#ifdef __linux__
-#define USER_AGENT_OS "Linux"
-#endif
-
 /* Http connection and connection pool. */
 
 struct _Connection {
@@ -365,7 +349,7 @@ http_post (Connection *conn, const char *url, const char *token,
 
     curl = conn->curl;
 
-    headers = curl_slist_append (headers, "User-Agent: Seafile Server/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
+    headers = curl_slist_append (headers, "User-Agent: Seafile Server");
 
     if (token) {
         token_header = g_strdup_printf ("Authorization: Token %s", token);
@@ -506,7 +490,7 @@ http_tx_manager_get_nickname (const char *modifier)
     json_decref (content);
 
     curl = conn->curl;
-    headers = curl_slist_append (headers, "User-Agent: Seafile Server/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
+    headers = curl_slist_append (headers, "User-Agent: Seafile Server");
     token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
     headers = curl_slist_append (headers, token_header);
     headers = curl_slist_append (headers, "Content-Type: application/json");
@@ -608,7 +592,7 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
     }
 
     curl = conn->curl;
-    headers = curl_slist_append (headers, "User-Agent: Seafile Server/"SEAFILE_CLIENT_VERSION" ("USER_AGENT_OS")");
+    headers = curl_slist_append (headers, "User-Agent: Seafile Server");
     token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
     headers = curl_slist_append (headers, token_header);
     g_free (token_header);

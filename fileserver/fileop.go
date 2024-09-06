@@ -1948,39 +1948,14 @@ func notifRepoUpdate(repoID string, commitID string) error {
 	}
 	header := map[string][]string{
 		"Authorization": {"Token " + token},
-		"Content-Type":  {"application/json"},
 	}
-	_, _, err = httpCommon("POST", url, header, bytes.NewReader(msg))
+	_, _, err = utils.HttpCommon("POST", url, header, bytes.NewReader(msg))
 	if err != nil {
 		log.Printf("failed to send repo update event: %v", err)
 		return err
 	}
 
 	return nil
-}
-
-func httpCommon(method, url string, header map[string][]string, reader io.Reader) (int, []byte, error) {
-	req, err := http.NewRequest(method, url, reader)
-	if err != nil {
-		return -1, nil, err
-	}
-	req.Header = header
-
-	rsp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return -1, nil, err
-	}
-	defer rsp.Body.Close()
-
-	if rsp.StatusCode != http.StatusOK {
-		return rsp.StatusCode, nil, fmt.Errorf("bad response %d for %s", rsp.StatusCode, url)
-	}
-	body, err := io.ReadAll(rsp.Body)
-	if err != nil {
-		return rsp.StatusCode, nil, err
-	}
-
-	return rsp.StatusCode, body, nil
 }
 
 func doPostMultiFiles(repo *repomgr.Repo, rootID, parentDir string, dents []*fsmgr.SeafDirent, user string, replace bool, names *[]string) (string, error) {
