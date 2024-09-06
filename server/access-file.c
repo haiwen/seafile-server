@@ -601,20 +601,17 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
     evhtp_headers_add_header (req->headers_out,
                               evhtp_header_new("Content-Length", file_size, 1, 1));
 
+    char *esc_filename = g_uri_escape_string(filename, NULL, FALSE);
     if (strcmp(operation, "download") == 0 ||
         strcmp(operation, "download-link") == 0) {
         /* Safari doesn't support 'utf8', 'utf-8' is compatible with most of browsers. */
         snprintf(cont_filename, SEAF_PATH_MAX,
-                 "attachment;filename*=\"utf-8\' \'%s\";filename=\"%s\"", filename, filename);
+                 "attachment;filename*=utf-8''%s;filename=\"%s\"", esc_filename, filename);
     } else {
-        if (test_firefox (req)) {
-            snprintf(cont_filename, SEAF_PATH_MAX,
-                     "inline;filename*=\"utf-8\' \'%s\"", filename);
-        } else {
-            snprintf(cont_filename, SEAF_PATH_MAX,
-                     "inline;filename=\"%s\"", filename);
-        }
+        snprintf(cont_filename, SEAF_PATH_MAX,
+                 "inline;filename*=utf-8''%s;filename=\"%s\"", esc_filename, filename);
     }
+    g_free (esc_filename);
     evhtp_headers_add_header(req->headers_out,
                              evhtp_header_new("Content-Disposition", cont_filename,
                                               1, 1));
@@ -896,27 +893,20 @@ set_resp_disposition (evhtp_request_t *req, const char *operation,
                       const char *filename)
 {
     char *cont_filename = NULL;
+    char *esc_filename = g_uri_escape_string(filename, NULL, FALSE);
 
     if (strcmp(operation, "download") == 0) {
-        if (test_firefox (req)) {
-            cont_filename = g_strdup_printf("attachment;filename*=\"utf-8\' \'%s\"",
-                                            filename);
-
-        } else {
-            cont_filename = g_strdup_printf("attachment;filename=\"%s\"", filename);
-        }
+        cont_filename = g_strdup_printf("attachment;filename*=utf-8''%s;filename=\"%s\"",
+                                        esc_filename, filename);
     } else {
-        if (test_firefox (req)) {
-            cont_filename = g_strdup_printf("inline;filename*=\"utf-8\' \'%s\"",
-                                            filename);
-        } else {
-            cont_filename = g_strdup_printf("inline;filename=\"%s\"", filename);
-        }
+        cont_filename = g_strdup_printf("inline;filename*=utf-8''%s;filename=\"%s\"",
+                                        esc_filename, filename);
     }
 
     evhtp_headers_add_header(req->headers_out,
                              evhtp_header_new("Content-Disposition", cont_filename,
                                               0, 1));
+    g_free (esc_filename);
     g_free (cont_filename);
 }
 
@@ -1061,8 +1051,14 @@ start_download_zip_file (evhtp_request_t *req, const char *token,
     evhtp_headers_add_header (req->headers_out,
             evhtp_header_new("Content-Length", file_size, 1, 1));
 
+    char *zippath = g_strdup_printf("%s.zip", zipname);
+    char *esc_zippath = g_uri_escape_string(zippath, NULL, FALSE);
+
     snprintf(cont_filename, SEAF_PATH_MAX,
-             "attachment;filename=\"%s.zip\"", zipname);
+             "attachment;filename*=utf-8''%s;filename=\"%s\"", esc_zippath, zippath);
+
+    g_free (zippath);
+    g_free (esc_zippath);
 
     evhtp_headers_add_header(req->headers_out,
             evhtp_header_new("Content-Disposition", cont_filename, 1, 1));
