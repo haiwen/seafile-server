@@ -1,1 +1,0 @@
-SITE_ROOT= '/seahub/'
