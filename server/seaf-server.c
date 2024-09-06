@@ -1317,10 +1317,6 @@ main (int argc, char **argv)
     seafile_debug_set_flags_string (debug_str);
 
     private_key = g_getenv("JWT_PRIVATE_KEY");
-    if (!private_key) {
-        seaf_warning ("Failed to read JWT_PRIVATE_KEY.\n");
-        exit (1);
-    }
 
     if (seafile_dir == NULL)
         seafile_dir = g_build_filename (ccnet_dir, "seafile", NULL);
@@ -1342,6 +1338,11 @@ main (int argc, char **argv)
         }
         seaf_repo_manager_repair_virtual_repo (repo_id);
         exit (0);
+    }
+
+    if (!private_key) {
+        seaf_warning ("Failed to read JWT_PRIVATE_KEY.\n");
+        exit (1);
     }
 
     seaf = seafile_session_new (central_config_dir, seafile_dir, ccnet_dir, private_key);

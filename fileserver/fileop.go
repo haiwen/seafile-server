@@ -527,9 +527,9 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 		operation == "downloadblks" {
 		// Since the file name downloaded by safari will be garbled, we need to encode the filename.
 		// Safari cannot parse unencoded utf8 characters.
-		contFileName = fmt.Sprintf("attachment;filename*=\"utf-8' '%s\"", url.PathEscape(fileName))
+		contFileName = fmt.Sprintf("attachment;filename*=utf-8''%s;filename=\"%s\"", url.PathEscape(fileName), fileName)
 	} else {
-		contFileName = fmt.Sprintf("inline;filename*=\"utf-8' '%s\"", url.PathEscape(fileName))
+		contFileName = fmt.Sprintf("inline;filename*=utf-8''%s;filename=\"%s\"", url.PathEscape(fileName), fileName)
 	}
 	rsp.Header().Set("Content-Disposition", contFileName)
 
@@ -725,7 +725,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 
 		// The zip name downloaded by safari will be garbled if we encode the zip name,
 		// because we download zip file using chunk encoding.
-		contFileName := fmt.Sprintf("attachment;filename=\"%s\"", zipName)
+		contFileName := fmt.Sprintf("attachment;filename=\"%s\";filename*=utf-8''%s", zipName, url.PathEscape(zipName))
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 
@@ -744,7 +744,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		zipName := fmt.Sprintf("documents-export-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
 
 		setCommonHeaders(rsp, r, "download", zipName)
-		contFileName := fmt.Sprintf("attachment;filename=\"%s\"", zipName)
+		contFileName := fmt.Sprintf("attachment;filename=\"%s\";filename*=utf8''%s", zipName, url.PathEscape(zipName))
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 
@@ -1948,39 +1948,14 @@ func notifRepoUpdate(repoID string, commitID string) error {
 	}
 	header := map[string][]string{
 		"Authorization": {"Token " + token},
-		"Content-Type":  {"application/json"},
 	}
-	_, _, err = httpCommon("POST", url, header, bytes.NewReader(msg))
+	_, _, err = utils.HttpCommon("POST", url, header, bytes.NewReader(msg))
 	if err != nil {
 		log.Printf("failed to send repo update event: %v", err)
 		return err
 	}
 
 	return nil
-}
-
-func httpCommon(method, url string, header map[string][]string, reader io.Reader) (int, []byte, error) {
-	req, err := http.NewRequest(method, url, reader)
-	if err != nil {
-		return -1, nil, err
-	}
-	req.Header = header
-
-	rsp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return -1, nil, err
-	}
-	defer rsp.Body.Close()
-
-	if rsp.StatusCode != http.StatusOK {
-		return rsp.StatusCode, nil, fmt.Errorf("bad response %d for %s", rsp.StatusCode, url)
-	}
-	body, err := io.ReadAll(rsp.Body)
-	if err != nil {
-		return rsp.StatusCode, nil, err
-	}
-
-	return rsp.StatusCode, body, nil
 }
 
 func doPostMultiFiles(repo *repomgr.Repo, rootID, parentDir string, dents []*fsmgr.SeafDirent, user string, replace bool, names *[]string) (string, error) {
@@ -3499,7 +3474,7 @@ type ShareLinkInfo struct {
 	ShareType string `json:"share_type"`
 }
 
-func queryShareLinkInfo(token, opType string) (*ShareLinkInfo, *appError) {
+func queryShareLinkInfo(token, cookie, opType string) (*ShareLinkInfo, *appError) {
 	claims := SeahubClaims{
 		time.Now().Add(time.Second * 300).Unix(),
 		true,
@@ -3512,9 +3487,12 @@ func queryShareLinkInfo(token, opType string) (*ShareLinkInfo, *appError) {
 		err := fmt.Errorf("failed to sign jwt token: %v", err)
 		return nil, &appError{err, "", http.StatusInternalServerError}
 	}
-	url := fmt.Sprintf("%s?token=%s&type=%s", seahubURL+"/share-link-info/", token, opType)
+	url := fmt.Sprintf("%s?token=%s&type=%s", seahubURL+"/check-share-link-access/", token, opType)
 	header := map[string][]string{
 		"Authorization": {"Token " + tokenString},
+	}
+	if cookie != "" {
+		header["Cookie"] = []string{cookie}
 	}
 	status, body, err := utils.HttpCommon("GET", url, header, nil)
 	if err != nil {
@@ -3548,7 +3526,8 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 	token := parts[1]
-	info, appErr := queryShareLinkInfo(token, "file")
+	cookie := r.Header.Get("Cookie")
+	info, appErr := queryShareLinkInfo(token, cookie, "file")
 	if appErr != nil {
 		return appErr
 	}

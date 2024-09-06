@@ -6,9 +6,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
-
-var HttpReqContext, HttpReqCancel = context.WithCancel(context.Background())
 
 func GetAuthorizationToken(h http.Header) string {
 	auth := h.Get("Authorization")
@@ -20,7 +19,11 @@ func GetAuthorizationToken(h http.Header) string {
 }
 
 func HttpCommon(method, url string, header map[string][]string, reader io.Reader) (int, []byte, error) {
-	req, err := http.NewRequestWithContext(HttpReqContext, method, url, reader)
+	header["Content-Type"] = []string{"application/json"}
+	header["User-Agent"] = []string{"Seafile Server"}
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, method, url, reader)
 	if err != nil {
 		return -1, nil, err
 	}
@@ -35,6 +38,11 @@ func HttpCommon(method, url string, header map[string][]string, reader io.Reader
 	if rsp.StatusCode == http.StatusNotFound {
 		return rsp.StatusCode, nil, fmt.Errorf("url %s not found", url)
 	}
+
+	if rsp.StatusCode != http.StatusOK {
+		return rsp.StatusCode, nil, fmt.Errorf("bad response %d for %s", rsp.StatusCode, url)
+	}
+
 	body, err := io.ReadAll(rsp.Body)
 	if err != nil {
 		return rsp.StatusCode, nil, err

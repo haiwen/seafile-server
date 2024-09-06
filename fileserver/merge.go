@@ -419,7 +419,6 @@ func postGetNickName(modifier string) string {
 
 	header := map[string][]string{
 		"Authorization": {"Token " + tokenString},
-		"Content-Type":  {"application/json"},
 	}
 
 	data, err := json.Marshal(map[string]interface{}{
