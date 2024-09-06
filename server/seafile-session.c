@@ -108,7 +108,8 @@ SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
                     const char *ccnet_dir,
-                    const char *private_key)
+                    const char *private_key,
+                    const char *site_root)
 {
     char *abs_central_config_dir = NULL;
     char *abs_seafile_dir;
@@ -220,10 +221,12 @@ seafile_session_new(const char *central_config_dir,
     }
 
     session->seahub_pk = g_strdup (private_key);
-    if (load_seahub_config (session, abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir) < 0) {
-        seaf_warning ("Failed to load seahub config.\n");
-        goto onerror;
+    if (site_root) {
+        session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal", site_root);
+    } else {
+        session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal");
     }
+    session->seahub_conn_pool = connection_pool_new ();
 
     session->cfg_mgr = seaf_cfg_manager_new (session);
     if (!session->cfg_mgr)
