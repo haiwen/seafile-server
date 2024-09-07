@@ -802,14 +802,28 @@ func parseDirFilelist(repo *repomgr.Repo, obj map[string]interface{}) ([]fsmgr.S
 			err := fmt.Errorf("invalid download multi data")
 			return nil, err
 		}
-
-		v, ok := direntHash[name]
-		if !ok {
-			err := fmt.Errorf("invalid download multi data")
+		if name == "" {
+			err := fmt.Errorf("invalid download file name")
 			return nil, err
 		}
 
-		direntList = append(direntList, v)
+		if strings.Contains(name, "/") {
+			rpath := filepath.Join(parentDir, name)
+			dent, err := fsmgr.GetDirentByPath(repo.StoreID, repo.RootID, rpath)
+			if err != nil {
+				err := fmt.Errorf("failed to get path %s for repo %s: %v", rpath, repo.StoreID, err)
+				return nil, err
+			}
+			direntList = append(direntList, *dent)
+		} else {
+			v, ok := direntHash[name]
+			if !ok {
+				err := fmt.Errorf("invalid download multi data")
+				return nil, err
+			}
+
+			direntList = append(direntList, v)
+		}
 	}
 
 	return direntList, nil
