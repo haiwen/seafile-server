@@ -1735,7 +1735,7 @@ del_file_recursive(SeafRepo *repo,
 
 out:
     if (p_deleted_num)
-        *p_deleted_num = deleted_num;
+        *p_deleted_num += deleted_num;
 
     g_free (to_path_dup);
     g_free (id);
@@ -1835,6 +1835,124 @@ out:
         seaf_dir_free (dir);
     g_free (root_id);
     g_free (canon_path);
+    g_free (desc_file);
+
+    if (ret == 0) {
+        update_repo_size (repo_id);
+    }
+
+    return ret;
+}
+
+static char *
+do_batch_del_files (SeafRepo *repo,
+                    const char *root_id,
+                    const char *file_list,
+                    int *mode, int *deleted_num, char **desc_file)
+{
+    char *ret = NULL;
+    GList *filenames = NULL, *ptr;
+    char *name;
+    const char *next_root_id = root_id;
+
+    filenames = json_to_file_list (file_list);
+
+    for (ptr = filenames; ptr; ptr = ptr->next) {
+        name = ptr->data;
+        char *base_name = g_path_get_basename (name);
+        char *parent_dir = g_path_get_dirname (name);
+        char *canon_path = get_canonical_path (parent_dir);
+        char *tmp_file_list = g_strdup_printf ("[\"%s\"]", base_name);
+
+        char *new_root_id = do_del_file (repo, next_root_id, canon_path, tmp_file_list, mode, deleted_num, desc_file);
+        if (new_root_id) {
+            g_free (ret);
+            ret = g_strdup (new_root_id);
+            g_free (new_root_id);
+            next_root_id = ret;
+        }
+        g_free (base_name);
+        g_free (parent_dir);
+        g_free (canon_path);
+        g_free (tmp_file_list);
+    }
+
+    string_list_free (filenames);
+
+    return ret;
+}
+
+int
+seaf_repo_manager_batch_del_files (SeafRepoManager *mgr,
+                                   const char *repo_id,
+                                   const char *file_list,
+                                   const char *user,
+                                   GError **error)
+{
+    SeafRepo *repo = NULL;
+    SeafCommit *head_commit = NULL;
+    SeafDir *dir = NULL;
+    char buf[SEAF_PATH_MAX];
+    char *root_id = NULL;
+    char *desc_file = NULL;
+    int mode = 0;
+    int ret = 0;
+    int deleted_num = 0;
+
+    GET_REPO_OR_FAIL(repo, repo_id);
+    GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
+
+    dir = seaf_fs_manager_get_seafdir (seaf->fs_mgr,
+                                       repo->store_id, repo->version,
+                                       head_commit->root_id);
+    if (!dir) {
+        seaf_warning ("root dir doesn't exist in repo %s.\n",
+                      repo->store_id);
+        ret = -1;
+        goto out;
+    }
+
+    root_id = do_batch_del_files (repo,
+                                 head_commit->root_id, file_list, &mode,
+                                 &deleted_num, &desc_file);
+    if (!root_id) {
+        seaf_warning ("[batch del files] Failed to del files in repo %s.\n",
+                      repo->id);
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to batch del files");
+        ret = -1;
+        goto out;
+    }
+    if (deleted_num == 0) {
+        goto out;
+    }
+
+    /* Commit. */
+    if (deleted_num > 1) {
+        snprintf(buf, SEAF_PATH_MAX, "Deleted \"%s\" and %d more files",
+                                      desc_file, deleted_num - 1);
+    } else if (S_ISDIR(mode)) {
+        snprintf(buf, SEAF_PATH_MAX, "Removed directory \"%s\"", desc_file);
+    } else {
+        snprintf(buf, SEAF_PATH_MAX, "Deleted \"%s\"", desc_file);
+    }
+
+    if (gen_new_commit (repo_id, head_commit, root_id,
+                        user, buf, NULL, TRUE, error) < 0) {
+        ret = -1;
+        goto out;
+    }
+
+    seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
+
+out:
+    if (repo)
+        seaf_repo_unref (repo);
+    if (head_commit)
+        seaf_commit_unref(head_commit);
+    if (dir)
+        seaf_dir_free (dir);
+    g_free (root_id);
     g_free (desc_file);
 
     if (ret == 0) {

@@ -754,6 +754,12 @@ seafile_del_file (const char *repo_id,
                   const char *user,
                   GError **error);
 
+int
+seafile_batch_del_files (const char *repo_id,
+                         const char *file_list,
+                         const char *user,
+                         GError **error);
+
 /**
  * copy a file/directory from a repo to another on server.
  */

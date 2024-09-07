@@ -1,6 +1,7 @@
 import pytest
 import os
 import time
+import json
 from tests.config import USER
 from seaserv import seafile_api as api
 
@@ -17,7 +18,9 @@ def create_the_file ():
     with open(file_path, 'w') as fp:
         fp.write(file_content)
 
-def test_file_operation():
+@pytest.mark.parametrize('in_batch',
+                         [True, False])
+def test_file_operation(in_batch):
     t_repo_version = 1
     t_repo_id1 = api.create_repo('test_file_operation1', '', USER, passwd = None)
 
@@ -130,7 +133,10 @@ def test_file_operation():
     assert t_commit_list[0].creator_name == USER
     
     # test del_file
-    assert api.del_file(t_repo_id2, '/', '[\"'+file_name+'\"]', USER) == 0
+    if in_batch:
+        assert api.batch_del_files(t_repo_id2, '[\"'+'/'+file_name+'\"]', USER) == 0
+    else:
+        assert api.del_file(t_repo_id2, '/', '[\"'+file_name+'\"]', USER) == 0
 
     # test get_deleted
     t_deleted_file_list = api.get_deleted(t_repo_id2, 1)
@@ -140,12 +146,26 @@ def test_file_operation():
     assert t_deleted_file_list[0].basedir == '/'
 
     # test del a non-exist file. should return 0.
-    assert api.del_file(t_repo_id2, '/', '[\"'+file_name+'\"]', USER) == 0
+    if in_batch:
+        file_list = ["/"+file_name, "/"+new_file_name]
+        assert api.batch_del_files(t_repo_id2, json.dumps(file_list), USER) == 0
+        t_deleted_file_list = api.get_deleted(t_repo_id2, 1)
+        assert t_deleted_file_list
+        assert len(t_deleted_file_list) == 3
 
-    assert api.del_file(t_repo_id1, '/' + dir_name, '[\"'+new_empty_file_name+'\"]', USER) == 0
-    assert api.del_file(t_repo_id1, '/' + dir_name, '[\"'+new_file_name+'\"]', USER) == 0
-    assert api.del_file(t_repo_id2, '/', '[\"'+new_file_name+'\"]', USER) == 0
-    assert api.del_file(t_repo_id1, '/', '[\"'+new_file_name_2+'\"]', USER) == 0
+        file_list = ["/"+dir_name+"/"+new_empty_file_name, "/"+dir_name+"/"+new_file_name, "/"+new_file_name_2]
+        assert api.batch_del_files(t_repo_id1, json.dumps(file_list), USER) == 0
+        t_deleted_file_list = api.get_deleted(t_repo_id1, 1)
+        assert t_deleted_file_list
+        assert len(t_deleted_file_list) == 4
+    else:
+        assert api.del_file(t_repo_id2, '/', '[\"'+file_name+'\"]', USER) == 0
+
+        assert api.del_file(t_repo_id1, '/' + dir_name, '[\"'+new_empty_file_name+'\"]', USER) == 0
+        assert api.del_file(t_repo_id1, '/' + dir_name, '[\"'+new_file_name+'\"]', USER) == 0
+        assert api.del_file(t_repo_id2, '/', '[\"'+new_file_name+'\"]', USER) == 0
+        assert api.del_file(t_repo_id1, '/', '[\"'+new_file_name_2+'\"]', USER) == 0
 
     time.sleep(1)
     api.remove_repo(t_repo_id1)
+    api.remove_repo(t_repo_id2)
