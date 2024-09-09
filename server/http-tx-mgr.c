@@ -508,6 +508,7 @@ http_tx_manager_get_nickname (const char *modifier)
     if (rsp_status != HTTP_OK) {
         seaf_warning ("Failed to get user list from seahub %d.\n",
                       rsp_status);
+        goto out;
     }
 
     nickname = parse_nickname (rsp_content, rsp_size);
@@ -615,6 +616,7 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
     if (rsp_status != HTTP_OK) {
         seaf_warning ("Failed to query access token from seahub: %d.\n",
                       rsp_status);
+        goto out;
     }
 
     info = parse_share_link_info (rsp_content, rsp_size);
@@ -627,4 +629,118 @@ out:
     connection_pool_return_connection (seaf->seahub_conn_pool, conn);
 
     return info;
+}
+
+char *
+parse_access_token_info (const char *rsp_content, int rsp_size)
+{
+    json_t *object;
+    json_error_t jerror;
+    const char *user = NULL;
+
+    object = json_loadb (rsp_content, rsp_size, 0, &jerror);
+    if (!object) {
+        seaf_warning ("Parse response failed: %s.\n", jerror.text);
+        return NULL;
+    }
+
+    user = json_object_get_string_member (object, "user");
+    if (!user) {
+        seaf_warning ("Failed to find user in json.\n");
+        goto out;
+    }
+
+out:
+    json_decref (object);
+
+    return g_strdup (user);
+}
+
+int
+http_tx_manager_query_access_token (const char *repo_id, const char *token, const char *cookie,
+                                    const char *path, const char *op, char **user)
+{
+    Connection *conn = NULL;
+    char *token_header;
+    char *cookie_header;
+    struct curl_slist *headers = NULL;
+    int ret = -1;
+    CURL *curl;
+    json_t *content = NULL;
+    int rsp_status;
+    char *req_content = NULL;
+    char *jwt_token = NULL;
+    char *rsp_content = NULL;
+    gint64 rsp_size;
+    char *url = NULL;
+
+    jwt_token = gen_jwt_token ();
+    if (!jwt_token) {
+        return -1;
+    }
+
+    conn = connection_pool_get_connection (seaf->seahub_conn_pool);
+    if (!conn) {
+        g_free (jwt_token);
+        seaf_warning ("Failed to get connection: out of memory.\n");
+        return -1;
+    }
+
+    content = json_object ();
+    json_object_set_new (content, "op", json_string(op));
+    if (token) {
+        json_object_set_new (content, "token", json_string(token));
+    }
+    req_content  = json_dumps (content, JSON_COMPACT);
+    if (!req_content) {
+        ret = -1;
+        seaf_warning ("Failed to dump json request.\n");
+        goto out;
+    }
+
+    curl = conn->curl;
+    headers = curl_slist_append (headers, "User-Agent: Seafile Server");
+    token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
+    headers = curl_slist_append (headers, token_header);
+    g_free (token_header);
+    if (cookie) {
+        cookie_header = g_strdup_printf ("Cookie: %s", cookie);
+        headers = curl_slist_append (headers, cookie_header);
+        g_free (cookie_header);
+    }
+    headers = curl_slist_append (headers, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+    url = g_strdup_printf("%s/repos/%s/check-access/?path=%s", seaf->seahub_url, repo_id, path);
+    ret = http_post_common (curl, url, jwt_token, req_content, strlen(req_content),
+                            &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
+    if (ret < 0) {
+        conn->release = TRUE;
+        goto out;
+    }
+
+    if (rsp_status != HTTP_OK) {
+        ret = -1;
+        seaf_warning ("Failed to get check access token %s from seahub %s: %d.\n",
+                      token, rsp_content, rsp_status);
+        goto out;
+    }
+
+    *user = parse_access_token_info (rsp_content, rsp_size);
+    if (*user == NULL) {
+        ret = -1;
+        goto out;
+    }
+
+out:
+    if (content)
+        json_decref (content);
+    g_free (url);
+    g_free (jwt_token);
+    g_free (req_content);
+    g_free (rsp_content);
+    curl_slist_free_all (headers);
+    connection_pool_return_connection (seaf->seahub_conn_pool, conn);
+
+    return ret;
 }

@@ -51,4 +51,8 @@ http_tx_manager_get_nickname (const char *modifier);
 
 SeafileShareLinkInfo *
 http_tx_manager_query_share_link_info (const char *token, const char *cookie, const char *type);
+
+int
+http_tx_manager_query_access_token (const char *repo_id, const char *token, const char *cookie,
+                                    const char *path, const char *op, char **user);
 #endif
