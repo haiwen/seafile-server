@@ -46,8 +46,6 @@ var (
 	// notification server
 	EnableNotification bool
 	NotificationURL    string
-	// notification options
-	PrivateKey string
 
 	// GROUP options
 	GroupTableName string
@@ -107,11 +105,6 @@ func LoadFileServerOptions(centralDir string) {
 	if EnableNotification {
 		var notifServer string
 		var notifPort uint32
-		if section, err := config.GetSection("notification"); err == nil {
-			if key, err := section.GetKey("jwt_private_key"); err == nil {
-				PrivateKey = key.String()
-			}
-		}
 		if section, err := config.GetSection("notification"); err == nil {
 			if key, err := section.GetKey("host"); err == nil {
 				notifServer = key.String()

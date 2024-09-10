@@ -204,10 +204,7 @@ seafile_session_new(const char *central_config_dir,
                                              "notification", "port",
                                               NULL);
 
-        notif_server_private_key = g_key_file_get_string (config,
-                                             "notification", "jwt_private_key",
-                                             NULL);
-        session->notif_server_private_key = notif_server_private_key;
+        session->notif_server_private_key = g_strdup (private_key);
     }
 
     if (load_database_config (session) < 0) {

@@ -771,7 +771,7 @@ func genJWTToken(repoID, user string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
-	tokenString, err := token.SignedString([]byte(option.PrivateKey))
+	tokenString, err := token.SignedString([]byte(seahubPK))
 	if err != nil {
 		err := fmt.Errorf("failed to gen jwt token for repo %s", repoID)
 		return "", err
