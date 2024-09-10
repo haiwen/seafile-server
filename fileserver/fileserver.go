@@ -487,6 +487,8 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/f/{.*}{slash:\\/?}", appHandler(accessLinkCB))
 	//r.Handle("/d/{.*}", appHandler(accessDirLinkCB))
 
+	r.Handle("/repos/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/files{slash:\\/?}", appHandler(accessV2CB))
+
 	// file syncing api
 	r.Handle("/repo/{repoid:[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}}/permission-check{slash:\\/?}",
 		appHandler(permissionCheckCB))
