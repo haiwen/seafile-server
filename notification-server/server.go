@@ -71,10 +71,6 @@ func loadNotifConfig() {
 		logLevel = key.String()
 	}
 
-	if key, err := section.GetKey("jwt_private_key"); err == nil {
-		privateKey = key.String()
-	}
-
 	level, err := log.ParseLevel(logLevel)
 	if err != nil {
 		log.Info("use the default log level: info")
@@ -201,6 +197,10 @@ func main() {
 		fp.Close()
 	}
 
+	if err := loadJwtPrivateKey(); err != nil {
+		log.Fatalf("Failed to read config: %v", err)
+	}
+
 	loadNotifConfig()
 	loadCcnetDB()
 
@@ -217,6 +217,15 @@ func main() {
 	if err != nil {
 		log.Infof("notificationserver exiting: %v", err)
 	}
+}
+
+func loadJwtPrivateKey() error {
+	privateKey = os.Getenv("JWT_PRIVATE_KEY")
+	if privateKey == "" {
+		return fmt.Errorf("failed to read JWT_PRIVATE_KEY")
+	}
+
+	return nil
 }
 
 func handleUser1Signal() {
