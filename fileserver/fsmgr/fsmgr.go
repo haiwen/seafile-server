@@ -934,5 +934,5 @@ func GetDirentByPath(repoID, rootID, rpath string) (*SeafDirent, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("failed to get dirent %s", rpath)
+	return nil, ErrPathNoExist
 }

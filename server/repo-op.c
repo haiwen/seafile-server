@@ -21,6 +21,7 @@
 #include "seafile-crypt.h"
 #include "diff-simple.h"
 #include "merge-new.h"
+#include "change-set.h"
 
 #include "seaf-db.h"
 
@@ -1844,42 +1845,41 @@ out:
     return ret;
 }
 
-static char *
-do_batch_del_files (SeafRepo *repo,
-                    const char *root_id,
+void
+do_batch_del_files (ChangeSet *changeset,
                     const char *file_list,
                     int *mode, int *deleted_num, char **desc_file)
 {
-    char *ret = NULL;
     GList *filenames = NULL, *ptr;
     char *name;
-    const char *next_root_id = root_id;
 
     filenames = json_to_file_list (file_list);
 
     for (ptr = filenames; ptr; ptr = ptr->next) {
         name = ptr->data;
-        char *base_name = g_path_get_basename (name);
-        char *parent_dir = g_path_get_dirname (name);
-        char *canon_path = get_canonical_path (parent_dir);
-        char *tmp_file_list = g_strdup_printf ("[\"%s\"]", base_name);
-
-        char *new_root_id = do_del_file (repo, next_root_id, canon_path, tmp_file_list, mode, deleted_num, desc_file);
-        if (new_root_id) {
-            g_free (ret);
-            ret = g_strdup (new_root_id);
-            g_free (new_root_id);
-            next_root_id = ret;
+        if (!name || g_strcmp0 (name, "") == 0) {
+            continue;
         }
-        g_free (base_name);
-        g_free (parent_dir);
+        char *canon_path = get_canonical_path (name);
+        char *parent_dir = g_path_get_dirname (canon_path);
+        char *base_name= g_path_get_basename (canon_path);
+        char *del_path = canon_path;
+        if (canon_path[0] == '/') {
+            del_path = canon_path + 1;
+        }
+
+        remove_from_changeset (changeset, del_path, FALSE, parent_dir, mode);
+
+        (*deleted_num)++;
+        if (desc_file && *desc_file == NULL)
+            *desc_file = g_strdup (base_name);
+
         g_free (canon_path);
-        g_free (tmp_file_list);
+        g_free (parent_dir);
+        g_free (base_name);
     }
 
     string_list_free (filenames);
-
-    return ret;
 }
 
 int
@@ -1895,6 +1895,7 @@ seaf_repo_manager_batch_del_files (SeafRepoManager *mgr,
     char buf[SEAF_PATH_MAX];
     char *root_id = NULL;
     char *desc_file = NULL;
+    ChangeSet *changeset = NULL;
     int mode = 0;
     int ret = 0;
     int deleted_num = 0;
@@ -1902,9 +1903,9 @@ seaf_repo_manager_batch_del_files (SeafRepoManager *mgr,
     GET_REPO_OR_FAIL(repo, repo_id);
     GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
 
-    dir = seaf_fs_manager_get_seafdir (seaf->fs_mgr,
-                                       repo->store_id, repo->version,
-                                       head_commit->root_id);
+    dir = seaf_fs_manager_get_seafdir_sorted (seaf->fs_mgr,
+                                              repo->store_id, repo->version,
+                                              head_commit->root_id);
     if (!dir) {
         seaf_warning ("root dir doesn't exist in repo %s.\n",
                       repo->store_id);
@@ -1912,18 +1913,25 @@ seaf_repo_manager_batch_del_files (SeafRepoManager *mgr,
         goto out;
     }
 
-    root_id = do_batch_del_files (repo,
-                                 head_commit->root_id, file_list, &mode,
-                                 &deleted_num, &desc_file);
-    if (!root_id) {
-        seaf_warning ("[batch del files] Failed to del files in repo %s.\n",
-                      repo->id);
+    changeset = changeset_new (repo_id, dir);
+    if (!changeset) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to batch del files");
         ret = -1;
         goto out;
     }
+
+    do_batch_del_files (changeset, file_list, &mode, &deleted_num, &desc_file);
+
     if (deleted_num == 0) {
+        goto out;
+    }
+
+    root_id = commit_tree_from_changeset (changeset);
+    if (!root_id) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                     "Failed to batch del files");
+        ret = -1;
         goto out;
     }
 
@@ -1946,6 +1954,7 @@ seaf_repo_manager_batch_del_files (SeafRepoManager *mgr,
     seaf_repo_manager_merge_virtual_repo (mgr, repo_id, NULL);
 
 out:
+    changeset_free (changeset);
     if (repo)
         seaf_repo_unref (repo);
     if (head_commit)
@@ -6753,6 +6762,7 @@ seaf_repo_manager_get_deleted_entries (SeafRepoManager *mgr,
         g_hash_table_destroy (entries);
         seaf_repo_unref (repo);
         g_free (data.path);
+        g_free (next_scan_stat);
         return NULL;
     }
 
@@ -6774,6 +6784,7 @@ seaf_repo_manager_get_deleted_entries (SeafRepoManager *mgr,
 
     seaf_repo_unref (repo);
     g_free (data.path);
+    g_free (next_scan_stat);
 
     return ret;
 }
