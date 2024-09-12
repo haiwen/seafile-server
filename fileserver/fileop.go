@@ -31,6 +31,7 @@ import (
 	"syscall"
 
 	jwt "github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/diff"
@@ -230,6 +231,146 @@ func parseCryptKey(rsp http.ResponseWriter, repoID string, user string, version 
 	}
 
 	return seafileKey, nil
+}
+
+func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
+	vars := mux.Vars(r)
+	repoID := vars["repoid"]
+
+	filePath := r.URL.Query().Get("p")
+	op := r.URL.Query().Get("op")
+	if filePath == "" {
+		msg := "No file path\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	decPath, err := url.PathUnescape(filePath)
+	if err != nil {
+		msg := fmt.Sprintf("File path %s can't be decoded\n", filePath)
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+	rpath := getCanonPath(decPath)
+	fileName := filepath.Base(rpath)
+
+	if op != "view" && op != "download" {
+		msg := "Operation is neither view or download\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	token := utils.GetAuthorizationToken(r.Header)
+	cookie := r.Header.Get("Cookie")
+
+	if token == "" && cookie == "" {
+		msg := "Both token and cookie are not set\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	user, appErr := checkFileAccess(repoID, token, cookie, filePath, "download")
+	if appErr != nil {
+		return appErr
+	}
+
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		msg := "Bad repo id"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	fileID, _, err := fsmgr.GetObjIDByPath(repo.StoreID, repo.RootID, rpath)
+	if err != nil {
+		msg := "Invalid file_path\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	etag := r.Header.Get("If-None-Match")
+	if etag == fileID {
+		return &appError{nil, "", http.StatusNotModified}
+	}
+
+	rsp.Header().Set("ETag", fileID)
+	rsp.Header().Set("Cache-Control", "private, no-cache")
+
+	ranges := r.Header["Range"]
+	byteRanges := strings.Join(ranges, "")
+
+	var cryptKey *seafileCrypt
+	if repo.IsEncrypted {
+		key, err := parseCryptKey(rsp, repoID, user, repo.EncVersion)
+		if err != nil {
+			return err
+		}
+		cryptKey = key
+	}
+
+	exists, _ := fsmgr.Exists(repo.StoreID, fileID)
+	if !exists {
+		msg := "Invalid file id"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	if !repo.IsEncrypted && len(byteRanges) != 0 {
+		if err := doFileRange(rsp, r, repo, fileID, fileName, op, byteRanges, user); err != nil {
+			return err
+		}
+	} else if err := doFile(rsp, r, repo, fileID, fileName, op, cryptKey, user); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type UserInfo struct {
+	User string `json:"user"`
+}
+
+func checkFileAccess(repoID, token, cookie, filePath, op string) (string, *appError) {
+	claims := SeahubClaims{
+		time.Now().Add(time.Second * 300).Unix(),
+		true,
+		jwt.RegisteredClaims{},
+	}
+
+	jwtToken := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
+	tokenString, err := jwtToken.SignedString([]byte(seahubPK))
+	if err != nil {
+		err := fmt.Errorf("failed to sign jwt token: %v", err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
+	url := fmt.Sprintf("%s/repos/%s/check-access/?path=%s", seahubURL, repoID, filePath)
+	header := map[string][]string{
+		"Authorization": {"Token " + tokenString},
+	}
+	if cookie != "" {
+		header["Cookie"] = []string{cookie}
+	}
+	req := make(map[string]string)
+	req["op"] = op
+	if token != "" {
+		req["token"] = token
+	}
+	msg, err := json.Marshal(req)
+	if err != nil {
+		err := fmt.Errorf("failed to encode access token: %v", err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
+	status, body, err := utils.HttpCommon("POST", url, header, bytes.NewReader(msg))
+	if err != nil {
+		err := fmt.Errorf("failed to get access token info: %v", err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
+	if status != http.StatusOK {
+		msg := "No permission to access file\n"
+		return "", &appError{nil, msg, http.StatusForbidden}
+	}
+
+	info := new(UserInfo)
+	err = json.Unmarshal(body, &info)
+	if err != nil {
+		err := fmt.Errorf("failed to decode access token info: %v", err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
+
+	return info.User, nil
 }
 
 func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID string,
@@ -3571,7 +3712,7 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	rsp.Header().Set("ETag", fileID)
-	rsp.Header().Set("Cache-Control", "no-cache")
+	rsp.Header().Set("Cache-Control", "public, no-cache")
 
 	var cryptKey *seafileCrypt
 	if repo.IsEncrypted {

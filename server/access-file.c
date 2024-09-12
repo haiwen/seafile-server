@@ -27,6 +27,7 @@
 #include "access-file.h"
 #include "zip-download-mgr.h"
 #include "http-server.h"
+#include "seaf-utils.h"
 
 #define FILE_TYPE_MAP_DEFAULT_LEN 1
 #define BUFFER_SIZE 1024 * 64
@@ -1116,11 +1117,15 @@ set_etag (evhtp_request_t *req,
 }
 
 static void
-set_no_cache (evhtp_request_t *req)
+set_no_cache (evhtp_request_t *req, gboolean private_cache)
 {
     evhtp_kv_t *kv;
 
-    kv = evhtp_kv_new ("Cache-Control", "no-cache", 1, 1);
+    if (private_cache) {
+        kv = evhtp_kv_new ("Cache-Control", "private, no-cache", 1, 1);
+    } else {
+        kv = evhtp_kv_new ("Cache-Control", "public, no-cache", 1, 1);
+    }
     evhtp_kvs_add_kv (req->headers_out, kv);
 }
 
@@ -1466,6 +1471,145 @@ on_error:
     evhtp_send_reply(req, error_code);
 }
 
+static void
+access_v2_cb(evhtp_request_t *req, void *arg)
+{
+    SeafRepo *repo = NULL;
+    char *error_str = NULL;
+    char *token = NULL;
+    char *user = NULL;
+    char *dec_path = NULL;
+    char *rpath = NULL;
+    char *filename = NULL;
+    char *file_id = NULL;
+    const char *repo_id = NULL;
+    const char *path = NULL;
+    const char *operation = NULL;
+    const char *byte_ranges = NULL;
+    const char *auth_token = NULL;
+    const char *cookie = NULL;
+    int error_code = EVHTP_RES_BADREQ;
+
+    SeafileCryptKey *key = NULL;
+    GError *error = NULL;
+
+    /* Skip the first '/'. */
+    char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
+    if (!parts || g_strv_length (parts) < 3 ||
+        strcmp (parts[2], "files") != 0) {
+        error_str = "Invalid URL\n";
+        goto out;
+    }
+
+    repo_id = parts[1];
+
+    path = evhtp_kv_find (req->uri->query, "p");
+    if (!path) {
+        error_str = "No file path\n";
+        goto out;
+    }
+    dec_path = g_uri_unescape_string(path, NULL);
+    rpath = format_dir_path (dec_path);
+    filename = g_path_get_basename (rpath);
+
+    operation = evhtp_kv_find (req->uri->query, "op");
+    if (!operation) {
+        error_str = "No operation\n";
+        goto out;
+    }
+    if (strcmp(operation, "view") != 0 &&
+        strcmp(operation, "download") != 0) {
+        error_str = "Operation is neither view or download\n";
+        goto out;
+    }
+
+
+    auth_token = evhtp_kv_find (req->headers_in, "Authorization");
+    token = seaf_parse_auth_token (auth_token);
+    cookie = evhtp_kv_find (req->headers_in, "Cookie");
+    if (!token && !cookie) {
+        error_str = "Both token and cookie are not set\n";
+        goto out;
+    }
+    if (http_tx_manager_check_file_access (repo_id, token, cookie, path, "download", &user) < 0) {
+        error_str = "No permission to access file\n";
+        error_code = EVHTP_RES_FORBIDDEN;
+        goto out;
+    }
+
+    repo = seaf_repo_manager_get_repo(seaf->repo_mgr, repo_id);
+    if (!repo) {
+        error_str = "Bad repo id\n";
+        goto out;
+    }
+
+    file_id = seaf_fs_manager_get_seafile_id_by_path (seaf->fs_mgr, repo->store_id, repo->version, repo->root_id, rpath, &error);
+    if (!file_id) {
+        error_str = "Invalid file_path\n";
+        if (error)
+            g_clear_error(&error);
+        goto out;
+    }
+
+    const char *etag = evhtp_kv_find (req->headers_in, "If-None-Match");
+    if (g_strcmp0 (etag, file_id) == 0) {
+        evhtp_send_reply (req, EVHTP_RES_NOTMOD);
+        error_code = EVHTP_RES_OK;
+        goto out;
+    }
+    set_etag (req, file_id);
+    set_no_cache (req, TRUE);
+
+    byte_ranges = evhtp_kv_find (req->headers_in, "Range");
+
+    if (repo->encrypted) {
+        key = seaf_passwd_manager_get_decrypt_key (seaf->passwd_mgr,
+                                                   repo_id, user);
+        if (!key) {
+            error_str = "Repo is encrypted. Please provide password to view it.";
+            goto out;
+        }
+    }
+
+    if (!seaf_fs_manager_object_exists (seaf->fs_mgr,
+                                        repo->store_id, repo->version, file_id)) {
+        error_str = "Invalid file id\n";
+        goto out;
+    }
+
+    if (!repo->encrypted && byte_ranges) {
+        if (do_file_range (req, repo, file_id, filename, operation, byte_ranges, user) < 0) {
+            error_str = "Internal server error\n";
+            error_code = EVHTP_RES_SERVERR;
+            goto out;
+        }
+    } else if (do_file(req, repo, file_id, filename, operation, key, user) < 0) {
+        error_str = "Internal server error\n";
+        error_code = EVHTP_RES_SERVERR;
+        goto out;
+    }
+
+    error_code = EVHTP_RES_OK;
+
+out:
+    g_strfreev (parts);
+    g_free (token);
+    g_free (user);
+    g_free (dec_path);
+    g_free (rpath);
+    g_free (filename);
+    g_free (file_id);
+    if (repo != NULL)
+        seaf_repo_unref (repo);
+    if (key != NULL)
+        g_object_unref (key);
+
+    if (error_code != EVHTP_RES_OK) {
+        evbuffer_add_printf(req->buffer_out, "%s\n", error_str);
+        evhtp_send_reply(req, error_code);
+    }
+}
+
 static int
 do_block(evhtp_request_t *req, SeafRepo *repo, const char *user, const char *file_id,
          const char *blk_id)
@@ -1726,7 +1870,7 @@ access_link_cb(evhtp_request_t *req, void *arg)
         goto out;
     }
     set_etag (req, file_id);
-    set_no_cache (req);
+    set_no_cache (req, FALSE);
 
     byte_ranges = evhtp_kv_find (req->headers_in, "Range");
 
@@ -2124,6 +2268,7 @@ access_file_init (evhtp_t *htp)
     evhtp_set_regex_cb (htp, "^/zip/.*", access_zip_cb, NULL);
     evhtp_set_regex_cb (htp, "^/f/.*", access_link_cb, NULL);
     //evhtp_set_regex_cb (htp, "^/d/.*", access_dir_link_cb, NULL);
+    evhtp_set_regex_cb (htp, "^/repos/[\\da-z]{8}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{4}-[\\da-z]{12}/files/.*", access_v2_cb, NULL);
 
     return 0;
 }
