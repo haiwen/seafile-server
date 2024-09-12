@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -36,8 +37,8 @@ func HttpCommon(method, url string, header map[string][]string, reader io.Reader
 	defer rsp.Body.Close()
 
 	if rsp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(rsp.Body)
-		return rsp.StatusCode, body, fmt.Errorf("bad response %d for %s", rsp.StatusCode, url)
+		errMsg := parseErrorMessage(rsp.Body)
+		return rsp.StatusCode, errMsg, fmt.Errorf("bad response %d for %s", rsp.StatusCode, url)
 	}
 
 	body, err := io.ReadAll(rsp.Body)
@@ -46,4 +47,22 @@ func HttpCommon(method, url string, header map[string][]string, reader io.Reader
 	}
 
 	return http.StatusOK, body, nil
+}
+
+func parseErrorMessage(r io.Reader) []byte {
+	body, err := io.ReadAll(r)
+	if err != nil {
+		return nil
+	}
+	var objs map[string]string
+	err = json.Unmarshal(body, &objs)
+	if err != nil {
+		return body
+	}
+	errMsg, ok := objs["error_msg"]
+	if ok {
+		return []byte(errMsg)
+	}
+
+	return body
 }
