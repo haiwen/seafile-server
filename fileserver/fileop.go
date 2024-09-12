@@ -234,11 +234,6 @@ func parseCryptKey(rsp http.ResponseWriter, repoID string, user string, version 
 }
 
 func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
-	parts := strings.Split(r.URL.Path[1:], "/")
-	if len(parts) < 3 {
-		msg := "Invalid URL\n"
-		return &appError{nil, msg, http.StatusBadRequest}
-	}
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
 
@@ -251,8 +246,8 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	decPath, err := url.PathUnescape(filePath)
 	if err != nil {
-		err := fmt.Errorf("failed to unescape file path %s: %v", filePath, err)
-		return &appError{err, "", http.StatusInternalServerError}
+		msg := fmt.Sprintf("File path %s can't be decoded\n", filePath)
+		return &appError{nil, msg, http.StatusBadRequest}
 	}
 	rpath := getCanonPath(decPath)
 	fileName := filepath.Base(rpath)
@@ -265,7 +260,12 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 	token := utils.GetAuthorizationToken(r.Header)
 	cookie := r.Header.Get("Cookie")
 
-	user, appErr := queryAccessToken(repoID, token, cookie, filePath, "download")
+	if token == "" && cookie == "" {
+		msg := "Both token and cookie are not set\n"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
+	user, appErr := checkFileAccess(repoID, token, cookie, filePath, "download")
 	if appErr != nil {
 		return appErr
 	}
@@ -288,7 +288,7 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	rsp.Header().Set("ETag", fileID)
-	rsp.Header().Set("Cache-Control", "no-cache")
+	rsp.Header().Set("Cache-Control", "private, no-cache")
 
 	ranges := r.Header["Range"]
 	byteRanges := strings.Join(ranges, "")
@@ -319,11 +319,11 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
-type AccessTokenInfo struct {
+type UserInfo struct {
 	User string `json:"user"`
 }
 
-func queryAccessToken(repoID, token, cookie, filePath, op string) (string, *appError) {
+func checkFileAccess(repoID, token, cookie, filePath, op string) (string, *appError) {
 	claims := SeahubClaims{
 		time.Now().Add(time.Second * 300).Unix(),
 		true,
@@ -359,11 +359,11 @@ func queryAccessToken(repoID, token, cookie, filePath, op string) (string, *appE
 		return "", &appError{err, "", http.StatusInternalServerError}
 	}
 	if status != http.StatusOK {
-		msg := "Access token not found"
+		msg := "No permission to access file\n"
 		return "", &appError{nil, msg, http.StatusForbidden}
 	}
 
-	info := new(AccessTokenInfo)
+	info := new(UserInfo)
 	err = json.Unmarshal(body, &info)
 	if err != nil {
 		err := fmt.Errorf("failed to decode access token info: %v", err)
@@ -3712,7 +3712,7 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	rsp.Header().Set("ETag", fileID)
-	rsp.Header().Set("Cache-Control", "no-cache")
+	rsp.Header().Set("Cache-Control", "public, no-cache")
 
 	var cryptKey *seafileCrypt
 	if repo.IsEncrypted {

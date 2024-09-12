@@ -169,12 +169,23 @@ recv_response (void *contents, size_t size, size_t nmemb, void *userp)
  * the client will time out.
  */
 static int
-http_get_common (CURL *curl, const char *url, const char *token,
+http_get_common (CURL *curl, const char *url,
+                 struct curl_slist **headers,
+                 const char *token,
                  int *rsp_status, char **rsp_content, gint64 *rsp_size,
                  HttpRecvCallback callback, void *cb_data,
                  gboolean timeout)
 {
     int ret = 0;
+
+    if (token) {
+        char *token_header = g_strdup_printf ("Authorization: Token %s", token);
+        *headers = curl_slist_append (*headers, token_header);
+        g_free (token_header);
+    }
+    *headers = curl_slist_append (*headers, "User-Agent: Seafile Server");
+    *headers = curl_slist_append (*headers, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *headers);
 
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
@@ -259,12 +270,23 @@ send_request (void *ptr, size_t size, size_t nmemb, void *userp)
 }
 
 static int
-http_post_common (CURL *curl, const char *url, const char *token,
+http_post_common (CURL *curl, const char *url, 
+                  struct curl_slist **headers,
+                  const char *token,
                   const char *req_content, gint64 req_size,
                   int *rsp_status, char **rsp_content, gint64 *rsp_size,
                   gboolean timeout, int timeout_sec)
 {
     int ret = 0;
+
+    if (token) {
+        char *token_header = g_strdup_printf ("Authorization: Token %s", token);
+        *headers = curl_slist_append (*headers, token_header);
+        g_free (token_header);
+    }
+    *headers = curl_slist_append (*headers, "User-Agent: Seafile Server");
+    *headers = curl_slist_append (*headers, "Content-Type: application/json");
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, *headers);
 
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
@@ -342,25 +364,15 @@ http_post (Connection *conn, const char *url, const char *token,
            int *rsp_status, char **rsp_content, gint64 *rsp_size,
            gboolean timeout, int timeout_sec)
 {
-    char *token_header;
     struct curl_slist *headers = NULL;
     int ret = 0;
     CURL *curl;
 
     curl = conn->curl;
 
-    headers = curl_slist_append (headers, "User-Agent: Seafile Server");
-
-    if (token) {
-        token_header = g_strdup_printf ("Authorization: Token %s", token);
-        headers = curl_slist_append (headers, token_header);
-        g_free (token_header);
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    }
-
     g_return_val_if_fail (req_content != NULL, -1);
 
-    ret = http_post_common (curl, url, token, req_content, req_size,
+    ret = http_post_common (curl, url, &headers, token, req_content, req_size,
                             rsp_status, rsp_content, rsp_size, timeout, timeout_sec);
     if (ret < 0) {
         conn->release = TRUE;
@@ -451,7 +463,6 @@ char *
 http_tx_manager_get_nickname (const char *modifier)
 {
     Connection *conn = NULL;
-    char *token_header;
     struct curl_slist *headers = NULL;
     int ret = 0;
     CURL *curl;
@@ -490,15 +501,9 @@ http_tx_manager_get_nickname (const char *modifier)
     json_decref (content);
 
     curl = conn->curl;
-    headers = curl_slist_append (headers, "User-Agent: Seafile Server");
-    token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
-    headers = curl_slist_append (headers, token_header);
-    headers = curl_slist_append (headers, "Content-Type: application/json");
-    g_free (token_header);
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     url = g_strdup_printf("%s/user-list/", seaf->seahub_url);
-    ret = http_post_common (curl, url, jwt_token, req_content, strlen(req_content),
+    ret = http_post_common (curl, url, &headers, jwt_token, req_content, strlen(req_content),
                             &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
     if (ret < 0) {
         conn->release = TRUE;
@@ -506,8 +511,6 @@ http_tx_manager_get_nickname (const char *modifier)
     }
 
     if (rsp_status != HTTP_OK) {
-        seaf_warning ("Failed to get user list from seahub %d.\n",
-                      rsp_status);
         goto out;
     }
 
@@ -568,7 +571,6 @@ SeafileShareLinkInfo *
 http_tx_manager_query_share_link_info (const char *token, const char *cookie, const char *type)
 {
     Connection *conn = NULL;
-    char *token_header;
     char *cookie_header;
     struct curl_slist *headers = NULL;
     int ret = 0;
@@ -593,20 +595,14 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
     }
 
     curl = conn->curl;
-    headers = curl_slist_append (headers, "User-Agent: Seafile Server");
-    token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
-    headers = curl_slist_append (headers, token_header);
-    g_free (token_header);
     if (cookie) {
         cookie_header = g_strdup_printf ("Cookie: %s", cookie);
         headers = curl_slist_append (headers, cookie_header);
         g_free (cookie_header);
     }
-    headers = curl_slist_append (headers, "Content-Type: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     url = g_strdup_printf("%s/check-share-link-access/?token=%s&type=%s", seaf->seahub_url, token, type);
-    ret = http_get_common (curl, url, jwt_token, &rsp_status,
+    ret = http_get_common (curl, url, &headers, jwt_token, &rsp_status,
                            &rsp_content, &rsp_size, NULL, NULL, TRUE);
     if (ret < 0) {
         conn->release = TRUE;
@@ -614,8 +610,6 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
     }
 
     if (rsp_status != HTTP_OK) {
-        seaf_warning ("Failed to query access token from seahub: %d.\n",
-                      rsp_status);
         goto out;
     }
 
@@ -632,7 +626,7 @@ out:
 }
 
 char *
-parse_access_token_info (const char *rsp_content, int rsp_size)
+parse_file_access_info (const char *rsp_content, int rsp_size)
 {
     json_t *object;
     json_error_t jerror;
@@ -640,13 +634,13 @@ parse_access_token_info (const char *rsp_content, int rsp_size)
 
     object = json_loadb (rsp_content, rsp_size, 0, &jerror);
     if (!object) {
-        seaf_warning ("Parse response failed: %s.\n", jerror.text);
+        seaf_warning ("Failed to parse response when check file access in Seahub: %s.\n", jerror.text);
         return NULL;
     }
 
     user = json_object_get_string_member (object, "user");
     if (!user) {
-        seaf_warning ("Failed to find user in json.\n");
+        seaf_warning ("Failed to find user in json when check file access in Seahub.\n");
         goto out;
     }
 
@@ -657,11 +651,10 @@ out:
 }
 
 int
-http_tx_manager_query_access_token (const char *repo_id, const char *token, const char *cookie,
-                                    const char *path, const char *op, char **user)
+http_tx_manager_check_file_access (const char *repo_id, const char *token, const char *cookie,
+                                   const char *path, const char *op, char **user)
 {
     Connection *conn = NULL;
-    char *token_header;
     char *cookie_header;
     struct curl_slist *headers = NULL;
     int ret = -1;
@@ -699,20 +692,14 @@ http_tx_manager_query_access_token (const char *repo_id, const char *token, cons
     }
 
     curl = conn->curl;
-    headers = curl_slist_append (headers, "User-Agent: Seafile Server");
-    token_header = g_strdup_printf ("Authorization: Token %s", jwt_token);
-    headers = curl_slist_append (headers, token_header);
-    g_free (token_header);
     if (cookie) {
         cookie_header = g_strdup_printf ("Cookie: %s", cookie);
         headers = curl_slist_append (headers, cookie_header);
         g_free (cookie_header);
     }
-    headers = curl_slist_append (headers, "Content-Type: application/json");
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
 
     url = g_strdup_printf("%s/repos/%s/check-access/?path=%s", seaf->seahub_url, repo_id, path);
-    ret = http_post_common (curl, url, jwt_token, req_content, strlen(req_content),
+    ret = http_post_common (curl, url, &headers, jwt_token, req_content, strlen(req_content),
                             &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
     if (ret < 0) {
         conn->release = TRUE;
@@ -721,12 +708,10 @@ http_tx_manager_query_access_token (const char *repo_id, const char *token, cons
 
     if (rsp_status != HTTP_OK) {
         ret = -1;
-        seaf_warning ("Failed to get check access token %s from seahub %s: %d.\n",
-                      token, rsp_content, rsp_status);
         goto out;
     }
 
-    *user = parse_access_token_info (rsp_content, rsp_size);
+    *user = parse_file_access_info (rsp_content, rsp_size);
     if (*user == NULL) {
         ret = -1;
         goto out;

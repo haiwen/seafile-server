@@ -1117,11 +1117,15 @@ set_etag (evhtp_request_t *req,
 }
 
 static void
-set_no_cache (evhtp_request_t *req)
+set_no_cache (evhtp_request_t *req, gboolean private_cache)
 {
     evhtp_kv_t *kv;
 
-    kv = evhtp_kv_new ("Cache-Control", "no-cache", 1, 1);
+    if (private_cache) {
+        kv = evhtp_kv_new ("Cache-Control", "private, no-cache", 1, 1);
+    } else {
+        kv = evhtp_kv_new ("Cache-Control", "public, no-cache", 1, 1);
+    }
     evhtp_kvs_add_kv (req->headers_out, kv);
 }
 
@@ -1524,11 +1528,11 @@ access_v2_cb(evhtp_request_t *req, void *arg)
     token = seaf_parse_auth_token (auth_token);
     cookie = evhtp_kv_find (req->headers_in, "Cookie");
     if (!token && !cookie) {
-        error_str = "No access token\n";
+        error_str = "Both token and cookie are not set\n";
         goto out;
     }
-    if (http_tx_manager_query_access_token (repo_id, token, cookie, path, "download", &user) < 0) {
-        error_str = "Access token not found\n";
+    if (http_tx_manager_check_file_access (repo_id, token, cookie, path, "download", &user) < 0) {
+        error_str = "No permission to access file\n";
         error_code = EVHTP_RES_FORBIDDEN;
         goto out;
     }
@@ -1554,7 +1558,7 @@ access_v2_cb(evhtp_request_t *req, void *arg)
         goto out;
     }
     set_etag (req, file_id);
-    set_no_cache (req);
+    set_no_cache (req, TRUE);
 
     byte_ranges = evhtp_kv_find (req->headers_in, "Range");
 
@@ -1866,7 +1870,7 @@ access_link_cb(evhtp_request_t *req, void *arg)
         goto out;
     }
     set_etag (req, file_id);
-    set_no_cache (req);
+    set_no_cache (req, FALSE);
 
     byte_ranges = evhtp_kv_find (req->headers_in, "Range");
 
