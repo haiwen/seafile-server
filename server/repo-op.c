@@ -1736,7 +1736,7 @@ del_file_recursive(SeafRepo *repo,
 
 out:
     if (p_deleted_num)
-        *p_deleted_num += deleted_num;
+        *p_deleted_num = deleted_num;
 
     g_free (to_path_dup);
     g_free (id);
@@ -1850,36 +1850,34 @@ do_batch_del_files (ChangeSet *changeset,
                     const char *file_list,
                     int *mode, int *deleted_num, char **desc_file)
 {
-    GList *filenames = NULL, *ptr;
+    GList *filepaths = NULL, *ptr;
     char *name;
 
-    filenames = json_to_file_list (file_list);
+    filepaths = json_to_file_list (file_list);
 
-    for (ptr = filenames; ptr; ptr = ptr->next) {
+    for (ptr = filepaths; ptr; ptr = ptr->next) {
         name = ptr->data;
         if (!name || g_strcmp0 (name, "") == 0) {
             continue;
         }
         char *canon_path = get_canonical_path (name);
-        char *parent_dir = g_path_get_dirname (canon_path);
         char *base_name= g_path_get_basename (canon_path);
         char *del_path = canon_path;
         if (canon_path[0] == '/') {
             del_path = canon_path + 1;
         }
 
-        remove_from_changeset (changeset, del_path, FALSE, parent_dir, mode);
+        remove_from_changeset (changeset, del_path, FALSE, NULL, mode);
 
         (*deleted_num)++;
         if (desc_file && *desc_file == NULL)
             *desc_file = g_strdup (base_name);
 
         g_free (canon_path);
-        g_free (parent_dir);
         g_free (base_name);
     }
 
-    string_list_free (filenames);
+    string_list_free (filepaths);
 }
 
 int
@@ -1929,6 +1927,7 @@ seaf_repo_manager_batch_del_files (SeafRepoManager *mgr,
 
     root_id = commit_tree_from_changeset (changeset);
     if (!root_id) {
+        seaf_warning ("Failed to commit changeset for repo %s.\n", repo_id);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
                      "Failed to batch del files");
         ret = -1;
