@@ -25,22 +25,19 @@ func HttpCommon(method, url string, header map[string][]string, reader io.Reader
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, method, url, reader)
 	if err != nil {
-		return -1, nil, err
+		return http.StatusInternalServerError, nil, err
 	}
 	req.Header = header
 
 	rsp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return -1, nil, err
+		return http.StatusInternalServerError, nil, err
 	}
 	defer rsp.Body.Close()
 
-	if rsp.StatusCode == http.StatusNotFound {
-		return rsp.StatusCode, nil, fmt.Errorf("url %s not found", url)
-	}
-
 	if rsp.StatusCode != http.StatusOK {
-		return rsp.StatusCode, nil, fmt.Errorf("bad response %d for %s", rsp.StatusCode, url)
+		body, _ := io.ReadAll(rsp.Body)
+		return rsp.StatusCode, body, fmt.Errorf("bad response %d for %s", rsp.StatusCode, url)
 	}
 
 	body, err := io.ReadAll(rsp.Body)
@@ -48,5 +45,5 @@ func HttpCommon(method, url string, header map[string][]string, reader io.Reader
 		return rsp.StatusCode, nil, err
 	}
 
-	return rsp.StatusCode, body, nil
+	return http.StatusOK, body, nil
 }
