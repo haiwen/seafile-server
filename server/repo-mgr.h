@@ -432,6 +432,13 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
                             const char *user,
                             GError **error);
 
+int
+seaf_repo_manager_batch_del_files (SeafRepoManager *mgr,
+                                   const char *repo_id,
+                                   const char *file_list,
+                                   const char *user,
+                                   GError **error);
+
 SeafileCopyResult *
 seaf_repo_manager_copy_file (SeafRepoManager *mgr,
                              const char *src_repo_id,

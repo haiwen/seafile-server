@@ -36,7 +36,8 @@ noinst_HEADERS = web-accesstoken-mgr.h  seafile-session.h \
 	../common/org-mgr.h \
 	index-blocks-mgr.h \
 	http-tx-mgr.h \
-	notif-mgr.h
+	notif-mgr.h \
+	change-set.h
 
 seaf_server_SOURCES = \
 	seaf-server.c \
@@ -58,6 +59,7 @@ seaf_server_SOURCES = \
 	fileserver-config.c \
 	http-tx-mgr.c \
 	notif-mgr.c \
+	change-set.c \
 	../common/seaf-db.c \
 	../common/branch-mgr.c ../common/fs-mgr.c \
 	../common/config-mgr.c \

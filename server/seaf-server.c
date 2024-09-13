@@ -201,6 +201,11 @@ static void start_rpc_service (const char *seafile_dir,
                         searpc_signature_int__string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_batch_del_files,
+                                     "seafile_batch_del_files",
+                        searpc_signature_int__string_string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_copy_file,
                                      "seafile_copy_file",
        searpc_signature_object__string_string_string_string_string_string_string_int_int());

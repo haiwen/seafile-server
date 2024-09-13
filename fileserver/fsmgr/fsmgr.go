@@ -908,3 +908,31 @@ func getFileCountInfo(repoID, dirID string) (*FileCountInfo, error) {
 
 	return info, nil
 }
+
+func GetDirentByPath(repoID, rootID, rpath string) (*SeafDirent, error) {
+	parentDir := filepath.Dir(rpath)
+	fileName := filepath.Base(rpath)
+
+	var dir *SeafDir
+	var err error
+
+	if parentDir == "." {
+		dir, err = GetSeafdir(repoID, rootID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		dir, err = GetSeafdirByPath(repoID, rootID, parentDir)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, de := range dir.Entries {
+		if de.Name == fileName {
+			return de, nil
+		}
+	}
+
+	return nil, ErrPathNoExist
+}

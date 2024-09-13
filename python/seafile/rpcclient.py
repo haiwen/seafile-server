@@ -126,6 +126,11 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     del_file = seafile_del_file
 
+    @searpc_func("int", ["string", "string", "string"])
+    def seafile_batch_del_files(repo_id, filepaths, user):
+        pass
+    batch_del_files = seafile_batch_del_files
+
     @searpc_func("object", ["string", "string", "string", "string", "string", "string", "string", "int", "int"])
     def seafile_copy_file(src_repo, src_dir, src_filename, dst_repo, dst_dir, dst_filename, user, need_progress, synchronous):
         pass

@@ -131,6 +131,37 @@ def test_zip_download():
     os.remove(download_dir_path + '/file2.txt')
     os.remove(download_dir_path + '/multi_files.zip')
 
+    #test zip download mutliple files in multi-level
+    api.post_file(t_repo_id, file2_path, '/dir', file2_name, USER)
+    obj_id = {'parent_dir': '/', 'file_list': [file1_name, 'dir/'+file2_name], 'is_windows' : 0}
+    obj_id_json_str = json.dumps(obj_id)
+    token = api.get_fileserver_access_token(t_repo_id, obj_id_json_str,
+                                            'download-multi', USER)
+
+    time.sleep(1)
+    download_url = base_url + 'zip/' + token
+    response = requests.get(download_url)
+    assert response.status_code == 200
+
+    download_zipfile_path = download_dir_path + '/multi_files.zip'
+    with open(download_zipfile_path, 'wb') as fp:
+       fp.write(response.content)
+    zipFile = zipfile.ZipFile(download_zipfile_path)
+    for name in zipFile.namelist():
+        zipFile.extract(name, download_dir_path)
+    zipFile.close()
+    assert os.path.exists(download_dir_path + '/file1.txt')
+    assert os.path.exists(download_dir_path + '/file2.txt')
+    with open(download_dir_path + '/file1.txt', 'r') as fp1:
+       line = fp1.read()
+    assert line == file1_content
+    with open(download_dir_path + '/file2.txt', 'r') as fp2:
+       line = fp2.read()
+    assert line == file2_content
+    os.remove(download_dir_path + '/file1.txt')
+    os.remove(download_dir_path + '/file2.txt')
+    os.remove(download_dir_path + '/multi_files.zip')
+
     remove_test_files()
     api.remove_repo(t_repo_id)
 

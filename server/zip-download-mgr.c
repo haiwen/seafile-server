@@ -330,7 +330,7 @@ parse_download_multi_data (DownloadObj *obj, const char *data)
 
     for (i = 0; i < len; i++) {
         file_name = json_string_value (json_array_get (name_array, i));
-        if (strcmp (file_name, "") == 0 || strchr (file_name, '/') != NULL) {
+        if (strcmp (file_name, "") == 0) {
             seaf_warning ("Invalid download file name: %s.\n", file_name);
             if (dirent_list) {
                 g_list_free_full (dirent_list, (GDestroyNotify)seaf_dirent_free);
@@ -339,18 +339,42 @@ parse_download_multi_data (DownloadObj *obj, const char *data)
             break;
         }
 
-        dirent = g_hash_table_lookup (dirent_hash, file_name);
-        if (!dirent) {
-            seaf_warning ("Failed to get dirent for %s in dir %s in repo %.8s.\n",
-                           file_name, parent_dir, repo->store_id);
-            if (dirent_list) {
-                g_list_free_full (dirent_list, (GDestroyNotify)seaf_dirent_free);
-                dirent_list = NULL;
+        // Packing files in multi-level directories.
+        if (strchr (file_name, '/') != NULL) {
+            char *fullpath = g_build_path ("/", parent_dir, file_name, NULL);
+            dirent = seaf_fs_manager_get_dirent_by_path (seaf->fs_mgr, repo->store_id, repo->version, repo->root_id, fullpath, &error);
+            if (!dirent) {
+                if (error) {
+                    seaf_warning ("Failed to get path %s repo %.8s: %s.\n",
+                                  fullpath, repo->store_id, error->message);
+                    g_clear_error(&error);
+                } else {
+                    seaf_warning ("Path %s doesn't exist in repo %.8s.\n",
+                                  parent_dir, repo->store_id);
+                }
+                if (dirent_list) {
+                    g_list_free_full (dirent_list, (GDestroyNotify)seaf_dirent_free);
+                    dirent_list = NULL;
+                }
+                g_free (fullpath);
+                break;
             }
-            break;
-        }
+            g_free (fullpath);
+            dirent_list = g_list_prepend (dirent_list, dirent);
+        } else {
+            dirent = g_hash_table_lookup (dirent_hash, file_name);
+            if (!dirent) {
+                seaf_warning ("Failed to get dirent for %s in dir %s in repo %.8s.\n",
+                               file_name, parent_dir, repo->store_id);
+                if (dirent_list) {
+                    g_list_free_full (dirent_list, (GDestroyNotify)seaf_dirent_free);
+                    dirent_list = NULL;
+                }
+                break;
+            }
 
-        dirent_list = g_list_prepend (dirent_list, seaf_dirent_dup(dirent));
+            dirent_list = g_list_prepend (dirent_list, seaf_dirent_dup(dirent));
+        }
     }
 
     g_hash_table_unref(dirent_hash);

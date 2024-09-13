@@ -2812,6 +2812,46 @@ out:
     return ret;
 }
 
+int
+seafile_batch_del_files (const char *repo_id,
+                         const char *filepaths,
+                         const char *user,
+                         GError **error)
+{
+    char *norm_file_list = NULL, *rpath = NULL;
+    int ret = 0;
+
+    if (!repo_id || !filepaths || !user) {
+        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
+        return -1;
+    }
+
+    if (!is_uuid_valid (repo_id)) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
+        return -1;
+    }
+
+
+    norm_file_list = normalize_utf8_path (filepaths);
+    if (!norm_file_list) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                     "Path is in valid UTF8 encoding");
+        ret = -1;
+        goto out;
+    }
+
+    if (seaf_repo_manager_batch_del_files (seaf->repo_mgr, repo_id,
+                                           norm_file_list,
+                                           user, error) < 0) {
+        ret = -1;
+    }
+
+out:
+    g_free (norm_file_list);
+
+    return ret;
+}
+
 GObject *
 seafile_copy_file (const char *src_repo_id,
                    const char *src_dir,
