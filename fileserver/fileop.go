@@ -355,12 +355,13 @@ func checkFileAccess(repoID, token, cookie, filePath, op string) (string, *appEr
 	}
 	status, body, err := utils.HttpCommon("POST", url, header, bytes.NewReader(msg))
 	if err != nil {
-		err := fmt.Errorf("failed to get access token info: %v", err)
-		return "", &appError{err, "", http.StatusInternalServerError}
-	}
-	if status != http.StatusOK {
-		msg := "No permission to access file\n"
-		return "", &appError{nil, msg, http.StatusForbidden}
+		if status != http.StatusInternalServerError {
+			msg := "No permission to access file\n"
+			return "", &appError{nil, msg, http.StatusForbidden}
+		} else {
+			err := fmt.Errorf("failed to get access token info: %v", err)
+			return "", &appError{err, "", http.StatusInternalServerError}
+		}
 	}
 
 	info := new(UserInfo)
@@ -3651,12 +3652,12 @@ func queryShareLinkInfo(token, cookie, opType string) (*ShareLinkInfo, *appError
 	}
 	status, body, err := utils.HttpCommon("GET", url, header, nil)
 	if err != nil {
-		err := fmt.Errorf("failed to get share link info: %v", err)
-		return nil, &appError{err, "", http.StatusInternalServerError}
-	}
-	if status != http.StatusOK {
-		msg := "Link token not found"
-		return nil, &appError{nil, msg, http.StatusForbidden}
+		if status != http.StatusInternalServerError {
+			return nil, &appError{nil, string(body), status}
+		} else {
+			err := fmt.Errorf("failed to get share link info: %v", err)
+			return nil, &appError{err, "", http.StatusInternalServerError}
+		}
 	}
 
 	info := new(ShareLinkInfo)

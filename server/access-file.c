@@ -1823,11 +1823,22 @@ access_link_cb(evhtp_request_t *req, void *arg)
     token = parts[1];
 
     const char *cookie = evhtp_kv_find (req->headers_in, "Cookie");
-    info = http_tx_manager_query_share_link_info (token, cookie, "file");
+    int status = HTTP_OK;
+    char *err_msg = NULL;
+    info = http_tx_manager_query_share_link_info (token, cookie, "file", &status, &err_msg);
     if (!info) {
-        error_str = "Link token not found\n";
-        error_code = EVHTP_RES_FORBIDDEN;
-        goto out;
+        g_strfreev (parts);
+        if (status != HTTP_OK) {
+            evbuffer_add_printf(req->buffer_out, "%s\n", err_msg);
+            evhtp_send_reply(req, status);
+        } else {
+            error_str = "Internal server error\n";
+            error_code = EVHTP_RES_SERVERR;
+            evbuffer_add_printf(req->buffer_out, "%s\n", error_str);
+            evhtp_send_reply(req, error_code);
+        }
+        g_free (err_msg);
+        return;
     }
 
     repo_id = seafile_share_link_info_get_repo_id (info);

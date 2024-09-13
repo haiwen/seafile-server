@@ -567,8 +567,39 @@ out:
     return info;
 }
 
+char *
+parse_error_message (const char *rsp_content, int rsp_size)
+{
+    json_t *object;
+    json_error_t jerror;
+    const char *err_msg = NULL;
+    char *ret = NULL;
+
+    if (!rsp_content) {
+        return NULL;
+    }
+
+    object = json_loadb (rsp_content, rsp_size, 0, &jerror);
+    if (!object) {
+        ret = g_strdup (rsp_content);
+        return ret;
+    }
+
+    err_msg = json_object_get_string_member (object, "error_msg");
+    if (!err_msg) {
+        ret = g_strdup (rsp_content);
+        goto out;
+    }
+    ret = g_strdup (err_msg);
+
+out:
+    json_decref (object);
+
+    return ret;
+}
+
 SeafileShareLinkInfo *
-http_tx_manager_query_share_link_info (const char *token, const char *cookie, const char *type)
+http_tx_manager_query_share_link_info (const char *token, const char *cookie, const char *type, int *status, char **err_msg)
 {
     Connection *conn = NULL;
     char *cookie_header;
@@ -609,7 +640,9 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
         goto out;
     }
 
+    *status = rsp_status;
     if (rsp_status != HTTP_OK) {
+        *err_msg = parse_error_message (rsp_content, rsp_size);
         goto out;
     }
 
