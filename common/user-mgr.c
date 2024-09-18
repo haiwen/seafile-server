@@ -1147,26 +1147,41 @@ get_ldap_emailuser_cb (CcnetDBRow *row, void *data)
 static CcnetEmailUser*
 get_emailuser (CcnetUserManager *manager,
                const char *email,
-               gboolean import)
+               gboolean import,
+               GError **error)
 {
     CcnetDB *db = manager->priv->db;
     char *sql;
     CcnetEmailUser *emailuser = NULL;
     char *email_down;
+    int rc;
 
     sql = "SELECT e.id, e.email, is_staff, is_active, ctime, passwd, reference_id, role "
         " FROM EmailUser e LEFT JOIN UserRole ON e.email = UserRole.email "
         " WHERE e.email=?";
-    if (seaf_db_statement_foreach_row (db, sql, get_emailuser_cb, &emailuser,
-                                        1, "string", email) > 0) {
+    rc = seaf_db_statement_foreach_row (db, sql, get_emailuser_cb, &emailuser,
+                                         1, "string", email);
+    if (rc > 0) {
         return emailuser;
+    } else if (rc < 0) {
+        if (error) {
+            g_set_error (error, CCNET_DOMAIN, 500, "Database error");
+        }
+        return NULL;
     }
 
     email_down = g_ascii_strdown (email, strlen(email));
-    if (seaf_db_statement_foreach_row (db, sql, get_emailuser_cb, &emailuser,
-                                        1, "string", email_down) > 0) {
+    rc = seaf_db_statement_foreach_row (db, sql, get_emailuser_cb, &emailuser,
+                                         1, "string", email_down);
+    if (rc > 0) {
         g_free (email_down);
         return emailuser;
+    } else if (rc < 0) {
+        if (error) {
+            g_set_error (error, CCNET_DOMAIN, 500, "Database error");
+        }
+        g_free (email_down);
+        return NULL;
     }
 
 #ifdef HAVE_LDAP
@@ -1179,6 +1194,9 @@ get_emailuser (CcnetUserManager *manager,
                                                   get_ldap_emailuser_cb,
                                                   &emailuser, 1, "string", email_down);
         if (ret < 0) {
+            if (error) {
+                g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Database error");
+            }
             ccnet_warning ("get ldapuser from db failed.\n");
             g_free (email_down);
             return NULL;
@@ -1236,16 +1254,18 @@ get_emailuser (CcnetUserManager *manager,
 
 CcnetEmailUser*
 ccnet_user_manager_get_emailuser (CcnetUserManager *manager,
-                                  const char *email)
+                                  const char *email,
+                                  GError **error)
 {
-    return get_emailuser (manager, email, FALSE);
+    return get_emailuser (manager, email, FALSE, error);
 }
 
 CcnetEmailUser*
 ccnet_user_manager_get_emailuser_with_import (CcnetUserManager *manager,
-                                              const char *email)
+                                              const char *email,
+                                              GError **error)
 {
-    return get_emailuser (manager, email, TRUE);
+    return get_emailuser (manager, email, TRUE, error);
 }
 
 CcnetEmailUser*
