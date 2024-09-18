@@ -27,8 +27,6 @@
 #define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"
 
-#define CCNET_ERR_INTERNAL 500
-
 #ifndef SEAFILE_SERVER
 #include "../daemon/vc-utils.h"
 

@@ -1165,7 +1165,7 @@ get_emailuser (CcnetUserManager *manager,
         return emailuser;
     } else if (rc < 0) {
         if (error) {
-            g_set_error (error, CCNET_DOMAIN, 500, "Database error");
+            g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Database error");
         }
         return NULL;
     }
@@ -1178,7 +1178,7 @@ get_emailuser (CcnetUserManager *manager,
         return emailuser;
     } else if (rc < 0) {
         if (error) {
-            g_set_error (error, CCNET_DOMAIN, 500, "Database error");
+            g_set_error (error, CCNET_DOMAIN, CCNET_ERR_INTERNAL, "Database error");
         }
         g_free (email_down);
         return NULL;
