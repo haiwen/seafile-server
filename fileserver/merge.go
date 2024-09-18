@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/utils"
 )
 
@@ -381,7 +381,7 @@ func getNickNameByModifier(emailToNickname map[string]string, modifier string) s
 	if ok {
 		return nickname
 	}
-	if seahubPK != "" {
+	if option.PrivateKey != "" {
 		nickname = postGetNickName(modifier)
 	}
 
@@ -394,25 +394,8 @@ func getNickNameByModifier(emailToNickname map[string]string, modifier string) s
 	return nickname
 }
 
-type SeahubClaims struct {
-	Exp        int64
-	IsInternal bool `json:"is_internal"`
-	jwt.RegisteredClaims
-}
-
-func (*SeahubClaims) Valid() error {
-	return nil
-}
-
 func postGetNickName(modifier string) string {
-	claims := SeahubClaims{
-		time.Now().Add(time.Second * 300).Unix(),
-		true,
-		jwt.RegisteredClaims{},
-	}
-
-	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
-	tokenString, err := token.SignedString([]byte(seahubPK))
+	tokenString, err := utils.GenJWTToken("", "", true)
 	if err != nil {
 		return ""
 	}
@@ -428,7 +411,7 @@ func postGetNickName(modifier string) string {
 		return ""
 	}
 
-	url := seahubURL + "/user-list/"
+	url := option.SeahubURL + "/user-list/"
 	status, body, err := utils.HttpCommon("POST", url, header, bytes.NewReader(data))
 	if err != nil {
 		return ""

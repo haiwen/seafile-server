@@ -17,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
@@ -726,17 +725,6 @@ func getCheckQuotaCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	return nil
 }
 
-type MyClaims struct {
-	Exp      int64
-	RepoID   string `json:"repo_id"`
-	UserName string `json:"username"`
-	jwt.RegisteredClaims
-}
-
-func (*MyClaims) Valid() error {
-	return nil
-}
-
 func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
@@ -750,7 +738,7 @@ func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return appErr
 	}
 
-	tokenString, err := genJWTToken(repoID, user)
+	tokenString, err := utils.GenJWTToken(repoID, user, false)
 	if err != nil {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
@@ -760,24 +748,6 @@ func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	rsp.Write([]byte(data))
 
 	return nil
-}
-
-func genJWTToken(repoID, user string) (string, error) {
-	claims := MyClaims{
-		time.Now().Add(time.Hour * 72).Unix(),
-		repoID,
-		user,
-		jwt.RegisteredClaims{},
-	}
-
-	token := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
-	tokenString, err := token.SignedString([]byte(seahubPK))
-	if err != nil {
-		err := fmt.Errorf("failed to gen jwt token for repo %s", repoID)
-		return "", err
-	}
-
-	return tokenString, nil
 }
 
 func getFsObjIDCB(rsp http.ResponseWriter, r *http.Request) *appError {

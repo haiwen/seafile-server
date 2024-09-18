@@ -30,7 +30,6 @@ import (
 	"sort"
 	"syscall"
 
-	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
@@ -324,19 +323,12 @@ type UserInfo struct {
 }
 
 func checkFileAccess(repoID, token, cookie, filePath, op string) (string, *appError) {
-	claims := SeahubClaims{
-		time.Now().Add(time.Second * 300).Unix(),
-		true,
-		jwt.RegisteredClaims{},
-	}
-
-	jwtToken := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
-	tokenString, err := jwtToken.SignedString([]byte(seahubPK))
+	tokenString, err := utils.GenJWTToken("", "", true)
 	if err != nil {
 		err := fmt.Errorf("failed to sign jwt token: %v", err)
 		return "", &appError{err, "", http.StatusInternalServerError}
 	}
-	url := fmt.Sprintf("%s/repos/%s/check-access/?path=%s", seahubURL, repoID, filePath)
+	url := fmt.Sprintf("%s/repos/%s/check-access/?path=%s", option.SeahubURL, repoID, filePath)
 	header := map[string][]string{
 		"Authorization": {"Token " + tokenString},
 	}
@@ -2097,7 +2089,7 @@ func notifRepoUpdate(repoID string, commitID string) error {
 	}
 
 	url := fmt.Sprintf("http://%s/events", option.NotificationURL)
-	token, err := genJWTToken(repoID, "")
+	token, err := utils.GenJWTToken(repoID, "", false)
 	if err != nil {
 		log.Printf("failed to generate jwt token: %v", err)
 		return err
@@ -3631,19 +3623,12 @@ type ShareLinkInfo struct {
 }
 
 func queryShareLinkInfo(token, cookie, opType string) (*ShareLinkInfo, *appError) {
-	claims := SeahubClaims{
-		time.Now().Add(time.Second * 300).Unix(),
-		true,
-		jwt.RegisteredClaims{},
-	}
-
-	jwtToken := jwt.NewWithClaims(jwt.GetSigningMethod("HS256"), &claims)
-	tokenString, err := jwtToken.SignedString([]byte(seahubPK))
+	tokenString, err := utils.GenJWTToken("", "", true)
 	if err != nil {
 		err := fmt.Errorf("failed to sign jwt token: %v", err)
 		return nil, &appError{err, "", http.StatusInternalServerError}
 	}
-	url := fmt.Sprintf("%s?token=%s&type=%s", seahubURL+"/check-share-link-access/", token, opType)
+	url := fmt.Sprintf("%s?token=%s&type=%s", option.SeahubURL+"/check-share-link-access/", token, opType)
 	header := map[string][]string{
 		"Authorization": {"Token " + tokenString},
 	}
@@ -3671,7 +3656,7 @@ func queryShareLinkInfo(token, cookie, opType string) (*ShareLinkInfo, *appError
 }
 
 func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
-	if seahubPK == "" {
+	if option.PrivateKey == "" {
 		err := fmt.Errorf("no seahub private key is configured")
 		return &appError{err, "", http.StatusNotFound}
 	}

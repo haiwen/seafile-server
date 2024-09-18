@@ -3,6 +3,7 @@ package option
 import (
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -62,6 +63,10 @@ var (
 
 	// DB default timeout
 	DBOpTimeout time.Duration
+
+	// seahub
+	SeahubURL  string
+	PrivateKey string
 )
 
 func initDefaultOptions() {
@@ -255,4 +260,20 @@ func parseQuota(quotaStr string) int64 {
 	}
 
 	return quota
+}
+
+func LoadSeahubConfig() error {
+	PrivateKey = os.Getenv("JWT_PRIVATE_KEY")
+	if PrivateKey == "" {
+		return fmt.Errorf("failed to read JWT_PRIVATE_KEY")
+	}
+
+	siteRoot := os.Getenv("SITE_ROOT")
+	if siteRoot != "" {
+		SeahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal", siteRoot)
+	} else {
+		SeahubURL = "http://127.0.0.1:8000/api/v2.1/internal"
+	}
+
+	return nil
 }
