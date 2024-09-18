@@ -738,7 +738,8 @@ func getJWTTokenCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return appErr
 	}
 
-	tokenString, err := utils.GenNotifJWTToken(repoID, user)
+	exp := time.Now().Add(time.Hour * 72).Unix()
+	tokenString, err := utils.GenNotifJWTToken(repoID, user, exp)
 	if err != nil {
 		return &appError{err, "", http.StatusInternalServerError}
 	}

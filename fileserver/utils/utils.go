@@ -64,9 +64,10 @@ func (*MyClaims) Valid() error {
 	return nil
 }
 
-func GenNotifJWTToken(repoID, user string) (string, error) {
+func GenNotifJWTToken(repoID, user string, exp int64) (string, error) {
 	claims := new(MyClaims)
 	claims.Exp = time.Now().Add(time.Hour * 72).Unix()
+	claims.Exp = exp
 	claims.RepoID = repoID
 	claims.UserName = user
 
