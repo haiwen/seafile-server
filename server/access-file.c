@@ -1365,6 +1365,7 @@ access_cb(evhtp_request_t *req, void *arg)
     char *error = NULL;
     char *token = NULL;
     char *filename = NULL;
+    char *dec_filename = NULL;
     const char *repo_id = NULL;
     const char *data = NULL;
     const char *operation = NULL;
@@ -1385,6 +1386,9 @@ access_cb(evhtp_request_t *req, void *arg)
 
     token = parts[1];
     filename = parts[2];
+
+    // The filename is url-encoded.
+    dec_filename = g_uri_unescape_string(filename, NULL);
 
     webaccess = seaf_web_at_manager_query_access_token (seaf->web_at_mgr, token);
     if (!webaccess) {
@@ -1436,18 +1440,19 @@ access_cb(evhtp_request_t *req, void *arg)
     }
 
     if (!repo->encrypted && byte_ranges) {
-        if (do_file_range (req, repo, data, filename, operation, byte_ranges, user) < 0) {
+        if (do_file_range (req, repo, data, dec_filename, operation, byte_ranges, user) < 0) {
             error = "Internal server error\n";
             error_code = EVHTP_RES_SERVERR;
             goto on_error;
         }
-    } else if (do_file(req, repo, data, filename, operation, key, user) < 0) {
+    } else if (do_file(req, repo, data, dec_filename, operation, key, user) < 0) {
         error = "Internal server error\n";
         error_code = EVHTP_RES_SERVERR;
         goto on_error;
     }
 
 success:
+    g_free (dec_filename);
     g_strfreev (parts);
     if (repo != NULL)
         seaf_repo_unref (repo);
@@ -1459,6 +1464,7 @@ success:
     return;
 
 on_error:
+    g_free (dec_filename);
     g_strfreev (parts);
     if (repo != NULL)
         seaf_repo_unref (repo);
