@@ -40,7 +40,7 @@ type Repo struct {
 }
 
 type myClaims struct {
-	Exp      int64
+	Exp      int64  `json:"exp"`
 	RepoID   string `json:"repo_id"`
 	UserName string `json:"username"`
 	jwt.RegisteredClaims
