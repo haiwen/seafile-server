@@ -826,10 +826,6 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def search_files_by_path(self, repo_id, path, search_str):
         pass
 
-    @searpc_func("string", ["string", "string"])
-    def generate_notif_server_jwt(self, repo_id, username):
-        pass
-
     #user management
     @searpc_func("int", ["string", "string", "int", "int"])
     def add_emailuser(self, email, passwd, is_staff, is_active):
