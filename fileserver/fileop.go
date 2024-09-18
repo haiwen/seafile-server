@@ -323,7 +323,7 @@ type UserInfo struct {
 }
 
 func checkFileAccess(repoID, token, cookie, filePath, op string) (string, *appError) {
-	tokenString, err := utils.GenJWTToken("", "", true)
+	tokenString, err := utils.GenSeahubJWTToken()
 	if err != nil {
 		err := fmt.Errorf("failed to sign jwt token: %v", err)
 		return "", &appError{err, "", http.StatusInternalServerError}
@@ -2089,7 +2089,7 @@ func notifRepoUpdate(repoID string, commitID string) error {
 	}
 
 	url := fmt.Sprintf("http://%s/events", option.NotificationURL)
-	token, err := utils.GenJWTToken(repoID, "", false)
+	token, err := utils.GenNotifJWTToken(repoID, "")
 	if err != nil {
 		log.Printf("failed to generate jwt token: %v", err)
 		return err
@@ -3623,7 +3623,7 @@ type ShareLinkInfo struct {
 }
 
 func queryShareLinkInfo(token, cookie, opType string) (*ShareLinkInfo, *appError) {
-	tokenString, err := utils.GenJWTToken("", "", true)
+	tokenString, err := utils.GenSeahubJWTToken()
 	if err != nil {
 		err := fmt.Errorf("failed to sign jwt token: %v", err)
 		return nil, &appError{err, "", http.StatusInternalServerError}
@@ -3656,7 +3656,7 @@ func queryShareLinkInfo(token, cookie, opType string) (*ShareLinkInfo, *appError
 }
 
 func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
-	if option.PrivateKey == "" {
+	if option.JWTPrivateKey == "" {
 		err := fmt.Errorf("no seahub private key is configured")
 		return &appError{err, "", http.StatusNotFound}
 	}

@@ -381,7 +381,7 @@ func getNickNameByModifier(emailToNickname map[string]string, modifier string) s
 	if ok {
 		return nickname
 	}
-	if option.PrivateKey != "" {
+	if option.JWTPrivateKey != "" {
 		nickname = postGetNickName(modifier)
 	}
 
@@ -395,7 +395,7 @@ func getNickNameByModifier(emailToNickname map[string]string, modifier string) s
 }
 
 func postGetNickName(modifier string) string {
-	tokenString, err := utils.GenJWTToken("", "", true)
+	tokenString, err := utils.GenSeahubJWTToken()
 	if err != nil {
 		return ""
 	}

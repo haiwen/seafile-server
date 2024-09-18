@@ -65,8 +65,8 @@ var (
 	DBOpTimeout time.Duration
 
 	// seahub
-	SeahubURL  string
-	PrivateKey string
+	SeahubURL     string
+	JWTPrivateKey string
 )
 
 func initDefaultOptions() {
@@ -263,8 +263,8 @@ func parseQuota(quotaStr string) int64 {
 }
 
 func LoadSeahubConfig() error {
-	PrivateKey = os.Getenv("JWT_PRIVATE_KEY")
-	if PrivateKey == "" {
+	JWTPrivateKey = os.Getenv("JWT_PRIVATE_KEY")
+	if JWTPrivateKey == "" {
 		return fmt.Errorf("failed to read JWT_PRIVATE_KEY")
 	}
 
