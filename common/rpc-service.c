@@ -27,8 +27,6 @@
 #define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"
 
-#define CCNET_ERR_INTERNAL 500
-
 #ifndef SEAFILE_SERVER
 #include "../daemon/vc-utils.h"
 
@@ -4726,7 +4724,7 @@ ccnet_rpc_get_emailuser (const char *email, GError **error)
     CcnetUserManager *user_mgr = seaf->user_mgr;
     CcnetEmailUser *emailuser = NULL;
     
-    emailuser = ccnet_user_manager_get_emailuser (user_mgr, email);
+    emailuser = ccnet_user_manager_get_emailuser (user_mgr, email, error);
     
     return (GObject *)emailuser;
 }
@@ -4742,7 +4740,7 @@ ccnet_rpc_get_emailuser_with_import (const char *email, GError **error)
     CcnetUserManager *user_mgr = seaf->user_mgr;
     CcnetEmailUser *emailuser = NULL;
 
-    emailuser = ccnet_user_manager_get_emailuser_with_import (user_mgr, email);
+    emailuser = ccnet_user_manager_get_emailuser_with_import (user_mgr, email, error);
 
     return (GObject *)emailuser;
 }
@@ -5448,7 +5446,7 @@ ccnet_rpc_get_org_emailusers (const char *url_prefix, int start , int limit,
     while (ptr) {
         char *email = ptr->data;
         CcnetEmailUser *emailuser = ccnet_user_manager_get_emailuser (user_mgr,
-                                                                      email);
+                                                                      email, NULL);
         if (emailuser != NULL) {
             ret = g_list_prepend (ret, emailuser);
         }

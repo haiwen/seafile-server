@@ -94,7 +94,7 @@ static int readdir_user(SeafileSession *seaf, const char *user,
     GList *list = NULL, *p;
     GString *name;
 
-    emailuser = ccnet_user_manager_get_emailuser (seaf->user_mgr, user);
+    emailuser = ccnet_user_manager_get_emailuser (seaf->user_mgr, user, NULL);
     if (!emailuser) {
         return -ENOENT;
     }

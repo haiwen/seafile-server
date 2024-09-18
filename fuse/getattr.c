@@ -35,7 +35,7 @@ static int getattr_user(SeafileSession *seaf, const char *user, struct stat *stb
 {
     CcnetEmailUser *emailuser;
 
-    emailuser = ccnet_user_manager_get_emailuser (seaf->user_mgr, user);
+    emailuser = ccnet_user_manager_get_emailuser (seaf->user_mgr, user, NULL);
     if (!emailuser) {
         return -ENOENT;
     }

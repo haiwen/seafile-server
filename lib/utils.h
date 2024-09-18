@@ -148,6 +148,8 @@ traverse_directory_win32 (wchar_t *path_w,
 
 #define CCNET_DOMAIN g_quark_from_string("ccnet")
 
+#define CCNET_ERR_INTERNAL 500
+
 
 struct timeval timeval_from_msec (uint64_t milliseconds);
 
