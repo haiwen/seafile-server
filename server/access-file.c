@@ -1500,8 +1500,8 @@ access_v2_cb(evhtp_request_t *req, void *arg)
     GError *error = NULL;
 
     /* Skip the first '/'. */
-    char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
-    if (!parts || g_strv_length (parts) < 3 ||
+    char **parts = g_strsplit (req->uri->path->full + 1, "/", 4);
+    if (!parts || g_strv_length (parts) < 4 ||
         strcmp (parts[2], "files") != 0) {
         error_str = "Invalid URL\n";
         goto out;
@@ -1509,7 +1509,7 @@ access_v2_cb(evhtp_request_t *req, void *arg)
 
     repo_id = parts[1];
 
-    path = evhtp_kv_find (req->uri->query, "p");
+    path = parts[3];
     if (!path) {
         error_str = "No file path\n";
         goto out;

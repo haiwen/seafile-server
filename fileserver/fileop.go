@@ -235,14 +235,12 @@ func parseCryptKey(rsp http.ResponseWriter, repoID string, user string, version 
 func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
+	filePath := vars["filepath"]
 
-	filePath := r.URL.Query().Get("p")
-	op := r.URL.Query().Get("op")
 	if filePath == "" {
 		msg := "No file path\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
-
 	decPath, err := url.PathUnescape(filePath)
 	if err != nil {
 		msg := fmt.Sprintf("File path %s can't be decoded\n", filePath)
@@ -251,6 +249,7 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 	rpath := getCanonPath(decPath)
 	fileName := filepath.Base(rpath)
 
+	op := r.URL.Query().Get("op")
 	if op != "view" && op != "download" {
 		msg := "Operation is neither view or download\n"
 		return &appError{nil, msg, http.StatusBadRequest}
