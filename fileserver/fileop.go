@@ -241,12 +241,9 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 		msg := "No file path\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
-	decPath, err := url.PathUnescape(filePath)
-	if err != nil {
-		msg := fmt.Sprintf("File path %s can't be decoded\n", filePath)
-		return &appError{nil, msg, http.StatusBadRequest}
-	}
-	rpath := getCanonPath(decPath)
+	// filePath will be unquote by mux, we need to escape filePath before calling check file access.
+	escPath := url.PathEscape(filePath)
+	rpath := getCanonPath(filePath)
 	fileName := filepath.Base(rpath)
 
 	op := r.URL.Query().Get("op")
@@ -263,7 +260,7 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	user, appErr := checkFileAccess(repoID, token, cookie, filePath, "download")
+	user, appErr := checkFileAccess(repoID, token, cookie, escPath, "download")
 	if appErr != nil {
 		return appErr
 	}
