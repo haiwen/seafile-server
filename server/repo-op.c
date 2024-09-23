@@ -22,6 +22,7 @@
 #include "diff-simple.h"
 #include "merge-new.h"
 #include "change-set.h"
+#include "seaf-utils.h"
 
 #include "seaf-db.h"
 
@@ -95,21 +96,6 @@ filename_exists (GList *entries, const char *filename)
     }
 
     return FALSE;
-}
-
-static void
-split_filename (const char *filename, char **name, char **ext)
-{
-    char *dot;
-
-    dot = strrchr (filename, '.');
-    if (dot) {
-        *ext = g_strdup (dot + 1);
-        *name = g_strndup (filename, dot - filename);
-    } else {
-        *name = g_strdup (filename);
-        *ext = NULL;
-    }
 }
 
 static char *

@@ -12,6 +12,7 @@
 
 #include "seafile-session.h"
 #include "pack-dir.h"
+#include "seaf-utils.h"
 
 #include <archive.h>
 #include <archive_entry.h>
@@ -67,6 +68,7 @@ do_iconv (char *fromcode, char *tocode, char *in)
 static int
 add_file_to_archive (PackDirData *data,
                      const char *parent_dir,
+                     const char *base_name,
                      SeafDirent *dent)
 {
     struct archive *a = data->a;
@@ -91,7 +93,7 @@ add_file_to_archive (PackDirData *data,
     int dec_out_len = -1;
     int ret = 0;
 
-    pathname = g_build_filename (top_dir_name, parent_dir, dent->name, NULL);
+    pathname = g_build_filename (top_dir_name, parent_dir, base_name, NULL);
 
     file = seaf_fs_manager_get_seafile (seaf->fs_mgr,
                                         data->store_id, data->repo_version,
@@ -332,7 +334,7 @@ archive_dir (PackDirData *data,
 
         dent = ptr->data;
         if (S_ISREG(dent->mode)) {
-            ret = add_file_to_archive (data, dirpath, dent);
+            ret = add_file_to_archive (data, dirpath, dent->name, dent);
             if (ret == 0) {
                 g_atomic_int_inc (&progress->zipped);
             }
@@ -340,7 +342,7 @@ archive_dir (PackDirData *data,
             if (archive_version_number() >= 3000001) {
                 /* Symlink in zip arhive is not supported in earlier version
                  * of libarchive */
-                ret = add_file_to_archive (data, dirpath, dent);
+                ret = add_file_to_archive (data, dirpath, dent->name, dent);
             }
 
         } else if (S_ISDIR(dent->mode)) {
@@ -401,31 +403,80 @@ pack_dir_data_new (const char *store_id,
     return data;
 }
 
+static gboolean
+name_exists (GList *file_list, const char *filename)
+{
+    GList *ptr;
+    char *name;
+
+    for (ptr = file_list; ptr != NULL; ptr = ptr->next) {
+        name = ptr->data;
+        if (strcmp (name, filename) == 0)
+            return TRUE;
+    }
+
+    return FALSE;
+}
+
+static char *
+generate_unique_filename (const char *file, GList *file_list)
+{
+    int i = 1;
+    char *name, *ext, *unique_name;
+
+    unique_name = g_strdup(file);
+    split_filename (unique_name, &name, &ext);
+    while (name_exists (file_list, unique_name)) {
+        g_free (unique_name);
+        if (ext)
+            unique_name = g_strdup_printf ("%s (%d).%s", name, i, ext);
+        else
+            unique_name = g_strdup_printf ("%s (%d)", name, i);
+        i++;
+    }
+
+    g_free (name);
+    g_free (ext);
+
+    return unique_name;
+}
+
 static int
 archive_multi (PackDirData *data, GList *dirent_list,
                Progress *progress)
 {
     GList *iter;
     SeafDirent *dirent;
+    GList *file_list = NULL;
 
     for (iter = dirent_list; iter; iter = iter->next) {
-        if (progress->canceled)
+        char *unique_name = NULL;
+        if (progress->canceled) {
+            string_list_free (file_list);
             return -1;
+        }
         dirent = iter->data;
         if (S_ISREG(dirent->mode)) {
-            if (add_file_to_archive (data, "", dirent) < 0) {
+            unique_name = generate_unique_filename (dirent->name, file_list);
+            file_list = g_list_prepend (file_list, unique_name);
+            if (add_file_to_archive (data, "", unique_name, dirent) < 0) {
+                string_list_free (file_list);
                 seaf_warning ("Failed to archive file: %s.\n", dirent->name);
                 return -1;
             }
             g_atomic_int_inc (&progress->zipped);
         } else if (S_ISDIR(dirent->mode)) {
-            if (archive_dir (data, dirent->id, dirent->name, progress) < 0) {
+            unique_name = generate_unique_filename (dirent->name, file_list);
+            file_list = g_list_prepend (file_list, unique_name);
+            if (archive_dir (data, dirent->id, unique_name, progress) < 0) {
+                string_list_free (file_list);
                 seaf_warning ("Failed to archive dir: %s.\n", dirent->name);
                 return -1;
             }
         }
     }
 
+    string_list_free (file_list);
     return 0;
 }
 
