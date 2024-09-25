@@ -878,16 +878,19 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 
+		fileList := []string{}
 		for _, v := range dirList {
+			uniqueName := genUniqueFileName(v.Name, fileList)
+			fileList = append(fileList, uniqueName)
 			if fsmgr.IsDir(v.Mode) {
-				if err := packDir(ar, repo, v.ID, v.Name, cryptKey); err != nil {
+				if err := packDir(ar, repo, v.ID, uniqueName, cryptKey); err != nil {
 					if !isNetworkErr(err) {
 						log.Printf("failed to pack dir %s: %v", v.Name, err)
 					}
 					return nil
 				}
 			} else {
-				if err := packFiles(ar, &v, repo, "", cryptKey); err != nil {
+				if err := packFiles(ar, &v, repo, "", uniqueName, cryptKey); err != nil {
 					if !isNetworkErr(err) {
 						log.Printf("failed to pack file %s: %v", v.Name, err)
 					}
@@ -898,6 +901,39 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 	}
 
 	return nil
+}
+
+func genUniqueFileName(fileName string, fileList []string) string {
+	var uniqueName string
+	var name string
+	i := 1
+	dot := strings.Index(fileName, ".")
+	if dot < 0 {
+		name = fileName
+	} else {
+		name = fileName[:dot]
+	}
+	uniqueName = fileName
+
+	for nameInFileList(uniqueName, fileList) {
+		if dot < 0 {
+			uniqueName = fmt.Sprintf("%s (%d)", name, i)
+		} else {
+			uniqueName = fmt.Sprintf("%s (%d).%s", name, i, fileName[dot+1:])
+		}
+		i++
+	}
+
+	return uniqueName
+}
+
+func nameInFileList(fileName string, fileList []string) bool {
+	for _, name := range fileList {
+		if name == fileName {
+			return true
+		}
+	}
+	return false
 }
 
 func parseDirFilelist(repo *repomgr.Repo, obj map[string]interface{}) ([]fsmgr.SeafDirent, error) {
@@ -988,7 +1024,7 @@ func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string, cryptKey
 				return err
 			}
 		} else {
-			if err := packFiles(ar, v, repo, dirPath, cryptKey); err != nil {
+			if err := packFiles(ar, v, repo, dirPath, v.Name, cryptKey); err != nil {
 				return err
 			}
 		}
@@ -997,14 +1033,14 @@ func packDir(ar *zip.Writer, repo *repomgr.Repo, dirID, dirPath string, cryptKey
 	return nil
 }
 
-func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, parentPath string, cryptKey *seafileCrypt) error {
+func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, parentPath, baseName string, cryptKey *seafileCrypt) error {
 	file, err := fsmgr.GetSeafile(repo.StoreID, dirent.ID)
 	if err != nil {
 		err := fmt.Errorf("failed to get seafile : %v", err)
 		return err
 	}
 
-	filePath := filepath.Join(parentPath, dirent.Name)
+	filePath := filepath.Join(parentPath, baseName)
 	filePath = strings.TrimLeft(filePath, "/")
 
 	fileHeader := new(zip.FileHeader)
