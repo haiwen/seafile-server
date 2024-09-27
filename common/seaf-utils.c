@@ -459,3 +459,18 @@ seaf_parse_auth_token (const char *auth_token)
     g_strfreev (parts);
     return token;
 }
+
+void
+split_filename (const char *filename, char **name, char **ext)
+{
+    char *dot;
+
+    dot = strrchr (filename, '.');
+    if (dot) {
+        *ext = g_strdup (dot + 1);
+        *name = g_strndup (filename, dot - filename);
+    } else {
+        *name = g_strdup (filename);
+        *ext = NULL;
+    }
+}
