@@ -61,8 +61,10 @@ const (
 type LogFormatter struct{}
 
 func (f *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
-	buf := make([]byte, 0, len(timestampFormat)+len(entry.Message)+1)
+	level := fmt.Sprintf("[%s] ", entry.Level.String())
+	buf := make([]byte, 0, len(timestampFormat)+len(level)+len(entry.Message)+1)
 	buf = entry.Time.AppendFormat(buf, timestampFormat)
+	buf = append(buf, level...)
 	buf = append(buf, entry.Message...)
 	buf = append(buf, '\n')
 	return buf, nil

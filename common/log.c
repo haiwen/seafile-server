@@ -61,10 +61,16 @@ seafile_log (const gchar *log_domain, GLogLevelFlags log_level,
 
     t = time(NULL);
     tm = localtime(&t);
-    len = strftime (buf, 1024, "%Y-%m-%d %H:%M:%S ", tm);
+    len = strftime (buf, 1024, "[%Y-%m-%d %H:%M:%S] ", tm);
     g_return_if_fail (len < 1024);
     if (logfp) {    
         fputs (buf, logfp);
+        if (log_level == G_LOG_LEVEL_DEBUG)
+            fputs ("[debug] ", logfp);
+        else if (log_level == G_LOG_LEVEL_WARNING)
+            fputs ("[warning] ", logfp);
+        else
+            fputs ("[info] ", logfp);
         fputs (message, logfp);
         fflush (logfp);
     }
@@ -95,6 +101,12 @@ ccnet_log (const gchar *log_domain, GLogLevelFlags log_level,
     g_return_if_fail (len < 1024);
     if (logfp) {
         fputs (buf, logfp);
+        if (log_level == G_LOG_LEVEL_DEBUG)
+            fputs ("[debug] ", logfp);
+        else if (log_level == G_LOG_LEVEL_WARNING)
+            fputs ("[warning] ", logfp);
+        else
+            fputs ("[info] ", logfp);
         fputs (message, logfp);
         fflush (logfp);
     }
