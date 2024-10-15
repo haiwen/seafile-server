@@ -4,6 +4,7 @@
 #include <getopt.h>
 
 #include "seafile-session.h"
+#include "seaf-utils.h"
 #include "gc-core.h"
 #include "verify.h"
 
@@ -15,7 +16,7 @@ static char *central_config_dir = NULL;
 
 SeafileSession *seaf;
 
-static const char *short_opts = "hvc:d:VDrRF:";
+static const char *short_opts = "hvc:d:VDrRF:Ct:i:";
 static const struct option long_opts[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
@@ -26,18 +27,24 @@ static const struct option long_opts[] = {
     { "dry-run", no_argument, NULL, 'D' },
     { "rm-deleted", no_argument, NULL, 'r' },
     { "rm-fs", no_argument, NULL, 'R' },
+    { "check", no_argument, NULL, 'C' },
+    { "thread-num", required_argument, NULL, 't', },
+    { "id-prefix", required_argument, NULL, 'i', },
     { 0, 0, 0, 0 },
 };
 
 static void usage ()
 {
-    fprintf (stderr, "usage: seafserv-gc [-c config_dir] [-d seafile_dir] "
-                     "[repo_id_1 [repo_id_2 ...]]\n"
-                     "Additional options:\n"
-                     "-r, --rm-deleted: remove garbaged repos\n"
-                     "-R, --rm-fs: remove fs object\n"
-                     "-D, --dry-run: report blocks that can be remove, but not remove them\n"
-                     "-V, --verbose: verbose output messages\n");
+    fprintf (stderr,
+             "usage: seafserv-gc [-c config_dir] [-d seafile_dir] "
+             "[repo_id_1 [repo_id_2 ...]]\n"
+             "Additional options:\n"
+             "-r, --rm-deleted: remove garbaged repos\n"
+             "-R, --rm-fs: remove fs object\n"
+             "-D, --dry-run: report blocks that can be remove, but not remove them\n"
+             "-V, --verbose: verbose output messages\n"
+             "-C, --check: check data integrity\n"
+             "-t, --thread-num: thread number for gc repos\n");
 }
 
 #ifdef WIN32
@@ -66,6 +73,8 @@ get_argv_utf8 (int *argc)
 }
 #endif
 
+#define DEFAULT_THREAD_NUM 10
+
 int
 main(int argc, char *argv[])
 {
@@ -74,6 +83,10 @@ main(int argc, char *argv[])
     int dry_run = 0;
     int rm_garbage = 0;
     int rm_fs = 0;
+    int check_integrity = 0;
+    int thread_num = 1;
+    const char *debug_str = NULL;
+    char *id_prefix = NULL;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -111,6 +124,15 @@ main(int argc, char *argv[])
         case 'R':
             rm_fs = 1;
             break;
+        case 'C':
+            check_integrity = 1;
+            break;
+        case 't':
+            thread_num = atoi(optarg);
+            break;
+        case 'i':
+            id_prefix = g_strdup(optarg);
+            break;
         default:
             usage();
             exit(-1);
@@ -120,6 +142,10 @@ main(int argc, char *argv[])
 #if !GLIB_CHECK_VERSION(2, 35, 0)
     g_type_init();
 #endif
+
+    if (!debug_str)
+        debug_str = g_getenv("SEAFILE_DEBUG");
+    seafile_debug_set_flags_string (debug_str);
 
     if (seafile_log_init ("-", "info", "debug", "seafserv-gc") < 0) {
         fprintf (stderr, "Failed to init log.\n");
@@ -136,7 +162,7 @@ main(int argc, char *argv[])
     }
 
     if (rm_garbage) {
-        delete_garbaged_repos (dry_run);
+        delete_garbaged_repos (dry_run, thread_num);
         return 0;
     }
 
@@ -145,7 +171,13 @@ main(int argc, char *argv[])
     for (i = optind; i < argc; i++)
         repo_id_list = g_list_append (repo_id_list, g_strdup(argv[i]));
 
-    gc_core_run (repo_id_list, dry_run, verbose, rm_fs);
+    if (check_integrity) {
+        return verify_repos (repo_id_list);
+    }
+
+    gc_core_run (repo_id_list, id_prefix, dry_run, verbose, thread_num, rm_fs);
+
+    g_free (id_prefix);
 
     return 0;
 }
