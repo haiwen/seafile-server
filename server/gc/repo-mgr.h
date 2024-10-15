@@ -113,6 +113,10 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr,
 GList *
 seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr);
 
+GList *
+seaf_repo_manager_get_repo_id_list_by_prefix (SeafRepoManager *mgr,
+                                              const char *prefix);
+
 int
 seaf_repo_manager_set_repo_history_limit (SeafRepoManager *mgr,
                                           const char *repo_id,

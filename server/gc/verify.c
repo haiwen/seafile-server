@@ -1,4 +1,5 @@
 #include "seafile-session.h"
+#include "utils.h"
 #include "log.h"
 
 typedef struct VerifyData {
@@ -69,8 +70,12 @@ traverse_commit (SeafCommit *commit, void *vdata, gboolean *stop)
              (gint64)(commit->ctime) < data->truncate_time &&
              data->traversed_head)
     {
+        /* Still traverse the first commit older than truncate_time.
+         * If a file in the child commit of this commit is deleted,
+         * we need to access this commit in order to restore it
+         * from trash.
+         */
         *stop = TRUE;
-        return TRUE;
     }
 
     if (!data->traversed_head)
@@ -86,6 +91,49 @@ traverse_commit (SeafCommit *commit, void *vdata, gboolean *stop)
         return FALSE;
 
     return TRUE;
+}
+
+static int
+verify_virtual_repos (VerifyData *data)
+{
+    SeafRepo *repo = data->repo;
+    if (repo->is_virtual) {
+        return 0;
+    }
+
+    GList *vrepo_ids = NULL, *ptr;
+    char *repo_id;
+    SeafVirtRepo *vinfo;
+    int ret = 0;
+
+    vrepo_ids = seaf_repo_manager_get_virtual_repo_ids_by_origin (seaf->repo_mgr,
+                                                                  repo->id);
+
+    for (ptr = vrepo_ids; ptr; ptr = ptr->next) {
+        repo_id = ptr->data;
+        vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr, repo_id);
+        if (!vinfo) {
+            continue;
+        }
+
+        gboolean res = seaf_commit_manager_traverse_commit_tree (seaf->commit_mgr,
+                                                                 repo->store_id, repo->version,
+                                                                 vinfo->base_commit,
+                                                                 traverse_commit,
+                                                                 data,
+                                                                 FALSE);
+        seaf_virtual_repo_info_free (vinfo);
+        if (!res) {
+            seaf_warning ("Failed to traverse base commit %s for virtual repo %s.\n", vinfo->base_commit, repo_id);
+            ret = -1;
+            goto out;
+        }
+    }
+
+out:
+    string_list_free (vrepo_ids);
+    return ret;
+
 }
 
 static int
@@ -122,6 +170,12 @@ verify_repo (SeafRepo *repo)
     }
 
     g_list_free (branches);
+
+    if (ret < 0) {
+        return ret;
+    }
+
+    ret = verify_virtual_repos (&data);
 
     return ret;
 }

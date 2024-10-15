@@ -376,6 +376,23 @@ seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
 }
 
 GList *
+seaf_repo_manager_get_repo_id_list_by_prefix (SeafRepoManager *mgr,
+                                              const char *prefix)
+{
+    GList *ret = NULL;
+    char sql[256];
+
+    snprintf (sql, 256, "SELECT repo_id FROM Repo WHERE repo_id LIKE '%s%%'", prefix);
+
+    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql,
+                                      collect_repo_id, &ret) < 0) {
+        return NULL;
+    }
+
+    return ret;
+}
+
+GList *
 seaf_repo_manager_get_repo_list (SeafRepoManager *mgr,
                                  int start, int limit,
                                  gboolean *error)
