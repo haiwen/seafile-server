@@ -918,6 +918,18 @@ func publishStatusEvent(rData *statusEventData) {
 	}
 }
 
+func saveLastGCID(repoID, token string) error {
+	repo := repomgr.Get(repoID)
+	if repo == nil {
+		return fmt.Errorf("failed to get repo: %s", repoID)
+	}
+	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
+	if err != nil {
+		return err
+	}
+	return repomgr.SetLastGCID(repoID, token, gcID)
+}
+
 func putCommitCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
@@ -949,6 +961,15 @@ func putCommitCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if err := commitmgr.Save(commit); err != nil {
 		err := fmt.Errorf("Failed to add commit %s: %v", commitID, err)
 		return &appError{err, "", http.StatusInternalServerError}
+	} else {
+		token := r.Header.Get("Seafile-Repo-Token")
+		if token == "" {
+			token = utils.GetAuthorizationToken(r.Header)
+		}
+		if err := saveLastGCID(repoID, token); err != nil {
+			err := fmt.Errorf("Failed to save gc id: %v", err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
 	}
 
 	return nil
@@ -1034,7 +1055,11 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, seafHTTPResNoQuota}
 	}
 
-	if err := fastForwardOrMerge(user, repo, base, newCommit); err != nil {
+	token := r.Header.Get("Seafile-Repo-Token")
+	if token == "" {
+		token = utils.GetAuthorizationToken(r.Header)
+	}
+	if err := fastForwardOrMerge(user, token, repo, base, newCommit); err != nil {
 		err := fmt.Errorf("Fast forward merge for repo %s is failed: %v", repoID, err)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
