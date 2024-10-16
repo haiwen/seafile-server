@@ -59,7 +59,11 @@ seaf_branch_manager_update_branch (SeafBranchManager *mgr,
 int
 seaf_branch_manager_test_and_update_branch (SeafBranchManager *mgr,
                                             SeafBranch *branch,
-                                            const char *old_commit_id);
+                                            const char *old_commit_id,
+                                            gboolean check_gc,
+                                            const char *last_gc_id,
+                                            const char *origin_repo_id,
+                                            gboolean *gc_conflict);
 #endif
 
 SeafBranch *

@@ -54,6 +54,7 @@ post_files_and_gen_commit (GList *filenames,
                           GList *id_list,
                           GList *size_list,
                           gint64 mtime,
+                          char *last_gc_id,
                           GError **error);
 
 /*
@@ -444,6 +445,8 @@ gen_new_commit (const char *repo_id,
                 const char *desc,
                 char *new_commit_id,
                 gboolean handle_concurrent_update,
+                gboolean check_gc,
+                const char *last_gc_id,
                 GError **error)
 {
 #define MAX_RETRY_COUNT 10
@@ -451,6 +454,7 @@ gen_new_commit (const char *repo_id,
     SeafRepo *repo = NULL;
     SeafCommit *new_commit = NULL, *current_head = NULL, *merged_commit = NULL;
     int retry_cnt = 0;
+    gboolean gc_conflict = FALSE;
     int ret = 0;
 
     repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
@@ -558,10 +562,27 @@ retry:
 
     seaf_branch_set_commit(repo->head, merged_commit->commit_id);
 
+    if (seaf_db_type(seaf->db) == SEAF_DB_TYPE_SQLITE)
+        check_gc = FALSE;
+
+    if (check_gc)
+        gc_conflict = FALSE;
+
     if (seaf_branch_manager_test_and_update_branch(seaf->branch_mgr,
                                                    repo->head,
-                                                   current_head->commit_id) < 0)
+                                                   current_head->commit_id,
+                                                   check_gc,
+                                                   last_gc_id,
+                                                   repo->store_id,
+                                                   &gc_conflict) < 0)
     {
+        if (check_gc && gc_conflict) {
+            seaf_warning ("Head branch update for repo %s conflicts with GC.\n",
+                          repo->id);
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL, "GC Conflict");
+            ret = -1;
+            goto out;
+        }
         if (!handle_concurrent_update) {
             g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_CONCURRENT_UPLOAD, "Concurrent upload");
             ret = -1;
@@ -630,6 +651,7 @@ seaf_repo_manager_post_file (SeafRepoManager *mgr,
     SeafileCrypt *crypt = NULL;
     SeafDirent *new_dent = NULL;
     char hex[41];
+    char *gc_id = NULL;
     int ret = 0;
     int retry_cnt = 0;
 
@@ -678,6 +700,8 @@ seaf_repo_manager_post_file (SeafRepoManager *mgr,
         crypt = seafile_crypt_new (repo->enc_version, key, iv);
     }
 
+    gc_id = seaf_repo_get_current_gc_id (repo);
+
     gint64 size;
     if (seaf_fs_manager_index_blocks (seaf->fs_mgr,
                                       repo->store_id, repo->version,
@@ -709,7 +733,7 @@ retry:
 
     snprintf(buf, SEAF_PATH_MAX, "Added \"%s\"", file_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, FALSE, error) < 0) {
+                        user, buf, NULL, FALSE, TRUE, gc_id, error) < 0) {
         if (*error == NULL || (*error)->code != SEAF_ERR_CONCURRENT_UPLOAD) {
             ret = -1;
             goto out;
@@ -743,6 +767,7 @@ out:
     g_free (root_id);
     g_free (canon_path);
     g_free (crypt);
+    g_free (gc_id);
 
     if (ret == 0)
         update_repo_size(repo_id);
@@ -1076,6 +1101,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
     char *canon_path = NULL;
     GList *filenames = NULL, *paths = NULL, *id_list = NULL, *size_list = NULL, *ptr;
     char *filename, *path;
+    char *gc_id = NULL;
     unsigned char sha1[20];
     SeafileCrypt *crypt = NULL;
     char hex[41];
@@ -1139,6 +1165,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
 
     if (!task_id) {
         gint64 *size;
+        gc_id = seaf_repo_get_current_gc_id(repo);
         for (ptr = paths; ptr; ptr = ptr->next) {
             path = ptr->data;
 
@@ -1169,6 +1196,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                          id_list,
                                          size_list,
                                          mtime,
+                                         gc_id,
                                          error);
     } else {
         ret = index_blocks_mgr_start_index (seaf->index_blocks_mgr,
@@ -1194,6 +1222,7 @@ out:
     g_list_free (size_list);
     g_free (canon_path);
     g_free (crypt);
+    g_free (gc_id);
 
     return ret;
 }
@@ -1208,6 +1237,7 @@ post_files_and_gen_commit (GList *filenames,
                            GList *id_list,
                            GList *size_list,
                            gint64 mtime,
+                           char *last_gc_id,
                            GError **error)
 {
     SeafRepo *repo = NULL;
@@ -1247,7 +1277,7 @@ retry:
         g_string_printf (buf, "Added \"%s\".", (char *)(filenames->data));
 
     if (gen_new_commit (repo->id, head_commit, root_id,
-                        user, buf->str, NULL, handle_concurrent_update, error) < 0) {
+                        user, buf->str, NULL, handle_concurrent_update, TRUE, last_gc_id, error) < 0) {
         if (*error == NULL || (*error)->code != SEAF_ERR_CONCURRENT_UPLOAD) {
             ret = -1;
             goto out;
@@ -1515,6 +1545,7 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
     SeafDirent *new_dent = NULL;
     GList *blockids = NULL;
     char hex[41];
+    char *gc_id = NULL;
     int ret = 0;
 
     blockids = json_to_file_list (blockids_json);
@@ -1549,6 +1580,8 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
         goto out;
     }
 
+    gc_id = seaf_repo_get_current_gc_id (repo);
+
     /* Write blocks. */
     if (seaf_fs_manager_index_existed_file_blocks (
             seaf->fs_mgr, repo->store_id, repo->version,
@@ -1582,7 +1615,7 @@ seaf_repo_manager_commit_file_blocks (SeafRepoManager *mgr,
     *new_id = g_strdup(hex);
     snprintf(buf, SEAF_PATH_MAX, "Added \"%s\"", file_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0)
+                        user, buf, NULL, TRUE, TRUE, gc_id, error) < 0)
         ret = -1;
 
 out:
@@ -1594,6 +1627,7 @@ out:
     seaf_dirent_free (new_dent);
     g_free (root_id);
     g_free (canon_path);
+    g_free (gc_id);
 
     if (ret == 0)
         update_repo_size(repo_id);
@@ -1806,7 +1840,7 @@ seaf_repo_manager_del_file (SeafRepoManager *mgr,
     }
 
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0) {
+                        user, buf, NULL, TRUE, FALSE, NULL, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -1931,7 +1965,7 @@ seaf_repo_manager_batch_del_files (SeafRepoManager *mgr,
     }
 
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0) {
+                        user, buf, NULL, TRUE, FALSE, NULL, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -2021,6 +2055,8 @@ put_dirent_and_commit (SeafRepo *repo,
                        int n_dents,
                        int replace,
                        const char *user,
+                       gboolean check_gc,
+                       const char *last_gc_id,
                        GError **error)
 {
     SeafCommit *head_commit = NULL;
@@ -2068,7 +2104,7 @@ put_dirent_and_commit (SeafRepo *repo,
     }
 
     if (gen_new_commit (repo->id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0)
+                        user, buf, NULL, TRUE, check_gc, last_gc_id, error) < 0)
         ret = -1;
 
 out:
@@ -2498,6 +2534,7 @@ cross_repo_copy (const char *src_repo_id,
     int check_quota_ret;
     SeafileCrypt *src_crypt = NULL;
     SeafileCrypt *dst_crypt = NULL;
+    char *gc_id = NULL;
 
     src_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, src_repo_id);
     if (!src_repo) {
@@ -2538,6 +2575,8 @@ cross_repo_copy (const char *src_repo_id,
     src_names = json_to_file_list (src_filename);
     dst_names = json_to_file_list (dst_filename);
     file_num = g_list_length (src_names);
+
+    gc_id = seaf_repo_get_current_gc_id (dst_repo);
 
     src_dents = g_new0 (SeafDirent *, file_num);
     dst_dents = g_new0 (SeafDirent *, file_num);
@@ -2630,6 +2669,8 @@ cross_repo_copy (const char *src_repo_id,
                                file_num,
                                replace,
                                modifier,
+                               TRUE,
+                               gc_id,
                                NULL) < 0) {
         err_str = COPY_ERR_INTERNAL;
         ret = -1;
@@ -2658,6 +2699,7 @@ out:
         string_list_free (src_names);
     if (dst_names)
         string_list_free (dst_names);
+    g_free (gc_id);
 
     if (ret == 0) {
         update_repo_size (dst_repo_id);
@@ -2818,6 +2860,8 @@ seaf_repo_manager_copy_file (SeafRepoManager *mgr,
                                    1,
                                    0,
                                    user,
+                                   FALSE,
+                                   NULL,
                                    error) < 0) {
             if (!error)
                 g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
@@ -3017,6 +3061,8 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
                                    file_num,
                                    0,
                                    user,
+                                   FALSE,
+                                   NULL,
                                    error) < 0) {
             if (!error)
                 g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
@@ -3162,7 +3208,7 @@ move_file_same_repo (const char *repo_id,
     }
 
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0)
+                        user, buf, NULL, TRUE, FALSE, NULL, error) < 0)
         ret = -1;
     
 out:
@@ -3202,6 +3248,7 @@ cross_repo_move (const char *src_repo_id,
     int check_quota_ret;
     SeafileCrypt *src_crypt = NULL;
     SeafileCrypt *dst_crypt = NULL;
+    char *gc_id = NULL;
 
     src_repo = seaf_repo_manager_get_repo (seaf->repo_mgr, src_repo_id);
     if (!src_repo) {
@@ -3241,6 +3288,7 @@ cross_repo_move (const char *src_repo_id,
 
     src_names = json_to_file_list (src_filename);
     dst_names = json_to_file_list (dst_filename);
+    gc_id = seaf_repo_get_current_gc_id (dst_repo);
 
     file_num = g_list_length (src_names);
 
@@ -3335,6 +3383,8 @@ cross_repo_move (const char *src_repo_id,
                                file_num,
                                replace,
                                modifier,
+                               TRUE,
+                               gc_id,
                                NULL) < 0) {
         err_str = COPY_ERR_INTERNAL;
         ret = -1;
@@ -3372,6 +3422,7 @@ out:
         string_list_free (src_names);
     if (dst_names)
         string_list_free (dst_names);
+    g_free (gc_id);
 
     if (ret == 0) {
         update_repo_size (dst_repo_id);
@@ -3556,6 +3607,8 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
                                        file_num,
                                        replace,
                                        user,
+                                       FALSE,
+                                       NULL,
                                        NULL) < 0) {
                 ret = -1;
                 goto out;
@@ -3780,7 +3833,7 @@ seaf_repo_manager_mkdir_with_parents (SeafRepoManager *mgr,
         /* Commit. */
         snprintf(buf, SEAF_PATH_MAX, "Added directory \"%s\"", relative_dir_can);
         if (gen_new_commit (repo_id, head_commit, root_id,
-                            user, buf, NULL, TRUE, error) < 0) {
+                            user, buf, NULL, TRUE, FALSE, NULL, error) < 0) {
             ret = -1;
             g_free (root_id);
             goto out;
@@ -3861,7 +3914,7 @@ seaf_repo_manager_post_dir (SeafRepoManager *mgr,
     /* Commit. */
     snprintf(buf, SEAF_PATH_MAX, "Added directory \"%s\"", new_dir_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0) {
+                        user, buf, NULL, TRUE, FALSE, NULL, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -3933,7 +3986,7 @@ seaf_repo_manager_post_empty_file (SeafRepoManager *mgr,
     /* Commit. */
     snprintf(buf, SEAF_PATH_MAX, "Added \"%s\"", new_file_name);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0) {
+                        user, buf, NULL, TRUE, FALSE, NULL, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -4126,7 +4179,7 @@ seaf_repo_manager_rename_file (SeafRepoManager *mgr,
     }
 
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0) {
+                        user, buf, NULL, TRUE, FALSE, NULL, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -4269,6 +4322,7 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
     SeafDirent *new_dent = NULL;
     char hex[41];
     char *old_file_id = NULL, *fullpath = NULL;
+    char *gc_id = NULL;
     int ret = 0;
 
     if (g_access (temp_file_path, R_OK) != 0) {
@@ -4320,6 +4374,8 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
         crypt = seafile_crypt_new (repo->enc_version, key, iv);
     }
 
+    gc_id = seaf_repo_get_current_gc_id (repo);
+
     gint64 size;
     if (seaf_fs_manager_index_blocks (seaf->fs_mgr,
                                       repo->store_id, repo->version,
@@ -4366,7 +4422,7 @@ seaf_repo_manager_put_file (SeafRepoManager *mgr,
 
     /* Commit. */
     snprintf(buf, SEAF_PATH_MAX, "Modified \"%s\"", file_name);
-    if (gen_new_commit (repo_id, head_commit, root_id, user, buf, NULL, TRUE, error) < 0) {
+    if (gen_new_commit (repo_id, head_commit, root_id, user, buf, NULL, TRUE, TRUE, gc_id, error) < 0) {
         ret = -1;
         goto out;       
     }
@@ -4387,6 +4443,7 @@ out:
     g_free (crypt);
     g_free (old_file_id);
     g_free (fullpath);
+    g_free (gc_id);
 
     if (ret == 0) {
         update_repo_size (repo_id);
@@ -4448,7 +4505,7 @@ seaf_repo_manager_update_dir (SeafRepoManager *mgr,
             commit_desc = g_strdup("Auto merge by system");
 
         if (gen_new_commit (repo_id, head_commit, new_dir_id,
-                            user, commit_desc, new_commit_id, TRUE, error) < 0)
+                            user, commit_desc, new_commit_id, TRUE, FALSE, NULL, error) < 0)
             ret = -1;
         g_free (commit_desc);
         goto out;
@@ -4481,7 +4538,7 @@ seaf_repo_manager_update_dir (SeafRepoManager *mgr,
         commit_desc = g_strdup("Auto merge by system");
 
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, commit_desc, new_commit_id, TRUE, error) < 0) {
+                        user, commit_desc, new_commit_id, TRUE, FALSE, NULL, error) < 0) {
         ret = -1;
         g_free (commit_desc);
         goto out;
@@ -4986,7 +5043,7 @@ seaf_repo_manager_revert_file (SeafRepoManager *mgr,
 #endif
     snprintf(buf, SEAF_PATH_MAX, "Reverted file \"%s\" to status at %s", filename, time_str);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0) {
+                        user, buf, NULL, TRUE, FALSE, NULL, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -5208,7 +5265,7 @@ seaf_repo_manager_revert_dir (SeafRepoManager *mgr,
     /* Commit. */
     snprintf(buf, SEAF_PATH_MAX, "Recovered deleted directory \"%s\"", dirname);
     if (gen_new_commit (repo_id, head_commit, root_id,
-                        user, buf, NULL, TRUE, error) < 0) {
+                        user, buf, NULL, TRUE, FALSE, NULL, error) < 0) {
         ret = -1;
         goto out;
     }
@@ -6174,7 +6231,8 @@ retry:
     seaf_branch_set_commit (repo->head, new_commit->commit_id);
     if (seaf_branch_manager_test_and_update_branch (seaf->branch_mgr,
                                                     repo->head,
-                                                    new_commit->parent_id) < 0)
+                                                    new_commit->parent_id,
+                                                    FALSE, NULL, NULL, NULL) < 0)
     {
         seaf_repo_unref (repo);
         seaf_commit_unref (commit);
