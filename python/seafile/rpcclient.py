@@ -612,6 +612,10 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def get_repo_history_limit(repo_id):
         pass
 
+    @searpc_func("int", ["string", "int64"])
+    def set_repo_valid_since(repo_id, timestamp):
+        pass
+
     # virtual repo
     @searpc_func("string", ["string", "string", "string", "string", "string", "string"])
     def create_virtual_repo(origin_repo_id, path, repo_name, repo_desc, owner, passwd=''):

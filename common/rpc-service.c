@@ -1367,6 +1367,16 @@ seafile_get_repo_history_limit (const char *repo_id,
 }
 
 int
+seafile_set_repo_valid_since (const char *repo_id,
+                              gint64 timestamp,
+                              GError **error)
+{
+    return seaf_repo_manager_set_repo_valid_since (seaf->repo_mgr,
+                                                   repo_id,
+                                                   timestamp);
+}
+
+int
 seafile_repo_set_access_property (const char *repo_id, const char *ap, GError **error)
 {
     int ret;
