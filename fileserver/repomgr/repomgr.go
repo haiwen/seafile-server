@@ -720,3 +720,84 @@ func UpdateRepoInfo(repoID, commitID string) error {
 
 	return nil
 }
+
+func HasLastGCID(repoID, clientID string) (bool, error) {
+	sqlStr := "SELECT 1 FROM LastGCID WHERE repo_id = ? AND client_id = ?"
+
+	var exist int
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
+	defer cancel()
+	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID, clientID)
+	if err := row.Scan(&exist); err != nil {
+		if err != sql.ErrNoRows {
+			return false, err
+		}
+	}
+	if exist == 0 {
+		return false, nil
+	}
+	return true, nil
+}
+
+func GetLastGCID(repoID, clientID string) (string, error) {
+	sqlStr := "SELECT gc_id FROM LastGCID WHERE repo_id = ? AND client_id = ?"
+
+	var gcID sql.NullString
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
+	defer cancel()
+	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID, clientID)
+	if err := row.Scan(&gcID); err != nil {
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+	}
+
+	return gcID.String, nil
+}
+
+func GetCurrentGCID(repoID string) (string, error) {
+	sqlStr := "SELECT gc_id FROM GCID WHERE repo_id = ?"
+
+	var gcID sql.NullString
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
+	defer cancel()
+	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
+	if err := row.Scan(&gcID); err != nil {
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+	}
+
+	return gcID.String, nil
+}
+
+func RemoveLastGCID(repoID, clientID string) error {
+	sqlStr := "DELETE FROM LastGCID WHERE repo_id = ? AND client_id = ?"
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
+	defer cancel()
+	if _, err := seafileDB.ExecContext(ctx, sqlStr, repoID, clientID); err != nil {
+		return err
+	}
+	return nil
+}
+
+func SetLastGCID(repoID, clientID, gcID string) error {
+	exist, err := HasLastGCID(repoID, clientID)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
+	defer cancel()
+	if exist {
+		sqlStr := "UPDATE LastGCID SET gc_id = ? WHERE repo_id = ? AND client_id = ?"
+		if _, err = seafileDB.ExecContext(ctx, sqlStr, gcID, repoID, clientID); err != nil {
+			return err
+		}
+	} else {
+		sqlStr := "INSERT INTO LastGCID (repo_id, client_id, gc_id) VALUES (?, ?, ?)"
+		if _, err = seafileDB.ExecContext(ctx, sqlStr, repoID, clientID, gcID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
