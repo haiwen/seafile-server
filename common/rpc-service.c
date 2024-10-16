@@ -1108,7 +1108,8 @@ retry:
     seaf_branch_set_commit (repo->head, commit->commit_id);
     if (seaf_branch_manager_test_and_update_branch (seaf->branch_mgr,
                                                     repo->head,
-                                                    parent->commit_id) < 0) {
+                                                    parent->commit_id,
+                                                    FALSE, NULL, NULL, NULL) < 0) {
         seaf_repo_unref (repo);
         seaf_commit_unref (commit);
         seaf_commit_unref (parent);
