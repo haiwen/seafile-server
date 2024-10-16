@@ -94,11 +94,6 @@ seaf_repo_from_commit (SeafRepo *repo, SeafCommit *commit)
     repo->name = g_strdup (commit->repo_name);
     repo->desc = g_strdup (commit->repo_desc);
     repo->encrypted = commit->encrypted;
-    if (repo->encrypted) {
-        repo->enc_version = commit->enc_version;
-        if (repo->enc_version >= 1)
-            memcpy (repo->magic, commit->magic, 33);
-    }
     repo->no_local_history = commit->no_local_history;
     repo->version = commit->version;
 }
@@ -109,11 +104,6 @@ seaf_repo_to_commit (SeafRepo *repo, SeafCommit *commit)
     commit->repo_name = g_strdup (repo->name);
     commit->repo_desc = g_strdup (repo->desc);
     commit->encrypted = repo->encrypted;
-    if (commit->encrypted) {
-        commit->enc_version = repo->enc_version;
-        if (commit->enc_version >= 1)
-            commit->magic = g_strdup (repo->magic);
-    }
     commit->no_local_history = repo->no_local_history;
     commit->version = repo->version;
 }

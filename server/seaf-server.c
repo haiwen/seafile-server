@@ -716,6 +716,10 @@ static void start_rpc_service (const char *seafile_dir,
                                      seafile_get_repo_history_limit,
                                      "get_repo_history_limit",
                                      searpc_signature_int__string());
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_set_repo_valid_since,
+                                     "set_repo_valid_since",
+                                     searpc_signature_int__string_int64());
 
     /* System default library */
     searpc_server_register_function ("seafserv-threaded-rpcserver",

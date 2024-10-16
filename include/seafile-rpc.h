@@ -626,6 +626,11 @@ seafile_get_repo_history_limit (const char *repo_id,
                                 GError **error);
 
 int
+seafile_set_repo_valid_since (const char *repo_id,
+                              gint64 timestamp,
+                              GError **error);
+
+int
 seafile_check_passwd (const char *repo_id,
                       const char *magic,
                       GError **error);

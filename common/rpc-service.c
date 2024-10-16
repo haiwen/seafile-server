@@ -1108,7 +1108,8 @@ retry:
     seaf_branch_set_commit (repo->head, commit->commit_id);
     if (seaf_branch_manager_test_and_update_branch (seaf->branch_mgr,
                                                     repo->head,
-                                                    parent->commit_id) < 0) {
+                                                    parent->commit_id,
+                                                    FALSE, NULL, NULL, NULL) < 0) {
         seaf_repo_unref (repo);
         seaf_commit_unref (commit);
         seaf_commit_unref (parent);
@@ -1363,6 +1364,16 @@ seafile_get_repo_history_limit (const char *repo_id,
     }
 
     return  seaf_repo_manager_get_repo_history_limit (seaf->repo_mgr, repo_id);
+}
+
+int
+seafile_set_repo_valid_since (const char *repo_id,
+                              gint64 timestamp,
+                              GError **error)
+{
+    return seaf_repo_manager_set_repo_valid_since (seaf->repo_mgr,
+                                                   repo_id,
+                                                   timestamp);
 }
 
 int
