@@ -44,7 +44,7 @@ var logFp *os.File
 var dbType string
 var seafileDB, ccnetDB *sql.DB
 
-var toStdout bool
+var logToStdout bool
 
 func init() {
 	flag.StringVar(&centralDir, "F", "", "central config directory")
@@ -55,7 +55,7 @@ func init() {
 
 	env := os.Getenv("SEAFILE_LOG_TO_STDOUT")
 	if env == "true" {
-		toStdout = true
+		logToStdout = true
 	}
 
 	log.SetFormatter(&LogFormatter{})
@@ -76,11 +76,11 @@ func (f *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
 	}
 	level := fmt.Sprintf("[%s] ", levelStr)
 	appName := ""
-	if toStdout {
+	if logToStdout {
 		appName = "[fileserver] "
 	}
 	buf := make([]byte, 0, len(appName)+len(timestampFormat)+len(level)+len(entry.Message)+1)
-	if toStdout {
+	if logToStdout {
 		buf = append(buf, appName...)
 	}
 	buf = entry.Time.AppendFormat(buf, timestampFormat)

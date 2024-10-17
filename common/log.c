@@ -19,7 +19,7 @@ static int ccnet_log_level;
 static int seafile_log_level;
 static char *logfile;
 static FILE *logfp;
-static gboolean to_stdout = FALSE;
+static gboolean log_to_stdout = FALSE;
 
 #ifndef WIN32
 #ifdef SEAFILE_SERVER
@@ -62,7 +62,7 @@ seafile_log (const gchar *log_domain, GLogLevelFlags log_level,
     if (log_level > seafile_log_level)
         return;
 
-    if (to_stdout) {
+    if (log_to_stdout) {
         fputs ("[seaf-server] ", logfp);
     }
 
@@ -155,11 +155,11 @@ seafile_log_init (const char *_logfile, const char *ccnet_debug_level_str,
     ccnet_log_level = get_debug_level(ccnet_debug_level_str, G_LOG_LEVEL_INFO);
     seafile_log_level = get_debug_level(seafile_debug_level_str, G_LOG_LEVEL_DEBUG);
 
-    const char *log_to_stdout = g_getenv("SEAFILE_LOG_TO_STDOUT");
-    if (g_strcmp0(_logfile, "-") == 0 || g_strcmp0(log_to_stdout, "true") == 0) {
+    const char *log_to_stdout_env = g_getenv("SEAFILE_LOG_TO_STDOUT");
+    if (g_strcmp0(_logfile, "-") == 0 || g_strcmp0(log_to_stdout_env, "true") == 0) {
         logfp = stdout;
         logfile = g_strdup (_logfile);
-        to_stdout = TRUE;
+        log_to_stdout = TRUE;
     }
     else {
         logfile = ccnet_expand_path(_logfile);
@@ -177,7 +177,7 @@ seafile_log_reopen ()
 {
     FILE *fp, *oldfp;
 
-    if (g_strcmp0(logfile, "-") == 0 || to_stdout)
+    if (g_strcmp0(logfile, "-") == 0 || log_to_stdout)
         return 0;
 
     if ((fp = g_fopen (logfile, "a+")) == NULL) {
