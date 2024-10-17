@@ -44,12 +44,19 @@ var logFp *os.File
 var dbType string
 var seafileDB, ccnetDB *sql.DB
 
+var toStdout bool
+
 func init() {
 	flag.StringVar(&centralDir, "F", "", "central config directory")
 	flag.StringVar(&dataDir, "d", "", "seafile data directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
 	flag.StringVar(&rpcPipePath, "p", "", "rpc pipe path")
 	flag.StringVar(&pidFilePath, "P", "", "pid file path")
+
+	env := os.Getenv("SEAFILE_LOG_TO_STDOUT")
+	if env == "true" {
+		toStdout = true
+	}
 
 	log.SetFormatter(&LogFormatter{})
 }
@@ -61,8 +68,21 @@ const (
 type LogFormatter struct{}
 
 func (f *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
-	level := fmt.Sprintf("[%s] ", entry.Level.String())
-	buf := make([]byte, 0, len(timestampFormat)+len(level)+len(entry.Message)+1)
+	levelStr := entry.Level.String()
+	if levelStr == "fatal" {
+		levelStr = "ERROR"
+	} else {
+		levelStr = strings.ToUpper(levelStr)
+	}
+	level := fmt.Sprintf("[%s] ", levelStr)
+	appName := ""
+	if toStdout {
+		appName = "[fileserver] "
+	}
+	buf := make([]byte, 0, len(appName)+len(timestampFormat)+len(level)+len(entry.Message)+1)
+	if toStdout {
+		buf = append(buf, appName...)
+	}
 	buf = entry.Time.AppendFormat(buf, timestampFormat)
 	buf = append(buf, level...)
 	buf = append(buf, entry.Message...)

@@ -51,7 +51,8 @@ static struct option long_options[] = {
 
 static void usage ()
 {
-    fprintf (stderr, "usage: seaf-server [-c config_dir] [-d seafile_dir]\n");
+    seafile_log_init ("-", "info", "debug");
+    seaf_error ("usage: seaf-server [-c config_dir] [-d seafile_dir]\n");
 }
 
 #include <searpc.h>
@@ -1186,10 +1187,7 @@ test_seafile_config(const char *central_config_dir, const char *config_dir, cons
         central_config_dir = ccnet_expand_path (central_config_dir);
     }
 
-    if (seafile_log_init ("-", "debug", "debug") < 0) {
-        fprintf (stderr, "seafile_log_init error: %s\n", strerror(errno));
-        return -1;
-    }
+    seafile_log_init ("-", "debug", "debug");
 
     srand (time(NULL));
 
@@ -1197,7 +1195,7 @@ test_seafile_config(const char *central_config_dir, const char *config_dir, cons
 
     seaf = seafile_session_new (central_config_dir, seafile_dir, config_dir, NULL, NULL);
     if (!seaf) {
-        fprintf (stderr, "Error: failed to create ccnet session\n");
+        seaf_error ("Error: failed to create ccnet session\n");
         return -1;
     }
 
