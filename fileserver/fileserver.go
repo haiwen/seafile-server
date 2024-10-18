@@ -342,7 +342,9 @@ func main() {
 	loadSeafileDB()
 	option.LoadFileServerOptions(centralDir)
 
-	if logFile == "" {
+	if logToStdout {
+		// Use default output (StdOut)
+	} else if logFile == "" {
 		absLogFile = filepath.Join(absDataDir, "fileserver.log")
 		fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
@@ -442,6 +444,9 @@ func handleUser1Signal() {
 }
 
 func logRotate() {
+	if logToStdout {
+		return
+	}
 	// reopen fileserver log
 	fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
