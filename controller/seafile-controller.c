@@ -202,6 +202,7 @@ start_seaf_server ()
         "-l", logfile,
         "-P", ctl->pidfile[PID_SERVER],
         "-p", ctl->rpc_pipe_path,
+        "-f",
         NULL};
 
     int pid = spawn_process (argv, false);
@@ -568,8 +569,8 @@ seaf_controller_init (SeafileController *ctl,
         char *topdir = g_path_get_dirname(config_dir);
         logdir = g_build_filename (topdir, "logs", NULL);
         if (checkdir_with_mkdir(logdir) < 0) {
-            fprintf (stderr, "failed to create log folder \"%s\": %s\n",
-                     logdir, strerror(errno));
+            seaf_error ("failed to create log folder \"%s\": %s\n",
+                        logdir, strerror(errno));
             return -1;
         }
         g_free (topdir);
@@ -683,12 +684,13 @@ set_signal_handlers ()
 static void
 usage ()
 {
-    fprintf (stderr, "Usage: seafile-controller OPTIONS\n"
-             "OPTIONS:\n"
-             "  -b, --bin-dir           insert a directory in front of the PATH env\n"
-             "  -c, --config-dir        ccnet config dir\n"
-             "  -d, --seafile-dir       seafile dir\n"
-        );
+    seafile_log_init ("-", "debug", "debug");
+    seaf_error ("Usage: seafile-controller OPTIONS\n"
+                "OPTIONS:\n"
+                "  -b, --bin-dir           insert a directory in front of the PATH env\n"
+                "  -c, --config-dir        ccnet config dir\n"
+                "  -d, --seafile-dir       seafile dir\n"
+                );
 }
 
 /* seafile-controller -t is used to test whether config file is valid */
@@ -717,9 +719,8 @@ test_config (const char *central_config_dir,
                                &error);
 
     if (error != NULL) {
-        fprintf (stderr,
-                 "failed to run \"seaf-server -t\": %s\n",
-                 error->message);
+        seaf_error ("failed to run \"seaf-server -t\": %s\n",
+                    error->message);
         exit (1);
     }
 
@@ -732,8 +733,7 @@ test_config (const char *central_config_dir,
     }
 
     if (retcode != 0) {
-        fprintf (stderr,
-                 "failed to run \"seaf-server -t\" [%d]\n", retcode);
+        seaf_error ("failed to run \"seaf-server -t\" [%d]\n", retcode);
         exit (1);
     }
 
@@ -869,7 +869,9 @@ int main (int argc, char **argv)
             exit(1);
             break;
         case 'v':
-            fprintf (stderr, "seafile-controller version 1.0\n");
+            seafile_log_init ("-", "debug", "debug");
+            seaf_message ("seafile-controller version 1.0\n");
+            exit(1);
             break;
         case 't':
             test_conf = TRUE;
@@ -911,13 +913,21 @@ int main (int argc, char **argv)
     g_thread_init (NULL);
 #endif
 
+    char *logfile = g_build_filename (ctl->logdir, "controller.log", NULL);
+    if (seafile_log_init (logfile, ccnet_debug_level_str,
+                          seafile_debug_level_str) < 0) {
+        seafile_log_init ("-", ccnet_debug_level_str, seafile_debug_level_str);
+        seaf_error ("Failed to init log.\n");
+        controller_exit (1);
+    }
+
     if (!seafile_dir) {
-        fprintf (stderr, "<seafile_dir> must be specified with --seafile-dir\n");
+        seaf_error ("<seafile_dir> must be specified with --seafile-dir\n");
         exit(1);
     }
 
     if (!central_config_dir) {
-        fprintf (stderr, "<central_config_dir> must be specified with --central-config-dir\n");
+        seaf_error ("<central_config_dir> must be specified with --central-config-dir\n");
         exit(1);
     }
 
@@ -932,13 +942,6 @@ int main (int argc, char **argv)
     ctl = g_new0 (SeafileController, 1);
     if (seaf_controller_init (ctl, central_config_dir, config_dir, seafile_dir, logdir) < 0) {
         controller_exit(1);
-    }
-
-    char *logfile = g_build_filename (ctl->logdir, "controller.log", NULL);
-    if (seafile_log_init (logfile, ccnet_debug_level_str,
-                          seafile_debug_level_str) < 0) {
-        seaf_warning ("Failed to init log.\n");
-        controller_exit (1);
     }
 
     if (init_syslog_config () < 0) {

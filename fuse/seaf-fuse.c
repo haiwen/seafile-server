@@ -320,7 +320,8 @@ int main(int argc, char *argv[])
 
     if (seafile_log_init(logfile, ccnet_debug_level_str,
                          seafile_debug_level_str) < 0) {
-        fprintf(stderr, "Failed to init log.\n");
+        seafile_log_init("-", ccnet_debug_level_str, seafile_debug_level_str);
+        seaf_error("Failed to init log.\n");
         exit(1);
     }
 

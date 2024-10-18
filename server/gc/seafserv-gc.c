@@ -31,14 +31,14 @@ static const struct option long_opts[] = {
 
 static void usage ()
 {
-    fprintf (stderr,
-             "usage: seafserv-gc [-c config_dir] [-d seafile_dir] "
-             "[repo_id_1 [repo_id_2 ...]]\n"
-             "Additional options:\n"
-             "-r, --rm-deleted: remove garbaged repos\n"
-             "-R, --rm-fs: remove fs object\n"
-             "-D, --dry-run: report blocks that can be remove, but not remove them\n"
-             "-V, --verbose: verbose output messages\n");
+    seafile_log_init ("-", "info", "debug");
+    seaf_error ("usage: seafserv-gc [-c config_dir] [-d seafile_dir] "
+                "[repo_id_1 [repo_id_2 ...]]\n"
+                "Additional options:\n"
+                "-r, --rm-deleted: remove garbaged repos\n"
+                "-R, --rm-fs: remove fs object\n"
+                "-D, --dry-run: report blocks that can be remove, but not remove them\n"
+                "-V, --verbose: verbose output messages\n");
 }
 
 #ifdef WIN32

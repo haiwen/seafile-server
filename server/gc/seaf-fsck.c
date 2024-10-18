@@ -30,9 +30,9 @@ static const struct option long_opts[] = {
 
 static void usage ()
 {
-    fprintf (stderr,
-             "usage: seaf-fsck [-r] [-E exported_path] [-c config_dir] [-d seafile_dir] "
-             "[repo_id_1 [repo_id_2 ...]]\n");
+    seafile_log_init ("-", "info", "debug");
+    seaf_error ("usage: seaf-fsck [-r] [-E exported_path] [-c config_dir] [-d seafile_dir] "
+                "[repo_id_1 [repo_id_2 ...]]\n");
 }
 
 #ifdef WIN32
