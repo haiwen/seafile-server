@@ -51,8 +51,7 @@ static struct option long_options[] = {
 
 static void usage ()
 {
-    seafile_log_init ("-", "info", "debug");
-    seaf_error ("usage: seaf-server [-c config_dir] [-d seafile_dir]\n");
+    fprintf (stderr, "usage: seaf-server [-c config_dir] [-d seafile_dir]\n");
 }
 
 #include <searpc.h>
@@ -1187,7 +1186,7 @@ test_seafile_config(const char *central_config_dir, const char *config_dir, cons
         central_config_dir = ccnet_expand_path (central_config_dir);
     }
 
-    seafile_log_init ("-", "debug", "debug");
+    seafile_log_init ("-", "debug", "debug", "seaf-server");
 
     srand (time(NULL));
 
@@ -1323,7 +1322,7 @@ main (int argc, char **argv)
     if (logfile == NULL)
         logfile = g_build_filename (seafile_dir, "seafile.log", NULL);
 
-    if (seafile_log_init (logfile, "info", "debug") < 0) {
+    if (seafile_log_init (logfile, "info", "debug", "seaf-server") < 0) {
         seaf_warning ("Failed to init log.\n");
         exit (1);
     }
