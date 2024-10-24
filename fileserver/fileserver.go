@@ -44,12 +44,19 @@ var logFp *os.File
 var dbType string
 var seafileDB, ccnetDB *sql.DB
 
+var logToStdout bool
+
 func init() {
 	flag.StringVar(&centralDir, "F", "", "central config directory")
 	flag.StringVar(&dataDir, "d", "", "seafile data directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
 	flag.StringVar(&rpcPipePath, "p", "", "rpc pipe path")
 	flag.StringVar(&pidFilePath, "P", "", "pid file path")
+
+	env := os.Getenv("SEAFILE_LOG_TO_STDOUT")
+	if env == "true" {
+		logToStdout = true
+	}
 
 	log.SetFormatter(&LogFormatter{})
 }
@@ -61,8 +68,23 @@ const (
 type LogFormatter struct{}
 
 func (f *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
-	buf := make([]byte, 0, len(timestampFormat)+len(entry.Message)+1)
+	levelStr := entry.Level.String()
+	if levelStr == "fatal" {
+		levelStr = "ERROR"
+	} else {
+		levelStr = strings.ToUpper(levelStr)
+	}
+	level := fmt.Sprintf("[%s] ", levelStr)
+	appName := ""
+	if logToStdout {
+		appName = "[fileserver] "
+	}
+	buf := make([]byte, 0, len(appName)+len(timestampFormat)+len(level)+len(entry.Message)+1)
+	if logToStdout {
+		buf = append(buf, appName...)
+	}
 	buf = entry.Time.AppendFormat(buf, timestampFormat)
+	buf = append(buf, level...)
 	buf = append(buf, entry.Message...)
 	buf = append(buf, '\n')
 	return buf, nil
@@ -320,7 +342,9 @@ func main() {
 	loadSeafileDB()
 	option.LoadFileServerOptions(centralDir)
 
-	if logFile == "" {
+	if logToStdout {
+		// Use default output (StdOut)
+	} else if logFile == "" {
 		absLogFile = filepath.Join(absDataDir, "fileserver.log")
 		fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
@@ -420,6 +444,9 @@ func handleUser1Signal() {
 }
 
 func logRotate() {
+	if logToStdout {
+		return
+	}
 	// reopen fileserver log
 	fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {

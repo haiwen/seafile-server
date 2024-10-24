@@ -1186,10 +1186,7 @@ test_seafile_config(const char *central_config_dir, const char *config_dir, cons
         central_config_dir = ccnet_expand_path (central_config_dir);
     }
 
-    if (seafile_log_init ("-", "debug", "debug") < 0) {
-        fprintf (stderr, "seafile_log_init error: %s\n", strerror(errno));
-        return -1;
-    }
+    seafile_log_init ("-", "debug", "debug", "seaf-server");
 
     srand (time(NULL));
 
@@ -1197,7 +1194,7 @@ test_seafile_config(const char *central_config_dir, const char *config_dir, cons
 
     seaf = seafile_session_new (central_config_dir, seafile_dir, config_dir, NULL, NULL);
     if (!seaf) {
-        fprintf (stderr, "Error: failed to create ccnet session\n");
+        seaf_error ("Error: failed to create ccnet session\n");
         return -1;
     }
 
@@ -1280,6 +1277,11 @@ main (int argc, char **argv)
         return test_seafile_config (central_config_dir, ccnet_dir, seafile_dir);
     }
 
+    const char *log_to_stdout_env = g_getenv("SEAFILE_LOG_TO_STDOUT");
+    if (g_strcmp0 (log_to_stdout_env, "true") == 0) {
+        daemon_mode = 0;
+    }
+
 #ifndef WIN32
     if (daemon_mode) {
 #ifndef __APPLE__
@@ -1325,7 +1327,7 @@ main (int argc, char **argv)
     if (logfile == NULL)
         logfile = g_build_filename (seafile_dir, "seafile.log", NULL);
 
-    if (seafile_log_init (logfile, "info", "debug") < 0) {
+    if (seafile_log_init (logfile, "info", "debug", "seaf-server") < 0) {
         seaf_warning ("Failed to init log.\n");
         exit (1);
     }

@@ -11,9 +11,13 @@
 #define seaf_message(fmt, ...) g_message("%s(%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
 #endif
 
+#ifndef seaf_error
+#define seaf_error(fmt, ...) g_critical("%s(%d): " fmt, __FILE__, __LINE__, ##__VA_ARGS__)
+#endif
+
 
 int seafile_log_init (const char *logfile, const char *ccnet_debug_level_str,
-                      const char *seafile_debug_level_str);
+                      const char *seafile_debug_level_str, const char *_app_name);
 int seafile_log_reopen ();
 
 #ifndef WIN32

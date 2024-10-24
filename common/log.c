@@ -19,6 +19,8 @@ static int ccnet_log_level;
 static int seafile_log_level;
 static char *logfile;
 static FILE *logfp;
+static gboolean log_to_stdout = FALSE;
+static char *app_name;
 
 #ifndef WIN32
 #ifdef SEAFILE_SERVER
@@ -40,6 +42,8 @@ get_syslog_level (GLogLevelFlags level)
             return LOG_WARNING;
         case G_LOG_LEVEL_ERROR:
             return LOG_ERR;
+        case G_LOG_LEVEL_CRITICAL:
+            return LOG_ERR;
         default:
             return LOG_DEBUG;
     }
@@ -59,12 +63,26 @@ seafile_log (const gchar *log_domain, GLogLevelFlags log_level,
     if (log_level > seafile_log_level)
         return;
 
+    if (log_to_stdout) {
+        char name_buf[32] = {0};
+        snprintf(name_buf, sizeof(name_buf), "[%s] ", app_name);
+        fputs (name_buf, logfp);
+    }
+
     t = time(NULL);
     tm = localtime(&t);
-    len = strftime (buf, 1024, "%Y-%m-%d %H:%M:%S ", tm);
+    len = strftime (buf, 1024, "[%Y-%m-%d %H:%M:%S] ", tm);
     g_return_if_fail (len < 1024);
     if (logfp) {    
         fputs (buf, logfp);
+        if (log_level == G_LOG_LEVEL_DEBUG)
+            fputs ("[DEBUG] ", logfp);
+        else if (log_level == G_LOG_LEVEL_WARNING)
+            fputs ("[WARNING] ", logfp);
+        else if (log_level == G_LOG_LEVEL_CRITICAL)
+            fputs ("[ERROR] ", logfp);
+        else
+            fputs ("[INFO] ", logfp);
         fputs (message, logfp);
         fflush (logfp);
     }
@@ -95,6 +113,14 @@ ccnet_log (const gchar *log_domain, GLogLevelFlags log_level,
     g_return_if_fail (len < 1024);
     if (logfp) {
         fputs (buf, logfp);
+        if (log_level == G_LOG_LEVEL_DEBUG)
+            fputs ("[DEBUG] ", logfp);
+        else if (log_level == G_LOG_LEVEL_WARNING)
+            fputs ("[WARNING] ", logfp);
+        else if (log_level == G_LOG_LEVEL_CRITICAL)
+            fputs ("[ERROR] ", logfp);
+        else
+            fputs ("[INFO] ", logfp);
         fputs (message, logfp);
         fflush (logfp);
     }
@@ -121,7 +147,7 @@ get_debug_level(const char *str, int default_level)
 
 int
 seafile_log_init (const char *_logfile, const char *ccnet_debug_level_str,
-                  const char *seafile_debug_level_str)
+                  const char *seafile_debug_level_str, const char *_app_name)
 {
     g_log_set_handler (NULL, G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL
                        | G_LOG_FLAG_RECURSION, seafile_log, NULL);
@@ -132,9 +158,13 @@ seafile_log_init (const char *_logfile, const char *ccnet_debug_level_str,
     ccnet_log_level = get_debug_level(ccnet_debug_level_str, G_LOG_LEVEL_INFO);
     seafile_log_level = get_debug_level(seafile_debug_level_str, G_LOG_LEVEL_DEBUG);
 
-    if (strcmp(_logfile, "-") == 0) {
+    app_name = g_strdup (_app_name);
+
+    const char *log_to_stdout_env = g_getenv("SEAFILE_LOG_TO_STDOUT");
+    if (g_strcmp0(_logfile, "-") == 0 || g_strcmp0(log_to_stdout_env, "true") == 0) {
         logfp = stdout;
         logfile = g_strdup (_logfile);
+        log_to_stdout = TRUE;
     }
     else {
         logfile = ccnet_expand_path(_logfile);
@@ -152,7 +182,7 @@ seafile_log_reopen ()
 {
     FILE *fp, *oldfp;
 
-    if (strcmp(logfile, "-") == 0)
+    if (g_strcmp0(logfile, "-") == 0 || log_to_stdout)
         return 0;
 
     if ((fp = g_fopen (logfile, "a+")) == NULL) {

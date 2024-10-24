@@ -30,9 +30,8 @@ static const struct option long_opts[] = {
 
 static void usage ()
 {
-    fprintf (stderr,
-             "usage: seaf-fsck [-r] [-E exported_path] [-c config_dir] [-d seafile_dir] "
-             "[repo_id_1 [repo_id_2 ...]]\n");
+    fprintf (stderr, "usage: seaf-fsck [-r] [-E exported_path] [-c config_dir] [-d seafile_dir] "
+                     "[repo_id_1 [repo_id_2 ...]]\n");
 }
 
 #ifdef WIN32
@@ -141,8 +140,8 @@ main(int argc, char *argv[])
     g_type_init();
 #endif
 
-    if (seafile_log_init ("-", "info", "debug") < 0) {
-        seaf_warning ("Failed to init log.\n");
+    if (seafile_log_init ("-", "info", "debug", "seaf-fsck") < 0) {
+        fprintf (stderr, "Failed to init log.\n");
         exit (1);
     }
 

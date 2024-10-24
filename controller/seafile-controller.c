@@ -203,7 +203,6 @@ start_seaf_server ()
         "-P", ctl->pidfile[PID_SERVER],
         "-p", ctl->rpc_pipe_path,
         NULL};
-
     int pid = spawn_process (argv, false);
     if (pid <= 0) {
         seaf_warning ("Failed to spawn seaf-server\n");
@@ -568,8 +567,8 @@ seaf_controller_init (SeafileController *ctl,
         char *topdir = g_path_get_dirname(config_dir);
         logdir = g_build_filename (topdir, "logs", NULL);
         if (checkdir_with_mkdir(logdir) < 0) {
-            fprintf (stderr, "failed to create log folder \"%s\": %s\n",
-                     logdir, strerror(errno));
+            seaf_error ("failed to create log folder \"%s\": %s\n",
+                        logdir, strerror(errno));
             return -1;
         }
         g_free (topdir);
@@ -684,11 +683,11 @@ static void
 usage ()
 {
     fprintf (stderr, "Usage: seafile-controller OPTIONS\n"
-             "OPTIONS:\n"
-             "  -b, --bin-dir           insert a directory in front of the PATH env\n"
-             "  -c, --config-dir        ccnet config dir\n"
-             "  -d, --seafile-dir       seafile dir\n"
-        );
+                     "OPTIONS:\n"
+                     "  -b, --bin-dir           insert a directory in front of the PATH env\n"
+                     "  -c, --config-dir        ccnet config dir\n"
+                     "  -d, --seafile-dir       seafile dir\n"
+                     );
 }
 
 /* seafile-controller -t is used to test whether config file is valid */
@@ -717,9 +716,8 @@ test_config (const char *central_config_dir,
                                &error);
 
     if (error != NULL) {
-        fprintf (stderr,
-                 "failed to run \"seaf-server -t\": %s\n",
-                 error->message);
+        seaf_error ("failed to run \"seaf-server -t\": %s\n",
+                    error->message);
         exit (1);
     }
 
@@ -732,8 +730,7 @@ test_config (const char *central_config_dir,
     }
 
     if (retcode != 0) {
-        fprintf (stderr,
-                 "failed to run \"seaf-server -t\" [%d]\n", retcode);
+        seaf_error ("failed to run \"seaf-server -t\" [%d]\n", retcode);
         exit (1);
     }
 
@@ -870,6 +867,7 @@ int main (int argc, char **argv)
             break;
         case 'v':
             fprintf (stderr, "seafile-controller version 1.0\n");
+            exit(1);
             break;
         case 't':
             test_conf = TRUE;
@@ -936,8 +934,8 @@ int main (int argc, char **argv)
 
     char *logfile = g_build_filename (ctl->logdir, "controller.log", NULL);
     if (seafile_log_init (logfile, ccnet_debug_level_str,
-                          seafile_debug_level_str) < 0) {
-        seaf_warning ("Failed to init log.\n");
+                          seafile_debug_level_str, "seafile-controller") < 0) {
+        fprintf (stderr, "Failed to init log.\n");
         controller_exit (1);
     }
 
@@ -951,6 +949,11 @@ int main (int argc, char **argv)
 
     if (seaf_controller_start () < 0)
         controller_exit (1);
+
+    const char *log_to_stdout_env = g_getenv("SEAFILE_LOG_TO_STDOUT");
+    if (g_strcmp0(log_to_stdout_env, "true") == 0) {
+        daemon_mode = 0;
+    }
 
 #ifndef WIN32
     if (daemon_mode) {

@@ -319,8 +319,8 @@ int main(int argc, char *argv[])
         logfile = options.log_file;
 
     if (seafile_log_init(logfile, ccnet_debug_level_str,
-                         seafile_debug_level_str) < 0) {
-        fprintf(stderr, "Failed to init log.\n");
+                         seafile_debug_level_str, "seaf-fuse") < 0) {
+        fprintf (stderr, "Failed to init log.\n");
         exit(1);
     }
 
