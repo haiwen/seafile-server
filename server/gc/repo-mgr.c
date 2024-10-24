@@ -60,6 +60,8 @@ seaf_repo_free (SeafRepo *repo)
     if (repo->desc) g_free (repo->desc);
     if (repo->category) g_free (repo->category);
     if (repo->head) seaf_branch_unref (repo->head);
+    g_free (repo->pwd_hash_algo);
+    g_free (repo->pwd_hash_params);
     g_free (repo);
 }
 
@@ -97,11 +99,24 @@ seaf_repo_from_commit (SeafRepo *repo, SeafCommit *commit)
     repo->repaired = commit->repaired;
     if (repo->encrypted) {
         repo->enc_version = commit->enc_version;
-        if (repo->enc_version == 1)
+        if (repo->enc_version == 1 && !commit->pwd_hash_algo)
             memcpy (repo->magic, commit->magic, 32);
         else if (repo->enc_version == 2) {
-            memcpy (repo->magic, commit->magic, 64);
             memcpy (repo->random_key, commit->random_key, 96);
+        } else if (repo->enc_version == 3) {
+            memcpy (repo->random_key, commit->random_key, 96);
+            memcpy (repo->salt, commit->salt, 64);
+        } else if (repo->enc_version == 4) {
+            memcpy (repo->random_key, commit->random_key, 96);
+            memcpy (repo->salt, commit->salt, 64);
+        }
+        if (repo->enc_version >= 2 && !commit->pwd_hash_algo) {
+            memcpy (repo->magic, commit->magic, 64);
+        }
+        if (commit->pwd_hash_algo) {
+            memcpy (repo->pwd_hash, commit->pwd_hash, 64);
+            repo->pwd_hash_algo = g_strdup (commit->pwd_hash_algo);
+            repo->pwd_hash_params = g_strdup (commit->pwd_hash_params);
         }
     }
     repo->no_local_history = commit->no_local_history;
@@ -117,11 +132,24 @@ seaf_repo_to_commit (SeafRepo *repo, SeafCommit *commit)
     commit->repaired = repo->repaired;
     if (commit->encrypted) {
         commit->enc_version = repo->enc_version;
-        if (commit->enc_version == 1)
+        if (commit->enc_version == 1 && !repo->pwd_hash_algo)
             commit->magic = g_strdup (repo->magic);
         else if (commit->enc_version == 2) {
-            commit->magic = g_strdup (repo->magic);
             commit->random_key = g_strdup (repo->random_key);
+        } else if (commit->enc_version == 3) {
+            commit->random_key = g_strdup (repo->random_key);
+            commit->salt = g_strdup (repo->salt);
+        } else if (commit->enc_version == 4) {
+            commit->random_key = g_strdup (repo->random_key);
+            commit->salt = g_strdup (repo->salt);
+        }
+        if (commit->enc_version >= 2 && !repo->pwd_hash_algo) {
+            commit->magic = g_strdup (repo->magic);
+        }
+        if (repo->pwd_hash_algo) {
+            commit->pwd_hash = g_strdup (repo->pwd_hash);
+            commit->pwd_hash_algo = g_strdup (repo->pwd_hash_algo);
+            commit->pwd_hash_params = g_strdup (repo->pwd_hash_params);
         }
     }
     commit->no_local_history = repo->no_local_history;
@@ -371,6 +399,23 @@ seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr)
     if (seaf_db_foreach_selected_row (mgr->seaf->db, sql, 
                                       collect_repo_id, &ret) < 0)
         return NULL;
+
+    return ret;
+}
+
+GList *
+seaf_repo_manager_get_repo_id_list_by_prefix (SeafRepoManager *mgr,
+                                              const char *prefix)
+{
+    GList *ret = NULL;
+    char sql[256];
+
+    snprintf (sql, 256, "SELECT repo_id FROM Repo WHERE repo_id LIKE '%s%%'", prefix);
+
+    if (seaf_db_foreach_selected_row (mgr->seaf->db, sql,
+                                      collect_repo_id, &ret) < 0) {
+        return NULL;
+    }
 
     return ret;
 }

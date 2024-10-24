@@ -399,6 +399,9 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.set_repo_history_limit(repo_id, days)
 
+    def set_repo_valid_since(self, repo_id, timestamp):
+        return seafserv_threaded_rpc.set_repo_valid_since(repo_id, timestamp)
+
     def check_repo_blocks_missing(self, repo_id, blklist):
         return seafserv_threaded_rpc.check_repo_blocks_missing(repo_id, blklist)
 

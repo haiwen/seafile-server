@@ -1455,7 +1455,7 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 	}
 
 	buf := fmt.Sprintf("Added directory \"%s\"", relativeDirCan)
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf, true)
+	_, err = genNewCommit(repo, headCommit, rootID, user, buf, true, "", false)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return err
@@ -1714,7 +1714,13 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		}
 	}
 
-	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes, lastModify)
+	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
+	if err != nil {
+		err := fmt.Errorf("failed to get current gc id for repo %s: %v", repoID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes, lastModify, gcID)
 	if err != nil {
 		err := fmt.Errorf("failed to post files and gen commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -1770,7 +1776,7 @@ func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []st
 	return false
 }
 
-func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64, lastModify int64) (string, error) {
+func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64, lastModify int64, lastGCID string) (string, error) {
 	handleConncurrentUpdate := true
 	if !replace {
 		handleConncurrentUpdate = false
@@ -1816,7 +1822,7 @@ retry:
 		buf = fmt.Sprintf("Added \"%s\".", fileNames[0])
 	}
 
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf, handleConncurrentUpdate)
+	_, err = genNewCommit(repo, headCommit, rootID, user, buf, handleConncurrentUpdate, lastGCID, true)
 	if err != nil {
 		if err != ErrConflict {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
@@ -1880,7 +1886,7 @@ func getCanonPath(p string) string {
 
 var ErrConflict = fmt.Errorf("Concurent upload conflict")
 
-func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string, handleConncurrentUpdate bool) (string, error) {
+func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string, handleConncurrentUpdate bool, lastGCID string, checkGC bool) (string, error) {
 	var retryCnt int
 	repoID := repo.ID
 	commit := commitmgr.NewCommit(repoID, base.CommitID, newRoot, user, desc)
@@ -1895,7 +1901,7 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	maxRetryCnt := 10
 
 	for {
-		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, handleConncurrentUpdate, &commitID)
+		retry, err := genCommitNeedRetry(repo, base, commit, newRoot, user, handleConncurrentUpdate, &commitID, lastGCID, checkGC)
 		if err != nil {
 			return "", err
 		}
@@ -1925,10 +1931,19 @@ func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, des
 	return commitID, nil
 }
 
-func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commitmgr.Commit) error {
+func fastForwardOrMerge(user, token string, repo *repomgr.Repo, base, newCommit *commitmgr.Commit) error {
 	var retryCnt int
+	checkGC, err := repomgr.HasLastGCID(repo.ID, token)
+	if err != nil {
+		return err
+	}
+	var lastGCID string
+	if checkGC {
+		lastGCID, _ = repomgr.GetLastGCID(repo.ID, token)
+		repomgr.RemoveLastGCID(repo.ID, token)
+	}
 	for {
-		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, true, nil)
+		retry, err := genCommitNeedRetry(repo, base, newCommit, newCommit.RootID, user, true, nil, lastGCID, checkGC)
 		if err != nil {
 			return err
 		}
@@ -1948,7 +1963,7 @@ func fastForwardOrMerge(user string, repo *repomgr.Repo, base, newCommit *commit
 	return nil
 }
 
-func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, handleConncurrentUpdate bool, commitID *string) (bool, error) {
+func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *commitmgr.Commit, newRoot, user string, handleConncurrentUpdate bool, commitID *string, lastGCID string, checkGC bool) (bool, error) {
 	var secondParentID string
 	repoID := repo.ID
 	var mergeDesc string
@@ -2001,7 +2016,10 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		mergedCommit = commit
 	}
 
-	err = updateBranch(repoID, mergedCommit.CommitID, currentHead.CommitID, secondParentID)
+	gcConflict, err := updateBranch(repoID, repo.StoreID, mergedCommit.CommitID, currentHead.CommitID, secondParentID, checkGC, lastGCID)
+	if gcConflict {
+		return false, err
+	}
 	if err != nil {
 		return true, nil
 	}
@@ -2024,56 +2042,80 @@ func genMergeDesc(repo *repomgr.Repo, mergedRoot, p1Root, p2Root string) string 
 	return desc
 }
 
-func updateBranch(repoID, newCommitID, oldCommitID, secondParentID string) error {
+func updateBranch(repoID, originRepoID, newCommitID, oldCommitID, secondParentID string, checkGC bool, lastGCID string) (gcConflict bool, err error) {
+	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
+	defer cancel()
+	trans, err := seafileDB.BeginTx(ctx, nil)
+	if err != nil {
+		err := fmt.Errorf("failed to start transaction: %v", err)
+		return false, err
+	}
+
+	var row *sql.Row
+	var sqlStr string
+	if checkGC {
+		sqlStr = "SELECT gc_id FROM GCID WHERE repo_id = ? FOR UPDATE"
+		if originRepoID == "" {
+			row = trans.QueryRowContext(ctx, sqlStr, repoID)
+		} else {
+			row = trans.QueryRowContext(ctx, sqlStr, originRepoID)
+		}
+		var gcID sql.NullString
+		if err := row.Scan(&gcID); err != nil {
+			if err != sql.ErrNoRows {
+				trans.Rollback()
+				return false, err
+			}
+		}
+
+		if lastGCID != gcID.String {
+			err = fmt.Errorf("Head branch update for repo %s conflicts with GC.", repoID)
+			trans.Rollback()
+			return true, err
+		}
+	}
+
 	var commitID string
 	name := "master"
-	var sqlStr string
 	if strings.EqualFold(dbType, "mysql") {
 		sqlStr = "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ? FOR UPDATE"
 	} else {
 		sqlStr = "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ?"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
-	defer cancel()
-	trans, err := seafileDB.BeginTx(ctx, nil)
-	if err != nil {
-		err := fmt.Errorf("failed to start transaction: %v", err)
-		return err
-	}
-	row := trans.QueryRowContext(ctx, sqlStr, name, repoID)
+	row = trans.QueryRowContext(ctx, sqlStr, name, repoID)
 	if err := row.Scan(&commitID); err != nil {
 		if err != sql.ErrNoRows {
 			trans.Rollback()
-			return err
+			return false, err
 		}
 	}
 	if oldCommitID != commitID {
 		trans.Rollback()
 		err := fmt.Errorf("head commit id has changed")
-		return err
+		return false, err
 	}
 
 	sqlStr = "UPDATE Branch SET commit_id = ? WHERE name = ? AND repo_id = ?"
 	_, err = trans.ExecContext(ctx, sqlStr, newCommitID, name, repoID)
 	if err != nil {
 		trans.Rollback()
-		return err
+		return false, err
 	}
 
 	trans.Commit()
 
 	if secondParentID != "" {
 		if err := onBranchUpdated(repoID, secondParentID, false); err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	if err := onBranchUpdated(repoID, newCommitID, true); err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return false, nil
 }
 
 func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error {
@@ -2726,7 +2768,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		if commitDesc == "" {
 			commitDesc = "Auto merge by system"
 		}
-		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc, true)
+		newCommitID, err := genNewCommit(repo, headCommit, newDirID, user, commitDesc, true, "", false)
 		if err != nil {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
 			return "", err
@@ -2767,7 +2809,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		commitDesc = "Auto merge by system"
 	}
 
-	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc, true)
+	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc, true, "", false)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", err
@@ -3166,8 +3208,13 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
+	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
+	if err != nil {
+		err := fmt.Errorf("failed to get current gc id: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
 	desc := fmt.Sprintf("Modified \"%s\"", fileName)
-	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true)
+	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, gcID, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -3398,8 +3445,13 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 		return "", &appError{err, "", http.StatusInternalServerError}
 	}
 
+	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
+	if err != nil {
+		err := fmt.Errorf("failed to get current gc id: %v", err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
 	desc := fmt.Sprintf("Added \"%s\"", fileName)
-	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true)
+	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, gcID, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", &appError{err, "", http.StatusInternalServerError}

@@ -28,7 +28,11 @@ struct _SeafRepo {
     gboolean    encrypted;
     int         enc_version;
     gchar       magic[65];       /* hash(repo_id + passwd), key stretched. */
+    gchar       pwd_hash[65];       /* hash(repo_id + passwd), key stretched. */
+    gchar       *pwd_hash_algo;
+    gchar       *pwd_hash_params;
     gchar       random_key[97];
+    gchar       salt[65];
     gboolean    no_local_history;
 
     SeafBranch *head;
@@ -112,6 +116,10 @@ seaf_repo_manager_get_repo_list (SeafRepoManager *mgr,
 
 GList *
 seaf_repo_manager_get_repo_id_list (SeafRepoManager *mgr);
+
+GList *
+seaf_repo_manager_get_repo_id_list_by_prefix (SeafRepoManager *mgr,
+                                              const char *prefix);
 
 int
 seaf_repo_manager_set_repo_history_limit (SeafRepoManager *mgr,

@@ -368,18 +368,69 @@ on_branch_updated (SeafBranchManager *mgr, SeafBranch *branch)
     publish_repo_update_event (branch->repo_id, branch->commit_id);
 }
 
+static gboolean
+get_gc_id (SeafDBRow *row, void *data)
+{
+    char **out_gc_id = data;
+
+    *out_gc_id = g_strdup(seaf_db_row_get_column_text (row, 0));
+
+    return FALSE;
+}
+
 int
 seaf_branch_manager_test_and_update_branch (SeafBranchManager *mgr,
                                             SeafBranch *branch,
-                                            const char *old_commit_id)
+                                            const char *old_commit_id,
+                                            gboolean check_gc,
+                                            const char *last_gc_id,
+                                            const char *origin_repo_id,
+                                            gboolean *gc_conflict)
 {
     SeafDBTrans *trans;
     char *sql;
     char commit_id[41] = { 0 };
+    char *gc_id = NULL;
+
+    if (check_gc)
+        *gc_conflict = FALSE;
 
     trans = seaf_db_begin_transaction (mgr->seaf->db);
     if (!trans)
         return -1;
+
+    if (check_gc) {
+        sql = "SELECT gc_id FROM GCID WHERE repo_id = ? FOR UPDATE";
+        if (!origin_repo_id) {
+            if (seaf_db_trans_foreach_selected_row (trans, sql,
+                                                    get_gc_id, &gc_id,
+                                                    1, "string", branch->repo_id) < 0) {
+                seaf_db_rollback (trans);
+                seaf_db_trans_close (trans);
+                return -1;
+            }
+        }
+        else {
+            if (seaf_db_trans_foreach_selected_row (trans, sql,
+                                                    get_gc_id, &gc_id,
+                                                    1, "string", origin_repo_id) < 0) {
+                seaf_db_rollback (trans);
+                seaf_db_trans_close (trans);
+                return -1;
+            }
+        }
+
+        if (g_strcmp0 (last_gc_id, gc_id) != 0) {
+            seaf_warning ("Head branch update for repo %s conflicts with GC.\n",
+                          branch->repo_id);
+            seaf_db_rollback (trans);
+            seaf_db_trans_close (trans);
+            *gc_conflict = TRUE;
+            g_free (gc_id);
+            return -1;
+        }
+        g_free (gc_id);
+    }
 
     switch (seaf_db_type (mgr->seaf->db)) {
     case SEAF_DB_TYPE_MYSQL:

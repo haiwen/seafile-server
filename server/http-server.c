@@ -313,6 +313,21 @@ lookup_perm_cache (HttpServer *htp_server, const char *repo_id, const char *user
     return perm;
 }
 
+static char *
+get_auth_token (evhtp_request_t *req)
+{
+    const char *token = evhtp_kv_find (req->headers_in, "Seafile-Repo-Token");
+    if (token) {
+        return g_strdup (token);
+    }
+
+    char *tmp_token = NULL;
+    const char *auth_token = evhtp_kv_find (req->headers_in, "Authorization");
+    tmp_token = seaf_parse_auth_token (auth_token);
+
+    return tmp_token;
+}
+
 static void
 insert_perm_cache (HttpServer *htp_server,
                    const char *repo_id, const char *username,
@@ -918,7 +933,8 @@ gen_merge_description (SeafRepo *repo,
 static int
 fast_forward_or_merge (const char *repo_id,
                        SeafCommit *base,
-                       SeafCommit *new_commit)
+                       SeafCommit *new_commit,
+                       const char *token)
 {
 #define MAX_RETRY_COUNT 3
 
@@ -926,12 +942,35 @@ fast_forward_or_merge (const char *repo_id,
     SeafCommit *current_head = NULL, *merged_commit = NULL;
     int retry_cnt = 0;
     int ret = 0;
+    char *last_gc_id = NULL;
+    gboolean check_gc;
+    gboolean gc_conflict = FALSE;
 
     repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
     if (!repo) {
         seaf_warning ("Repo %s doesn't exist.\n", repo_id);
         ret = -1;
         goto out;
+    }
+
+    /* In some uploads, no blocks need to be uploaded. For example, deleting
+     * a file or folder. In such cases, checkbl won't be called.
+     * So the last gc id is not inserted to the database. We don't need to
+     * check gc for these cases since no new blocks are uploaded.
+     *
+     * Note that having a 'NULL' gc id in database is not the same as not having
+     * a last gc id record. The former one indicates that, before block upload,
+     * no GC has been performed; the latter one indicates no _new_ blocks are
+     * being referenced by this new commit.
+     */
+    if (seaf_db_type(seaf->db) == SEAF_DB_TYPE_SQLITE)
+        check_gc = FALSE;
+    else
+        check_gc = seaf_repo_has_last_gc_id (repo, token);
+
+    if (check_gc) {
+        last_gc_id = seaf_repo_get_last_gc_id (repo, token);
+        seaf_repo_remove_last_gc_id (repo, token);
     }
 
 retry:
@@ -1002,10 +1041,22 @@ retry:
 
     seaf_branch_set_commit(repo->head, merged_commit->commit_id);
 
+    gc_conflict = FALSE;
+
     if (seaf_branch_manager_test_and_update_branch(seaf->branch_mgr,
                                                    repo->head,
-                                                   current_head->commit_id) < 0)
+                                                   current_head->commit_id,
+                                                   check_gc, last_gc_id,
+                                                   repo->store_id,
+                                                   &gc_conflict) < 0)
     {
+        if (gc_conflict) {
+            seaf_warning ("Head branch update for repo %s conflicts with GC.\n",
+                          repo_id);
+            ret = -1;
+            goto out;
+        }
+
         seaf_repo_unref (repo);
         repo = NULL;
         seaf_commit_unref (current_head);
@@ -1032,6 +1083,7 @@ retry:
     }
 
 out:
+    g_free (last_gc_id);
     seaf_commit_unref (current_head);
     seaf_commit_unref (merged_commit);
     seaf_repo_unref (repo);
@@ -1047,6 +1099,7 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
     char *username = NULL;
     SeafRepo *repo = NULL;
     SeafCommit *new_commit = NULL, *base = NULL;
+    char *token = NULL;
 
     const char *new_commit_id = evhtp_kv_find (req->uri->query, "head");
     if (new_commit_id == NULL || !is_object_id_valid (new_commit_id)) {
@@ -1099,7 +1152,9 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
-    if (fast_forward_or_merge (repo_id, base, new_commit) < 0) {
+    token = get_auth_token (req);
+
+    if (fast_forward_or_merge (repo_id, base, new_commit, token) < 0) {
         seaf_warning ("Fast forward merge for repo %s is failed.\n", repo_id);
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
         goto out;
@@ -1112,6 +1167,7 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
     evhtp_send_reply (req, EVHTP_RES_OK);
 
 out:
+    g_free (token);
     seaf_repo_unref (repo);
     seaf_commit_unref (new_commit);
     seaf_commit_unref (base);
@@ -1280,6 +1336,28 @@ out:
     g_strfreev (parts);
 }
 
+static int
+save_last_gc_id (const char *repo_id, const char *token)
+{
+    SeafRepo *repo;
+    char *gc_id;
+
+    repo = seaf_repo_manager_get_repo (seaf->repo_mgr, repo_id);
+    if (!repo) {
+        seaf_warning ("Failed to find repo %s.\n", repo_id);
+        return -1;
+    }
+
+    gc_id = seaf_repo_get_current_gc_id (repo);
+
+    seaf_repo_set_last_gc_id (repo, token, gc_id);
+
+    g_free (gc_id);
+    seaf_repo_unref (repo);
+
+    return 0;
+}
+
 static void
 put_commit_cb (evhtp_request_t *req, void *arg)
 {
@@ -1331,7 +1409,22 @@ put_commit_cb (evhtp_request_t *req, void *arg)
     if (seaf_commit_manager_add_commit (seaf->commit_mgr, commit) < 0) {
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
     } else {
-        evhtp_send_reply (req, EVHTP_RES_OK);
+        /* Last GCID must be set before checking blocks. However, in http sync,
+         * block list may be sent in multiple http requests. There is no way to
+         * tell which one is the first check block request.
+         * 
+         * So we set the last GCID just before replying to upload commit
+         * request. One consequence is that even if the following upload
+         * doesn't upload new blocks, we still need to check gc conflict in
+         * update-branch request. Since gc conflict is a rare case, this solution
+         * won't introduce many more gc conflicts.
+         */
+        char *token = get_auth_token (req);
+        if (save_last_gc_id (repo_id, token) < 0) {
+            evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        } else
+            evhtp_send_reply (req, EVHTP_RES_OK);
+        g_free (token);
     }
     seaf_commit_unref (commit);
 
