@@ -1277,6 +1277,11 @@ main (int argc, char **argv)
         return test_seafile_config (central_config_dir, ccnet_dir, seafile_dir);
     }
 
+    const char *log_to_stdout_env = g_getenv("SEAFILE_LOG_TO_STDOUT");
+    if (g_strcmp0 (log_to_stdout_env, "true") == 0) {
+        daemon_mode = 0;
+    }
+
 #ifndef WIN32
     if (daemon_mode) {
 #ifndef __APPLE__

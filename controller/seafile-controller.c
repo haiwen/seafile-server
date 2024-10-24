@@ -194,38 +194,19 @@ start_seaf_server ()
         logfile = g_build_filename (ctl->logdir, "seafile.log", NULL);
     }
 
-    const char *log_to_stdout_env = g_getenv("SEAFILE_LOG_TO_STDOUT");
-    if (g_strcmp0(log_to_stdout_env, "true") == 0) {
-        char *argv[] = {
-                "seaf-server",
-                "-F", ctl->central_config_dir,
-                "-c", ctl->config_dir,
-                "-d", ctl->seafile_dir,
-                "-l", logfile,
-                "-P", ctl->pidfile[PID_SERVER],
-                "-p", ctl->rpc_pipe_path,
-                "-f",
-                NULL};
-        int pid = spawn_process (argv, false);
-        if (pid <= 0) {
-            seaf_warning ("Failed to spawn seaf-server\n");
-            return -1;
-        }
-    } else {
-        char *argv[] = {
-                "seaf-server",
-                "-F", ctl->central_config_dir,
-                "-c", ctl->config_dir,
-                "-d", ctl->seafile_dir,
-                "-l", logfile,
-                "-P", ctl->pidfile[PID_SERVER],
-                "-p", ctl->rpc_pipe_path,
-                NULL};
-        int pid = spawn_process (argv, false);
-        if (pid <= 0) {
-            seaf_warning ("Failed to spawn seaf-server\n");
-            return -1;
-        }
+    char *argv[] = {
+        "seaf-server",
+        "-F", ctl->central_config_dir,
+        "-c", ctl->config_dir,
+        "-d", ctl->seafile_dir,
+        "-l", logfile,
+        "-P", ctl->pidfile[PID_SERVER],
+        "-p", ctl->rpc_pipe_path,
+        NULL};
+    int pid = spawn_process (argv, false);
+    if (pid <= 0) {
+        seaf_warning ("Failed to spawn seaf-server\n");
+        return -1;
     }
 
     return 0;
@@ -968,6 +949,11 @@ int main (int argc, char **argv)
 
     if (seaf_controller_start () < 0)
         controller_exit (1);
+
+    const char *log_to_stdout_env = g_getenv("SEAFILE_LOG_TO_STDOUT");
+    if (g_strcmp0(log_to_stdout_env, "true") == 0) {
+        daemon_mode = 0;
+    }
 
 #ifndef WIN32
     if (daemon_mode) {
