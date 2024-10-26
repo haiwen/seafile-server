@@ -30,6 +30,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
+	stdlog "log"
 
 	"net/http/pprof"
 )
@@ -374,17 +375,6 @@ func main() {
 		log.SetLevel(level)
 	}
 
-	if absLogFile != "" {
-		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
-		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-		if err != nil {
-			log.Fatalf("Failed to open or create error log file: %v", err)
-		}
-		syscall.Dup3(int(fp.Fd()), int(os.Stderr.Fd()), 0)
-		// We need to close the old fp, because it has beed duped.
-		fp.Close()
-	}
-
 	if err := option.LoadSeahubConfig(); err != nil {
 		log.Fatalf("Failed to read seahub config: %v", err)
 	}
@@ -418,8 +408,14 @@ func main() {
 
 	log.Print("Seafile file server started.")
 
-	addr := fmt.Sprintf("%s:%d", option.Host, option.Port)
-	err = http.ListenAndServe(addr, router)
+	server := new(http.Server)
+	server.Addr = fmt.Sprintf("%s:%d", option.Host, option.Port)
+	server.Handler = router
+
+	errorLog := stdlog.New(log.StandardLogger().Writer(), "", 0)
+	server.ErrorLog = errorLog
+
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
@@ -457,14 +453,6 @@ func logRotate() {
 		logFp.Close()
 		logFp = fp
 	}
-
-	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
-	errFp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-	if err != nil {
-		log.Fatalf("Failed to reopen fileserver error log: %v", err)
-	}
-	syscall.Dup3(int(errFp.Fd()), int(os.Stderr.Fd()), 0)
-	errFp.Close()
 }
 
 var rpcclient *searpc.Client
