@@ -30,7 +30,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
-	syslog "log"
+	stdlog "log"
 
 	"net/http/pprof"
 )
@@ -412,7 +412,7 @@ func main() {
 	server.Addr = fmt.Sprintf("%s:%d", option.Host, option.Port)
 	server.Handler = router
 
-	errorLog := syslog.New(log.StandardLogger().Writer(), "", 0)
+	errorLog := stdlog.New(log.StandardLogger().Writer(), "", 0)
 	server.ErrorLog = errorLog
 
 	err = server.ListenAndServe()

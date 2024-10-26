@@ -20,7 +20,7 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
-	syslog "log"
+	stdlog "log"
 )
 
 var configDir string
@@ -216,7 +216,7 @@ func main() {
 	server.Addr = fmt.Sprintf("%s:%d", host, port)
 	server.Handler = router
 
-	errorLog := syslog.New(log.StandardLogger().Writer(), "", 0)
+	errorLog := stdlog.New(log.StandardLogger().Writer(), "", 0)
 	server.ErrorLog = errorLog
 	err = server.ListenAndServe()
 	if err != nil {
