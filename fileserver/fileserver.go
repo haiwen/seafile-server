@@ -27,10 +27,10 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/searpc"
 	"github.com/haiwen/seafile-server/fileserver/share"
-	"github.com/haiwen/seafile-server/fileserver/utils"
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
+	syslog "log"
 
 	"net/http/pprof"
 )
@@ -364,7 +364,6 @@ func main() {
 		}
 		logFp = fp
 		log.SetOutput(fp)
-		utils.Dup(int(fp.Fd()), int(os.Stderr.Fd()))
 	}
 	// When logFile is "-", use default output (StdOut)
 
@@ -409,8 +408,14 @@ func main() {
 
 	log.Print("Seafile file server started.")
 
-	addr := fmt.Sprintf("%s:%d", option.Host, option.Port)
-	err = http.ListenAndServe(addr, router)
+	server := new(http.Server)
+	server.Addr = fmt.Sprintf("%s:%d", option.Host, option.Port)
+	server.Handler = router
+
+	errorLog := syslog.New(log.StandardLogger().Writer(), "", 0)
+	server.ErrorLog = errorLog
+
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
 	}
@@ -448,8 +453,6 @@ func logRotate() {
 		logFp.Close()
 		logFp = fp
 	}
-
-	utils.Dup(int(fp.Fd()), int(os.Stderr.Fd()))
 }
 
 var rpcclient *searpc.Client

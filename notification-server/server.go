@@ -20,6 +20,7 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
+	syslog "log"
 )
 
 var configDir string
@@ -194,7 +195,6 @@ func main() {
 		}
 		logFp = fp
 		log.SetOutput(fp)
-		Dup(int(fp.Fd()), int(os.Stderr.Fd()))
 	}
 
 	if err := loadJwtPrivateKey(); err != nil {
@@ -212,8 +212,13 @@ func main() {
 
 	log.Info("notification server started.")
 
-	addr := fmt.Sprintf("%s:%d", host, port)
-	err = http.ListenAndServe(addr, router)
+	server := new(http.Server)
+	server.Addr = fmt.Sprintf("%s:%d", host, port)
+	server.Handler = router
+
+	errorLog := syslog.New(log.StandardLogger().Writer(), "", 0)
+	server.ErrorLog = errorLog
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Infof("notificationserver exiting: %v", err)
 	}
@@ -251,8 +256,6 @@ func logRotate() {
 		logFp.Close()
 		logFp = fp
 	}
-
-	Dup(int(fp.Fd()), int(os.Stderr.Fd()))
 }
 
 func newHTTPRouter() *mux.Router {
