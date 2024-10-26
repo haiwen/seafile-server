@@ -31,9 +31,16 @@ var logFp *os.File
 
 var ccnetDB *sql.DB
 
+var logToStdout bool
+
 func init() {
 	flag.StringVar(&configDir, "c", "", "config directory")
 	flag.StringVar(&logFile, "l", "", "log file path")
+
+	env := os.Getenv("SEAFILE_LOG_TO_STDOUT")
+	if env == "true" {
+		logToStdout = true
+	}
 
 	log.SetFormatter(&LogFormatter{})
 }
@@ -166,7 +173,9 @@ func main() {
 		log.Fatalf("config directory %s doesn't exist: %v.", configDir, err)
 	}
 
-	if logFile == "" {
+	if logToStdout {
+		// Use default output (StdOut)
+	} else if logFile == "" {
 		absLogFile = filepath.Join(configDir, "notification-server.log")
 		fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
@@ -185,16 +194,7 @@ func main() {
 		}
 		logFp = fp
 		log.SetOutput(fp)
-	}
-
-	if absLogFile != "" {
-		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification-server-error.log")
-		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-		if err != nil {
-			log.Fatalf("Failed to open or create error log file: %v", err)
-		}
-		syscall.Dup3(int(fp.Fd()), int(os.Stderr.Fd()), 0)
-		fp.Close()
+		Dup(int(fp.Fd()), int(os.Stderr.Fd()))
 	}
 
 	if err := loadJwtPrivateKey(); err != nil {
@@ -239,6 +239,9 @@ func handleUser1Signal() {
 }
 
 func logRotate() {
+	if logToStdout {
+		return
+	}
 	fp, err := os.OpenFile(absLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		log.Fatalf("Failed to reopen notification log: %v", err)
@@ -249,13 +252,7 @@ func logRotate() {
 		logFp = fp
 	}
 
-	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification-server-error.log")
-	errFp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-	if err != nil {
-		log.Fatalf("Failed to reopen notification error log: %v", err)
-	}
-	syscall.Dup3(int(errFp.Fd()), int(os.Stderr.Fd()), 0)
-	errFp.Close()
+	Dup(int(fp.Fd()), int(os.Stderr.Fd()))
 }
 
 func newHTTPRouter() *mux.Router {
