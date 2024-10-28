@@ -27,6 +27,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/searpc"
 	"github.com/haiwen/seafile-server/fileserver/share"
+	"github.com/haiwen/seafile-server/fileserver/utils"
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
@@ -365,6 +366,17 @@ func main() {
 		logFp = fp
 		log.SetOutput(fp)
 	}
+
+	if absLogFile != "" && !logToStdout {
+		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
+		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("Failed to open or create error log file: %v", err)
+		}
+		utils.Dup(int(fp.Fd()), int(os.Stderr.Fd()))
+		// We need to close the old fp, because it has beed duped.
+		fp.Close()
+	}
 	// When logFile is "-", use default output (StdOut)
 
 	level, err := log.ParseLevel(option.LogLevel)
@@ -453,6 +465,14 @@ func logRotate() {
 		logFp.Close()
 		logFp = fp
 	}
+
+	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
+	errFp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("Failed to reopen fileserver error log: %v", err)
+	}
+	utils.Dup(int(errFp.Fd()), int(os.Stderr.Fd()))
+	errFp.Close()
 }
 
 var rpcclient *searpc.Client

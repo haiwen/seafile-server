@@ -197,6 +197,16 @@ func main() {
 		log.SetOutput(fp)
 	}
 
+	if absLogFile != "" && !logToStdout {
+		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification-server-error.log")
+		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+		if err != nil {
+			log.Fatalf("Failed to open or create error log file: %v", err)
+		}
+		Dup(int(fp.Fd()), int(os.Stderr.Fd()))
+		fp.Close()
+	}
+
 	if err := loadJwtPrivateKey(); err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
@@ -256,6 +266,14 @@ func logRotate() {
 		logFp.Close()
 		logFp = fp
 	}
+
+	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification-server-error.log")
+	errFp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		log.Fatalf("Failed to reopen notification error log: %v", err)
+	}
+	Dup(int(errFp.Fd()), int(os.Stderr.Fd()))
+	errFp.Close()
 }
 
 func newHTTPRouter() *mux.Router {
