@@ -950,11 +950,6 @@ int main (int argc, char **argv)
     if (seaf_controller_start () < 0)
         controller_exit (1);
 
-    const char *log_to_stdout_env = g_getenv("SEAFILE_LOG_TO_STDOUT");
-    if (g_strcmp0(log_to_stdout_env, "true") == 0) {
-        daemon_mode = 0;
-    }
-
 #ifndef WIN32
     if (daemon_mode) {
 #ifndef __APPLE__
