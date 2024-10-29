@@ -104,26 +104,109 @@ load_fileserver_config (SeafileSession *session)
     return;
 }
 
+static int
+load_config (SeafileSession *session, const char *config_file_path, const char *config_file_ccnet)
+{
+    int ret = 0;
+    GError *error = NULL;
+    GKeyFile *config = NULL;
+    GKeyFile *ccnet_config = NULL;
+    gboolean notif_enabled = FALSE;
+    char *notif_server = NULL;
+    int notif_port = 8083;
+    const char *private_key = NULL;
+    const char *site_root = NULL;
+    const char *log_to_stdout = NULL;
+
+    config = g_key_file_new ();
+    if (!g_key_file_load_from_file (config, config_file_path,
+                                    G_KEY_FILE_NONE, &error)) {
+        seaf_warning ("Failed to load config file.\n");
+        ret = -1;
+        goto out;
+    }
+
+    ccnet_config = g_key_file_new ();
+    g_key_file_set_list_separator (ccnet_config, ',');
+        if (!g_key_file_load_from_file (ccnet_config, config_file_ccnet,
+                                    G_KEY_FILE_KEEP_COMMENTS, NULL))
+    {
+        seaf_warning ("Can't load ccnet config file %s.\n", config_file_ccnet);
+        ret = -1;
+        goto out;
+    }
+
+    session->config = config;
+    session->ccnet_config = ccnet_config;
+
+    session->cloud_mode = g_key_file_get_boolean (config,
+                                                  "general", "cloud_mode",
+                                                  NULL);
+
+
+    notif_enabled = g_key_file_get_boolean (config,
+                                            "notification", "enabled",
+                                            NULL);
+    if (notif_enabled) {
+        notif_server = g_key_file_get_string (config,
+                                              "notification", "host",
+                                               NULL);
+        notif_port = g_key_file_get_integer (config,
+                                             "notification", "port",
+                                              NULL);
+    }
+
+    // Read config from env
+    private_key = g_getenv("JWT_PRIVATE_KEY");
+    site_root = g_getenv("SITE_ROOT");
+    log_to_stdout = g_getenv("SEAFILE_LOG_TO_STDOUT");
+
+    if (!private_key) {
+        seaf_warning ("Failed to read JWT_PRIVATE_KEY.\n");
+        ret = -1;
+        goto out;
+    }
+        if (notif_enabled && notif_server != NULL) {
+        session->notif_server_private_key = g_strdup (private_key);
+        char notif_url[128];
+        g_sprintf (notif_url, "%s:%d", notif_server, notif_port);
+        session->notif_url = g_strdup (notif_url);
+    }
+    session->seahub_pk = g_strdup (private_key);
+    if (site_root) {
+        session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal", site_root);
+    } else {
+        session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal");
+    }
+    session->seahub_conn_pool = connection_pool_new ();
+
+    if (g_strcmp0 (log_to_stdout, "true") == 0) {
+        session->log_to_stdout = TRUE;
+    }
+
+out:
+    g_free (notif_server);
+    if (ret < 0) {
+        if (config)
+            g_key_file_free (config);
+        if (ccnet_config)
+            g_key_file_free (ccnet_config);
+    }
+    return ret;
+}
+
 SeafileSession *
 seafile_session_new(const char *central_config_dir,
                     const char *seafile_dir,
-                    const char *ccnet_dir,
-                    const char *private_key,
-                    const char *site_root)
+                    const char *ccnet_dir)
 {
     char *abs_central_config_dir = NULL;
     char *abs_seafile_dir;
     char *abs_ccnet_dir = NULL;
     char *tmp_file_dir;
-    char *config_file_path;
-    char *config_file_ccnet;
-    GKeyFile *config;
-    GKeyFile *ccnet_config;
+    char *config_file_path = NULL;
+    char *config_file_ccnet = NULL;
     SeafileSession *session = NULL;
-    gboolean notif_enabled = FALSE;
-    char *notif_server = NULL;
-    int notif_port = 8083;
-    char *notif_server_private_key = NULL;
 
     abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
     abs_seafile_dir = ccnet_expand_path (seafile_dir);
@@ -158,54 +241,16 @@ seafile_session_new(const char *central_config_dir,
         abs_central_config_dir ? abs_central_config_dir : abs_ccnet_dir,
         "ccnet.conf", NULL);
 
-    GError *error = NULL;
-    config = g_key_file_new ();
-    if (!g_key_file_load_from_file (config, config_file_path, 
-                                    G_KEY_FILE_NONE, &error)) {
-        seaf_warning ("Failed to load config file.\n");
-        g_key_file_free (config);
-        g_free (config_file_path);
-        goto onerror;
-    }
-    ccnet_config = g_key_file_new ();
-    g_key_file_set_list_separator (ccnet_config, ',');
-    if (!g_key_file_load_from_file (ccnet_config, config_file_ccnet,
-                                    G_KEY_FILE_KEEP_COMMENTS, NULL))
-    {
-        seaf_warning ("Can't load ccnet config file %s.\n", config_file_ccnet);
-        g_key_file_free (ccnet_config);
-        g_free (config_file_ccnet);
-        goto onerror;
-    }
-    g_free (config_file_path);
-    g_free (config_file_ccnet);
-
     session = g_new0(SeafileSession, 1);
     session->seaf_dir = abs_seafile_dir;
     session->ccnet_dir = abs_ccnet_dir;
     session->tmp_file_dir = tmp_file_dir;
-    session->config = config;
-    session->ccnet_config = ccnet_config;
 
-    session->cloud_mode = g_key_file_get_boolean (config,
-                                                  "general", "cloud_mode",
-                                                  NULL);
+    if (load_config (session, config_file_path, config_file_ccnet) < 0) {
+        goto onerror;
+    }
 
     load_fileserver_config (session);
-
-    notif_enabled = g_key_file_get_boolean (config,
-                                            "notification", "enabled",
-                                            NULL);
-    if (notif_enabled) {
-        notif_server = g_key_file_get_string (config,
-                                              "notification", "host",
-                                               NULL);
-        notif_port = g_key_file_get_integer (config,
-                                             "notification", "port",
-                                              NULL);
-
-        session->notif_server_private_key = g_strdup (private_key);
-    }
 
     if (load_database_config (session) < 0) {
         seaf_warning ("Failed to load database config.\n");
@@ -216,14 +261,6 @@ seafile_session_new(const char *central_config_dir,
         seaf_warning ("Failed to load ccnet database config.\n");
         goto onerror;
     }
-
-    session->seahub_pk = g_strdup (private_key);
-    if (site_root) {
-        session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal", site_root);
-    } else {
-        session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal");
-    }
-    session->seahub_conn_pool = connection_pool_new ();
 
     session->cfg_mgr = seaf_cfg_manager_new (session);
     if (!session->cfg_mgr)
@@ -298,12 +335,9 @@ seafile_session_new(const char *central_config_dir,
     if (!session->org_mgr)
         goto onerror;
 
-    if (notif_enabled && notif_server != NULL) {
-        char notif_url[128];
-        g_sprintf (notif_url, "%s:%d", notif_server, notif_port);
-        session->notif_mgr = seaf_notif_manager_new (session, g_strdup (notif_url));
+    if (session->notif_url) {
+        session->notif_mgr = seaf_notif_manager_new (session, session->notif_url);
         if (!session->notif_mgr) {
-            g_free (notif_url);
             goto onerror;
         }
     }
@@ -311,8 +345,8 @@ seafile_session_new(const char *central_config_dir,
     return session;
 
 onerror:
-    g_free (notif_server);
-    g_free (notif_server_private_key);
+    g_free (config_file_path);
+    g_free (config_file_ccnet);
     free (abs_seafile_dir);
     free (abs_ccnet_dir);
     g_free (tmp_file_dir);

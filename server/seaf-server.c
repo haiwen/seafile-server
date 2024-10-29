@@ -1196,7 +1196,7 @@ test_seafile_config(const char *central_config_dir, const char *config_dir, cons
 
     event_init ();
 
-    seaf = seafile_session_new (central_config_dir, seafile_dir, config_dir, NULL, NULL);
+    seaf = seafile_session_new (central_config_dir, seafile_dir, config_dir);
     if (!seaf) {
         seaf_error ("Error: failed to create ccnet session\n");
         return -1;
@@ -1221,8 +1221,6 @@ main (int argc, char **argv)
     int daemon_mode = 1;
     gboolean test_config = FALSE;
     char *repo_id = NULL;
-    const char *private_key = NULL;
-    const char *site_root = NULL;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -1323,9 +1321,6 @@ main (int argc, char **argv)
         debug_str = g_getenv("SEAFILE_DEBUG");
     seafile_debug_set_flags_string (debug_str);
 
-    private_key = g_getenv("JWT_PRIVATE_KEY");
-    site_root = g_getenv("SITE_ROOT");
-
     if (seafile_dir == NULL)
         seafile_dir = g_build_filename (ccnet_dir, "seafile", NULL);
     if (logfile == NULL)
@@ -1348,12 +1343,7 @@ main (int argc, char **argv)
         exit (0);
     }
 
-    if (!private_key) {
-        seaf_warning ("Failed to read JWT_PRIVATE_KEY.\n");
-        exit (1);
-    }
-
-    seaf = seafile_session_new (central_config_dir, seafile_dir, ccnet_dir, private_key, site_root);
+    seaf = seafile_session_new (central_config_dir, seafile_dir, ccnet_dir);
     if (!seaf) {
         seaf_warning ("Failed to create seafile session.\n");
         exit (1);
