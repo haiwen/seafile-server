@@ -20,7 +20,6 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
-	stdlog "log"
 )
 
 var configDir string
@@ -197,6 +196,10 @@ func main() {
 		log.SetOutput(fp)
 	}
 
+	if absLogFile != "" && !logToStdout {
+		Dup(int(logFp.Fd()), int(os.Stderr.Fd()))
+	}
+
 	if err := loadJwtPrivateKey(); err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
@@ -216,8 +219,6 @@ func main() {
 	server.Addr = fmt.Sprintf("%s:%d", host, port)
 	server.Handler = router
 
-	errorLog := stdlog.New(log.StandardLogger().Writer(), "", 0)
-	server.ErrorLog = errorLog
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Infof("notificationserver exiting: %v", err)
@@ -256,6 +257,8 @@ func logRotate() {
 		logFp.Close()
 		logFp = fp
 	}
+
+	Dup(int(logFp.Fd()), int(os.Stderr.Fd()))
 }
 
 func newHTTPRouter() *mux.Router {
