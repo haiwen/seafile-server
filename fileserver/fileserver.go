@@ -31,7 +31,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
-	stdlog "log"
 
 	"net/http/pprof"
 )
@@ -368,14 +367,7 @@ func main() {
 	}
 
 	if absLogFile != "" && !logToStdout {
-		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
-		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-		if err != nil {
-			log.Fatalf("Failed to open or create error log file: %v", err)
-		}
-		utils.Dup(int(fp.Fd()), int(os.Stderr.Fd()))
-		// We need to close the old fp, because it has beed duped.
-		fp.Close()
+		utils.Dup(int(logFp.Fd()), int(os.Stderr.Fd()))
 	}
 	// When logFile is "-", use default output (StdOut)
 
@@ -424,9 +416,6 @@ func main() {
 	server.Addr = fmt.Sprintf("%s:%d", option.Host, option.Port)
 	server.Handler = router
 
-	errorLog := stdlog.New(log.StandardLogger().Writer(), "", 0)
-	server.ErrorLog = errorLog
-
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Printf("File server exiting: %v", err)
@@ -466,13 +455,7 @@ func logRotate() {
 		logFp = fp
 	}
 
-	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "fileserver-error.log")
-	errFp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-	if err != nil {
-		log.Fatalf("Failed to reopen fileserver error log: %v", err)
-	}
-	utils.Dup(int(errFp.Fd()), int(os.Stderr.Fd()))
-	errFp.Close()
+	utils.Dup(int(logFp.Fd()), int(os.Stderr.Fd()))
 }
 
 var rpcclient *searpc.Client

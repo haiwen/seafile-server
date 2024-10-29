@@ -20,7 +20,6 @@ import (
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
-	stdlog "log"
 )
 
 var configDir string
@@ -198,13 +197,7 @@ func main() {
 	}
 
 	if absLogFile != "" && !logToStdout {
-		errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification-server-error.log")
-		fp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-		if err != nil {
-			log.Fatalf("Failed to open or create error log file: %v", err)
-		}
-		Dup(int(fp.Fd()), int(os.Stderr.Fd()))
-		fp.Close()
+		Dup(int(logFp.Fd()), int(os.Stderr.Fd()))
 	}
 
 	if err := loadJwtPrivateKey(); err != nil {
@@ -226,8 +219,6 @@ func main() {
 	server.Addr = fmt.Sprintf("%s:%d", host, port)
 	server.Handler = router
 
-	errorLog := stdlog.New(log.StandardLogger().Writer(), "", 0)
-	server.ErrorLog = errorLog
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Infof("notificationserver exiting: %v", err)
@@ -267,13 +258,7 @@ func logRotate() {
 		logFp = fp
 	}
 
-	errorLogFile := filepath.Join(filepath.Dir(absLogFile), "notification-server-error.log")
-	errFp, err := os.OpenFile(errorLogFile, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-	if err != nil {
-		log.Fatalf("Failed to reopen notification error log: %v", err)
-	}
-	Dup(int(errFp.Fd()), int(os.Stderr.Fd()))
-	errFp.Close()
+	Dup(int(logFp.Fd()), int(os.Stderr.Fd()))
 }
 
 func newHTTPRouter() *mux.Router {
