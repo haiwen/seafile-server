@@ -1063,13 +1063,16 @@ include_invalid_path (SeafCommit *base_commit, SeafCommit *new_commit) {
     DiffEntry *diff_entry;
     for (ptr = diff_entries; ptr; ptr = ptr->next) {
         diff_entry = ptr->data;
-        if (diff_entry->new_name && should_ignore(diff_entry->new_name)) {
-            ret = TRUE;
-            break;
-        }
-        if (!diff_entry->new_name && should_ignore(diff_entry->name)) {
-            ret = TRUE;
-            break;
+        if (diff_entry->new_name) {
+            if (should_ignore(diff_entry->new_name)) {
+                ret = TRUE;
+                break;
+            }
+        } else {
+            if (should_ignore(diff_entry->name)) {
+                ret = TRUE;
+                break;
+            }
         }
     }
 

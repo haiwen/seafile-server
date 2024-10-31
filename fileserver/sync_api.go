@@ -1077,11 +1077,14 @@ func includeInvalidPath(baseCommit, newCommit *commitmgr.Commit) bool {
 	}
 
 	for _, entry := range results {
-		if entry.NewName != "" && shouldIgnore(entry.NewName) {
-			return true
-		}
-		if entry.NewName == "" && shouldIgnore(entry.Name) {
-			return true
+		if entry.NewName != "" {
+			if shouldIgnore(entry.NewName) {
+				return true
+			}
+		} else {
+			if shouldIgnore(entry.Name) {
+				return true
+			}
 		}
 	}
 
