@@ -256,6 +256,20 @@ should_ignore_file(const char *filename, void *data)
 {
     /* GPatternSpec **spec = ignore_patterns; */
 
+    char **components = g_strsplit (filename, "/", -1);
+    int n_comps = g_strv_length (components);
+    int j = 0;
+    char *file_name;
+
+    for (; j < n_comps; ++j) {
+        file_name = components[j];
+        if (g_strcmp0(file_name, "..") == 0) {
+            g_strfreev (components);
+            return TRUE;
+        }
+    }
+    g_strfreev (components);
+
     if (!g_utf8_validate (filename, -1, NULL)) {
         seaf_warning ("File name %s contains non-UTF8 characters, skip.\n", filename);
         return TRUE;
