@@ -251,7 +251,6 @@ should_ignore_file(const char *filename, void *data)
         file_name = components[j];
         if (g_strcmp0(file_name, "..") == 0) {
             g_strfreev (components);
-            seaf_warning ("File or dir name is .., skip.\n");
             return TRUE;
         }
     }

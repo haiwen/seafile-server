@@ -1028,6 +1028,54 @@ out:
     return ret;
 }
 
+gboolean
+should_ignore (const char *filename)
+{
+    char **components = g_strsplit (filename, "/", -1);
+    int n_comps = g_strv_length (components);
+    int j = 0;
+    char *file_name;
+
+    for (; j < n_comps; ++j) {
+        file_name = components[j];
+        if (g_strcmp0(file_name, "..") == 0) {
+            g_strfreev (components);
+            return TRUE;
+        }
+    }
+    g_strfreev (components);
+
+    return FALSE;
+}
+
+static gboolean
+include_invalid_path (SeafCommit *base_commit, SeafCommit *new_commit) {
+    GList *diff_entries = NULL;
+    gboolean ret = FALSE;
+
+    int rc = diff_commits (base_commit, new_commit, &diff_entries, TRUE);
+    if (rc < 0) {
+        seaf_warning ("Failed to check invalid path.\n");
+        return FALSE;
+    }
+
+    GList *ptr;
+    DiffEntry *diff_entry;
+    for (ptr = diff_entries; ptr; ptr = ptr->next) {
+        diff_entry = ptr->data;
+        if (diff_entry->new_name && should_ignore(diff_entry->new_name)) {
+            ret = TRUE;
+            break;
+        }
+        if (!diff_entry->new_name && should_ignore(diff_entry->name)) {
+            ret = TRUE;
+            break;
+        }
+    }
+
+    return ret;
+}
+
 static void
 put_update_branch_cb (evhtp_request_t *req, void *arg)
 {
@@ -1080,6 +1128,11 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
                                            repo->id, repo->version,
                                            new_commit->parent_id);
     if (!base) {
+        evhtp_send_reply (req, EVHTP_RES_BADREQ);
+        goto out;
+    }
+
+    if (include_invalid_path (base, new_commit)) {
         evhtp_send_reply (req, EVHTP_RES_BADREQ);
         goto out;
     }

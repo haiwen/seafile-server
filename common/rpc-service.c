@@ -2387,11 +2387,6 @@ seafile_post_file (const char *repo_id, const char *temp_file_path,
         return -1;
     }
 
-    if (g_strcmp0(file_name, "..") == 0) {
-        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "File name should not be ..");
-        return -1;
-    }
-
     if (!is_uuid_valid (repo_id)) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
         return -1;
@@ -2557,11 +2552,6 @@ seafile_put_file (const char *repo_id, const char *temp_file_path,
         return NULL;
     }
 
-    if (g_strcmp0(file_name, "..") == 0) {
-        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "File name should not be ..");
-        return NULL;
-    }
-
     if (!is_uuid_valid (repo_id)) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
         return NULL;
@@ -2660,11 +2650,6 @@ seafile_post_dir (const char *repo_id, const char *parent_dir,
         return -1;
     }
 
-    if (g_strcmp0(new_dir_name, "..") == 0) {
-        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Dir name should not be ..");
-        return -1;
-    }
-
     if (!is_uuid_valid (repo_id)) {
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS, "Invalid repo id");
         return -1;
@@ -2712,11 +2697,6 @@ seafile_post_empty_file (const char *repo_id, const char *parent_dir,
 
     if (!repo_id || !parent_dir || !new_file_name || !user) {
         g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "Argument should not be null");
-        return -1;
-    }
-
-    if (g_strcmp0(new_file_name, "..") == 0) {
-        g_set_error (error, 0, SEAF_ERR_BAD_ARGS, "File name should not be ..");
         return -1;
     }
 
