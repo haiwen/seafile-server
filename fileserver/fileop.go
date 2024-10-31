@@ -2126,7 +2126,21 @@ func nameExists(entries []*fsmgr.SeafDirent, fileName string) bool {
 	return false
 }
 
+func shouldIgnore(fileName string) bool {
+	parts := strings.Split(fileName, "/")
+	for _, name := range parts {
+		if name == ".." {
+			return true
+		}
+	}
+	return false
+}
+
 func shouldIgnoreFile(fileName string) bool {
+	if shouldIgnore(fileName) {
+		return true
+	}
+
 	if !utf8.ValidString(fileName) {
 		log.Printf("file name %s contains non-UTF8 characters, skip", fileName)
 		return true

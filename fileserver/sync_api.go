@@ -1041,6 +1041,11 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
+	if includeInvalidPath(base, newCommit) {
+		msg := fmt.Sprintf("Dir or file name is ..")
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+
 	ret, err := checkQuota(repoID, 0)
 	if err != nil {
 		err := fmt.Errorf("Failed to check quota: %v", err)
@@ -1062,6 +1067,28 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	rsp.WriteHeader(http.StatusOK)
 	return nil
+}
+
+func includeInvalidPath(baseCommit, newCommit *commitmgr.Commit) bool {
+	var results []*diff.DiffEntry
+	if err := diff.DiffCommits(baseCommit, newCommit, &results, true); err != nil {
+		log.Infof("Failed to diff commits: %v", err)
+		return false
+	}
+
+	for _, entry := range results {
+		if entry.NewName != "" {
+			if shouldIgnore(entry.NewName) {
+				return true
+			}
+		} else {
+			if shouldIgnore(entry.Name) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func getHeadCommit(rsp http.ResponseWriter, r *http.Request) *appError {
