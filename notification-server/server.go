@@ -88,66 +88,20 @@ func loadNotifConfig() {
 }
 
 func loadCcnetDB() {
-	ccnetConfPath := filepath.Join(configDir, "ccnet.conf")
-	config, err := ini.Load(ccnetConfPath)
+	option, err := loadDBOptionFromEnv()
 	if err != nil {
-		log.Fatalf("Failed to load ccnet.conf: %v", err)
+		log.Infof("Failed to load database from env: %v", err)
+		option, err = loadDBOptionFromFile()
+		if err != nil {
+			log.Fatalf("Failed to load database: %v", err)
+		}
 	}
 
-	section, err := config.GetSection("Database")
-	if err != nil {
-		log.Fatal("No database section in ccnet.conf.")
-	}
-
-	var dbEngine string = "mysql"
-	key, err := section.GetKey("ENGINE")
-	if err == nil {
-		dbEngine = key.String()
-	}
-
-	if !strings.EqualFold(dbEngine, "mysql") {
-		log.Fatalf("Unsupported database %s.", dbEngine)
-	}
-
-	unixSocket := ""
-	if key, err = section.GetKey("UNIX_SOCKET"); err == nil {
-		unixSocket = key.String()
-	}
-
-	host := ""
-	if key, err = section.GetKey("HOST"); err == nil {
-		host = key.String()
-	} else if unixSocket == "" {
-		log.Fatal("No database host in ccnet.conf.")
-	}
-	// user is required.
-	if key, err = section.GetKey("USER"); err != nil {
-		log.Fatal("No database user in ccnet.conf.")
-	}
-	user := key.String()
-	password := ""
-	if key, err = section.GetKey("PASSWD"); err == nil {
-		password = key.String()
-	} else if unixSocket == "" {
-		log.Fatal("No database password in ccnet.conf.")
-	}
-	if key, err = section.GetKey("DB"); err != nil {
-		log.Fatal("No database db_name in ccnet.conf.")
-	}
-	dbName := key.String()
-	port := 3306
-	if key, err = section.GetKey("PORT"); err == nil {
-		port, _ = key.Int()
-	}
-	useTLS := false
-	if key, err = section.GetKey("USE_SSL"); err == nil {
-		useTLS, _ = key.Bool()
-	}
 	var dsn string
-	if unixSocket == "" {
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t&readTimeout=60s&writeTimeout=60s", user, password, host, port, dbName, useTLS)
+	if option.UnixSocket == "" {
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t&readTimeout=60s&writeTimeout=60s", option.User, option.Password, option.Host, option.Port, option.CcnetDbName, option.UseTLS)
 	} else {
-		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?readTimeout=60s&writeTimeout=60s", user, password, unixSocket, dbName)
+		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?readTimeout=60s&writeTimeout=60s", option.User, option.Password, option.UnixSocket, option.CcnetDbName)
 	}
 	ccnetDB, err = sql.Open("mysql", dsn)
 	if err != nil {
@@ -159,6 +113,130 @@ func loadCcnetDB() {
 	ccnetDB.SetConnMaxLifetime(5 * time.Minute)
 	ccnetDB.SetMaxOpenConns(8)
 	ccnetDB.SetMaxIdleConns(8)
+}
+
+type DBOption struct {
+	User          string
+	Password      string
+	Host          string
+	Port          int
+	CcnetDbName   string
+	SeafileDbName string
+	UnixSocket    string
+	UseTLS        bool
+}
+
+func loadDBOptionFromEnv() (*DBOption, error) {
+	user := os.Getenv("SEAFILE_MYSQL_DB_USER")
+	if user == "" {
+		return nil, fmt.Errorf("failed to read SEAFILE_MYSQL_DB_USER")
+	}
+	password := os.Getenv("SEAFILE_MYSQL_DB_PASSWORD")
+	if user == "" {
+		return nil, fmt.Errorf("failed to read SEAFILE_MYSQL_DB_PASSWORD")
+	}
+	host := os.Getenv("SEAFILE_MYSQL_DB_HOST")
+	if host == "" {
+		return nil, fmt.Errorf("failed to read SEAFILE_MYSQL_DB_HOST")
+	}
+	ccnetDbName := os.Getenv("SEAFILE_MYSQL_DB_CCNET_DB_NAME")
+	if ccnetDbName == "" {
+		ccnetDbName = "ccnet_db"
+		log.Infof("Failed to read SEAFILE_MYSQL_DB_CCNET_DB_NAME, use ccnet_db by default")
+	}
+	seafileDbName := os.Getenv("SEAFILE_MYSQL_DB_SEAFILE_DB_NAME")
+	if seafileDbName == "" {
+		seafileDbName = "seafile_db"
+		log.Infof("Failed to read SEAFILE_MYSQL_DB_SEAFILE_DB_NAME, use seafile_db by default")
+	}
+
+	log.Infof("Database: user = %s", user)
+	log.Infof("Database: host = %s", host)
+	log.Infof("Database: ccnet_db_name = %s", ccnetDbName)
+	log.Infof("Database: seafile_db_name = %s", seafileDbName)
+
+	option := new(DBOption)
+	option.User = user
+	option.Password = password
+	option.Host = host
+	option.Port = 3306
+	option.CcnetDbName = ccnetDbName
+	option.SeafileDbName = seafileDbName
+	return option, nil
+}
+
+func loadDBOptionFromFile() (*DBOption, error) {
+	confPath := filepath.Join(configDir, "seafile.conf")
+	config, err := ini.Load(confPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load seafile.conf: %v", err)
+	}
+
+	section, err := config.GetSection("database")
+	if err != nil {
+		return nil, fmt.Errorf("no database section in seafile.conf")
+	}
+
+	var dbEngine string = "mysql"
+	key, err := section.GetKey("type")
+	if err == nil {
+		dbEngine = key.String()
+	}
+
+	if !strings.EqualFold(dbEngine, "mysql") {
+		return nil, fmt.Errorf("unsupported database %s", dbEngine)
+	}
+
+	unixSocket := ""
+	if key, err = section.GetKey("unix_socket"); err == nil {
+		unixSocket = key.String()
+	}
+
+	host := ""
+	if key, err = section.GetKey("host"); err == nil {
+		host = key.String()
+	} else if unixSocket == "" {
+		return nil, fmt.Errorf("no database host in seafile.conf")
+	}
+	// user is required.
+	if key, err = section.GetKey("user"); err != nil {
+		return nil, fmt.Errorf("no database user in seafile.conf")
+	}
+	user := key.String()
+	password := ""
+	if key, err = section.GetKey("password"); err == nil {
+		password = key.String()
+	} else if unixSocket == "" {
+		return nil, fmt.Errorf("no database password in seafile.conf")
+	}
+	if key, err = section.GetKey("db_name"); err != nil {
+		return nil, fmt.Errorf("no database db_name in seafile.conf")
+	}
+	seafileDbName := key.String()
+	if key, err = section.GetKey("ccnet_db_name"); err != nil {
+		return nil, fmt.Errorf("no database ccnet_db_name in seafile.conf")
+	}
+	ccnetDbName := key.String()
+	port := 3306
+	if key, err = section.GetKey("port"); err == nil {
+		port, _ = key.Int()
+	}
+	useTLS := false
+	if key, err = section.GetKey("USE_SSL"); err == nil {
+		useTLS, _ = key.Bool()
+	}
+
+	option := new(DBOption)
+	option.User = user
+	option.Password = password
+	option.Host = host
+	option.Port = port
+	option.CcnetDbName = ccnetDbName
+	option.SeafileDbName = seafileDbName
+	option.UnixSocket = unixSocket
+	option.UseTLS = useTLS
+
+	return option, nil
 }
 
 func main() {
