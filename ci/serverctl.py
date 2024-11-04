@@ -55,39 +55,7 @@ class ServerCtl(object):
         os.mkdir (self.seafile_conf_dir, 0o755)
         os.mkdir (self.ccnet_conf_dir, 0o755)
 
-        self.init_ccnet()
         self.init_seafile()
-
-    def init_ccnet(self):
-        if self.db == 'mysql':
-            self.add_ccnet_db_conf()
-        else:
-            self.add_ccnet_sqlite_db_conf()
-
-    def add_ccnet_sqlite_db_conf(self):
-        ccnet_conf = join(self.central_conf_dir, 'ccnet.conf')
-        ccnet_db_conf = '''\
-[Database]
-'''
-        with open(ccnet_conf, 'a+') as fp:
-            fp.write('\n')
-            fp.write(ccnet_db_conf)
-
-    def add_ccnet_db_conf(self):
-        ccnet_conf = join(self.central_conf_dir, 'ccnet.conf')
-        ccnet_db_conf = '''\
-[Database]
-ENGINE = mysql
-HOST = 127.0.0.1
-PORT = 3306
-USER = seafile
-PASSWD = seafile
-DB = ccnet
-CONNECTION_CHARSET = utf8
-'''
-        with open(ccnet_conf, 'a+') as fp:
-            fp.write('\n')
-            fp.write(ccnet_db_conf)
 
     def init_seafile(self):
         seafile_conf = join(self.central_conf_dir, 'seafile.conf')
@@ -130,6 +98,7 @@ port = 3306
 user = seafile
 password = seafile
 db_name = seafile
+ccnet_db_name = ccnet
 connection_charset = utf8
 '''
         with open(seafile_conf, 'a+') as fp:
