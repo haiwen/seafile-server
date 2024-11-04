@@ -105,12 +105,11 @@ load_fileserver_config (SeafileSession *session)
 }
 
 static int
-load_config (SeafileSession *session, const char *config_file_path, const char *config_file_ccnet)
+load_config (SeafileSession *session, const char *config_file_path)
 {
     int ret = 0;
     GError *error = NULL;
     GKeyFile *config = NULL;
-    GKeyFile *ccnet_config = NULL;
     gboolean notif_enabled = FALSE;
     char *notif_server = NULL;
     int notif_port = 8083;
@@ -126,18 +125,7 @@ load_config (SeafileSession *session, const char *config_file_path, const char *
         goto out;
     }
 
-    ccnet_config = g_key_file_new ();
-    g_key_file_set_list_separator (ccnet_config, ',');
-        if (!g_key_file_load_from_file (ccnet_config, config_file_ccnet,
-                                    G_KEY_FILE_KEEP_COMMENTS, NULL))
-    {
-        seaf_warning ("Can't load ccnet config file %s.\n", config_file_ccnet);
-        ret = -1;
-        goto out;
-    }
-
     session->config = config;
-    session->ccnet_config = ccnet_config;
 
     session->cloud_mode = g_key_file_get_boolean (config,
                                                   "general", "cloud_mode",
@@ -189,8 +177,6 @@ out:
     if (ret < 0) {
         if (config)
             g_key_file_free (config);
-        if (ccnet_config)
-            g_key_file_free (ccnet_config);
     }
     return ret;
 }
@@ -205,7 +191,6 @@ seafile_session_new(const char *central_config_dir,
     char *abs_ccnet_dir = NULL;
     char *tmp_file_dir;
     char *config_file_path = NULL;
-    char *config_file_ccnet = NULL;
     SeafileSession *session = NULL;
 
     abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
@@ -237,16 +222,12 @@ seafile_session_new(const char *central_config_dir,
         abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir,
         "seafile.conf", NULL);
 
-    config_file_ccnet = g_build_filename(
-        abs_central_config_dir ? abs_central_config_dir : abs_ccnet_dir,
-        "ccnet.conf", NULL);
-
     session = g_new0(SeafileSession, 1);
     session->seaf_dir = abs_seafile_dir;
     session->ccnet_dir = abs_ccnet_dir;
     session->tmp_file_dir = tmp_file_dir;
 
-    if (load_config (session, config_file_path, config_file_ccnet) < 0) {
+    if (load_config (session, config_file_path) < 0) {
         goto onerror;
     }
 
@@ -346,7 +327,6 @@ seafile_session_new(const char *central_config_dir,
 
 onerror:
     g_free (config_file_path);
-    g_free (config_file_ccnet);
     free (abs_seafile_dir);
     free (abs_ccnet_dir);
     g_free (tmp_file_dir);
@@ -364,9 +344,7 @@ seafile_repair_session_new(const char *central_config_dir,
     char *abs_ccnet_dir = NULL;
     char *tmp_file_dir;
     char *config_file_path;
-    char *config_file_ccnet;
     GKeyFile *config;
-    GKeyFile *ccnet_config;
     SeafileSession *session = NULL;
     gboolean notif_enabled = FALSE;
     int notif_port = 8083;
@@ -387,10 +365,6 @@ seafile_repair_session_new(const char *central_config_dir,
         abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir,
         "seafile.conf", NULL);
 
-    config_file_ccnet = g_build_filename(
-        abs_central_config_dir ? abs_central_config_dir : abs_ccnet_dir,
-        "ccnet.conf", NULL);
-
     GError *error = NULL;
     config = g_key_file_new ();
     if (!g_key_file_load_from_file (config, config_file_path, 
@@ -400,25 +374,13 @@ seafile_repair_session_new(const char *central_config_dir,
         g_free (config_file_path);
         goto onerror;
     }
-    ccnet_config = g_key_file_new ();
-    g_key_file_set_list_separator (ccnet_config, ',');
-    if (!g_key_file_load_from_file (ccnet_config, config_file_ccnet,
-                                    G_KEY_FILE_KEEP_COMMENTS, NULL))
-    {
-        seaf_warning ("Can't load ccnet config file %s.\n", config_file_ccnet);
-        g_key_file_free (ccnet_config);
-        g_free (config_file_ccnet);
-        goto onerror;
-    }
     g_free (config_file_path);
-    g_free (config_file_ccnet);
 
     session = g_new0(SeafileSession, 1);
     session->seaf_dir = abs_seafile_dir;
     session->ccnet_dir = abs_ccnet_dir;
     session->tmp_file_dir = tmp_file_dir;
     session->config = config;
-    session->ccnet_config = ccnet_config;
     session->is_repair = TRUE;
 
     if (load_database_config (session) < 0) {

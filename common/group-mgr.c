@@ -40,10 +40,11 @@ ccnet_group_manager_init (CcnetGroupManager *manager)
 int
 ccnet_group_manager_prepare (CcnetGroupManager *manager)
 {
-    if (!g_key_file_has_key (manager->session->ccnet_config, "GROUP", "TABLE_NAME", NULL))
+    const char *table_name = g_getenv("SEAFILE_MYSQL_DB_GROUP_TABLE_NAME");
+    if (!table_name)
         manager->priv->table_name = g_strdup ("Group");
     else
-        manager->priv->table_name = g_key_file_get_string (manager->session->ccnet_config, "GROUP", "TABLE_NAME", NULL);
+        manager->priv->table_name = g_strdup (table_name);
 
     return open_db(manager);
 }
