@@ -140,16 +140,9 @@ func LoadFileServerOptions(centralDir string) {
 		}
 	}
 
-	ccnetConfPath := filepath.Join(centralDir, "ccnet.conf")
-	config, err = ini.Load(ccnetConfPath)
-	if err != nil {
-		log.Fatalf("Failed to load ccnet.conf: %v", err)
-	}
-	GroupTableName = "Group"
-	if section, err := config.GetSection("GROUP"); err == nil {
-		if key, err := section.GetKey("TABLE_NAME"); err == nil {
-			GroupTableName = key.String()
-		}
+	GroupTableName = os.Getenv("SEAFILE_MYSQL_DB_GROUP_TABLE_NAME")
+	if GroupTableName == "" {
+		GroupTableName = "Group"
 	}
 }
 

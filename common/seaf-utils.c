@@ -117,10 +117,16 @@ load_db_option_from_env (DBOption *option)
     if (env_ccnet_db) {
         g_free (option->ccnet_db_name);
         option->ccnet_db_name = g_strdup (env_ccnet_db);
+    } else if (!option->ccnet_db_name) {
+        option->ccnet_db_name = g_strdup ("ccnet_db");
+		seaf_message ("Failed to read SEAFILE_MYSQL_DB_CCNET_DB_NAME, use ccnet_db by default");
     }
     if (env_seafile_db) {
         g_free (option->seafile_db_name);
         option->seafile_db_name = g_strdup (env_seafile_db);
+    } else if (!option->seafile_db_name) {
+        option->seafile_db_name = g_strdup ("seafile_db");
+		seaf_message ("Failed to read SEAFILE_MYSQL_DB_SEAFILE_DB_NAME, use seafile_db by default");
     }
 
     return 0;
