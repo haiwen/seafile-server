@@ -25,10 +25,8 @@ seafile_session_new(const char *central_config_dir,
     char *abs_ccnet_dir = NULL;
     char *tmp_file_dir;
     char *config_file_path;
-    char *config_file_ccnet;
     struct stat st;
     GKeyFile *config;
-    GKeyFile *ccnet_config;
     SeafileSession *session = NULL;
 
     abs_ccnet_dir = ccnet_expand_path (ccnet_dir);
@@ -40,10 +38,6 @@ seafile_session_new(const char *central_config_dir,
     config_file_path = g_build_filename(
         abs_central_config_dir ? abs_central_config_dir : abs_seafile_dir,
         "seafile.conf", NULL);
-
-    config_file_ccnet = g_build_filename(
-        abs_central_config_dir ? abs_central_config_dir : abs_ccnet_dir,
-        "ccnet.conf", NULL);
 
     if (g_stat(abs_seafile_dir, &st) < 0 || !S_ISDIR(st.st_mode)) {
         seaf_warning ("Seafile data dir %s does not exist and is unable to create\n",
@@ -72,25 +66,13 @@ seafile_session_new(const char *central_config_dir,
         g_key_file_free (config);
         goto onerror;
     }
-    ccnet_config = g_key_file_new ();
-    g_key_file_set_list_separator (ccnet_config, ',');
-    if (!g_key_file_load_from_file (ccnet_config, config_file_ccnet,
-                                    G_KEY_FILE_KEEP_COMMENTS, NULL))
-    {
-        seaf_warning ("Can't load ccnet config file %s.\n", config_file_ccnet);
-        g_key_file_free (ccnet_config);
-        g_free (config_file_ccnet);
-        goto onerror;
-    }
     g_free (config_file_path);
-    g_free (config_file_ccnet);
 
     session = g_new0(SeafileSession, 1);
     session->seaf_dir = abs_seafile_dir;
     session->ccnet_dir = abs_ccnet_dir;
     session->tmp_file_dir = tmp_file_dir;
     session->config = config;
-    session->ccnet_config = ccnet_config;
     session->excluded_users = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                      g_free, NULL);
 

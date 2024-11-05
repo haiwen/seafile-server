@@ -2077,11 +2077,7 @@ func updateBranch(repoID, originRepoID, newCommitID, oldCommitID, secondParentID
 
 	var commitID string
 	name := "master"
-	if strings.EqualFold(dbType, "mysql") {
-		sqlStr = "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ? FOR UPDATE"
-	} else {
-		sqlStr = "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ?"
-	}
+	sqlStr = "SELECT commit_id FROM Branch WHERE name = ? AND repo_id = ? FOR UPDATE"
 
 	row = trans.QueryRowContext(ctx, sqlStr, name, repoID)
 	if err := row.Scan(&commitID); err != nil {

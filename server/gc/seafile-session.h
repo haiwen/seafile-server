@@ -21,7 +21,6 @@ struct _SeafileSession {
     char                *tmp_file_dir;
     /* Config that's only loaded on start */
     GKeyFile            *config;
-    GKeyFile            *ccnet_config;
     SeafDB              *db;
     SeafDB              *ccnet_db;
     char                *seahub_pk;
