@@ -254,10 +254,6 @@ func loadDBOptionFromFile() (*DBOption, error) {
 	if key, err = section.GetKey("ca_path"); err == nil {
 		dbOpt.CaPath = key.String()
 	}
-	if key, err = section.GetKey("ccnet_db_name"); err != nil {
-		return dbOpt, fmt.Errorf("no database ccnet_db_name in seafile.conf.")
-	}
-	dbOpt.CcnetDbName = key.String()
 
 	return dbOpt, nil
 }

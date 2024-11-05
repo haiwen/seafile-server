@@ -156,8 +156,6 @@ load_db_option (SeafileSession *session)
 
     option->seafile_db_name = seaf_key_file_get_string (session->config, "database", "db_name", NULL);
 
-    option->ccnet_db_name = seaf_key_file_get_string (session->config, "database", "ccnet_db_name", NULL);
-
     option->use_ssl = g_key_file_get_boolean (session->config,
                                       "database", "use_ssl", NULL);
 
