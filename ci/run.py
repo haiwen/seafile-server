@@ -64,6 +64,8 @@ def make_build_env():
 
     _env_add('JWT_PRIVATE_KEY', '@%ukmcl$k=9u-grs4azdljk(sn0kd!=mzc17xd7x8#!u$1x@kl')
 
+    _env_add('SEAFILE_MYSQL_DB_CCNET_DB_NAME', 'ccnet')
+
     # Prepend the seafile-server/python to PYTHONPATH so we don't need to "make
     # install" each time after editing python files.
     _env_add('PYTHONPATH', join(SeafileServer().projectdir, 'python'))

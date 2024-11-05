@@ -98,7 +98,6 @@ port = 3306
 user = seafile
 password = seafile
 db_name = seafile
-ccnet_db_name = ccnet
 connection_charset = utf8
 '''
         with open(seafile_conf, 'a+') as fp:
@@ -234,6 +233,7 @@ connection_charset = utf8
             'SEAFILE_CENTRAL_CONF_DIR': self.central_conf_dir,
             'CCNET_CONF_DIR': self.ccnet_conf_dir,
             'SEAFILE_CONF_DIR': self.seafile_conf_dir,
+            'SEAFILE_MYSQL_DB_CCNET_DB_NAME': 'ccnet',
         })
         return envs
 

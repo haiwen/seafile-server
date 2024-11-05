@@ -99,7 +99,7 @@ load_db_option_from_env (DBOption *option)
     env_user = g_getenv("SEAFILE_MYSQL_DB_USER");
     env_passwd = g_getenv("SEAFILE_MYSQL_DB_PASSWORD");
     env_host = g_getenv("SEAFILE_MYSQL_DB_HOST");
-    env_ccnet_db = g_getenv("SEAFILE_MYSQL_DB_HOST");
+    env_ccnet_db = g_getenv("SEAFILE_MYSQL_DB_CCNET_DB_NAME");
     env_seafile_db = g_getenv("SEAFILE_MYSQL_DB_SEAFILE_DB_NAME");
 
     if (env_user) {
