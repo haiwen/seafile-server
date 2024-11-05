@@ -98,17 +98,13 @@ func loadCcnetDB() {
 
 	var dsn string
 	timeout := "&readTimeout=60s" + "&writeTimeout=60s"
-	if dbOpt.UnixSocket == "" {
-		if dbOpt.UseTLS && dbOpt.SkipVerify {
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.CcnetDbName, timeout)
-		} else if dbOpt.UseTLS && !dbOpt.SkipVerify {
-			registerCA(dbOpt.CaPath)
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.CcnetDbName, timeout)
-		} else {
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.CcnetDbName, dbOpt.UseTLS, timeout)
-		}
+	if dbOpt.UseTLS && dbOpt.SkipVerify {
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.CcnetDbName, timeout)
+	} else if dbOpt.UseTLS && !dbOpt.SkipVerify {
+		registerCA(dbOpt.CaPath)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.CcnetDbName, timeout)
 	} else {
-		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?readTimeout=60s&writeTimeout=60s", dbOpt.User, dbOpt.Password, dbOpt.UnixSocket, dbOpt.CcnetDbName)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.CcnetDbName, dbOpt.UseTLS, timeout)
 	}
 	ccnetDB, err = sql.Open("mysql", dsn)
 	if err != nil {
@@ -126,13 +122,13 @@ func loadDBOption() (*DBOption, error) {
 	}
 	dbOpt = loadDBOptionFromEnv(dbOpt)
 
-	if dbOpt.Host == "" && dbOpt.UnixSocket == "" {
+	if dbOpt.Host == "" {
 		return nil, fmt.Errorf("no database host in seafile.conf.")
 	}
 	if dbOpt.User == "" {
 		return nil, fmt.Errorf("no database user in seafile.conf.")
 	}
-	if dbOpt.UnixSocket == "" && dbOpt.Password == "" {
+	if dbOpt.Password == "" {
 		return nil, fmt.Errorf("no database password in seafile.conf.")
 	}
 
@@ -146,7 +142,6 @@ type DBOption struct {
 	Port          int
 	CcnetDbName   string
 	SeafileDbName string
-	UnixSocket    string
 	CaPath        string
 	UseTLS        bool
 	SkipVerify    bool
@@ -213,29 +208,21 @@ func loadDBOptionFromFile() (*DBOption, error) {
 	if dbEngine != "mysql" {
 		return nil, fmt.Errorf("unsupported database %s.", dbEngine)
 	}
-	if key, err = section.GetKey("unix_socket"); err == nil {
-		dbOpt.UnixSocket = key.String()
-	}
 	if key, err = section.GetKey("host"); err == nil {
 		dbOpt.Host = key.String()
-	} else if dbOpt.UnixSocket == "" {
-		return dbOpt, fmt.Errorf("no database host in seafile.conf.")
 	}
 	// user is required.
-	if key, err = section.GetKey("user"); err != nil {
-		return dbOpt, fmt.Errorf("no database user in seafile.conf.")
+	if key, err = section.GetKey("user"); err == nil {
+		dbOpt.User = key.String()
 	}
-	dbOpt.User = key.String()
 
 	if key, err = section.GetKey("password"); err == nil {
 		dbOpt.Password = key.String()
-	} else if dbOpt.UnixSocket == "" {
-		return dbOpt, fmt.Errorf("no database password in seafile.conf.")
 	}
-	if key, err = section.GetKey("db_name"); err != nil {
-		return dbOpt, fmt.Errorf("no database db_name in seafile.conf.")
+
+	if key, err = section.GetKey("db_name"); err == nil {
+		dbOpt.SeafileDbName = key.String()
 	}
-	dbOpt.SeafileDbName = key.String()
 	port := 3306
 	if key, err = section.GetKey("port"); err == nil {
 		port, _ = key.Int()
@@ -281,17 +268,13 @@ func loadSeafileDB() {
 
 	var dsn string
 	timeout := "&readTimeout=60s" + "&writeTimeout=60s"
-	if dbOpt.UnixSocket == "" {
-		if dbOpt.UseTLS && dbOpt.SkipVerify {
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.SeafileDbName, timeout)
-		} else if dbOpt.UseTLS && !dbOpt.SkipVerify {
-			registerCA(dbOpt.CaPath)
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.SeafileDbName, timeout)
-		} else {
-			dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.SeafileDbName, dbOpt.UseTLS, timeout)
-		}
+	if dbOpt.UseTLS && dbOpt.SkipVerify {
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=skip-verify%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.SeafileDbName, timeout)
+	} else if dbOpt.UseTLS && !dbOpt.SkipVerify {
+		registerCA(dbOpt.CaPath)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.SeafileDbName, timeout)
 	} else {
-		dsn = fmt.Sprintf("%s:%s@unix(%s)/%s?readTimeout=60s&writeTimeout=60s", dbOpt.User, dbOpt.Password, dbOpt.UnixSocket, dbOpt.SeafileDbName)
+		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.SeafileDbName, dbOpt.UseTLS, timeout)
 	}
 
 	seafileDB, err = sql.Open("mysql", dsn)

@@ -64,7 +64,6 @@ typedef struct DBOption {
     char *user;
     char *passwd;
     char *host;
-    char *unix_socket;
     char *ca_path;
     char *charset;
     char *ccnet_db_name;
@@ -83,7 +82,6 @@ db_option_free (DBOption *option)
     g_free (option->user);
     g_free (option->passwd);
     g_free (option->host);
-    g_free (option->unix_socket);
     g_free (option->ca_path);
     g_free (option->charset);
     g_free (option->ccnet_db_name);
@@ -119,7 +117,7 @@ load_db_option_from_env (DBOption *option)
         option->ccnet_db_name = g_strdup (env_ccnet_db);
     } else if (!option->ccnet_db_name) {
         option->ccnet_db_name = g_strdup ("ccnet_db");
-		seaf_message ("Failed to read SEAFILE_MYSQL_DB_CCNET_DB_NAME, use ccnet_db by default");
+        seaf_message ("Failed to read SEAFILE_MYSQL_DB_CCNET_DB_NAME, use ccnet_db by default");
     }
     if (env_seafile_db) {
         g_free (option->seafile_db_name);
@@ -138,9 +136,6 @@ load_db_option (SeafileSession *session)
     GError *error = NULL;
     int ret = 0;
     DBOption *option = g_new0 (DBOption, 1);
-
-    option->unix_socket = seaf_key_file_get_string (session->config, 
-                                                    "database", "unix_socket", NULL);
 
     option->host = seaf_key_file_get_string (session->config, "database", "host", NULL);
 
@@ -186,19 +181,19 @@ load_db_option (SeafileSession *session)
 
     load_db_option_from_env (option);
 
-    if (!option->host && !option->unix_socket) {
+    if (!option->host) {
         seaf_warning ("DB host not set in config.\n");
         ret = -1;
         goto out;
     }
 
-    if (!option->user && !option->unix_socket) {
+    if (!option->user) {
         seaf_warning ("DB user not set in config.\n");
         ret = -1;
         goto out;
     }
 
-    if (!option->passwd && !option->unix_socket) {
+    if (!option->passwd) {
         seaf_warning ("DB passwd not set in config.\n");
         ret = -1;
         goto out;
@@ -236,7 +231,7 @@ mysql_db_start (SeafileSession *session)
     }
 
     session->db = seaf_db_new_mysql (option->host, option->port, option->user, option->passwd, option->seafile_db_name,
-                                     option->unix_socket, option->use_ssl, option->skip_verify, option->ca_path, option->charset, option->max_connections);
+                                     NULL, option->use_ssl, option->skip_verify, option->ca_path, option->charset, option->max_connections);
     if (!session->db) {
         db_option_free (option);
         seaf_warning ("Failed to start mysql db.\n");
@@ -376,7 +371,7 @@ ccnet_init_mysql_database (SeafileSession *session)
     }
 
     session->ccnet_db = seaf_db_new_mysql (option->host, option->port, option->user, option->passwd, option->ccnet_db_name,
-                                           option->unix_socket, option->use_ssl, option->skip_verify, option->ca_path, option->charset, option->max_connections);
+                                           NULL, option->use_ssl, option->skip_verify, option->ca_path, option->charset, option->max_connections);
     if (!session->ccnet_db) {
         db_option_free (option);
         seaf_warning ("Failed to open ccnet database.\n");

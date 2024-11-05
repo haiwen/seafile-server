@@ -185,6 +185,50 @@ ccnet_user_manager_set_max_users (CcnetUserManager *manager, gint64 max_users)
 
 static int try_load_ldap_settings (CcnetUserManager *manager)
 {
+    GKeyFile *config = manager->session->ccnet_config;
+    manager->ldap_host = ccnet_key_file_get_string (config, "LDAP", "HOST");
+    if (!manager->ldap_host)
+        return 0;
+
+    manager->use_ldap = TRUE;
+
+#ifdef WIN32
+    manager->use_ssl = g_key_file_get_boolean (config, "LDAP", "USE_SSL", NULL);
+#endif
+
+    char *base_list = ccnet_key_file_get_string (config, "LDAP", "BASE");
+    if (!base_list) {
+        ccnet_warning ("LDAP: BASE not found in config file.\n");
+        return -1;
+    }
+    manager->base_list = g_strsplit (base_list, ";", -1);
+
+    manager->filter = ccnet_key_file_get_string (config, "LDAP", "FILTER");
+
+    manager->user_dn = ccnet_key_file_get_string (config, "LDAP", "USER_DN");
+    if (manager->user_dn) {
+        manager->password = ccnet_key_file_get_string (config, "LDAP", "PASSWORD");
+        if (!manager->password) {
+            ccnet_warning ("LDAP: PASSWORD not found in config file.\n");
+            return -1;
+        }
+    }
+    /* Use anonymous if user_dn is not set. */
+
+    manager->login_attr = ccnet_key_file_get_string (config, "LDAP", "LOGIN_ATTR");
+    if (!manager->login_attr)
+        manager->login_attr = g_strdup("mail");
+
+    GError *error = NULL;
+    manager->follow_referrals = g_key_file_get_boolean (config,
+                                                        "LDAP", "FOLLOW_REFERRALS",
+                                                        &error);
+    if (error) {
+        /* Default is follow referrals. */
+        g_clear_error (&error);
+        manager->follow_referrals = TRUE;
+    }
+
     return 0;
 }
 
