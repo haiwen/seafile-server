@@ -664,6 +664,7 @@ parse_file_access_info (const char *rsp_content, int rsp_size)
     json_t *object;
     json_error_t jerror;
     const char *user = NULL;
+    char *ret = NULL;
 
     object = json_loadb (rsp_content, rsp_size, 0, &jerror);
     if (!object) {
@@ -676,11 +677,12 @@ parse_file_access_info (const char *rsp_content, int rsp_size)
         seaf_warning ("Failed to find user in json when check file access in Seahub.\n");
         goto out;
     }
+    ret = g_strdup (user);
 
 out:
     json_decref (object);
 
-    return g_strdup (user);
+    return ret;
 }
 
 int
