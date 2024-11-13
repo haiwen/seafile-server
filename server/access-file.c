@@ -1537,7 +1537,7 @@ access_v2_cb(evhtp_request_t *req, void *arg)
         error_str = "Both token and cookie are not set\n";
         goto out;
     }
-    if (http_tx_manager_check_file_access (repo_id, token, cookie, path, "download", &user) < 0) {
+    if (http_tx_manager_check_file_access (repo_id, token, cookie, dec_path, "download", &user) < 0) {
         error_str = "No permission to access file\n";
         error_code = EVHTP_RES_FORBIDDEN;
         goto out;

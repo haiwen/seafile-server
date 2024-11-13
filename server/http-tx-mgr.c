@@ -700,6 +700,7 @@ http_tx_manager_check_file_access (const char *repo_id, const char *token, const
     char *jwt_token = NULL;
     char *rsp_content = NULL;
     gint64 rsp_size;
+    char *esc_path = NULL;
     char *url = NULL;
 
     jwt_token = gen_jwt_token ();
@@ -733,7 +734,8 @@ http_tx_manager_check_file_access (const char *repo_id, const char *token, const
         g_free (cookie_header);
     }
 
-    url = g_strdup_printf("%s/repos/%s/check-access/?path=%s", seaf->seahub_url, repo_id, path);
+    esc_path = g_uri_escape_string(path, NULL, FALSE);
+    url = g_strdup_printf("%s/repos/%s/check-access/?path=%s", seaf->seahub_url, repo_id, esc_path);
     ret = http_post_common (curl, url, &headers, jwt_token, req_content, strlen(req_content),
                             &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
     if (ret < 0) {
@@ -755,6 +757,7 @@ http_tx_manager_check_file_access (const char *repo_id, const char *token, const
 out:
     if (content)
         json_decref (content);
+    g_free (esc_path);
     g_free (url);
     g_free (jwt_token);
     g_free (req_content);
