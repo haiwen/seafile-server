@@ -242,7 +242,7 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 	// filePath will be unquote by mux, we need to escape filePath before calling check file access.
-	escPath := url.PathEscape(filePath)
+	escPath := url.QueryEscape(filePath)
 	rpath := getCanonPath(filePath)
 	fileName := filepath.Base(rpath)
 
