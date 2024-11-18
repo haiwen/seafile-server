@@ -40,6 +40,7 @@ var (
 	WindowsEncoding           string
 	SkipBlockHash             bool
 	FsCacheLimit              int64
+	VerifyClientBlocks        bool
 
 	// general options
 	CloudMode bool
@@ -79,6 +80,7 @@ func initDefaultOptions() {
 	ClusterSharedTempFileMode = 0600
 	DefaultQuota = InfiniteQuota
 	FsCacheLimit = 2 << 30
+	VerifyClientBlocks = true
 	FsIdListRequestTimeout = -1
 	DBOpTimeout = 60 * time.Second
 }
@@ -210,6 +212,9 @@ func parseFileServerSection(section *ini.Section) {
 		if err == nil {
 			FsIdListRequestTimeout = fsIdListRequestTimeout
 		}
+	}
+	if key, err := section.GetKey("verify_client_blocks_after_sync"); err == nil {
+		VerifyClientBlocks, _ = key.Bool()
 	}
 }
 

@@ -19,6 +19,8 @@ struct _HttpServerStruct {
     char *windows_encoding;
     int worker_threads;
     int cluster_shared_temp_file_mode;
+
+    gboolean verify_client_blocks;
 };
 
 typedef struct _HttpServerStruct HttpServerStruct;

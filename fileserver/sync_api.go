@@ -1055,6 +1055,12 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, seafHTTPResNoQuota}
 	}
 
+	if option.VerifyClientBlocks {
+		if body, err := checkBlocks(r.Context(), repo, base, newCommit); err != nil {
+			return &appError{nil, body, seafHTTPResBlockMissing}
+		}
+	}
+
 	token := r.Header.Get("Seafile-Repo-Token")
 	if token == "" {
 		token = utils.GetAuthorizationToken(r.Header)
@@ -1069,6 +1075,81 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	go updateSizePool.AddTask(repoID)
 
 	rsp.WriteHeader(http.StatusOK)
+	return nil
+}
+
+type checkBlockAux struct {
+	storeID  string
+	version  int
+	fileList []string
+}
+
+func checkBlocks(ctx context.Context, repo *repomgr.Repo, base, remote *commitmgr.Commit) (string, error) {
+	aux := new(checkBlockAux)
+	aux.storeID = repo.StoreID
+	aux.version = repo.Version
+	opt := &diff.DiffOptions{
+		FileCB: checkFileBlocks,
+		DirCB:  checkDirCB,
+		Ctx:    ctx,
+		RepoID: repo.StoreID}
+	opt.Data = aux
+
+	trees := []string{base.RootID, remote.RootID}
+	if err := diff.DiffTrees(trees, opt); err != nil {
+		return "", err
+	}
+
+	if len(aux.fileList) == 0 {
+		return "", nil
+	}
+
+	body, _ := json.Marshal(aux.fileList)
+
+	return string(body), fmt.Errorf("block is missing")
+}
+
+func checkFileBlocks(ctx context.Context, baseDir string, files []*fsmgr.SeafDirent, data interface{}) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+	default:
+	}
+
+	file1 := files[0]
+	file2 := files[1]
+
+	aux, ok := data.(*checkBlockAux)
+	if !ok {
+		err := fmt.Errorf("failed to assert results")
+		return err
+	}
+
+	if file2 == nil || file2.ID == emptySHA1 || (file1 != nil && file1.ID == file2.ID) {
+		return nil
+	}
+
+	file, err := fsmgr.GetSeafile(aux.storeID, file2.ID)
+	if err != nil {
+		return err
+	}
+	for _, blkID := range file.BlkIDs {
+		if !blockmgr.Exists(aux.storeID, blkID) {
+			aux.fileList = append(aux.fileList, file2.Name)
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func checkDirCB(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent, data interface{}, recurse *bool) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+	default:
+	}
+
 	return nil
 }
 
