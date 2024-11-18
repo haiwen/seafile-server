@@ -40,7 +40,7 @@ func (pool *WorkPool) AddTask(args ...interface{}) {
 func (pool *WorkPool) run(jobs chan Job) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("panic: %v\n%s", err, debug.Stack())
+			log.Errorf("panic: %v\n%s", err, debug.Stack())
 		}
 	}()
 	defer pool.closer.Done()
@@ -51,7 +51,7 @@ func (pool *WorkPool) run(jobs chan Job) {
 			if job.callback != nil {
 				err := job.callback(job.args...)
 				if err != nil {
-					log.Printf("failed to call jobs: %v.\n", err)
+					log.Errorf("failed to call jobs: %v.\n", err)
 				}
 			}
 		case <-pool.closer.HasBeenClosed():

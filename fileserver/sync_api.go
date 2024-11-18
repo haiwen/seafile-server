@@ -851,7 +851,7 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	rsp.Header().Set("Content-Length", blockLen)
 	if err := blockmgr.Read(storeID, blockID, rsp); err != nil {
 		if !isNetworkErr(err) {
-			log.Printf("failed to read block %s: %v", blockID, err)
+			log.Warnf("failed to read block %s: %v", blockID, err)
 		}
 		return nil
 	}
@@ -914,7 +914,7 @@ func publishStatusEvent(rData *statusEventData) {
 		rData.eType, rData.user,
 		rData.repoID, rData.bytes)
 	if _, err := rpcclient.Call("publish_event", seafileServerChannelStats, buf); err != nil {
-		log.Printf("Failed to publish event: %v", err)
+		log.Errorf("Failed to publish event: %v", err)
 	}
 }
 
@@ -988,7 +988,7 @@ func getCommitInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 		return appErr
 	}
 	if exists, _ := commitmgr.Exists(repoID, commitID); !exists {
-		log.Printf("%s:%s is missing", repoID, commitID)
+		log.Warnf("%s:%s is missing", repoID, commitID)
 		return &appError{nil, "", http.StatusNotFound}
 	}
 
@@ -1082,7 +1082,7 @@ func getHeadCommit(rsp http.ResponseWriter, r *http.Request) *appError {
 	row := seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&exists); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("DB error when check repo %s existence: %v", repoID, err)
+			log.Errorf("DB error when check repo %s existence: %v", repoID, err)
 			msg := `{"is_corrupted": 1}`
 			rsp.WriteHeader(http.StatusOK)
 			rsp.Write([]byte(msg))
@@ -1103,7 +1103,7 @@ func getHeadCommit(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	if err := row.Scan(&commitID); err != nil {
 		if err != sql.ErrNoRows {
-			log.Printf("DB error when get branch master: %v", err)
+			log.Errorf("DB error when get branch master: %v", err)
 			msg := `{"is_corrupted": 1}`
 			rsp.WriteHeader(http.StatusOK)
 			rsp.Write([]byte(msg))
@@ -1181,7 +1181,7 @@ func validateToken(r *http.Request, repoID string, skipCache bool) (string, *app
 
 	email, err := repomgr.GetEmailByToken(repoID, token)
 	if err != nil {
-		log.Printf("Failed to get email by token %s: %v", token, err)
+		log.Errorf("Failed to get email by token %s: %v", token, err)
 		tokenCache.Delete(token)
 		return email, &appError{err, "", http.StatusInternalServerError}
 	}
@@ -1246,7 +1246,7 @@ func onRepoOper(eType, repoID, user, ip, clientName string) {
 	vInfo, err := repomgr.GetVirtualRepoInfo(repoID)
 
 	if err != nil {
-		log.Printf("Failed to get virtual repo info by repo id %s: %v", repoID, err)
+		log.Warnf("Failed to get virtual repo info by repo id %s: %v", repoID, err)
 		return
 	}
 	if vInfo != nil {
@@ -1271,14 +1271,14 @@ func publishRepoEvent(rData *repoEventData) {
 		rData.eType, rData.user, rData.ip,
 		rData.clientName, rData.repoID, rData.path)
 	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, buf); err != nil {
-		log.Printf("Failed to publish event: %v", err)
+		log.Errorf("Failed to publish event: %v", err)
 	}
 }
 
 func publishUpdateEvent(repoID string, commitID string) {
 	buf := fmt.Sprintf("repo-update\t%s\t%s", repoID, commitID)
 	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, buf); err != nil {
-		log.Printf("Failed to publish event: %v", err)
+		log.Errorf("Failed to publish event: %v", err)
 	}
 }
 
