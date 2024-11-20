@@ -1046,7 +1046,7 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 
 	if includeInvalidPath(base, newCommit) {
-		msg := fmt.Sprintf("Dir or file name is ..")
+		msg := "Dir or file name is .."
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
