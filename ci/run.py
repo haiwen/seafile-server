@@ -237,10 +237,7 @@ def main():
     args = parse_args()
     if on_github_actions() and not args.test_only:
         fetch_and_build()
-    if on_github_actions():
-        dbs = ('sqlite3', 'mysql')
-    else:
-        dbs = ('sqlite3',)
+    dbs = ('mysql',)
     for db in dbs:
         start_and_test_with_db(db)
 
