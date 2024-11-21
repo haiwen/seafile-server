@@ -33,7 +33,7 @@ def create_test_file():
     fp.close()
 
 large_file_name = 'large.txt'
-large_file_size = 500*1024*1024
+large_file_size = 2*1024*1024*1024
 large_file_path = os.getcwd() + '/' + large_file_name
 
 def create_large_file():
@@ -180,8 +180,8 @@ def test_gc_on_upload(repo, rm_fs):
         offset = api.get_upload_tmp_file_offset(repo.id, "/" + large_file_name)
         if offset == large_file_size:
             break
-        time.sleep (0.1)
-    time.sleep(1)
+        time.sleep (0.5)
+    time.sleep (1)
     run_gc(repo.id, rm_fs, '')
 
     while not future.done():
