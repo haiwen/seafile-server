@@ -1684,6 +1684,12 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		cryptKey = key
 	}
 
+	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
+	if err != nil {
+		err := fmt.Errorf("failed to get current gc id for repo %s: %v", repoID, err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
 	var ids []string
 	var sizes []int64
 	if fsm.rstart >= 0 {
@@ -1712,12 +1718,6 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 			ids = append(ids, id)
 			sizes = append(sizes, size)
 		}
-	}
-
-	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
-	if err != nil {
-		err := fmt.Errorf("failed to get current gc id for repo %s: %v", repoID, err)
-		return &appError{err, "", http.StatusInternalServerError}
 	}
 
 	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes, lastModify, gcID)
@@ -3160,6 +3160,12 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		cryptKey = key
 	}
 
+	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
+	if err != nil {
+		err := fmt.Errorf("failed to get current gc id: %v", err)
+		return &appError{err, "", http.StatusInternalServerError}
+	}
+
 	var fileID string
 	var size int64
 	if fsm.rstart >= 0 {
@@ -3218,11 +3224,6 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
-	if err != nil {
-		err := fmt.Errorf("failed to get current gc id: %v", err)
-		return &appError{err, "", http.StatusInternalServerError}
-	}
 	desc := fmt.Sprintf("Modified \"%s\"", fileName)
 	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, gcID, true)
 	if err != nil {
@@ -3437,6 +3438,12 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 		return "", appErr
 	}
 
+	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
+	if err != nil {
+		err := fmt.Errorf("failed to get current gc id: %v", err)
+		return "", &appError{err, "", http.StatusInternalServerError}
+	}
+
 	fileID, appErr := indexExistedFileBlocks(repoID, repo.Version, blkIDs, fileSize)
 	if appErr != nil {
 		return "", appErr
@@ -3455,11 +3462,6 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 		return "", &appError{err, "", http.StatusInternalServerError}
 	}
 
-	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
-	if err != nil {
-		err := fmt.Errorf("failed to get current gc id: %v", err)
-		return "", &appError{err, "", http.StatusInternalServerError}
-	}
 	desc := fmt.Sprintf("Added \"%s\"", fileName)
 	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, gcID, true)
 	if err != nil {
