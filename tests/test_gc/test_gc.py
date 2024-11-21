@@ -33,7 +33,7 @@ def create_test_file():
     fp.close()
 
 large_file_name = 'large.txt'
-large_file_size = 400*1024*1024
+large_file_size = 500*1024*1024
 large_file_path = os.getcwd() + '/' + large_file_name
 
 def create_large_file():
@@ -147,9 +147,12 @@ def test_gc_partial_history(repo, rm_fs):
     del_local_files()
 
 def upload_file(url, m):
+    start = 0
+    end = large_file_size - 1
+    total = large_file_size
     response = requests.post(url,
             data = m, headers = {'Content-Type': m.content_type, 
-                'Content-Range': 'bytes 0-419430399/419430400', 
+                'Content-Range': f"bytes {start}-{end}/{total}", 
                 'Content-Disposition': 'attachment; filename="large.txt"'})
     return response.status_code, response.text
 
@@ -177,8 +180,8 @@ def test_gc_on_upload(repo, rm_fs):
         offset = api.get_upload_tmp_file_offset(repo.id, "/" + large_file_name)
         if offset == large_file_size:
             break
-        time.sleep (0.5)
-    time.sleep (0.5)
+        time.sleep (0.1)
+    time.sleep(1)
     run_gc(repo.id, rm_fs, '')
 
     while not future.done():
