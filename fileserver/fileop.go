@@ -408,7 +408,7 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 		err := blockmgr.Read(repo.StoreID, blkID, rsp)
 		if err != nil {
 			if !isNetworkErr(err) {
-				log.Printf("failed to read block %s: %v", blkID, err)
+				log.Errorf("failed to read block %s: %v", blkID, err)
 			}
 			return nil
 		}
@@ -523,7 +523,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
 			if err != nil {
 				if !isNetworkErr(err) {
-					log.Printf("failed to read block %s: %v", blkID, err)
+					log.Errorf("failed to read block %s: %v", blkID, err)
 				}
 				return nil
 			}
@@ -535,7 +535,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		err := blockmgr.Read(repo.StoreID, blkID, &buf)
 		if err != nil {
 			if !isNetworkErr(err) {
-				log.Printf("failed to read block %s: %v", blkID, err)
+				log.Errorf("failed to read block %s: %v", blkID, err)
 			}
 			return nil
 		}
@@ -557,7 +557,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
 			if err != nil {
 				if !isNetworkErr(err) {
-					log.Printf("failed to read block %s: %v", blkID, err)
+					log.Errorf("failed to read block %s: %v", blkID, err)
 				}
 				return nil
 			}
@@ -571,7 +571,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 			err := blockmgr.Read(repo.StoreID, blkID, rsp)
 			if err != nil {
 				if !isNetworkErr(err) {
-					log.Printf("failed to read block %s: %v", blkID, err)
+					log.Errorf("failed to read block %s: %v", blkID, err)
 				}
 				return nil
 			}
@@ -763,7 +763,7 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 	err = blockmgr.Read(repo.StoreID, blkID, rsp)
 	if err != nil {
 		if !isNetworkErr(err) {
-			log.Printf("failed to read block %s: %v", blkID, err)
+			log.Errorf("failed to read block %s: %v", blkID, err)
 		}
 	}
 
@@ -861,7 +861,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 
 		err := packDir(ar, repo, objID, dirName, cryptKey)
 		if err != nil {
-			log.Printf("failed to pack dir %s: %v", dirName, err)
+			log.Errorf("failed to pack dir %s: %v", dirName, err)
 			return nil
 		}
 	} else {
@@ -885,14 +885,14 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 			if fsmgr.IsDir(v.Mode) {
 				if err := packDir(ar, repo, v.ID, uniqueName, cryptKey); err != nil {
 					if !isNetworkErr(err) {
-						log.Printf("failed to pack dir %s: %v", v.Name, err)
+						log.Errorf("failed to pack dir %s: %v", v.Name, err)
 					}
 					return nil
 				}
 			} else {
 				if err := packFiles(ar, &v, repo, "", uniqueName, cryptKey); err != nil {
 					if !isNetworkErr(err) {
-						log.Printf("failed to pack file %s: %v", v.Name, err)
+						log.Errorf("failed to pack file %s: %v", v.Name, err)
 					}
 					return nil
 				}
@@ -1230,10 +1230,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		if fsm.rend != fsm.fsize-1 {
 			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 			success := "{\"success\": true}"
-			_, err := rsp.Write([]byte(success))
-			if err != nil {
-				log.Printf("failed to write data to response")
-			}
+			rsp.Write([]byte(success))
 
 			return nil
 		}
@@ -2154,7 +2151,7 @@ func notifRepoUpdate(repoID string, commitID string) error {
 	event.Content = content
 	msg, err := json.Marshal(event)
 	if err != nil {
-		log.Printf("failed to encode repo update event: %v", err)
+		log.Errorf("failed to encode repo update event: %v", err)
 		return err
 	}
 
@@ -2162,7 +2159,7 @@ func notifRepoUpdate(repoID string, commitID string) error {
 	exp := time.Now().Add(time.Second * 300).Unix()
 	token, err := utils.GenNotifJWTToken(repoID, "", exp)
 	if err != nil {
-		log.Printf("failed to generate jwt token: %v", err)
+		log.Errorf("failed to generate jwt token: %v", err)
 		return err
 	}
 	header := map[string][]string{
@@ -2170,7 +2167,7 @@ func notifRepoUpdate(repoID string, commitID string) error {
 	}
 	_, _, err = utils.HttpCommon("POST", url, header, bytes.NewReader(msg))
 	if err != nil {
-		log.Printf("failed to send repo update event: %v", err)
+		log.Warnf("failed to send repo update event: %v", err)
 		return err
 	}
 
@@ -2354,7 +2351,7 @@ func shouldIgnoreFile(fileName string) bool {
 	}
 
 	if !utf8.ValidString(fileName) {
-		log.Printf("file name %s contains non-UTF8 characters, skip", fileName)
+		log.Warnf("file name %s contains non-UTF8 characters, skip", fileName)
 		return true
 	}
 
@@ -2487,7 +2484,7 @@ type chunkingResult struct {
 func createChunkPool(ctx context.Context, n int, chunkJobs chan chunkingData, res chan chunkingResult) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("panic: %v\n%s", err, debug.Stack())
+			log.Errorf("panic: %v\n%s", err, debug.Stack())
 		}
 	}()
 	var wg sync.WaitGroup
@@ -2502,7 +2499,7 @@ func createChunkPool(ctx context.Context, n int, chunkJobs chan chunkingData, re
 func chunkingWorker(ctx context.Context, wg *sync.WaitGroup, chunkJobs chan chunkingData, res chan chunkingResult) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("panic: %v\n%s", err, debug.Stack())
+			log.Errorf("panic: %v\n%s", err, debug.Stack())
 		}
 	}()
 	for job := range chunkJobs {
@@ -3027,10 +3024,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		if fsm.rend != fsm.fsize-1 {
 			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 			success := "{\"success\": true}"
-			_, err := rsp.Write([]byte(success))
-			if err != nil {
-				log.Printf("failed to write data to response.\n")
-			}
+			rsp.Write([]byte(success))
 
 			return nil
 		}

@@ -76,14 +76,14 @@ func Get(id string) *Repo {
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
-		log.Printf("failed to prepare sql : %s ：%v", query, err)
+		log.Errorf("failed to prepare sql : %s ：%v", query, err)
 		return nil
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.QueryContext(ctx, id)
 	if err != nil {
-		log.Printf("failed to query sql : %v", err)
+		log.Errorf("failed to query sql : %v", err)
 		return nil
 	}
 	defer rows.Close()
@@ -96,7 +96,7 @@ func Get(id string) *Repo {
 	if rows.Next() {
 		err := rows.Scan(&repo.ID, &repo.HeadCommitID, &originRepoID, &path, &baseCommitID)
 		if err != nil {
-			log.Printf("failed to scan sql rows : %v", err)
+			log.Errorf("failed to scan sql rows : %v", err)
 			return nil
 		}
 	} else {
@@ -104,7 +104,7 @@ func Get(id string) *Repo {
 	}
 
 	if repo.HeadCommitID == "" {
-		log.Printf("repo %s is corrupted", id)
+		log.Errorf("repo %s is corrupted", id)
 		return nil
 	}
 
@@ -126,7 +126,7 @@ func Get(id string) *Repo {
 
 	commit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
-		log.Printf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
+		log.Errorf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
 		return nil
 	}
 
@@ -206,14 +206,14 @@ func GetEx(id string) *Repo {
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
-		log.Printf("failed to prepare sql : %s ：%v", query, err)
+		log.Errorf("failed to prepare sql : %s ：%v", query, err)
 		return nil
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.QueryContext(ctx, id)
 	if err != nil {
-		log.Printf("failed to query sql : %v", err)
+		log.Errorf("failed to query sql : %v", err)
 		return nil
 	}
 	defer rows.Close()
@@ -226,7 +226,7 @@ func GetEx(id string) *Repo {
 	if rows.Next() {
 		err := rows.Scan(&repo.ID, &repo.HeadCommitID, &originRepoID, &path, &baseCommitID)
 		if err != nil {
-			log.Printf("failed to scan sql rows : %v", err)
+			log.Errorf("failed to scan sql rows : %v", err)
 			return nil
 		}
 	} else {
@@ -255,7 +255,7 @@ func GetEx(id string) *Repo {
 
 	commit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
-		log.Printf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
+		log.Errorf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
 		repo.IsCorrupted = true
 		return nil
 	}

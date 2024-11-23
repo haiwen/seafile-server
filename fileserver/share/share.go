@@ -41,7 +41,7 @@ func CheckPerm(repoID string, user string) string {
 	var perm string
 	vInfo, err := repomgr.GetVirtualRepoInfo(repoID)
 	if err != nil {
-		log.Printf("Failed to get virtual repo info by repo id %s: %v", repoID, err)
+		log.Errorf("Failed to get virtual repo info by repo id %s: %v", repoID, err)
 	}
 	if vInfo != nil {
 		perm = checkVirtualRepoPerm(repoID, vInfo.OriginRepoID, user, vInfo.Path)
@@ -56,7 +56,7 @@ func CheckPerm(repoID string, user string) string {
 func checkVirtualRepoPerm(repoID, originRepoID, user, vPath string) string {
 	owner, err := repomgr.GetRepoOwner(originRepoID)
 	if err != nil {
-		log.Printf("Failed to get repo owner: %v", err)
+		log.Errorf("Failed to get repo owner: %v", err)
 	}
 	var perm string
 	if owner != "" && owner == user {
@@ -131,7 +131,7 @@ func getGroupsByUser(userName string, returnAncestors bool) ([]group, error) {
 		sqlStr += ")"
 		paths, err := getGroupPaths(sqlStr)
 		if err != nil {
-			log.Printf("Failed to get group paths: %v", err)
+			log.Errorf("Failed to get group paths: %v", err)
 		}
 		if paths == "" {
 			err := fmt.Errorf("Failed to get groups path for user %s", userName)
@@ -262,7 +262,7 @@ func checkInnerPubRepoPerm(repoID string) (string, error) {
 func checkRepoSharePerm(repoID string, userName string) string {
 	owner, err := repomgr.GetRepoOwner(repoID)
 	if err != nil {
-		log.Printf("Failed to get repo owner: %v", err)
+		log.Errorf("Failed to get repo owner: %v", err)
 	}
 	if owner != "" && owner == userName {
 		perm := "rw"
@@ -270,14 +270,14 @@ func checkRepoSharePerm(repoID string, userName string) string {
 	}
 	perm, err := checkSharedRepoPerm(repoID, userName)
 	if err != nil {
-		log.Printf("Failed to get shared repo permission: %v", err)
+		log.Errorf("Failed to get shared repo permission: %v", err)
 	}
 	if perm != "" {
 		return perm
 	}
 	perm, err = checkGroupPermByUser(repoID, userName)
 	if err != nil {
-		log.Printf("Failed to get group permission by user %s: %v", userName, err)
+		log.Errorf("Failed to get group permission by user %s: %v", userName, err)
 	}
 	if perm != "" {
 		return perm
@@ -285,7 +285,7 @@ func checkRepoSharePerm(repoID string, userName string) string {
 	if !cloudMode {
 		perm, err = checkInnerPubRepoPerm(repoID)
 		if err != nil {
-			log.Printf("Failed to get inner pulic repo permission by repo id %s: %v", repoID, err)
+			log.Errorf("Failed to get inner pulic repo permission by repo id %s: %v", repoID, err)
 			return ""
 		}
 		return perm
@@ -386,7 +386,7 @@ func checkPermOnParentRepo(originRepoID, user, vPath string) string {
 	var perm string
 	userPerms, err := getSharedDirsToUser(originRepoID, user)
 	if err != nil {
-		log.Printf("Failed to get all shared folder perms in parent repo %.8s for user %s", originRepoID, user)
+		log.Errorf("Failed to get all shared folder perms in parent repo %.8s for user %s", originRepoID, user)
 		return ""
 	}
 	if len(userPerms) > 0 {
@@ -398,7 +398,7 @@ func checkPermOnParentRepo(originRepoID, user, vPath string) string {
 
 	groups, err := getGroupsByUser(user, false)
 	if err != nil {
-		log.Printf("Failed to get groups by user %s: %v", user, err)
+		log.Errorf("Failed to get groups by user %s: %v", user, err)
 	}
 	if len(groups) == 0 {
 		return perm
@@ -406,7 +406,7 @@ func checkPermOnParentRepo(originRepoID, user, vPath string) string {
 
 	groupPerms, err := getSharedDirsToGroup(originRepoID, groups)
 	if err != nil {
-		log.Printf("Failed to get all shared folder perm from parent repo %.8s to all user groups", originRepoID)
+		log.Errorf("Failed to get all shared folder perm from parent repo %.8s to all user groups", originRepoID)
 		return ""
 	}
 	if len(groupPerms) == 0 {

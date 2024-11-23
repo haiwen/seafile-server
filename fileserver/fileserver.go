@@ -418,7 +418,7 @@ func main() {
 
 	err = server.ListenAndServe()
 	if err != nil {
-		log.Printf("File server exiting: %v", err)
+		log.Errorf("File server exiting: %v", err)
 	}
 }
 
@@ -549,7 +549,7 @@ type appHandler func(http.ResponseWriter, *http.Request) *appError
 func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if e := fn(w, r); e != nil {
 		if e.Error != nil && e.Code == http.StatusInternalServerError {
-			log.Printf("path %s internal server error: %v\n", r.URL.Path, e.Error)
+			log.Errorf("path %s internal server error: %v\n", r.URL.Path, e.Error)
 		}
 		http.Error(w, e.Message, e.Code)
 	}
@@ -558,7 +558,7 @@ func (fn appHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func RecoverWrapper(f func()) {
 	defer func() {
 		if err := recover(); err != nil {
-			log.Printf("panic: %v\n%s", err, debug.Stack())
+			log.Errorf("panic: %v\n%s", err, debug.Stack())
 		}
 	}()
 
