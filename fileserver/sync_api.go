@@ -851,7 +851,7 @@ func getBlockInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 	rsp.Header().Set("Content-Length", blockLen)
 	if err := blockmgr.Read(storeID, blockID, rsp); err != nil {
 		if !isNetworkErr(err) {
-			log.Warnf("failed to read block %s: %v", blockID, err)
+			log.Errorf("failed to read block %s: %v", blockID, err)
 		}
 		return nil
 	}
@@ -914,7 +914,7 @@ func publishStatusEvent(rData *statusEventData) {
 		rData.eType, rData.user,
 		rData.repoID, rData.bytes)
 	if _, err := rpcclient.Call("publish_event", seafileServerChannelStats, buf); err != nil {
-		log.Errorf("Failed to publish event: %v", err)
+		log.Warnf("Failed to publish event: %v", err)
 	}
 }
 
@@ -988,7 +988,6 @@ func getCommitInfo(rsp http.ResponseWriter, r *http.Request) *appError {
 		return appErr
 	}
 	if exists, _ := commitmgr.Exists(repoID, commitID); !exists {
-		log.Warnf("%s:%s is missing", repoID, commitID)
 		return &appError{nil, "", http.StatusNotFound}
 	}
 
@@ -1246,7 +1245,7 @@ func onRepoOper(eType, repoID, user, ip, clientName string) {
 	vInfo, err := repomgr.GetVirtualRepoInfo(repoID)
 
 	if err != nil {
-		log.Warnf("Failed to get virtual repo info by repo id %s: %v", repoID, err)
+		log.Errorf("Failed to get virtual repo info by repo id %s: %v", repoID, err)
 		return
 	}
 	if vInfo != nil {
@@ -1271,14 +1270,14 @@ func publishRepoEvent(rData *repoEventData) {
 		rData.eType, rData.user, rData.ip,
 		rData.clientName, rData.repoID, rData.path)
 	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, buf); err != nil {
-		log.Errorf("Failed to publish event: %v", err)
+		log.Warnf("Failed to publish event: %v", err)
 	}
 }
 
 func publishUpdateEvent(repoID string, commitID string) {
 	buf := fmt.Sprintf("repo-update\t%s\t%s", repoID, commitID)
 	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, buf); err != nil {
-		log.Errorf("Failed to publish event: %v", err)
+		log.Warnf("Failed to publish event: %v", err)
 	}
 }
 

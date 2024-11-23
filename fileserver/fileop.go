@@ -408,7 +408,7 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 		err := blockmgr.Read(repo.StoreID, blkID, rsp)
 		if err != nil {
 			if !isNetworkErr(err) {
-				log.Warnf("failed to read block %s: %v", blkID, err)
+				log.Errorf("failed to read block %s: %v", blkID, err)
 			}
 			return nil
 		}
@@ -523,7 +523,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
 			if err != nil {
 				if !isNetworkErr(err) {
-					log.Warnf("failed to read block %s: %v", blkID, err)
+					log.Errorf("failed to read block %s: %v", blkID, err)
 				}
 				return nil
 			}
@@ -535,7 +535,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 		err := blockmgr.Read(repo.StoreID, blkID, &buf)
 		if err != nil {
 			if !isNetworkErr(err) {
-				log.Warnf("failed to read block %s: %v", blkID, err)
+				log.Errorf("failed to read block %s: %v", blkID, err)
 			}
 			return nil
 		}
@@ -557,7 +557,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 			err := blockmgr.Read(repo.StoreID, blkID, &buf)
 			if err != nil {
 				if !isNetworkErr(err) {
-					log.Warnf("failed to read block %s: %v", blkID, err)
+					log.Errorf("failed to read block %s: %v", blkID, err)
 				}
 				return nil
 			}
@@ -571,7 +571,7 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 			err := blockmgr.Read(repo.StoreID, blkID, rsp)
 			if err != nil {
 				if !isNetworkErr(err) {
-					log.Warnf("failed to read block %s: %v", blkID, err)
+					log.Errorf("failed to read block %s: %v", blkID, err)
 				}
 				return nil
 			}
@@ -763,7 +763,7 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 	err = blockmgr.Read(repo.StoreID, blkID, rsp)
 	if err != nil {
 		if !isNetworkErr(err) {
-			log.Warnf("failed to read block %s: %v", blkID, err)
+			log.Errorf("failed to read block %s: %v", blkID, err)
 		}
 	}
 
@@ -1230,10 +1230,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		if fsm.rend != fsm.fsize-1 {
 			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 			success := "{\"success\": true}"
-			_, err := rsp.Write([]byte(success))
-			if err != nil {
-				log.Warnf("failed to write data to response")
-			}
+			rsp.Write([]byte(success))
 
 			return nil
 		}
@@ -2170,7 +2167,7 @@ func notifRepoUpdate(repoID string, commitID string) error {
 	}
 	_, _, err = utils.HttpCommon("POST", url, header, bytes.NewReader(msg))
 	if err != nil {
-		log.Errorf("failed to send repo update event: %v", err)
+		log.Warnf("failed to send repo update event: %v", err)
 		return err
 	}
 
@@ -3013,10 +3010,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		if fsm.rend != fsm.fsize-1 {
 			rsp.Header().Set("Content-Type", "application/json; charset=utf-8")
 			success := "{\"success\": true}"
-			_, err := rsp.Write([]byte(success))
-			if err != nil {
-				log.Warnf("failed to write data to response.\n")
-			}
+			rsp.Write([]byte(success))
 
 			return nil
 		}
