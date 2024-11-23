@@ -504,7 +504,7 @@ http_tx_manager_get_nickname (const char *modifier)
 
     url = g_strdup_printf("%s/user-list/", seaf->seahub_url);
     ret = http_post_common (curl, url, &headers, jwt_token, req_content, strlen(req_content),
-                            &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
+                            &rsp_status, &rsp_content, &rsp_size, TRUE, 45);
     if (ret < 0) {
         conn->release = TRUE;
         goto out;
@@ -599,13 +599,16 @@ out:
 }
 
 SeafileShareLinkInfo *
-http_tx_manager_query_share_link_info (const char *token, const char *cookie, const char *type, int *status, char **err_msg)
+http_tx_manager_query_share_link_info (const char *token, const char *cookie, const char *type,
+                                       const char *ip_addr, const char *user_agent, int *status, char **err_msg)
 {
     Connection *conn = NULL;
     char *cookie_header;
     struct curl_slist *headers = NULL;
     int ret = 0;
     CURL *curl;
+    json_t *content = NULL;
+    char *req_content = NULL;
     int rsp_status;
     char *jwt_token = NULL;
     char *rsp_content = NULL;
@@ -625,6 +628,18 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
         return NULL;
     }
 
+    content = json_object ();
+    json_object_set_new (content, "token", json_string(token));
+    if (ip_addr)
+        json_object_set_new (content, "ip_addr", json_string(ip_addr));
+    if (user_agent)
+        json_object_set_new (content, "user_agent", json_string(user_agent));
+    req_content  = json_dumps (content, JSON_COMPACT);
+    if (!req_content) {
+        seaf_warning ("Failed to dump json request.\n");
+        goto out;
+    }
+
     curl = conn->curl;
     if (cookie) {
         cookie_header = g_strdup_printf ("Cookie: %s", cookie);
@@ -632,9 +647,9 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
         g_free (cookie_header);
     }
 
-    url = g_strdup_printf("%s/check-share-link-access/?token=%s&type=%s", seaf->seahub_url, token, type);
-    ret = http_get_common (curl, url, &headers, jwt_token, &rsp_status,
-                           &rsp_content, &rsp_size, NULL, NULL, TRUE);
+    url = g_strdup_printf("%s/check-share-link-access/?type=%s", seaf->seahub_url, type);
+    ret = http_post_common (curl, url, &headers, jwt_token, req_content, strlen(req_content),
+                            &rsp_status, &rsp_content, &rsp_size, TRUE, 45);
     if (ret < 0) {
         conn->release = TRUE;
         goto out;
@@ -649,8 +664,11 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
     info = parse_share_link_info (rsp_content, rsp_size);
 
 out:
+    if (content)
+        json_decref (content);
     g_free (url);
     g_free (jwt_token);
+    g_free (req_content);
     g_free (rsp_content);
     curl_slist_free_all (headers);
     connection_pool_return_connection (seaf->seahub_conn_pool, conn);
@@ -687,7 +705,8 @@ out:
 
 int
 http_tx_manager_check_file_access (const char *repo_id, const char *token, const char *cookie,
-                                   const char *path, const char *op, char **user)
+                                   const char *path, const char *op, const char *ip_addr,
+                                   const char *user_agent, char **user)
 {
     Connection *conn = NULL;
     char *cookie_header;
@@ -700,7 +719,6 @@ http_tx_manager_check_file_access (const char *repo_id, const char *token, const
     char *jwt_token = NULL;
     char *rsp_content = NULL;
     gint64 rsp_size;
-    char *esc_path = NULL;
     char *url = NULL;
 
     jwt_token = gen_jwt_token ();
@@ -720,6 +738,11 @@ http_tx_manager_check_file_access (const char *repo_id, const char *token, const
     if (token) {
         json_object_set_new (content, "token", json_string(token));
     }
+    json_object_set_new (content, "path", json_string(path));
+    if (ip_addr)
+        json_object_set_new (content, "ip_addr", json_string(ip_addr));
+    if (user_agent)
+        json_object_set_new (content, "user_agent", json_string(user_agent));
     req_content  = json_dumps (content, JSON_COMPACT);
     if (!req_content) {
         ret = -1;
@@ -734,10 +757,9 @@ http_tx_manager_check_file_access (const char *repo_id, const char *token, const
         g_free (cookie_header);
     }
 
-    esc_path = g_uri_escape_string(path, NULL, FALSE);
-    url = g_strdup_printf("%s/repos/%s/check-access/?path=%s", seaf->seahub_url, repo_id, esc_path);
+    url = g_strdup_printf("%s/repos/%s/check-access/", seaf->seahub_url, repo_id);
     ret = http_post_common (curl, url, &headers, jwt_token, req_content, strlen(req_content),
-                            &rsp_status, &rsp_content, &rsp_size, TRUE, 1);
+                            &rsp_status, &rsp_content, &rsp_size, TRUE, 45);
     if (ret < 0) {
         conn->release = TRUE;
         goto out;
@@ -757,7 +779,6 @@ http_tx_manager_check_file_access (const char *repo_id, const char *token, const
 out:
     if (content)
         json_decref (content);
-    g_free (esc_path);
     g_free (url);
     g_free (jwt_token);
     g_free (req_content);

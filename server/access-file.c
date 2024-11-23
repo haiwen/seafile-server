@@ -1488,12 +1488,14 @@ access_v2_cb(evhtp_request_t *req, void *arg)
     char *rpath = NULL;
     char *filename = NULL;
     char *file_id = NULL;
+    char *ip_addr = NULL;
     const char *repo_id = NULL;
     const char *path = NULL;
     const char *operation = NULL;
     const char *byte_ranges = NULL;
     const char *auth_token = NULL;
     const char *cookie = NULL;
+    const char *user_agent = NULL;
     int error_code = EVHTP_RES_BADREQ;
 
     SeafileCryptKey *key = NULL;
@@ -1533,11 +1535,13 @@ access_v2_cb(evhtp_request_t *req, void *arg)
     auth_token = evhtp_kv_find (req->headers_in, "Authorization");
     token = seaf_parse_auth_token (auth_token);
     cookie = evhtp_kv_find (req->headers_in, "Cookie");
+    ip_addr = get_client_ip_addr (req);
+    user_agent = evhtp_header_find (req->headers_in, "User-Agent");
     if (!token && !cookie) {
         error_str = "Both token and cookie are not set\n";
         goto out;
     }
-    if (http_tx_manager_check_file_access (repo_id, token, cookie, dec_path, "download", &user) < 0) {
+    if (http_tx_manager_check_file_access (repo_id, token, cookie, dec_path, "download", ip_addr, user_agent, &user) < 0) {
         error_str = "No permission to access file\n";
         error_code = EVHTP_RES_FORBIDDEN;
         goto out;
@@ -1605,6 +1609,7 @@ out:
     g_free (rpath);
     g_free (filename);
     g_free (file_id);
+    g_free (ip_addr);
     if (repo != NULL)
         seaf_repo_unref (repo);
     if (key != NULL)
@@ -1828,10 +1833,13 @@ access_link_cb(evhtp_request_t *req, void *arg)
 
     token = parts[1];
 
+    char *ip_addr = get_client_ip_addr (req);
+    const char *user_agent = evhtp_header_find (req->headers_in, "User-Agent");
+
     const char *cookie = evhtp_kv_find (req->headers_in, "Cookie");
     int status = HTTP_OK;
     char *err_msg = NULL;
-    info = http_tx_manager_query_share_link_info (token, cookie, "file", &status, &err_msg);
+    info = http_tx_manager_query_share_link_info (token, cookie, "file", ip_addr, user_agent, &status, &err_msg);
     if (!info) {
         g_strfreev (parts);
         if (status != HTTP_OK) {
@@ -1843,9 +1851,11 @@ access_link_cb(evhtp_request_t *req, void *arg)
             evbuffer_add_printf(req->buffer_out, "%s\n", error_str);
             evhtp_send_reply(req, error_code);
         }
+        g_free (ip_addr);
         g_free (err_msg);
         return;
     }
+    g_free (ip_addr);
 
     repo_id = seafile_share_link_info_get_repo_id (info);
     file_path = seafile_share_link_info_get_file_path (info);

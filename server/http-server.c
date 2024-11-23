@@ -609,8 +609,9 @@ send_statistic_msg (const char *repo_id, char *user, char *operation, guint64 by
 }
 
 char *
-get_client_ip_addr (evhtp_request_t *req)
+get_client_ip_addr (void *data)
 {
+    evhtp_request_t *req = data;
     const char *xff = evhtp_kv_find (req->headers_in, "X-Forwarded-For");
     if (xff) {
         struct in_addr addr;

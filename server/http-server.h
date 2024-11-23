@@ -37,6 +37,9 @@ seaf_http_server_invalidate_tokens (HttpServerStruct *htp_server,
 
 void
 send_statistic_msg (const char *repo_id, char *user, char *operation, guint64 bytes);
+
+char *
+get_client_ip_addr (void *data);
 #endif
 
 #endif
