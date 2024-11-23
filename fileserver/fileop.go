@@ -241,8 +241,6 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 		msg := "No file path\n"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
-	// filePath will be unquote by mux, we need to escape filePath before calling check file access.
-	escPath := url.QueryEscape(filePath)
 	rpath := getCanonPath(filePath)
 	fileName := filepath.Base(rpath)
 
@@ -260,7 +258,9 @@ func accessV2CB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	user, appErr := checkFileAccess(repoID, token, cookie, escPath, "download")
+	ipAddr := getClientIPAddr(r)
+	userAgent := r.Header.Get("User-Agent")
+	user, appErr := checkFileAccess(repoID, token, cookie, filePath, "download", ipAddr, userAgent)
 	if appErr != nil {
 		return appErr
 	}
@@ -318,13 +318,13 @@ type UserInfo struct {
 	User string `json:"user"`
 }
 
-func checkFileAccess(repoID, token, cookie, filePath, op string) (string, *appError) {
+func checkFileAccess(repoID, token, cookie, filePath, op, ipAddr, userAgent string) (string, *appError) {
 	tokenString, err := utils.GenSeahubJWTToken()
 	if err != nil {
 		err := fmt.Errorf("failed to sign jwt token: %v", err)
 		return "", &appError{err, "", http.StatusInternalServerError}
 	}
-	url := fmt.Sprintf("%s/repos/%s/check-access/?path=%s", option.SeahubURL, repoID, filePath)
+	url := fmt.Sprintf("%s/repos/%s/check-access/", option.SeahubURL, repoID)
 	header := map[string][]string{
 		"Authorization": {"Token " + tokenString},
 	}
@@ -333,8 +333,15 @@ func checkFileAccess(repoID, token, cookie, filePath, op string) (string, *appEr
 	}
 	req := make(map[string]string)
 	req["op"] = op
+	req["path"] = filePath
 	if token != "" {
 		req["token"] = token
+	}
+	if ipAddr != "" {
+		req["ip_addr"] = ipAddr
+	}
+	if userAgent != "" {
+		req["user_agent"] = userAgent
 	}
 	msg, err := json.Marshal(req)
 	if err != nil {
@@ -3719,20 +3726,33 @@ type ShareLinkInfo struct {
 	ShareType string `json:"share_type"`
 }
 
-func queryShareLinkInfo(token, cookie, opType string) (*ShareLinkInfo, *appError) {
+func queryShareLinkInfo(token, cookie, opType, ipAddr, userAgent string) (*ShareLinkInfo, *appError) {
 	tokenString, err := utils.GenSeahubJWTToken()
 	if err != nil {
 		err := fmt.Errorf("failed to sign jwt token: %v", err)
 		return nil, &appError{err, "", http.StatusInternalServerError}
 	}
-	url := fmt.Sprintf("%s?token=%s&type=%s", option.SeahubURL+"/check-share-link-access/", token, opType)
+	url := fmt.Sprintf("%s?type=%s", option.SeahubURL+"/check-share-link-access/", opType)
 	header := map[string][]string{
 		"Authorization": {"Token " + tokenString},
 	}
 	if cookie != "" {
 		header["Cookie"] = []string{cookie}
 	}
-	status, body, err := utils.HttpCommon("GET", url, header, nil)
+	req := make(map[string]string)
+	req["token"] = token
+	if ipAddr != "" {
+		req["ip_addr"] = ipAddr
+	}
+	if userAgent != "" {
+		req["user_agent"] = userAgent
+	}
+	msg, err := json.Marshal(req)
+	if err != nil {
+		err := fmt.Errorf("failed to encode access token: %v", err)
+		return nil, &appError{err, "", http.StatusInternalServerError}
+	}
+	status, body, err := utils.HttpCommon("POST", url, header, bytes.NewReader(msg))
 	if err != nil {
 		if status != http.StatusInternalServerError {
 			return nil, &appError{nil, string(body), status}
@@ -3765,7 +3785,9 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 	token := parts[1]
 	cookie := r.Header.Get("Cookie")
-	info, appErr := queryShareLinkInfo(token, cookie, "file")
+	ipAddr := getClientIPAddr(r)
+	userAgent := r.Header.Get("User-Agent")
+	info, appErr := queryShareLinkInfo(token, cookie, "file", ipAddr, userAgent)
 	if appErr != nil {
 		return appErr
 	}
