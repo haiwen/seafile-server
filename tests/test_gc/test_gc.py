@@ -146,16 +146,39 @@ def test_gc_partial_history(repo, rm_fs):
 
     del_local_files()
 
-def upload_file(url, m):
-    start = 0
-    end = large_file_size - 1
-    total = large_file_size
-    response = requests.post(url,
-            data = m, headers = {'Content-Type': m.content_type, 
-                'Content-Range': f"bytes {start}-{end}/{total}", 
-                'Content-Disposition': 'attachment; filename="large.txt"'})
-    return response.status_code, response.text
+def upload_file_in_chunks(url, file_path, chunk_size=8*1024*1024):
+    status = 200
+    rsp = ''
+    with open(file_path, 'rb') as file:
+        chunk_num = 0
+        while True:
+            chunk = file.read(chunk_size)
+            if not chunk:
+                break
 
+            start = chunk_num * chunk_size
+            end = min((chunk_num + 1) * chunk_size - 1, large_file_size - 1)
+
+            m = MultipartEncoder(
+                    fields={
+                            'parent_dir': '/',
+                            'file': (os.path.basename(file_path), chunk, 'application/octet-stream')
+                })
+
+            headers = {
+                'Content-Range': f"bytes {start}-{end}/{large_file_size}",
+                'Content-Type': m.content_type,
+                'Content-Disposition': 'attachment; filename="large.txt"'
+            }
+
+            response = requests.post(url, data = m, headers=headers)
+            status = response.status_code
+            rsp = response.text
+            if status != 200:
+                break
+
+            chunk_num += 1
+        return status, rsp
 
 @pytest.mark.parametrize('rm_fs', ['', '--rm-fs'])
 def test_gc_on_upload(repo, rm_fs):
@@ -165,16 +188,10 @@ def test_gc_on_upload(repo, rm_fs):
     obj_id = '{"parent_dir":"/"}'
     token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
     upload_url_base = 'http://127.0.0.1:8082/upload-aj/'+ token
-    m = MultipartEncoder(
-            fields={
-                    'parent_dir': '/',
-                    'file': (large_file_name, open(large_file_path, 'rb'), 'application/octet-stream')
-            })
-
 
     status_code = 200
     executor = ThreadPoolExecutor()
-    future = executor.submit(upload_file, upload_url_base, m)
+    future = executor.submit(upload_file_in_chunks, upload_url_base, large_file_path)
 
     while True:
         offset = api.get_upload_tmp_file_offset(repo.id, "/" + large_file_name)
