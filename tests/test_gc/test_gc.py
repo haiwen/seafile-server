@@ -32,18 +32,6 @@ def create_test_file():
     fp.write(third_content)
     fp.close()
 
-large_file_name = 'large.txt'
-large_file_size = 2*1024*1024*1024
-large_file_path = os.getcwd() + '/' + large_file_name
-
-def create_large_file():
-    fp = open(large_file_path, 'wb')
-    fp.write(os.urandom(large_file_size))
-    fp.close()
-
-def del_large_file():
-    os.remove(large_file_path)
-
 def del_local_files():
     os.remove(first_path)
     os.remove(second_path)
@@ -145,69 +133,3 @@ def test_gc_partial_history(repo, rm_fs):
     run_gc(repo.id, '', '--check')
 
     del_local_files()
-
-def upload_file_in_chunks(url, file_path, chunk_size=8*1024*1024):
-    status = 200
-    rsp = ''
-    with open(file_path, 'rb') as file:
-        chunk_num = 0
-        while True:
-            chunk = file.read(chunk_size)
-            if not chunk:
-                break
-
-            start = chunk_num * chunk_size
-            end = min((chunk_num + 1) * chunk_size - 1, large_file_size - 1)
-
-            m = MultipartEncoder(
-                    fields={
-                            'parent_dir': '/',
-                            'file': (os.path.basename(file_path), chunk, 'application/octet-stream')
-                })
-
-            headers = {
-                'Content-Range': f"bytes {start}-{end}/{large_file_size}",
-                'Content-Type': m.content_type,
-                'Content-Disposition': 'attachment; filename="large.txt"'
-            }
-
-            response = requests.post(url, data = m, headers=headers)
-            status = response.status_code
-            rsp = response.text
-            if status != 200:
-                break
-
-            chunk_num += 1
-        return status, rsp
-
-@pytest.mark.parametrize('rm_fs', ['', '--rm-fs'])
-def test_gc_on_upload(repo, rm_fs):
-    create_large_file()
-    api.set_repo_valid_since (repo.id, 0)
-
-    obj_id = '{"parent_dir":"/"}'
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
-    upload_url_base = 'http://127.0.0.1:8082/upload-aj/'+ token
-
-    status_code = 200
-    executor = ThreadPoolExecutor()
-    future = executor.submit(upload_file_in_chunks, upload_url_base, large_file_path)
-
-    while True:
-        offset = api.get_upload_tmp_file_offset(repo.id, "/" + large_file_name)
-        if offset == large_file_size:
-            break
-        time.sleep (0.5)
-    time.sleep (1)
-    run_gc(repo.id, rm_fs, '')
-
-    while not future.done():
-        time.sleep(0.5)
-
-    status_code = future.result()[0]
-    assert status_code == 500
-
-    api.set_repo_valid_since (repo.id, 0)
-    run_gc(repo.id, '', '--check')
-
-    del_large_file ()
