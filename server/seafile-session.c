@@ -154,18 +154,17 @@ load_config (SeafileSession *session, const char *config_file_path)
         ret = -1;
         goto out;
     }
-        if (notif_enabled && notif_server != NULL) {
+    if (notif_enabled && notif_server != NULL) {
         session->notif_server_private_key = g_strdup (private_key);
         char notif_url[128];
         g_sprintf (notif_url, "%s:%d", notif_server, notif_port);
         session->notif_url = g_strdup (notif_url);
     }
     session->seahub_pk = g_strdup (private_key);
-    if (site_root) {
-        session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal", site_root);
-    } else {
-        session->seahub_url = g_strdup("http://127.0.0.1:8000/api/v2.1/internal");
+    if (!site_root || g_strcmp0 (site_root, "") == 0) {
+        site_root = "/";
     }
+    session->seahub_url = g_strdup_printf("http://127.0.0.1:8000%sapi/v2.1/internal", site_root);
     session->seahub_conn_pool = connection_pool_new ();
 
     if (g_strcmp0 (log_to_stdout, "true") == 0) {
