@@ -3799,7 +3799,11 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	repoID := info.RepoID
 	filePath := normalizeUTF8Path(info.FilePath)
 	fileName := filepath.Base(filePath)
-	op := "download-link"
+
+	op := r.URL.Query().Get("op")
+	if op == "" {
+		op = "download"
+	}
 
 	ranges := r.Header["Range"]
 	byteRanges := strings.Join(ranges, "")

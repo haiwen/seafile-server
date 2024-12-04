@@ -1811,6 +1811,7 @@ access_link_cb(evhtp_request_t *req, void *arg)
     const char *file_path = NULL;
     const char *share_type = NULL;
     const char *byte_ranges = NULL;
+    const char *operation = NULL;
     int error_code = EVHTP_RES_BADREQ;
 
     SeafileCryptKey *key = NULL;
@@ -1832,6 +1833,11 @@ access_link_cb(evhtp_request_t *req, void *arg)
     }
 
     token = parts[1];
+
+    operation = evhtp_kv_find (req->uri->query, "op");
+    if (!operation) {
+        operation = "download";
+    }
 
     char *ip_addr = get_client_ip_addr (req);
     const char *user_agent = evhtp_header_find (req->headers_in, "User-Agent");
@@ -1917,12 +1923,12 @@ access_link_cb(evhtp_request_t *req, void *arg)
     }
 
     if (!repo->encrypted && byte_ranges) {
-        if (do_file_range (req, repo, file_id, filename, "download-link", byte_ranges, user) < 0) {
+        if (do_file_range (req, repo, file_id, filename, operation, byte_ranges, user) < 0) {
             error_str = "Internal server error\n";
             error_code = EVHTP_RES_SERVERR;
             goto out;
         }
-    } else if (do_file(req, repo, file_id, filename, "download-link", key, user) < 0) {
+    } else if (do_file(req, repo, file_id, filename, operation, key, user) < 0) {
         error_str = "Internal server error\n";
         error_code = EVHTP_RES_SERVERR;
         goto out;
