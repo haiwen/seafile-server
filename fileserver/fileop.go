@@ -3801,8 +3801,8 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	fileName := filepath.Base(filePath)
 
 	op := r.URL.Query().Get("op")
-	if op == "" {
-		op = "download"
+	if op != "view" {
+		op = "download-link"
 	}
 
 	ranges := r.Header["Range"]

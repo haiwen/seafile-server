@@ -338,14 +338,12 @@ next:
 
             evhtp_send_reply_end (data->req);
 
-            if (g_strcmp0(data->token_type, "view") != 0) {
-                char *oper = "web-file-download";
-                if (g_strcmp0(data->token_type, "download-link") == 0)
-                    oper = "link-file-download";
+            char *oper = "web-file-download";
+            if (g_strcmp0(data->token_type, "download-link") == 0)
+                oper = "link-file-download";
 
-                send_statistic_msg(data->store_id, data->user, oper,
-                                   (guint64)data->file->file_size);
-            }
+            send_statistic_msg(data->store_id, data->user, oper,
+                               (guint64)data->file->file_size);
 
             free_sendfile_data (data);
             return;
@@ -1835,8 +1833,8 @@ access_link_cb(evhtp_request_t *req, void *arg)
     token = parts[1];
 
     operation = evhtp_kv_find (req->uri->query, "op");
-    if (!operation) {
-        operation = "download";
+    if (g_strcmp0 (operation, "view") != 0) {
+        operation = "download-link";
     }
 
     char *ip_addr = get_client_ip_addr (req);
