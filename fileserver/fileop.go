@@ -421,13 +421,11 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 		}
 	}
 
-	if operation != "view" {
-		oper := "web-file-download"
-		if operation == "download-link" {
-			oper = "link-file-download"
-		}
-		sendStatisticMsg(repo.StoreID, user, oper, file.FileSize)
+	oper := "web-file-download"
+	if operation == "download-link" {
+		oper = "link-file-download"
 	}
+	sendStatisticMsg(repo.StoreID, user, oper, file.FileSize)
 
 	return nil
 }
@@ -3799,7 +3797,11 @@ func accessLinkCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	repoID := info.RepoID
 	filePath := normalizeUTF8Path(info.FilePath)
 	fileName := filepath.Base(filePath)
-	op := "download-link"
+
+	op := r.URL.Query().Get("op")
+	if op != "view" {
+		op = "download-link"
+	}
 
 	ranges := r.Header["Range"]
 	byteRanges := strings.Join(ranges, "")
