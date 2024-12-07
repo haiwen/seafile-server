@@ -86,6 +86,7 @@ func parseContentType(fileName string) string {
 	parts := strings.Split(fileName, ".")
 	if len(parts) >= 2 {
 		suffix := parts[len(parts)-1]
+		suffix = strings.ToLower(suffix)
 		switch suffix {
 		case "txt":
 			contentType = "text/plain"
@@ -109,6 +110,12 @@ func parseContentType(fileName string) string {
 			contentType = "video/mpeg"
 		case "mp4":
 			contentType = "video/mp4"
+		case "ogv":
+			contentType = "video/ogg"
+		case "mov":
+			contentType = "video/mp4"
+		case "webm":
+			contentType = "video/webm"
 		case "jpeg", "JPEG", "jpg", "JPG":
 			contentType = "image/jpeg"
 		case "png", "PNG":
@@ -117,6 +124,20 @@ func parseContentType(fileName string) string {
 			contentType = "image/gif"
 		case "svg", "SVG":
 			contentType = "image/svg+xml"
+		case "heic":
+			contentType = "image/heic"
+		case "ico":
+			contentType = "image/x-icon"
+		case "bmp":
+			contentType = "image/bmp"
+		case "tif", "tiff":
+			contentType = "image/tiff"
+		case "psd":
+			contentType = "image/vnd.adobe.photoshop"
+		case "webp":
+			contentType = "image/webp"
+		case "jfif":
+			contentType = "image/jpeg"
 		}
 	}
 
