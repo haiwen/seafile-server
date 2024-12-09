@@ -141,7 +141,14 @@ parse_pwd_hash_params (const char *algo, const char *params_str, PwdHashParams *
         params->algo = NULL;
     }
 
-    seaf_message ("password hash algorithms: %s, params: %s\n ", params->algo, params->params_str);
+    //seaf_message ("password hash algorithms: %s, params: %s\n ", params->algo, params->params_str);
+/*updated the code-- Dec 09-2024*/
+#ifdef DEBUG
+    seaf_message("password hash algorithms: %s, params: %s\n", params->algo, params->params_str);
+#else
+    seaf_message("password hash algorithms: [REDACTED], params: [REDACTED]\n");
+#endif
+
 }
 
 int
