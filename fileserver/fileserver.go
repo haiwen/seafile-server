@@ -106,6 +106,9 @@ func loadCcnetDB() {
 	} else {
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.CcnetDbName, dbOpt.UseTLS, timeout)
 	}
+	if dbOpt.Charset != "" {
+		dsn = fmt.Sprintf("%s&charset=%s", dsn, dbOpt.Charset)
+	}
 	ccnetDB, err = sql.Open("mysql", dsn)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)
@@ -145,6 +148,7 @@ type DBOption struct {
 	CaPath        string
 	UseTLS        bool
 	SkipVerify    bool
+	Charset       string
 }
 
 func loadDBOptionFromEnv(dbOpt *DBOption) *DBOption {
@@ -241,6 +245,9 @@ func loadDBOptionFromFile() (*DBOption, error) {
 	if key, err = section.GetKey("ca_path"); err == nil {
 		dbOpt.CaPath = key.String()
 	}
+	if key, err = section.GetKey("connection_charset"); err == nil {
+		dbOpt.Charset = key.String()
+	}
 
 	return dbOpt, nil
 }
@@ -275,6 +282,9 @@ func loadSeafileDB() {
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.SeafileDbName, timeout)
 	} else {
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t%s", dbOpt.User, dbOpt.Password, dbOpt.Host, dbOpt.Port, dbOpt.SeafileDbName, dbOpt.UseTLS, timeout)
+	}
+	if dbOpt.Charset != "" {
+		dsn = fmt.Sprintf("%s&charset=%s", dsn, dbOpt.Charset)
 	}
 
 	seafileDB, err = sql.Open("mysql", dsn)
