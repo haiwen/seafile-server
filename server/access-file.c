@@ -132,6 +132,9 @@ static struct file_type_map ftmap[] = {
     { "mp3", "audio/mp3" },
     { "mpeg", "video/mpeg" },
     { "mp4", "video/mp4" },
+    { "ogv", "video/ogg" },
+    { "mov", "video/mp4" },
+    { "webm", "video/webm" },
     { "jpg", "image/jpeg" },
     { "JPG", "image/jpeg" },
     { "jpeg", "image/jpeg" },
@@ -142,6 +145,14 @@ static struct file_type_map ftmap[] = {
     { "GIF", "image/gif" },
     { "svg", "image/svg+xml" },
     { "SVG", "image/svg+xml" },
+    { "heic", "image/heic" },
+    { "ico", "image/x-icon" },
+    { "bmp", "image/bmp" },
+    { "tif", "image/tiff" },
+    { "tiff", "image/tiff" },
+    { "psd", "image/vnd.adobe.photoshop" },
+    { "webp", "image/webp" },
+    { "jfif", "image/jpeg" },
     { NULL, NULL },
 };
 
@@ -509,11 +520,16 @@ parse_content_type(const char *filename)
         return NULL;
     p++;
 
+    char *lower = g_utf8_strdown (p, strlen(p));
+
     for (i = 0; ftmap[i].suffix != NULL; i++) {
-        if (strcmp(p, ftmap[i].suffix) == 0)
+        if (strcmp(lower, ftmap[i].suffix) == 0) {
+            g_free (lower);
             return ftmap[i].type;
+        }
     }
 
+    g_free (lower);
     return NULL;
 }
 
