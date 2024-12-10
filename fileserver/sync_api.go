@@ -81,7 +81,7 @@ type repoEventData struct {
 	clientName string
 }
 
-type statusEventData struct {
+type statsEventData struct {
 	eType  string
 	user   string
 	repoID string
@@ -904,16 +904,23 @@ func getRepoStoreID(repoID string) (string, error) {
 }
 
 func sendStatisticMsg(repoID, user, operation string, bytes uint64) {
-	rData := &statusEventData{operation, user, repoID, bytes}
+	rData := &statsEventData{operation, user, repoID, bytes}
 
-	publishStatusEvent(rData)
+	publishStatsEvent(rData)
 }
 
-func publishStatusEvent(rData *statusEventData) {
-	buf := fmt.Sprintf("%s\t%s\t%s\t%d",
-		rData.eType, rData.user,
-		rData.repoID, rData.bytes)
-	if _, err := rpcclient.Call("publish_event", seafileServerChannelStats, buf); err != nil {
+func publishStatsEvent(rData *statsEventData) {
+	data := make(map[string]interface{})
+	data["msg_type"] = rData.eType
+	data["user_name"] = rData.user
+	data["repo_id"] = rData.repoID
+	data["bytes"] = rData.bytes
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Warnf("Failed to publish event: %v", err)
+		return
+	}
+	if _, err := rpcclient.Call("publish_event", seafileServerChannelStats, string(jsonData)); err != nil {
 		log.Warnf("Failed to publish event: %v", err)
 	}
 }
@@ -1374,17 +1381,34 @@ func publishRepoEvent(rData *repoEventData) {
 	if rData.path == "" {
 		rData.path = "/"
 	}
-	buf := fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s",
-		rData.eType, rData.user, rData.ip,
-		rData.clientName, rData.repoID, rData.path)
-	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, buf); err != nil {
+	data := make(map[string]interface{})
+	data["msg_type"] = rData.eType
+	data["user_name"] = rData.user
+	data["ip"] = rData.ip
+	data["user_agent"] = rData.clientName
+	data["repo_id"] = rData.repoID
+	data["file_path"] = rData.path
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Warnf("Failed to publish event: %v", err)
+		return
+	}
+	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, string(jsonData)); err != nil {
 		log.Warnf("Failed to publish event: %v", err)
 	}
 }
 
 func publishUpdateEvent(repoID string, commitID string) {
-	buf := fmt.Sprintf("repo-update\t%s\t%s", repoID, commitID)
-	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, buf); err != nil {
+	data := make(map[string]interface{})
+	data["msg_type"] = "repo-update"
+	data["repo_id"] = repoID
+	data["commit_id"] = commitID
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		log.Warnf("Failed to publish event: %v", err)
+		return
+	}
+	if _, err := rpcclient.Call("publish_event", seafileServerChannelEvent, string(jsonData)); err != nil {
 		log.Warnf("Failed to publish event: %v", err)
 	}
 }

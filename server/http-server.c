@@ -541,28 +541,49 @@ free_stats_event_data (StatsEventData *data)
 static void
 publish_repo_event (RepoEventData *rdata)
 {
-    GString *buf = g_string_new (NULL);
-    g_string_printf (buf, "%s\t%s\t%s\t%s\t%s\t%s",
-                     rdata->etype, rdata->user, rdata->ip,
-                     rdata->client_name ? rdata->client_name : "",
-                     rdata->repo_id, rdata->path ? rdata->path : "/");
+    json_t *msg = json_object ();
+    char *msg_str = NULL;
 
-    seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf->str);
+    json_object_set_new (msg, "msg_type", json_string(rdata->etype));
+    json_object_set_new (msg, "user_name", json_string(rdata->user));
+    json_object_set_new (msg, "ip", json_string(rdata->ip));
+    if (rdata->client_name) {
+        json_object_set_new (msg, "user_agent", json_string(rdata->client_name));
+    } else {
+        json_object_set_new (msg, "user_agent", json_string(""));
+    }
+    json_object_set_new (msg, "repo_id", json_string(rdata->repo_id));
+    if (rdata->path) {
+        json_object_set_new (msg, "file_path", json_string(rdata->path));
+    } else {
+        json_object_set_new (msg, "file_path", json_string("/"));
+    }
 
-    g_string_free (buf, TRUE);
+    msg_str = json_dumps (msg, JSON_PRESERVE_ORDER);
+
+    seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, msg_str);
+
+    g_free (msg_str);
+    json_decref (msg);
 }
 
 static void
 publish_stats_event (StatsEventData *rdata)
 {
-    GString *buf = g_string_new (NULL);
-    g_string_printf (buf, "%s\t%s\t%s\t%"G_GUINT64_FORMAT,
-                     rdata->etype, rdata->user,
-                     rdata->repo_id, rdata->bytes);
+    json_t *msg = json_object ();
+    char *msg_str = NULL;
 
-    seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_STATS, buf->str);
+    json_object_set_new (msg, "msg_type", json_string(rdata->etype));
+    json_object_set_new (msg, "user_name", json_string(rdata->user));
+    json_object_set_new (msg, "repo_id", json_string(rdata->repo_id));
+    json_object_set_new (msg, "bytes", json_integer(rdata->bytes));
 
-    g_string_free (buf, TRUE);
+    msg_str = json_dumps (msg, JSON_PRESERVE_ORDER);
+
+    seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_STATS, msg_str);
+
+    g_free (msg_str);
+    json_decref (msg);
 }
 
 static void
