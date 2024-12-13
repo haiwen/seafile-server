@@ -320,11 +320,18 @@ get_commit_id (SeafDBRow *row, void *data)
 static void
 publish_repo_update_event (const char *repo_id, const char *commit_id)
 {
-    char buf[128];
-    snprintf (buf, sizeof(buf), "repo-update\t%s\t%s",
-              repo_id, commit_id);
+    json_t *msg = json_object ();
+    char *msg_str = NULL;
 
-    seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, buf);
+    json_object_set_new (msg, "msg_type", json_string("repo-update"));
+    json_object_set_new (msg, "repo_id", json_string(repo_id));
+    json_object_set_new (msg, "commit_id", json_string(commit_id));
+
+    msg_str = json_dumps (msg, JSON_PRESERVE_ORDER);
+
+    seaf_mq_manager_publish_event (seaf->mq_mgr, SEAFILE_SERVER_CHANNEL_EVENT, msg_str);
+    g_free (msg_str);
+    json_decref (msg);
 }
 
 static void
