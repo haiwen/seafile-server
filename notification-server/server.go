@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -45,8 +46,18 @@ func init() {
 }
 
 func loadNotifConfig() {
-	host = "0.0.0.0"
+	host := os.Getenv("NOTIFICATION_SERVER_HOST")
+	if host == "" {
+		host = "0.0.0.0"
+	}
+
 	port = 8083
+	if os.Getenv("NOTIFICATION_SERVER_PORT") != "" {
+		i, err := strconv.Atoi(os.Getenv("NOTIFICATION_SERVER_PORT"))
+		if err == nil {
+			port = i
+		}
+	}
 
 	logLevel := os.Getenv("NOTIFICATION_SERVER_LOG_LEVEL")
 	if logLevel == "" {
