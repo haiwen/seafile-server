@@ -3,7 +3,6 @@ package objstore
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 )
@@ -57,7 +56,11 @@ func (b *fsBackend) write(repoID string, objID string, r io.Reader, sync bool) e
 		return err
 	}
 
-	tFile, err := ioutil.TempFile(b.tmpDir, objID)
+	tmpDir := b.tmpDir
+	if b.objType != "blocks" {
+		tmpDir = parentDir
+	}
+	tFile, err := os.CreateTemp(tmpDir, objID+".*")
 	if err != nil {
 		return err
 	}
