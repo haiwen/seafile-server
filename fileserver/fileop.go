@@ -1745,8 +1745,12 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 
 	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes, lastModify, gcID)
 	if err != nil {
-		err := fmt.Errorf("failed to post files and gen commit: %v", err)
-		return &appError{err, "", http.StatusInternalServerError}
+		if errors.Is(err, ErrGCConflict) {
+			return &appError{nil, "GC Conflict.\n", http.StatusConflict}
+		} else {
+			err := fmt.Errorf("failed to post files and gen commit: %v", err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
 	}
 
 	_, ok := r.Form["ret-json"]
@@ -1848,7 +1852,7 @@ retry:
 	_, err = genNewCommit(repo, headCommit, rootID, user, buf, handleConncurrentUpdate, lastGCID, true)
 	if err != nil {
 		if err != ErrConflict {
-			err := fmt.Errorf("failed to generate new commit: %v", err)
+			err := fmt.Errorf("failed to generate new commit: %w", err)
 			return "", err
 		}
 		retryCnt++
@@ -1907,7 +1911,10 @@ func getCanonPath(p string) string {
 	return filepath.Join(formatPath)
 }
 
-var ErrConflict = fmt.Errorf("Concurent upload conflict")
+var (
+	ErrConflict   = errors.New("Concurent upload conflict")
+	ErrGCConflict = errors.New("GC Conflict")
+)
 
 func genNewCommit(repo *repomgr.Repo, base *commitmgr.Commit, newRoot, user, desc string, handleConncurrentUpdate bool, lastGCID string, checkGC bool) (string, error) {
 	var retryCnt int
@@ -2094,7 +2101,7 @@ func updateBranch(repoID, originRepoID, newCommitID, oldCommitID, secondParentID
 		if lastGCID != gcID.String {
 			err = fmt.Errorf("Head branch update for repo %s conflicts with GC.", repoID)
 			trans.Rollback()
-			return true, err
+			return true, ErrGCConflict
 		}
 	}
 
@@ -3247,8 +3254,12 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 	desc := fmt.Sprintf("Modified \"%s\"", fileName)
 	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, gcID, true)
 	if err != nil {
-		err := fmt.Errorf("failed to generate new commit: %v", err)
-		return &appError{err, "", http.StatusInternalServerError}
+		if errors.Is(err, ErrGCConflict) {
+			return &appError{nil, "GC Conflict.\n", http.StatusConflict}
+		} else {
+			err := fmt.Errorf("failed to generate new commit: %v", err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
 	}
 
 	if isAjax {
@@ -3485,8 +3496,12 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 	desc := fmt.Sprintf("Added \"%s\"", fileName)
 	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, gcID, true)
 	if err != nil {
-		err := fmt.Errorf("failed to generate new commit: %v", err)
-		return "", &appError{err, "", http.StatusInternalServerError}
+		if errors.Is(err, ErrGCConflict) {
+			return "", &appError{nil, "GC Conflict.\n", http.StatusConflict}
+		} else {
+			err := fmt.Errorf("failed to generate new commit: %v", err)
+			return "", &appError{err, "", http.StatusInternalServerError}
+		}
 	}
 
 	return fileID, nil
