@@ -1302,6 +1302,7 @@ func validateToken(r *http.Request, repoID string, skipCache bool) (string, *app
 		return email, &appError{err, "", http.StatusInternalServerError}
 	}
 	if email == "" {
+		tokenCache.Delete(token)
 		msg := fmt.Sprintf("Failed to get email by token %s", token)
 		return email, &appError{nil, msg, http.StatusForbidden}
 	}
