@@ -579,7 +579,7 @@ retry:
         if (check_gc && gc_conflict) {
             seaf_warning ("Head branch update for repo %s conflicts with GC.\n",
                           repo->id);
-            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL, "GC Conflict");
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GC_CONFLICT, "GC Conflict");
             ret = -1;
             goto out;
         }

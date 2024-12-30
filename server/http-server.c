@@ -969,7 +969,8 @@ static int
 fast_forward_or_merge (const char *repo_id,
                        SeafCommit *base,
                        SeafCommit *new_commit,
-                       const char *token)
+                       const char *token,
+                       gboolean *is_gc_conflict)
 {
 #define MAX_RETRY_COUNT 3
 
@@ -1086,6 +1087,9 @@ retry:
                                                    &gc_conflict) < 0)
     {
         if (gc_conflict) {
+            if (is_gc_conflict) {
+                *is_gc_conflict = TRUE;
+            }
             seaf_warning ("Head branch update for repo %s conflicts with GC.\n",
                           repo_id);
             ret = -1;
@@ -1347,9 +1351,16 @@ put_update_branch_cb (evhtp_request_t *req, void *arg)
         }
     }
 
-    if (fast_forward_or_merge (repo_id, base, new_commit, token) < 0) {
-        seaf_warning ("Fast forward merge for repo %s is failed.\n", repo_id);
-        evhtp_send_reply (req, EVHTP_RES_SERVERR);
+    gboolean gc_conflict = FALSE;
+    if (fast_forward_or_merge (repo_id, base, new_commit, token, &gc_conflict) < 0) {
+        if (gc_conflict) {
+            char *msg = "GC Conflict.\n";
+            evbuffer_add (req->buffer_out, msg, strlen (msg));
+            evhtp_send_reply (req, EVHTP_RES_CONFLICT);
+        } else {
+            seaf_warning ("Fast forward merge for repo %s is failed.\n", repo_id);
+            evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        }
         goto out;
     }
 

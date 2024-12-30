@@ -1077,8 +1077,12 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		token = utils.GetAuthorizationToken(r.Header)
 	}
 	if err := fastForwardOrMerge(user, token, repo, base, newCommit); err != nil {
-		err := fmt.Errorf("Fast forward merge for repo %s is failed: %v", repoID, err)
-		return &appError{err, "", http.StatusInternalServerError}
+		if errors.Is(err, ErrGCConflict) {
+			return &appError{nil, "GC Conflict.\n", http.StatusConflict}
+		} else {
+			err := fmt.Errorf("Fast forward merge for repo %s is failed: %v", repoID, err)
+			return &appError{err, "", http.StatusInternalServerError}
+		}
 	}
 
 	go mergeVirtualRepoPool.AddTask(repoID, "")

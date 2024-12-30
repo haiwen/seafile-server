@@ -612,6 +612,9 @@ upload_api_cb(evhtp_request_t *req, void *arg)
             } else if (error->code == SEAF_ERR_FILES_WITH_SAME_NAME) {
                 error_code = -1;
                 send_error_reply (req, EVHTP_RES_BADREQ, "Too many files with same name.\n");
+            } else if (error->code == SEAF_ERR_GC_CONFLICT) {
+                error_code = -1;
+                send_error_reply (req, EVHTP_RES_CONFLICT, "GC Conflict.\n");
             }
             g_clear_error (&error);
         }
@@ -811,6 +814,9 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
                 error_code = ERROR_BLOCK_MISSING;
             } else if (error->code == POST_FILE_ERR_QUOTA_FULL) {
                 error_code = ERROR_QUOTA;
+            } else if (error->code == SEAF_ERR_GC_CONFLICT) {
+                error_code = -1;
+                send_error_reply (req, EVHTP_RES_CONFLICT, "GC Conflict.\n");
             }
             g_clear_error (&error);
         }
@@ -1243,6 +1249,9 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
             } else if (error->code == SEAF_ERR_FILES_WITH_SAME_NAME) {
                 error_code = -1;
                 send_error_reply (req, EVHTP_RES_BADREQ, "Too many files with same name.\n");
+            } else if (error->code == SEAF_ERR_GC_CONFLICT) {
+                error_code = -1;
+                send_error_reply (req, EVHTP_RES_CONFLICT, "GC Conflict.\n");
             }
             g_clear_error (&error);
         }
@@ -1527,6 +1536,9 @@ update_blks_api_cb(evhtp_request_t *req, void *arg)
                 error_code = ERROR_NOT_EXIST;
             } else if (error->code == POST_FILE_ERR_QUOTA_FULL) {
                 error_code = ERROR_QUOTA;
+            } else if (error->code == SEAF_ERR_GC_CONFLICT) {
+                error_code = -1;
+                send_error_reply (req, EVHTP_RES_CONFLICT, "GC Conflict.\n");
             }
             g_clear_error (&error);
         }
@@ -1788,6 +1800,9 @@ update_ajax_cb(evhtp_request_t *req, void *arg)
         if (error) {
             if (g_strcmp0 (error->message, "file does not exist") == 0) {
                 error_code = ERROR_NOT_EXIST;
+            } else if (error->code == SEAF_ERR_GC_CONFLICT) {
+                error_code = -1;
+                send_error_reply (req, EVHTP_RES_CONFLICT, "GC Conflict.\n");
             }
             g_clear_error (&error);
         }
