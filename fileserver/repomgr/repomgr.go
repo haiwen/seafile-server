@@ -235,6 +235,7 @@ func GetEx(id string) *Repo {
 	}
 	if originRepoID.Valid {
 		repo.VirtualInfo = new(VRepoInfo)
+		repo.VirtualInfo.RepoID = id
 		repo.VirtualInfo.OriginRepoID = originRepoID.String
 		repo.StoreID = originRepoID.String
 

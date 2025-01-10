@@ -95,6 +95,8 @@ typedef struct {
     SeafDBTrans *trans;
     gint64 keep_alive_last_time;
     gint64 keep_alive_obj_counter;
+
+    gboolean traverse_base_commit;
 } GCData;
 
 static int
@@ -165,6 +167,12 @@ fs_callback (SeafFSManager *mgr,
     }
 
     add_fs_to_index(data, obj_id);
+
+    // If traversing the base_commit, only the fs objects need to be retained, while the block does not.
+    // This is because only the fs objects are needed when merging virtual repo.
+    if (data->repo->is_virtual && data->traverse_base_commit) {
+        return TRUE;
+    }
 
     if (type == SEAF_METADATA_TYPE_FILE &&
         add_blocks_to_index (mgr, data, obj_id) < 0)
@@ -422,6 +430,7 @@ populate_gc_index_for_repo (GCData *data, SeafDBTrans *trans)
             if (!vinfo) {
                 continue;
             }
+            data->traverse_base_commit = TRUE;
             res = seaf_commit_manager_traverse_commit_tree (seaf->commit_mgr,
                                                             repo->store_id, repo->version,
                                                             vinfo->base_commit,
