@@ -1002,6 +1002,9 @@ delete_garbaged_repos (int dry_run, int thread_num)
 
     for (ptr = del_repos; ptr; ptr = ptr->next) {
         repo_id = ptr->data;
+        if (!is_uuid_valid(repo_id)) {
+            continue;
+        }
 
         /* Confirm repo doesn't exist before removing blocks. */
         if (!seaf_repo_manager_repo_exists (seaf->repo_mgr, repo_id)) {
