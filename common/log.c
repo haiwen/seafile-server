@@ -161,12 +161,14 @@ seafile_log_init (const char *_logfile, const char *ccnet_debug_level_str,
     app_name = g_strdup (_app_name);
 
     const char *log_to_stdout_env = g_getenv("SEAFILE_LOG_TO_STDOUT");
-    if (g_strcmp0(_logfile, "-") == 0 || g_strcmp0(log_to_stdout_env, "true") == 0) {
+    if (g_strcmp0(log_to_stdout_env, "true") == 0) {
         logfp = stdout;
         logfile = g_strdup (_logfile);
         log_to_stdout = TRUE;
-    }
-    else {
+    } else if (g_strcmp0(_logfile, "-") == 0) {
+        logfp = stdout;
+        logfile = g_strdup (_logfile);
+    } else {
         logfile = ccnet_expand_path(_logfile);
         if ((logfp = g_fopen (logfile, "a+")) == NULL) {
             seaf_message ("Failed to open file %s\n", logfile);
