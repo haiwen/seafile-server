@@ -7,6 +7,7 @@ typedef struct VerifyData {
     gint64 truncate_time;
     gboolean traversed_head;
     GHashTable *exist_blocks;
+    gboolean traverse_base_commit;
 } VerifyData;
 
 static int
@@ -46,6 +47,10 @@ fs_callback (SeafFSManager *mgr,
              gboolean *stop)
 {
     VerifyData *data = user_data;
+
+    if (data->traverse_base_commit) {
+        return TRUE;
+    }
 
     if (type == SEAF_METADATA_TYPE_FILE && check_blocks (data, obj_id) < 0)
         return FALSE;
@@ -100,6 +105,8 @@ verify_virtual_repos (VerifyData *data)
         return 0;
     }
 
+    data->traverse_base_commit = TRUE;
+
     GList *vrepo_ids = NULL, *ptr;
     char *repo_id;
     SeafVirtRepo *vinfo;
@@ -128,6 +135,7 @@ verify_virtual_repos (VerifyData *data)
             goto out;
         }
     }
+    data->traverse_base_commit = FALSE;
 
 out:
     string_list_free (vrepo_ids);

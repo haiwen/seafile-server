@@ -170,7 +170,7 @@ fs_callback (SeafFSManager *mgr,
 
     // If traversing the base_commit, only the fs objects need to be retained, while the block does not.
     // This is because only the fs objects are needed when merging virtual repo.
-    if (data->repo->is_virtual && data->traverse_base_commit) {
+    if (data->traverse_base_commit) {
         return TRUE;
     }
 
@@ -437,6 +437,7 @@ populate_gc_index_for_repo (GCData *data, SeafDBTrans *trans)
                                                             traverse_commit,
                                                             data,
                                                             FALSE);
+            data->traverse_base_commit = FALSE;
             seaf_virtual_repo_info_free (vinfo);
             if (!res) {
                 seaf_warning ("Failed to traverse base commit %s for virtual repo %s.\n", vinfo->base_commit, repo_id);
