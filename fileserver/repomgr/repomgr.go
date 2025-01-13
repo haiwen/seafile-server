@@ -110,6 +110,7 @@ func Get(id string) *Repo {
 
 	if originRepoID.Valid {
 		repo.VirtualInfo = new(VRepoInfo)
+		repo.VirtualInfo.RepoID = id
 		repo.VirtualInfo.OriginRepoID = originRepoID.String
 		repo.StoreID = originRepoID.String
 
@@ -234,6 +235,7 @@ func GetEx(id string) *Repo {
 	}
 	if originRepoID.Valid {
 		repo.VirtualInfo = new(VRepoInfo)
+		repo.VirtualInfo.RepoID = id
 		repo.VirtualInfo.OriginRepoID = originRepoID.String
 		repo.StoreID = originRepoID.String
 
@@ -323,7 +325,7 @@ func GetVirtualRepoInfoByOrigin(originRepo string) ([]*VRepoInfo, error) {
 	defer row.Close()
 	for row.Next() {
 		vRepoInfo := new(VRepoInfo)
-		if err := row.Scan(&vRepoInfo.OriginRepoID, &vRepoInfo.Path, &vRepoInfo.BaseCommitID); err != nil {
+		if err := row.Scan(&vRepoInfo.RepoID, &vRepoInfo.OriginRepoID, &vRepoInfo.Path, &vRepoInfo.BaseCommitID); err != nil {
 			if err != sql.ErrNoRows {
 				return nil, err
 			}
