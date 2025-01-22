@@ -79,7 +79,7 @@ func initDefaultOptions() {
 	WebTokenExpireTime = 7200
 	ClusterSharedTempFileMode = 0600
 	DefaultQuota = InfiniteQuota
-	FsCacheLimit = 2 << 30
+	FsCacheLimit = 4 << 30
 	VerifyClientBlocks = true
 	FsIdListRequestTimeout = -1
 	DBOpTimeout = 60 * time.Second
@@ -207,6 +207,10 @@ func parseFileServerSection(section *ini.Section) {
 			FsCacheLimit = fsCacheLimit * 1024 * 1024
 		}
 	}
+	// The ratio of physical memory consumption and fs objects is about 4:1,
+	// and this part of memory is generally not subject to GC. So the value is
+	// divided by 4.
+	FsCacheLimit = FsCacheLimit / 4
 	if key, err := section.GetKey("fs_id_list_request_timeout"); err == nil {
 		fsIdListRequestTimeout, err := key.Int64()
 		if err == nil {
