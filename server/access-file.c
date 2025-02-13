@@ -1555,9 +1555,18 @@ access_v2_cb(evhtp_request_t *req, void *arg)
         error_str = "Both token and cookie are not set\n";
         goto out;
     }
-    if (http_tx_manager_check_file_access (repo_id, token, cookie, dec_path, "download", ip_addr, user_agent, &user) < 0) {
-        error_str = "No permission to access file\n";
-        error_code = EVHTP_RES_FORBIDDEN;
+    int status = HTTP_OK;
+    char *err_msg = NULL;
+    if (http_tx_manager_check_file_access (repo_id, token, cookie, dec_path, "download", ip_addr, user_agent, &user, &status, &err_msg) < 0) {
+        if (status != HTTP_OK) {
+            evbuffer_add_printf(req->buffer_out, "%s\n", err_msg);
+            evhtp_send_reply(req, status);
+            error_code = EVHTP_RES_OK;
+        } else {
+            error_str = "Internal server error\n";
+            error_code = EVHTP_RES_SERVERR;
+        }
+        g_free (err_msg);
         goto out;
     }
 
