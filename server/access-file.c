@@ -1496,6 +1496,7 @@ access_v2_cb(evhtp_request_t *req, void *arg)
 {
     SeafRepo *repo = NULL;
     char *error_str = NULL;
+    char *err_msg = NULL;
     char *token = NULL;
     char *user = NULL;
     char *dec_path = NULL;
@@ -1555,9 +1556,15 @@ access_v2_cb(evhtp_request_t *req, void *arg)
         error_str = "Both token and cookie are not set\n";
         goto out;
     }
-    if (http_tx_manager_check_file_access (repo_id, token, cookie, dec_path, "download", ip_addr, user_agent, &user) < 0) {
-        error_str = "No permission to access file\n";
-        error_code = EVHTP_RES_FORBIDDEN;
+    int status = HTTP_OK;
+    if (http_tx_manager_check_file_access (repo_id, token, cookie, dec_path, "download", ip_addr, user_agent, &user, &status, &err_msg) < 0) {
+        if (status != HTTP_OK) {
+            error_str = err_msg;
+            error_code = status;
+        } else {
+            error_str = "Internal server error\n";
+            error_code = EVHTP_RES_SERVERR;
+        }
         goto out;
     }
 
@@ -1633,6 +1640,7 @@ out:
         evbuffer_add_printf(req->buffer_out, "%s\n", error_str);
         evhtp_send_reply(req, error_code);
     }
+    g_free (err_msg);
 }
 
 static int
