@@ -57,5 +57,6 @@ http_tx_manager_query_share_link_info (const char *token, const char *cookie, co
 int
 http_tx_manager_check_file_access (const char *repo_id, const char *token, const char *cookie,
                                    const char *path, const char *op, const char *ip_addr,
-                                   const char *user_agent, char **user);
+                                   const char *user_agent, char **user,
+                                   int *status, char **err_msg);
 #endif

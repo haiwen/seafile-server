@@ -706,7 +706,8 @@ out:
 int
 http_tx_manager_check_file_access (const char *repo_id, const char *token, const char *cookie,
                                    const char *path, const char *op, const char *ip_addr,
-                                   const char *user_agent, char **user)
+                                   const char *user_agent, char **user,
+                                   int *status, char **err_msg)
 {
     Connection *conn = NULL;
     char *cookie_header;
@@ -765,7 +766,9 @@ http_tx_manager_check_file_access (const char *repo_id, const char *token, const
         goto out;
     }
 
+    *status = rsp_status;
     if (rsp_status != HTTP_OK) {
+        *err_msg = parse_error_message (rsp_content, rsp_size);
         ret = -1;
         goto out;
     }

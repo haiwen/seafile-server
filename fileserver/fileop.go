@@ -372,8 +372,7 @@ func checkFileAccess(repoID, token, cookie, filePath, op, ipAddr, userAgent stri
 	status, body, err := utils.HttpCommon("POST", url, header, bytes.NewReader(msg))
 	if err != nil {
 		if status != http.StatusInternalServerError {
-			msg := "No permission to access file\n"
-			return "", &appError{nil, msg, http.StatusForbidden}
+			return "", &appError{nil, string(body), status}
 		} else {
 			err := fmt.Errorf("failed to get access token info: %v", err)
 			return "", &appError{err, "", http.StatusInternalServerError}
