@@ -1496,6 +1496,7 @@ access_v2_cb(evhtp_request_t *req, void *arg)
 {
     SeafRepo *repo = NULL;
     char *error_str = NULL;
+    char *err_msg = NULL;
     char *token = NULL;
     char *user = NULL;
     char *dec_path = NULL;
@@ -1556,17 +1557,14 @@ access_v2_cb(evhtp_request_t *req, void *arg)
         goto out;
     }
     int status = HTTP_OK;
-    char *err_msg = NULL;
     if (http_tx_manager_check_file_access (repo_id, token, cookie, dec_path, "download", ip_addr, user_agent, &user, &status, &err_msg) < 0) {
         if (status != HTTP_OK) {
-            evbuffer_add_printf(req->buffer_out, "%s\n", err_msg);
-            evhtp_send_reply(req, status);
-            error_code = EVHTP_RES_OK;
+            error_str = err_msg;
+            error_code = status;
         } else {
             error_str = "Internal server error\n";
             error_code = EVHTP_RES_SERVERR;
         }
-        g_free (err_msg);
         goto out;
     }
 
@@ -1642,6 +1640,7 @@ out:
         evbuffer_add_printf(req->buffer_out, "%s\n", error_str);
         evhtp_send_reply(req, error_code);
     }
+    g_free (err_msg);
 }
 
 static int
