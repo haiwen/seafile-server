@@ -241,7 +241,7 @@ check_tmp_file_list (GList *tmp_files, int *error_code)
     max_upload_size = seaf_cfg_manager_get_config_int64 (seaf->cfg_mgr, "fileserver",
                                                          "max_upload_size");
     if (max_upload_size > 0)
-        max_upload_size = max_upload_size * ((gint64)1 << 20);
+        max_upload_size = max_upload_size * 1000000;
     else
         max_upload_size = -1;
     
