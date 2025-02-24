@@ -28,7 +28,6 @@ var (
 	Host                   string
 	Port                   uint32
 	MaxUploadSize          uint64
-	MaxDownloadDirSize     uint64
 	FsIdListRequestTimeout int64
 	// Block size for indexing uploaded files
 	FixedBlockSize uint64
@@ -73,7 +72,6 @@ var (
 func initDefaultOptions() {
 	Host = "0.0.0.0"
 	Port = 8082
-	MaxDownloadDirSize = 100 * (1 << 20)
 	FixedBlockSize = 1 << 23
 	MaxIndexingThreads = 1
 	WebTokenExpireTime = 7200
@@ -161,7 +159,7 @@ func parseFileServerSection(section *ini.Section) {
 	if key, err := section.GetKey("max_upload_size"); err == nil {
 		size, err := key.Uint()
 		if err == nil {
-			MaxUploadSize = uint64(size) * (1 << 20)
+			MaxUploadSize = uint64(size) * 1000000
 		}
 	}
 	if key, err := section.GetKey("max_indexing_threads"); err == nil {
