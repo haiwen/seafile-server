@@ -69,15 +69,15 @@ MAX_UPLOAD_FILE_SIZE = None # Defaults to no limit
 try:
     max_upload_size_mb = int(get_fileserver_option('max_upload_size', 0))
     if max_upload_size_mb > 0:
-        MAX_UPLOAD_FILE_SIZE = max_upload_size_mb * (2 ** 20)
+        MAX_UPLOAD_FILE_SIZE = max_upload_size_mb * 1000000
 except ValueError:
     pass
 
-MAX_DOWNLOAD_DIR_SIZE = 100 * (2 ** 20) # Default max size of a downloadable dir
+MAX_DOWNLOAD_DIR_SIZE = 100 * 1000000 # Default max size of a downloadable dir
 try:
     max_download_dir_size_mb = int(get_fileserver_option('max_download_dir_size', 0))
     if max_download_dir_size_mb > 0:
-        MAX_DOWNLOAD_DIR_SIZE = max_download_dir_size_mb * (2 ** 20)
+        MAX_DOWNLOAD_DIR_SIZE = max_download_dir_size_mb * 1000000
 except ValueError:
     pass
 
