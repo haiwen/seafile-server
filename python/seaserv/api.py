@@ -996,7 +996,7 @@ class CcnetAPI(object):
         """
         return ccnet_threaded_rpc.update_emailuser(source, user_id, password, is_staff, is_active)
 
-    def update_role_emailuser(self, email, role):
+    def update_role_emailuser(self, email, role, is_manual_set=True):
         return ccnet_threaded_rpc.update_role_emailuser(email, role)
 
     def get_superusers(self):
