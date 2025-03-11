@@ -79,3 +79,36 @@ def test_pwd_hash(rpc, enc_version, algo, params):
     assert api.is_password_set(repo.id, USER) == 0
 
     api.remove_repo(repo_id)
+
+@pytest.mark.parametrize('enc_version, algo, params',
+                         [(2, 'pbkdf2_sha256', '1000'), (3, 'pbkdf2_sha256', '1000'), ( 4, 'pbkdf2_sha256', '1000'),
+                         (2, 'argon2id', '2,102400,8'), (3, 'argon2id', '2,102400,8'), (4, 'argon2id', '2,102400,8')])
+def test_upgrade_pwd_hash(enc_version, algo, params):
+    test_repo_name = 'test_enc_repo'
+    test_repo_desc = 'test_enc_repo'
+    test_repo_passwd = 'test_enc_repo'
+    repo_id = api.create_repo(test_repo_name, test_repo_desc, USER,
+                              test_repo_passwd, enc_version)
+    assert repo_id
+
+    repo = api.get_repo(repo_id)
+    assert repo
+    assert repo.enc_version == enc_version
+    assert len(repo.random_key) == 96
+    if enc_version > 2:
+        assert len(repo.salt) == 64
+
+    api.upgrade_repo_enc_algorithm (repo.repo_id, USER, algo, params) == 0
+
+    repo = api.get_repo(repo_id)
+    assert repo.pwd_hash_algo == algo;
+    assert repo.pwd_hash_params == params;
+    assert repo.pwd_hash
+
+    assert api.set_passwd(repo.id, USER, test_repo_passwd) == 0
+    assert api.get_decrypt_key(repo.id, USER)
+    assert api.is_password_set(repo.id, USER)
+    assert api.unset_passwd(repo.id, USER) == 0
+    assert api.is_password_set(repo.id, USER) == 0
+
+    api.remove_repo(repo_id)
