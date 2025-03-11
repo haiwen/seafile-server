@@ -121,6 +121,11 @@ static void start_rpc_service (const char *seafile_dir,
                                      searpc_signature_int__string_string_string_string());
 
     searpc_server_register_function ("seafserv-threaded-rpcserver",
+                                     seafile_upgrade_repo_enc_algorithm,
+                                     "seafile_upgrade_repo_enc_algorithm",
+                                     searpc_signature_int__string_string_string_string_string());
+
+    searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_is_repo_owner,
                                      "seafile_is_repo_owner",
                                      searpc_signature_int__string_string());

@@ -640,6 +640,12 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
         pass
     change_repo_passwd = seafile_change_repo_passwd
 
+    # Upgrade repo enc algorithm
+    @searpc_func("int", ["string", "string", "string", "string", "string"])
+    def seafile_upgrade_repo_enc_algorithm (repo_id, user, passwd, pwd_hash_algo, pwd_hash_params):
+        pass
+    upgrade_repo_enc_algorithm = seafile_upgrade_repo_enc_algorithm
+
     # Clean trash
     @searpc_func("int", ["string", "int"])
     def clean_up_repo_history(repo_id, keep_days):

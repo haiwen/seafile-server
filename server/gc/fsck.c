@@ -281,77 +281,6 @@ out:
     return dir_id;
 }
 
-static gboolean
-collect_token_list (SeafDBRow *row, void *data)
-{
-    GList **p_tokens = data;
-    const char *token;
-
-    token = seaf_db_row_get_column_text (row, 0);
-    *p_tokens = g_list_prepend (*p_tokens, g_strdup(token));
-
-    return TRUE;
-}
-
-int
-delete_repo_tokens (SeafRepo *repo)
-{
-    int ret = 0;
-    const char *template;
-    GList *token_list = NULL;
-    GList *ptr;
-    GString *token_list_str = g_string_new ("");
-    GString *sql = g_string_new ("");
-    int rc;
-
-    template = "SELECT u.token FROM RepoUserToken as u WHERE u.repo_id=?";
-    rc = seaf_db_statement_foreach_row (seaf->db, template,
-                                        collect_token_list, &token_list,
-                                        1, "string", repo->id);
-    if (rc < 0) {
-        goto out;
-    }
-
-    if (rc == 0)
-        goto out;
-
-    for (ptr = token_list; ptr; ptr = ptr->next) {
-        const char *token = (char *)ptr->data;
-        if (token_list_str->len == 0)
-            g_string_append_printf (token_list_str, "'%s'", token);
-        else
-            g_string_append_printf (token_list_str, ",'%s'", token);
-    }
-
-    /* Note that there is a size limit on sql query. In MySQL it's 1MB by default.
-     * Normally the token_list won't be that long.
-     */
-    g_string_printf (sql, "DELETE FROM RepoUserToken WHERE token in (%s)",
-                     token_list_str->str);
-    rc = seaf_db_statement_query (seaf->db, sql->str, 0);
-    if (rc < 0) {
-        goto out;
-    }
-
-    g_string_printf (sql, "DELETE FROM RepoTokenPeerInfo WHERE token in (%s)",
-                     token_list_str->str);
-    rc = seaf_db_statement_query (seaf->db, sql->str, 0);
-    if (rc < 0) {
-        goto out;
-    }
-
-out:
-    g_string_free (token_list_str, TRUE);
-    g_string_free (sql, TRUE);
-    g_list_free_full (token_list, (GDestroyNotify)g_free);
-
-    if (rc < 0) {
-        ret = -1;
-    }
-
-    return ret;
-}
-
 static char *
 gen_repair_commit_desc (GList *repaired_files, GList *repaired_folders)
 {
@@ -385,7 +314,7 @@ static void
 reset_commit_to_repair (SeafRepo *repo, SeafCommit *parent, char *new_root_id,
                         GList *repaired_files, GList *repaired_folders)
 {
-    if (delete_repo_tokens (repo) < 0) {
+    if (seaf_delete_repo_tokens (repo) < 0) {
         seaf_warning ("Failed to delete repo sync tokens, abort repair.\n");
         return;
     }

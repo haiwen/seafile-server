@@ -150,6 +150,14 @@ seafile_change_repo_passwd (const char *repo_id,
                             const char *user,
                             GError **error);
 
+int
+seafile_upgrade_repo_enc_algorithm (const char *repo_id,
+                                    const char *user,
+                                    const char *passwd,
+                                    const char *pwd_hash_algo,
+                                    const char *pwd_hash_params,
+                                    GError **error);
+
 /**
  * seafile_repo_size:
  * 

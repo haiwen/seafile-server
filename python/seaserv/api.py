@@ -72,6 +72,10 @@ class SeafileAPI(object):
     def change_repo_passwd(self, repo_id, old_passwd, new_passwd, user):
         return seafserv_threaded_rpc.change_repo_passwd(repo_id, old_passwd,
                                                         new_passwd, user)
+
+    def upgrade_repo_enc_algorithm (self, repo_id, user, passwd, pwd_hash_algo, pwd_hash_params):
+        return seafserv_threaded_rpc.upgrade_repo_enc_algorithm (repo_id, user, passwd,
+                                                                 pwd_hash_algo, pwd_hash_params)
     def check_passwd(self, repo_id, magic):
         return seafserv_threaded_rpc.check_passwd(repo_id, magic)
 
