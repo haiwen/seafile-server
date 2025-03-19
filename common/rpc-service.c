@@ -1163,12 +1163,12 @@ set_pwd_hash_to_commit (SeafCommit *commit,
 }
 
 int
-seafile_upgrade_repo_enc_algorithm (const char *repo_id,
-                                    const char *user,
-                                    const char *passwd,
-                                    const char *pwd_hash_algo,
-                                    const char *pwd_hash_params,
-                                    GError **error)
+seafile_upgrade_repo_pwd_hash_algorithm (const char *repo_id,
+                                         const char *user,
+                                         const char *passwd,
+                                         const char *pwd_hash_algo,
+                                         const char *pwd_hash_params,
+                                         GError **error)
 {
     SeafRepo *repo = NULL;
     SeafCommit *commit = NULL, *parent = NULL;

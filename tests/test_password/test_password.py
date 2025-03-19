@@ -98,7 +98,7 @@ def test_upgrade_pwd_hash(enc_version, algo, params):
     if enc_version > 2:
         assert len(repo.salt) == 64
 
-    api.upgrade_repo_enc_algorithm (repo.repo_id, USER, test_repo_passwd, algo, params) == 0
+    api.upgrade_repo_pwd_hash_algorithm (repo.repo_id, USER, test_repo_passwd, algo, params) == 0
 
     repo = api.get_repo(repo_id)
     assert repo.pwd_hash_algo == algo;
