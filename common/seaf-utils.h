@@ -28,4 +28,7 @@ seaf_parse_auth_token (const char *auth_token);
 void
 split_filename (const char *filename, char **name, char **ext);
 
+int
+seaf_delete_repo_tokens (SeafRepo *repo);
+
 #endif
