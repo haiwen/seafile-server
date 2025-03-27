@@ -27,7 +27,7 @@ def _load_path_from_env(key, check=True):
         print("Loading %s from %s" % (key, v))
     return os.path.normpath(os.path.expanduser(v))
 
-CCNET_CONF_PATH = _load_path_from_env('CCNET_CONF_DIR')
+CCNET_CONF_PATH = _load_path_from_env('CCNET_CONF_DIR', check=False)
 SEAFILE_CONF_DIR = _load_path_from_env('SEAFILE_CONF_DIR')
 SEAFILE_CENTRAL_CONF_DIR = _load_path_from_env('SEAFILE_CENTRAL_CONF_DIR', check=False)
 SEAFILE_RPC_PIPE_PATH = _load_path_from_env ("SEAFILE_RPC_PIPE_PATH", check=False)
