@@ -12,7 +12,7 @@ from pysearpc import SearpcError
 
 _DEBUG = 'SEAFILE_DEBUG' in os.environ
 
-ENVIRONMENT_VARIABLES = ('CCNET_CONF_DIR', 'SEAFILE_CONF_DIR')
+ENVIRONMENT_VARIABLES = ('SEAFILE_CONF_DIR', )
 
 # Used to fix bug in some rpc calls, will be removed in near future.
 MAX_INT = 2147483647
@@ -27,7 +27,6 @@ def _load_path_from_env(key, check=True):
         print("Loading %s from %s" % (key, v))
     return os.path.normpath(os.path.expanduser(v))
 
-CCNET_CONF_PATH = _load_path_from_env('CCNET_CONF_DIR', check=False)
 SEAFILE_CONF_DIR = _load_path_from_env('SEAFILE_CONF_DIR')
 SEAFILE_CENTRAL_CONF_DIR = _load_path_from_env('SEAFILE_CENTRAL_CONF_DIR', check=False)
 SEAFILE_RPC_PIPE_PATH = _load_path_from_env ("SEAFILE_RPC_PIPE_PATH", check=False)
@@ -40,13 +39,6 @@ ccnet_threaded_rpc = seafserv_threaded_rpc
 # load ccnet server addr and port from ccnet.conf.
 # 'addr:port' is used when downloading a repo
 config = configparser.ConfigParser()
-config.read(os.path.join(SEAFILE_CENTRAL_CONF_DIR if SEAFILE_CENTRAL_CONF_DIR else CCNET_CONF_PATH,
-                         'ccnet.conf'))
-
-if config.has_option('LDAP', 'HOST'):
-    LDAP_HOST = config.get('LDAP', 'HOST')
-else:
-    LDAP_HOST = None
 
 config.read(os.path.join(SEAFILE_CENTRAL_CONF_DIR if SEAFILE_CENTRAL_CONF_DIR else SEAFILE_CONF_DIR,
                          'seafile.conf'))
