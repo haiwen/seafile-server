@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"html"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -469,7 +469,7 @@ func recvFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		err := fmt.Errorf("Failed to get repo store id by repo id %s: %v", repoID, err)
 		return &appError{err, "", http.StatusInternalServerError}
 	}
-	fsBuf, err := ioutil.ReadAll(r.Body)
+	fsBuf, err := io.ReadAll(r.Body)
 	if err != nil {
 		return &appError{nil, err.Error(), http.StatusBadRequest}
 	}
@@ -950,7 +950,7 @@ func putCommitCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return appErr
 	}
 
-	data, err := ioutil.ReadAll(r.Body)
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		return &appError{nil, err.Error(), http.StatusBadRequest}
 	}

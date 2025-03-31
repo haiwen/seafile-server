@@ -30,6 +30,7 @@
 #include "index-blocks-mgr.h"
 #include "notif-mgr.h"
 #include "http-tx-mgr.h"
+#include "metric-mgr.h"
 
 #include <searpc-client.h>
 
@@ -94,6 +95,9 @@ struct _SeafileSession {
     NotifManager *notif_mgr;
     char         *notif_server_private_key;
     char         *notif_url;
+
+    // For metric
+    SeafMetricManager *metric_mgr; 
 
     gboolean            log_to_stdout;
 

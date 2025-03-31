@@ -322,6 +322,10 @@ seafile_session_new(const char *central_config_dir,
         }
     }
 
+    session->metric_mgr = seaf_metric_manager_new (session);
+    if (!session->metric_mgr)
+        goto onerror;
+
     return session;
 
 onerror:
@@ -508,6 +512,11 @@ seafile_session_start (SeafileSession *session)
         seaf_warning ("Failed to start http server thread, please use go fileserver.\n");
         return -1;
 #endif
+    }
+
+    if (seaf_metric_manager_start (session->metric_mgr) < 0) {
+        seaf_warning ("Failed to start metric manager.\n");
+        return -1;
     }
 
     return 0;

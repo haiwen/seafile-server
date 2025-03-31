@@ -54,6 +54,15 @@ var (
 	// quota options
 	DefaultQuota int64
 
+	// redis options
+	HasRedisOptions bool
+	RedisHost       string
+	RedisPasswd     string
+	RedisPort       uint32
+	RedisExpiry     uint32
+	RedisMaxConn    uint32
+	RedisTimeout    time.Duration
+
 	// Profile password
 	ProfilePassword string
 	EnableProfiling bool
@@ -81,6 +90,11 @@ func initDefaultOptions() {
 	VerifyClientBlocks = true
 	FsIdListRequestTimeout = -1
 	DBOpTimeout = 60 * time.Second
+	RedisHost = "127.0.0.1"
+	RedisPort = 6379
+	RedisExpiry = 24 * 3600
+	RedisMaxConn = 100
+	RedisTimeout = 1 * time.Second
 }
 
 func LoadFileServerOptions(centralDir string) {
@@ -139,6 +153,8 @@ func LoadFileServerOptions(centralDir string) {
 			DefaultQuota = parseQuota(quotaStr)
 		}
 	}
+
+	loadCacheOptionFromEnv()
 
 	GroupTableName = os.Getenv("SEAFILE_MYSQL_DB_GROUP_TABLE_NAME")
 	if GroupTableName == "" {
@@ -260,6 +276,45 @@ func parseQuota(quotaStr string) int64 {
 	}
 
 	return quota
+}
+
+func loadCacheOptionFromEnv() {
+	cacheProvider := os.Getenv("CACHE_PROVIDER")
+	if cacheProvider != "redis" {
+		return
+	}
+
+	HasRedisOptions = true
+
+	redisHost := os.Getenv("REDIS_HOST")
+	if redisHost != "" {
+		RedisHost = redisHost
+	}
+	redisPort := os.Getenv("REDIS_PORT")
+	if redisPort != "" {
+		port, err := strconv.ParseUint(redisPort, 10, 32)
+		if err != nil {
+			RedisPort = uint32(port)
+		}
+	}
+	redisPasswd := os.Getenv("REDIS_PASSWORD")
+	if redisPasswd != "" {
+		RedisPasswd = redisPasswd
+	}
+	redisMaxConn := os.Getenv("REDIS_MAX_CONNECTIONS")
+	if redisMaxConn != "" {
+		maxConn, err := strconv.ParseUint(redisMaxConn, 10, 32)
+		if err != nil {
+			RedisMaxConn = uint32(maxConn)
+		}
+	}
+	redisExpiry := os.Getenv("REDIS_EXPIRY")
+	if redisExpiry != "" {
+		expiry, err := strconv.ParseUint(redisExpiry, 10, 32)
+		if err != nil {
+			RedisExpiry = uint32(expiry)
+		}
+	}
 }
 
 func LoadSeahubConfig() error {

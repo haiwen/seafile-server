@@ -4,6 +4,8 @@
 #ifdef HAVE_EVHTP
 #include <glib.h>
 
+#include "metric-mgr.h"
+
 struct _SeafileSession;
 
 struct _HttpServer;
@@ -23,6 +25,12 @@ struct _HttpServerStruct {
     gboolean verify_client_blocks;
 };
 
+typedef struct RequestInfo {
+    struct timeval start;
+    char *url_path;
+    char *method;
+} RequestInfo;
+
 typedef struct _HttpServerStruct HttpServerStruct;
 
 HttpServerStruct *
@@ -40,6 +48,7 @@ send_statistic_msg (const char *repo_id, char *user, char *operation, guint64 by
 
 char *
 get_client_ip_addr (void *data);
+
 #endif
 
 #endif

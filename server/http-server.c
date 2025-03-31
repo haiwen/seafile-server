@@ -3005,38 +3005,82 @@ out:
     json_decref (repo_array);
 }
 
+static evhtp_res
+http_request_finish_cb (evhtp_request_t *req, void *arg)
+{
+    RequestInfo *info = arg;
+    struct timeval end, intv;
+
+    seaf_metric_manager_in_flight_request_dec (seaf->metric_mgr);
+
+    if (!info)
+        return EVHTP_RES_OK;
+
+    g_free (info->url_path);
+    g_free (info->method);
+    g_free (info);
+    return EVHTP_RES_OK;
+}
+
+static evhtp_res
+http_request_start_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
+{
+    htp_method method = evhtp_request_get_method (req);
+    const char *method_str = htparser_get_methodstr_m (method);
+    RequestInfo *info = NULL;
+    info = g_new0 (RequestInfo, 1);
+    info->url_path = g_strdup (req->uri->path->full);
+    info->method = g_strdup (method_str);
+
+    gettimeofday (&info->start, NULL);
+
+    seaf_metric_manager_in_flight_request_inc (seaf->metric_mgr);
+    evhtp_set_hook (&req->hooks, evhtp_hook_on_request_fini, http_request_finish_cb, info);
+    req->cbarg = info;
+
+    return EVHTP_RES_OK;
+}
+
 static void
 http_request_init (HttpServerStruct *server)
 {
     HttpServer *priv = server->priv;
+    evhtp_callback_t *cb;
 
-    evhtp_set_cb (priv->evhtp,
+    cb = evhtp_set_cb (priv->evhtp,
                   GET_PROTO_PATH, get_protocol_cb,
                   NULL);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_CHECK_QUOTA_REGEX, get_check_quota_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         OP_PERM_CHECK_REGEX, get_check_permission_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         HEAD_COMMIT_OPER_REGEX, head_commit_oper_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_HEAD_COMMITS_MULTI_REGEX, head_commits_multi_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         COMMIT_OPER_REGEX, commit_oper_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_FS_OBJ_ID_REGEX, get_fs_obj_id_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     // evhtp_set_regex_cb (priv->evhtp,
     //                     START_FS_OBJ_ID_REGEX, start_fs_obj_id_cb,
@@ -3050,37 +3094,45 @@ http_request_init (HttpServerStruct *server)
     //                     RETRIEVE_FS_OBJ_ID_REGEX, retrieve_fs_obj_id_cb,
     //                     priv);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         BLOCK_OPER_REGEX, block_oper_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         POST_CHECK_FS_REGEX, post_check_fs_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         POST_CHECK_BLOCK_REGEX, post_check_block_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         POST_RECV_FS_REGEX, post_recv_fs_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         POST_PACK_FS_REGEX, post_pack_fs_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_BLOCK_MAP_REGEX, get_block_map_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_JWT_TOKEN_REGEX, get_jwt_token_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
-    evhtp_set_regex_cb (priv->evhtp,
+    cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_ACCESSIBLE_REPO_LIST_REGEX, get_accessible_repo_list_cb,
                         priv);
+    evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     /* Web access file */
     access_file_init (priv->evhtp);

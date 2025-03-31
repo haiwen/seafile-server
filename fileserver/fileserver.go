@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -23,12 +22,12 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/blockmgr"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
+	"github.com/haiwen/seafile-server/fileserver/metrics"
 	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/searpc"
 	"github.com/haiwen/seafile-server/fileserver/share"
 	"github.com/haiwen/seafile-server/fileserver/utils"
-	_ "github.com/mattn/go-sqlite3"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
 
@@ -255,7 +254,7 @@ func loadDBOptionFromFile() (*DBOption, error) {
 // registerCA registers CA to verify server cert.
 func registerCA(capath string) {
 	rootCertPool := x509.NewCertPool()
-	pem, err := ioutil.ReadFile(capath)
+	pem, err := os.ReadFile(capath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -415,6 +414,8 @@ func main() {
 
 	initUpload()
 
+	metrics.Init()
+
 	router := newHTTPRouter()
 
 	go handleSignals()
@@ -436,6 +437,7 @@ func handleSignals() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-signalChan
+	metrics.Stop()
 	removePidfile(pidFilePath)
 	os.Exit(0)
 }
@@ -541,6 +543,10 @@ func newHTTPRouter() *mux.Router {
 	r.Handle("/debug/pprof/goroutine", &profileHandler{pprof.Handler("goroutine")})
 	r.Handle("/debug/pprof/threadcreate", &profileHandler{pprof.Handler("threadcreate")})
 	r.Handle("/debug/pprof/trace", &traceHandler{})
+
+	if option.HasRedisOptions {
+		r.Use(metrics.MetricMiddleware)
+	}
 	return r
 }
 
