@@ -1839,6 +1839,8 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
     RecvFSM *fsm = arg;
     GList *ptr;
 
+    seaf_metric_manager_in_flight_request_dec (seaf->metric_mgr);
+
     if (!fsm)
         return EVHTP_RES_OK;
 
@@ -2634,6 +2636,8 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
         g_hash_table_insert (upload_progress, g_strdup(progress_id), progress);
         pthread_mutex_unlock (&pg_lock);
     }
+
+    seaf_metric_manager_in_flight_request_inc (seaf->metric_mgr);
 
     /* Set up per-request hooks, so that we can read file data piece by piece. */
     evhtp_set_hook (&req->hooks, evhtp_hook_on_read, upload_read_cb, fsm);

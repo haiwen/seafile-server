@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"mime"
 	"mime/multipart"
 	"net"
@@ -1380,7 +1379,7 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	tmpFile, err := repomgr.GetUploadTmpFile(repoID, filePath)
 	if err != nil || tmpFile == "" {
 		tmpDir := filepath.Join(httpTempDir, "cluster-shared")
-		f, err = ioutil.TempFile(tmpDir, filename)
+		f, err = os.CreateTemp(tmpDir, filename)
 		if err != nil {
 			return err
 		}

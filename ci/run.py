@@ -205,20 +205,44 @@ class Libjwt(Project):
         for cmd in cmds:
             shell(cmd)
 
+class Libhiredis(Project):
+    def __init__(self):
+        super(Libhiredis, self).__init__('hiredis')
+
+    def branch(self):
+        return 'v1.1.0'
+
+    @property
+    def url(self):
+        return 'https://github.com/redis/hiredis.git'
+
+    @chdir
+    def compile_and_install(self):
+        cmds = [
+            'sudo make',
+            'sudo make install',
+        ]
+
+        for cmd in cmds:
+            shell(cmd)
+
 def fetch_and_build():
     libsearpc = Libsearpc()
     libjwt = Libjwt()
+    libhiredis = Libhiredis()
     libevhtp = Libevhtp()
     ccnet = CcnetServer()
     seafile = SeafileServer()
 
     libsearpc.clone()
     libjwt.clone()
+    libhiredis.clone()
     libevhtp.clone()
     ccnet.clone()
 
     libsearpc.compile_and_install()
     libjwt.compile_and_install()
+    libhiredis.compile_and_install()
     libevhtp.compile_and_install()
     seafile.compile_and_install()
 
