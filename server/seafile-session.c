@@ -131,6 +131,8 @@ load_config (SeafileSession *session, const char *config_file_path)
                                                   "general", "cloud_mode",
                                                   NULL);
 
+    session->obj_cache = objcache_new ();
+
 
     notif_enabled = g_key_file_get_boolean (config,
                                             "notification", "enabled",

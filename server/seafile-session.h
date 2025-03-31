@@ -30,6 +30,7 @@
 #include "index-blocks-mgr.h"
 #include "notif-mgr.h"
 #include "http-tx-mgr.h"
+#include "obj-cache.h"
 #include "metric-mgr.h"
 
 #include <searpc-client.h>
@@ -98,6 +99,8 @@ struct _SeafileSession {
 
     // For metric
     SeafMetricManager *metric_mgr; 
+
+    ObjCache *obj_cache;
 
     gboolean            log_to_stdout;
 

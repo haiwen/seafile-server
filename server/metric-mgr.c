@@ -31,7 +31,7 @@ seaf_metric_manager_new (struct _SeafileSession *seaf)
     mgr->seaf = seaf;
 
     // redis cache
-    mgr->priv->cache = objcache_new ();
+    mgr->priv->cache = seaf->obj_cache;
 
     return mgr;
 }
