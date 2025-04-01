@@ -42,7 +42,7 @@ load_cache_option_from_env (CacheOption *option)
     redis_max_conn = g_getenv("REDIS_MAX_CONNECTIONS");
     redis_expiry = g_getenv("REDIS_EXPIRY");
 
-    if (!cache_provider) {
+    if (!cache_provider || g_strcmp0 (cache_provider, "") == 0) {
         return;
     }
 
@@ -50,21 +50,21 @@ load_cache_option_from_env (CacheOption *option)
         g_free (option->cache_provider);
         option->cache_provider = g_strdup (cache_provider);
     }
-    if (redis_host) {
+    if (redis_host && g_strcmp0(redis_host, "") != 0) {
         g_free (option->redis_host);
         option->redis_host = g_strdup (redis_host);
     }
-    if (redis_port) {
+    if (redis_port && g_strcmp0(redis_port, "") != 0) {
         option->redis_port = atoi (redis_port);
     }
-    if (redis_passwd) {
+    if (redis_passwd && g_strcmp0 (redis_passwd, "") != 0) {
         g_free (option->redis_passwd);
         option->redis_passwd = g_strdup (redis_passwd);
     }
-    if (redis_max_conn) {
+    if (redis_max_conn && g_strcmp0 (redis_max_conn, "") != 0) {
         option->redis_max_connections = atoi (redis_max_conn);
     }
-    if (redis_expiry) {
+    if (redis_expiry && g_strcmp0 (redis_expiry, "") != 0) {
         option->redis_expiry = atoi (redis_expiry);
     }
 }
