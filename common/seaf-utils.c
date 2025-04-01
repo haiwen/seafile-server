@@ -100,26 +100,26 @@ load_db_option_from_env (DBOption *option)
     env_ccnet_db = g_getenv("SEAFILE_MYSQL_DB_CCNET_DB_NAME");
     env_seafile_db = g_getenv("SEAFILE_MYSQL_DB_SEAFILE_DB_NAME");
 
-    if (env_user) {
+    if (env_user && g_strcmp0 (env_user, "") != 0) {
         g_free (option->user);
         option->user = g_strdup (env_user);
     }
-    if (env_passwd) {
+    if (env_passwd && g_strcmp0 (env_passwd, "") != 0) {
         g_free (option->passwd);
         option->passwd = g_strdup (env_passwd);
     }
-    if (env_host) {
+    if (env_host && g_strcmp0 (env_host, "") != 0) {
         g_free (option->host);
         option->host = g_strdup (env_host);
     }
-    if (env_ccnet_db) {
+    if (env_ccnet_db && g_strcmp0 (env_ccnet_db, "") != 0) {
         g_free (option->ccnet_db_name);
         option->ccnet_db_name = g_strdup (env_ccnet_db);
     } else if (!option->ccnet_db_name) {
         option->ccnet_db_name = g_strdup ("ccnet_db");
         seaf_message ("Failed to read SEAFILE_MYSQL_DB_CCNET_DB_NAME, use ccnet_db by default");
     }
-    if (env_seafile_db) {
+    if (env_seafile_db && g_strcmp0 (env_seafile_db, "") != 0) {
         g_free (option->seafile_db_name);
         option->seafile_db_name = g_strdup (env_seafile_db);
     } else if (!option->seafile_db_name) {
