@@ -173,7 +173,7 @@ class Libevhtp(Project):
     @chdir
     def compile_and_install(self):
         cmds = [
-            'cmake -DEVHTP_DISABLE_SSL=ON -DEVHTP_BUILD_SHARED=OFF',
+            'cmake -DEVHTP_DISABLE_SSL=ON -DEVHTP_BUILD_SHARED=OFF .',
             'make',
             'sudo make install',
             'sudo ldconfig',
