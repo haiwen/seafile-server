@@ -738,7 +738,7 @@ get_check_permission_cb (evhtp_request_t *req, void *arg)
 
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     char *repo_id = parts[1];
-    HttpServer *htp_server = (HttpServer *)arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char *username = NULL;
     char *ip = NULL;
     const char *token;
@@ -828,7 +828,7 @@ get_protocol_cb (evhtp_request_t *req, void *arg)
 static void
 get_check_quota_cb (evhtp_request_t *req, void *arg)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     char *repo_id = parts[1];
 
@@ -886,7 +886,7 @@ get_branch (SeafDBRow *row, void *vid)
 static void
 get_head_commit_cb (evhtp_request_t *req, void *arg)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     char *repo_id = parts[1];
     gboolean db_err = FALSE, exists = TRUE;
@@ -1272,7 +1272,7 @@ include_invalid_path (SeafCommit *base_commit, SeafCommit *new_commit) {
 static void
 put_update_branch_cb (evhtp_request_t *req, void *arg)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts;
     char *repo_id;
     char *username = NULL;
@@ -1501,7 +1501,7 @@ out:
 static void
 get_commit_info_cb (evhtp_request_t *req, void *arg)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     char *repo_id = parts[1];
     char *commit_id = parts[3];
@@ -1565,7 +1565,7 @@ save_last_gc_id (const char *repo_id, const char *token)
 static void
 put_commit_cb (evhtp_request_t *req, void *arg)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     char *repo_id = parts[1];
     char *commit_id = parts[3];
@@ -1753,7 +1753,7 @@ out:
 static void
 get_fs_obj_id_cb (evhtp_request_t *req, void *arg)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts;
     char *repo_id;
     SeafRepo *repo = NULL;
@@ -1918,7 +1918,7 @@ out:
 static void
 start_fs_obj_id_cb (evhtp_request_t *req, void *arg)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts;
     char *repo_id;
     gboolean dir_only = FALSE;
@@ -2003,7 +2003,7 @@ query_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     CalObjResult *result = NULL;
     char **parts;
     char *repo_id = NULL;
-    HttpServer *htp_server = (HttpServer *)arg;
+    HttpServer *htp_server = seaf->http_server->priv;
 
     parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     repo_id = parts[1];
@@ -2060,7 +2060,7 @@ retrieve_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     char *repo_id = NULL;
     GList *list = NULL;
     CalObjResult *result = NULL;
-    HttpServer *htp_server = (HttpServer *)arg;
+    HttpServer *htp_server = seaf->http_server->priv;
 
     parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     repo_id = parts[1];
@@ -2126,7 +2126,7 @@ get_block_cb (evhtp_request_t *req, void *arg)
     const char *repo_id = NULL;
     char *block_id = NULL;
     char *store_id = NULL;
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     BlockMetadata *blk_meta = NULL;
     char *username = NULL;
 
@@ -2207,7 +2207,7 @@ put_send_block_cb (evhtp_request_t *req, void *arg)
     char *block_id = NULL;
     char *store_id = NULL;
     char *username = NULL;
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts = NULL;
     void *blk_con = NULL;
 
@@ -2310,7 +2310,7 @@ block_oper_cb (evhtp_request_t *req, void *arg)
 static void
 post_check_exist_cb (evhtp_request_t *req, void *arg, CheckExistType type)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     char *repo_id = parts[1];
     char *store_id = NULL;
@@ -2415,7 +2415,7 @@ post_check_block_cb (evhtp_request_t *req, void *arg)
 static void
 post_recv_fs_cb (evhtp_request_t *req, void *arg)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     const char *repo_id = parts[1];
     char *store_id = NULL;
@@ -2512,7 +2512,7 @@ out:
 static void
 post_pack_fs_cb (evhtp_request_t *req, void *arg)
 {
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     char **parts = g_strsplit (req->uri->path->full + 1, "/", 0);
     const char *repo_id = parts[1];
     char *store_id = NULL;
@@ -2616,7 +2616,7 @@ get_block_map_cb (evhtp_request_t *req, void *arg)
     const char *repo_id = NULL;
     char *file_id = NULL;
     char *store_id = NULL;
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     Seafile *file = NULL;
     char *block_id;
     BlockMetadata *blk_meta = NULL;
@@ -2689,7 +2689,7 @@ static void
 get_jwt_token_cb (evhtp_request_t *req, void *arg)
 {
     const char *repo_id = NULL;
-    HttpServer *htp_server = arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     json_t *obj = NULL;
     char *data = NULL;
     char *username = NULL;
@@ -2869,7 +2869,7 @@ static void
 get_accessible_repo_list_cb (evhtp_request_t *req, void *arg)
 {
     GList *iter;
-    HttpServer *htp_server = (HttpServer *)arg;
+    HttpServer *htp_server = seaf->http_server->priv;
     SeafRepo *repo = NULL;
     char *user = NULL;
     GList *repos = NULL;
@@ -3054,32 +3054,32 @@ http_request_init (HttpServerStruct *server)
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_CHECK_QUOTA_REGEX, get_check_quota_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         OP_PERM_CHECK_REGEX, get_check_permission_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         HEAD_COMMIT_OPER_REGEX, head_commit_oper_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_HEAD_COMMITS_MULTI_REGEX, head_commits_multi_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         COMMIT_OPER_REGEX, commit_oper_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_FS_OBJ_ID_REGEX, get_fs_obj_id_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     // evhtp_set_regex_cb (priv->evhtp,
@@ -3096,42 +3096,42 @@ http_request_init (HttpServerStruct *server)
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         BLOCK_OPER_REGEX, block_oper_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         POST_CHECK_FS_REGEX, post_check_fs_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         POST_CHECK_BLOCK_REGEX, post_check_block_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         POST_RECV_FS_REGEX, post_recv_fs_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         POST_PACK_FS_REGEX, post_pack_fs_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_BLOCK_MAP_REGEX, get_block_map_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_JWT_TOKEN_REGEX, get_jwt_token_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     cb = evhtp_set_regex_cb (priv->evhtp,
                         GET_ACCESSIBLE_REPO_LIST_REGEX, get_accessible_repo_list_cb,
-                        priv);
+                        NULL);
     evhtp_set_hook(&cb->hooks, evhtp_hook_on_headers, http_request_start_cb, NULL);
 
     /* Web access file */
