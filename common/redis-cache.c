@@ -355,7 +355,7 @@ redis_cache_publish (ObjCache *cache, const char *channel, const char *msg)
 
     reply = redisCommand(conn->ac, "PUBLISH %s %s", channel, msg);
     if (!reply) {
-        seaf_warning ("Failed to publish metrics to redis channel.\n");
+        seaf_warning ("Failed to publish message to redis channel %s.\n", channel);
         ret = -1;
         conn->release = TRUE;
         goto out;
@@ -364,7 +364,45 @@ redis_cache_publish (ObjCache *cache, const char *channel, const char *msg)
         reply->integer < 0) {
         if (reply->type == REDIS_REPLY_ERROR) {
             conn->release = TRUE;
-            seaf_warning ("Failed to publish metrics to redis channel.\n");
+            seaf_warning ("Failed to publish message to redis channel %s.\n", channel);
+        }
+        ret = -1;
+    }
+
+out:
+    freeReplyObject(reply);
+    redis_connection_pool_return_connection (pool, conn);
+
+    return ret;
+}
+
+int
+redis_cache_push (ObjCache *cache, const char *list, const char *msg)
+{
+    RedisConnection *conn;
+    redisReply *reply;
+    int ret = 0;
+    RedisPriv *priv = cache->priv;
+    RedisConnectionPool *pool = priv->redis_pool;
+
+    conn = redis_connection_pool_get_connection (pool, priv->passwd);
+    if (!conn) {
+        seaf_warning ("Failed to get redis connection to host %s.\n", cache->host);
+        return -1;
+    }
+
+    reply = redisCommand(conn->ac, "LPUSH %s %s", list, msg);
+    if (!reply) {
+        seaf_warning ("Failed to push message to redis list %s.\n", list);
+        ret = -1;
+        conn->release = TRUE;
+        goto out;
+    }
+    if (reply->type != REDIS_REPLY_INTEGER ||
+        reply->integer < 0) {
+        if (reply->type == REDIS_REPLY_ERROR) {
+            conn->release = TRUE;
+            seaf_warning ("Failed to push message to redis list %s.\n", list);
         }
         ret = -1;
     }
@@ -399,6 +437,7 @@ redis_cache_new (const char *host, const char *passwd,
     cache->test_object = redis_cache_test_object;
     cache->delete_object = redis_cache_delete_object;
     cache->publish = redis_cache_publish;
+    cache->push = redis_cache_push;
 
     return cache;
 }

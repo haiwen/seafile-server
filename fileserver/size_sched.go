@@ -2,23 +2,32 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/ini.v1"
 
 	"database/sql"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/haiwen/seafile-server/fileserver/commitmgr"
 	"github.com/haiwen/seafile-server/fileserver/diff"
 	"github.com/haiwen/seafile-server/fileserver/fsmgr"
 	"github.com/haiwen/seafile-server/fileserver/option"
 	"github.com/haiwen/seafile-server/fileserver/repomgr"
 	"github.com/haiwen/seafile-server/fileserver/workerpool"
+
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	RepoSizeList = "repo_size_task"
+)
+
 var updateSizePool *workerpool.WorkPool
+var redisClient *redis.Client
 
 func sizeSchedulerInit() {
 	var n int = 1
@@ -41,6 +50,16 @@ func sizeSchedulerInit() {
 		}
 	}
 	updateSizePool = workerpool.CreateWorkerPool(computeRepoSize, n)
+
+	server := fmt.Sprintf("%s:%d", option.RedisHost, option.RedisPort)
+	opt := &redis.Options{
+		Addr:     server,
+		Password: option.RedisPasswd,
+	}
+	opt.PoolSize = n
+
+	redisClient = redis.NewClient(opt)
+
 }
 
 func computeRepoSize(args ...interface{}) error {
@@ -119,6 +138,11 @@ func computeRepoSize(args ...interface{}) error {
 		return err
 	}
 
+	err = notifyRepoSizeChange(repo.StoreID)
+	if err != nil {
+		log.Warnf("Failed to notify repo size change for repo %s: %v", repoID, err)
+	}
+
 	return nil
 }
 
@@ -185,6 +209,33 @@ func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) er
 	}
 
 	trans.Commit()
+
+	return nil
+}
+
+type RepoSizeChangeTask struct {
+	RepoID string `json:"repo_id"`
+}
+
+func notifyRepoSizeChange(repoID string) error {
+	if !option.HasRedisOptions {
+		return nil
+	}
+
+	task := &RepoSizeChangeTask{RepoID: repoID}
+
+	data, err := json.Marshal(task)
+	if err != nil {
+		return fmt.Errorf("failed to encode repo size change task: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = redisClient.LPush(ctx, RepoSizeList, data).Err()
+	if err != nil {
+		return fmt.Errorf("failed to push message to redis list %s: %w", RepoSizeList, err)
+	}
 
 	return nil
 }

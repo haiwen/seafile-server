@@ -187,3 +187,11 @@ objcache_publish (ObjCache *cache, const char *channel, const char *msg)
     ret = cache->publish (cache, channel, msg);
     return ret;
 }
+
+int
+objcache_push (ObjCache *cache, const char *list, const char *msg)
+{
+    int ret;
+    ret = cache->push (cache, list, msg);
+    return ret;
+}
