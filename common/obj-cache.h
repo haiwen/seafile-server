@@ -30,6 +30,10 @@ struct ObjCache {
                             const char *channel,
                             const char *msg);
 
+    int         (*push) (ObjCache *cache,
+                            const char *list,
+                            const char *msg);
+
     int mc_expiry;
     char *host;
     int port;
@@ -68,5 +72,8 @@ objcache_delete_object_existence (struct ObjCache *cache, const char *obj_id, co
 
 int
 objcache_publish (ObjCache *cache, const char *channel, const char *msg);
+
+int
+objcache_push (ObjCache *cache, const char *list, const char *msg);
 
 #endif

@@ -7,10 +7,14 @@
 #include "diff-simple.h"
 #define DEBUG_FLAG SEAFILE_DEBUG_OTHER
 #include "log.h"
+#include "obj-cache.h"
+
+#define REPO_SIZE_LIST "repo_size_task"
 
 typedef struct SizeSchedulerPriv {
     pthread_t thread_id;
     GThreadPool *compute_repo_size_thread_pool;
+    struct ObjCache *cache;
 } SizeSchedulerPriv;
 
 typedef struct RepoSizeJob {
@@ -48,6 +52,8 @@ size_scheduler_new (SeafileSession *session)
         g_free (sched);
         return NULL;
     }
+
+    sched->priv->cache = session->obj_cache;
 
     sched->seaf = session;
 
@@ -282,6 +288,30 @@ get_old_repo_info_from_db (SeafDB *db, const char *repo_id, gboolean *is_db_err)
 
 }
 
+static void
+notify_repo_size_change (SizeScheduler *sched, const char *repo_id)
+{
+    ObjCache *cache =  sched->priv->cache;
+    if (!cache) {
+        return;
+    }
+
+    json_t *obj = NULL;
+    char *msg = NULL;
+
+    obj = json_object ();
+
+    json_object_set_new (obj, "repo_id", json_string(repo_id));
+
+    msg = json_dumps (obj, JSON_COMPACT);
+
+    objcache_push (cache, REPO_SIZE_LIST, msg);
+
+out:
+    g_free (msg);
+    json_decref (obj);
+}
+
 static void*
 compute_repo_size (void *vjob)
 {
@@ -377,6 +407,8 @@ compute_repo_size (void *vjob)
         seaf_warning ("[scheduler] failed to store repo size and file count %s.\n", job->repo_id);
         goto out;
     }
+
+    notify_repo_size_change (sched, repo->store_id);
 
 out:
     seaf_repo_unref (repo);
