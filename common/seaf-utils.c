@@ -313,24 +313,15 @@ load_database_config (SeafileSession *session)
     gboolean create_tables = FALSE;
 
     type = seaf_key_file_get_string (session->config, "database", "type", &error);
-    /* Default to use sqlite if not set. */
-    if (!type || strcasecmp (type, "sqlite") == 0) {
+    /* Default to use mysql if not set. */
+    if (type && strcasecmp (type, "sqlite") == 0) {
         ret = sqlite_db_start (session);
     }
 #ifdef HAVE_MYSQL
-    else if (strcasecmp (type, "mysql") == 0) {
+    else {
         ret = mysql_db_start (session);
     }
 #endif
-#ifdef HAVE_POSTGRESQL
-    else if (strcasecmp (type, "pgsql") == 0) {
-        ret = pgsql_db_start (session);
-    }
-#endif
-    else {
-        seaf_warning ("Unsupported db type %s.\n", type);
-        ret = -1;
-    }
     if (ret == 0) {
         if (g_key_file_has_key (session->config, "database", "create_tables", NULL))
             create_tables = g_key_file_get_boolean (session->config,
@@ -392,26 +383,16 @@ load_ccnet_database_config (SeafileSession *session)
     gboolean create_tables = FALSE;
 
     engine = ccnet_key_file_get_string (session->config, "database", "type");
-    if (!engine || strcasecmp (engine, "sqlite") == 0) {
+    if (engine && strcasecmp (engine, "sqlite") == 0) {
         seaf_message ("Use database sqlite\n");
         ret = ccnet_init_sqlite_database (session);
     }
 #ifdef HAVE_MYSQL
-    else if (strcasecmp (engine, "mysql") == 0) {
+    else {
         seaf_message("Use database Mysql\n");
         ret = ccnet_init_mysql_database (session);
     }
 #endif
-#if 0
-    else if (strncasecmp (engine, DB_PGSQL, sizeof(DB_PGSQL)) == 0) {
-        ccnet_debug ("Use database PostgreSQL\n");
-        ret = init_pgsql_database (session);
-    }
-#endif
-    else {
-        seaf_warning ("Unknown database type: %s.\n", engine);
-        ret = -1;
-    }
     if (ret == 0) {
         if (g_key_file_has_key (session->config, "database", "create_tables", NULL))
             create_tables = g_key_file_get_boolean (session->config, "database", "create_tables", NULL);
