@@ -115,29 +115,10 @@ func LoadFileServerOptions(centralDir string) {
 		}
 	}
 
-	if section, err := config.GetSection("notification"); err == nil {
-		if key, err := section.GetKey("enabled"); err == nil {
-			EnableNotification, _ = key.Bool()
-		}
-	}
-
-	if EnableNotification {
-		var notifServer string
-		var notifPort uint32
-		if section, err := config.GetSection("notification"); err == nil {
-			if key, err := section.GetKey("host"); err == nil {
-				notifServer = key.String()
-			}
-		}
-		if section, err := config.GetSection("notification"); err == nil {
-			if key, err := section.GetKey("port"); err == nil {
-				port, err := key.Uint()
-				if err == nil {
-					notifPort = uint32(port)
-				}
-			}
-		}
-		NotificationURL = fmt.Sprintf("%s:%d", notifServer, notifPort)
+	notifServer := os.Getenv("NOTIFICATION_SERVER_URL")
+	if notifServer != "" {
+		NotificationURL = fmt.Sprintf("%s:8083", notifServer)
+		EnableNotification = true
 	}
 
 	if section, err := config.GetSection("httpserver"); err == nil {

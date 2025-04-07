@@ -110,7 +110,6 @@ load_config (SeafileSession *session, const char *config_file_path)
     int ret = 0;
     GError *error = NULL;
     GKeyFile *config = NULL;
-    gboolean notif_enabled = FALSE;
     char *notif_server = NULL;
     int notif_port = 8083;
     const char *private_key = NULL;
@@ -133,30 +132,18 @@ load_config (SeafileSession *session, const char *config_file_path)
 
     session->obj_cache = objcache_new ();
 
-
-    notif_enabled = g_key_file_get_boolean (config,
-                                            "notification", "enabled",
-                                            NULL);
-    if (notif_enabled) {
-        notif_server = g_key_file_get_string (config,
-                                              "notification", "host",
-                                               NULL);
-        notif_port = g_key_file_get_integer (config,
-                                             "notification", "port",
-                                              NULL);
-    }
-
     // Read config from env
     private_key = g_getenv("JWT_PRIVATE_KEY");
     site_root = g_getenv("SITE_ROOT");
     log_to_stdout = g_getenv("SEAFILE_LOG_TO_STDOUT");
+    notif_server = g_getenv("NOTIFICATION_SERVER_URL");
 
     if (!private_key) {
         seaf_warning ("Failed to read JWT_PRIVATE_KEY.\n");
         ret = -1;
         goto out;
     }
-    if (notif_enabled && notif_server != NULL) {
+    if (notif_server && g_strcmp0 (notif_server, "") != 0) {
         session->notif_server_private_key = g_strdup (private_key);
         char notif_url[128];
         g_sprintf (notif_url, "%s:%d", notif_server, notif_port);
@@ -174,7 +161,6 @@ load_config (SeafileSession *session, const char *config_file_path)
     }
 
 out:
-    g_free (notif_server);
     if (ret < 0) {
         if (config)
             g_key_file_free (config);
