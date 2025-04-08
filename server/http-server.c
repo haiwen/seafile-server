@@ -3017,7 +3017,6 @@ http_request_finish_cb (evhtp_request_t *req, void *arg)
         return EVHTP_RES_OK;
 
     g_free (info->url_path);
-    g_free (info->method);
     g_free (info);
     return EVHTP_RES_OK;
 }
@@ -3025,12 +3024,9 @@ http_request_finish_cb (evhtp_request_t *req, void *arg)
 static evhtp_res
 http_request_start_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
 {
-    htp_method method = evhtp_request_get_method (req);
-    const char *method_str = htparser_get_methodstr_m (method);
     RequestInfo *info = NULL;
     info = g_new0 (RequestInfo, 1);
     info->url_path = g_strdup (req->uri->path->full);
-    info->method = g_strdup (method_str);
 
     gettimeofday (&info->start, NULL);
 

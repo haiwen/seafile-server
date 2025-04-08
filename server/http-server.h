@@ -28,7 +28,6 @@ struct _HttpServerStruct {
 typedef struct RequestInfo {
     struct timeval start;
     char *url_path;
-    char *method;
 } RequestInfo;
 
 typedef struct _HttpServerStruct HttpServerStruct;
