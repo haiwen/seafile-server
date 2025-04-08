@@ -215,6 +215,9 @@ func parseFileServerSection(section *ini.Section) {
 	if key, err := section.GetKey("verify_client_blocks_after_sync"); err == nil {
 		VerifyClientBlocks, _ = key.Bool()
 	}
+	if key, err := section.GetKey("seahub_url"); err == nil {
+        	SeahubURL = key.String()
+    	}
 }
 
 func parseQuota(quotaStr string) int64 {
@@ -304,12 +307,14 @@ func LoadSeahubConfig() error {
 		return fmt.Errorf("failed to read JWT_PRIVATE_KEY")
 	}
 
-	siteRoot := os.Getenv("SITE_ROOT")
-	if siteRoot != "" {
-		SeahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal", siteRoot)
-	} else {
-		SeahubURL = "http://127.0.0.1:8000/api/v2.1/internal"
-	}
+    	if SeahubURL == "" {
+       		siteRoot := os.Getenv("SITE_ROOT")
+       		if siteRoot != "" {
+           		SeahubURL = fmt.Sprintf("http://127.0.0.1:8000%sapi/v2.1/internal", siteRoot)
+       		} else {
+           		SeahubURL = "http://127.0.0.1:8000/api/v2.1/internal"
+       		}
+   }
 
 	return nil
 }
