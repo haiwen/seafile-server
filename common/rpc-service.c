@@ -3873,6 +3873,7 @@ seafile_check_repo_blocks_missing (const char *repo_id,
     free (json_data);
     json_decref (ret_json);
     json_decref (array);
+    seaf_repo_unref (repo);
     return ret;
 }
 
