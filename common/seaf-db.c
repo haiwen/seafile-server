@@ -150,7 +150,7 @@ out:
         for (index = size - 1; index >= 0; index--) {
             d_conn = g_ptr_array_index (pool->connections, index);
             if (d_conn->delete_pending) {
-                g_ptr_array_remove (conn->pool->connections, d_conn);
+                g_ptr_array_remove (pool->connections, d_conn);
                 mysql_db_release_connection (d_conn);
             }
         }
