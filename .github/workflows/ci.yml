@@ -12,7 +12,7 @@ jobs:
           fetch-depth: 1
       - uses: actions/setup-python@v1
         with:
-          python-version: "3.13.3"
+          python-version: "3.13.2"
       - name: install dependencies and test
         run: |
           cd $GITHUB_WORKSPACE
