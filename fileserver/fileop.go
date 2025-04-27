@@ -932,7 +932,7 @@ func genUniqueFileName(fileName string, fileList []string) string {
 	var uniqueName string
 	var name string
 	i := 1
-	dot := strings.Index(fileName, ".")
+	dot := strings.LastIndex(fileName, ".")
 	if dot < 0 {
 		name = fileName
 	} else {
@@ -2334,7 +2334,7 @@ func genUniqueName(fileName string, entries []*fsmgr.SeafDirent) string {
 	var uniqueName string
 	var name string
 	i := 1
-	dot := strings.Index(fileName, ".")
+	dot := strings.LastIndex(fileName, ".")
 	if dot < 0 {
 		name = fileName
 	} else {
