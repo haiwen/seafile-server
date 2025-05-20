@@ -265,6 +265,7 @@ fi
 
 if test "${compile_httpserver}" = "yes"; then
     AC_DEFINE([HAVE_EVHTP], [1], [Define to 1 if httpserver is enabled.])
+    AC_SUBST(EVHTP_LIBS, "-levhtp")
 fi
 
 PKG_CHECK_MODULES(LIBHIREDIS, [hiredis >= $LIHIBREDIS_REQUIRED])

@@ -89,7 +89,7 @@ seaf_server_SOURCES = \
 	../common/block-tx-utils.c
 
 seaf_server_LDADD = $(top_builddir)/lib/libseafile_common.la \
-	@GLIB2_LIBS@ @GOBJECT_LIBS@ @SSL_LIBS@ @LIB_RT@ @LIB_UUID@ -lsqlite3 @LIBEVENT_LIBS@ -levhtp \
+	@GLIB2_LIBS@ @GOBJECT_LIBS@ @SSL_LIBS@ @LIB_RT@ @LIB_UUID@ -lsqlite3 @LIBEVENT_LIBS@ @EVHTP_LIBS@ \
 	$(top_builddir)/common/cdc/libcdc.la \
 	@SEARPC_LIBS@ @JANSSON_LIBS@ ${LIB_WS32} @ZLIB_LIBS@ \
 	@LIBARCHIVE_LIBS@ @LIB_ICONV@ \
