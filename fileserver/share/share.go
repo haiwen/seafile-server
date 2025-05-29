@@ -326,7 +326,9 @@ func getSharedDirsToUser(originRepoID string, toEmail string) (map[string]string
 func getDirPerm(perms map[string]string, path string) string {
 	tmp := path
 	var perm string
-	for tmp != "" {
+	// If the path is empty, filepath.Dir returns ".". If the path consists entirely of separators,
+	// filepath.Dir returns a single separator.
+	for tmp != "/" && tmp != "." && tmp != "" {
 		if perm, exists := perms[tmp]; exists {
 			return perm
 		}
