@@ -15,6 +15,7 @@ from os.path import abspath, basename, exists, expanduser, join
 
 import requests
 import termcolor
+import site
 
 from serverctl import ServerCtl
 from utils import (
@@ -53,8 +54,10 @@ def make_build_env():
     _env_add('LDFLAGS', '-L%s' % join(PREFIX, 'lib64'), seperator=' ')
 
     _env_add('PATH', join(PREFIX, 'bin'))
+
+    py_version = '.'.join(map(str, sys.version_info[:3]))
     if on_github_actions():
-        _env_add('PYTHONPATH', join(os.environ.get('RUNNER_TOOL_CACHE'), 'Python/3.12.10/x64/lib/python3.12/site-packages'))
+        _env_add('PYTHONPATH', join(os.environ.get('RUNNER_TOOL_CACHE'), 'Python/{py_version}/x64/lib/python3.12/site-packages'))
     _env_add('PYTHONPATH', join(PREFIX, 'lib/python3.12/site-packages'))
     _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib', 'pkgconfig'))
     _env_add('PKG_CONFIG_PATH', join(PREFIX, 'lib64', 'pkgconfig'))
