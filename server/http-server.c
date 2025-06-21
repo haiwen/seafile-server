@@ -1171,6 +1171,31 @@ static int
 check_dir_cb (int n, const char *basedir, SeafDirent *dirs[], void *data,
               gboolean *recurse)
 {
+    SeafDirent *dir1 = dirs[0];
+    SeafDirent *dir2 = dirs[1];
+
+    if (!dir1) {
+        // if dir2 is empty, fold diff.
+        if (g_strcmp0 (dir2->id, EMPTY_SHA1) == 0) {
+            *recurse = FALSE;
+        } else {
+            *recurse = TRUE;
+        }
+        return 0;
+    }
+
+    // if dir2 is not exist, fold diff.
+    if (!dir2) {
+        *recurse = FALSE;
+        return 0;
+    }
+
+    // if dir1 and dir2 are the same or dir2 is empty, fold diff.
+    if (g_strcmp0 (dir1->id, dir2->id) == 0 || g_strcmp0 (dir2->id, EMPTY_SHA1) == 0) {
+        *recurse = FALSE;
+        return 0;
+    }
+
     return 0;
 }
 
