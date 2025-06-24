@@ -1169,7 +1169,7 @@ func checkDirCB(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent, d
 	dir2 := dirs[1]
 
 	if dir1 == nil {
-		// if dir2 is empty, fold diff.
+		// if dir2 is empty, stop diff.
 		if dir2.ID == diff.EmptySha1 {
 			*recurse = false
 		} else {
@@ -1178,13 +1178,13 @@ func checkDirCB(ctx context.Context, baseDir string, dirs []*fsmgr.SeafDirent, d
 		return nil
 	}
 
-	// if dir2 is not exist, fold diff.
+	// if dir2 is not exist, stop diff.
 	if dir2 == nil {
 		*recurse = false
 		return nil
 	}
 
-	// if dir1 and dir2 are the same or dir2 is empty, fold diff.
+	// if dir1 and dir2 are the same or dir2 is empty, stop diff.
 	if dir1.ID == dir2.ID || dir2.ID == diff.EmptySha1 {
 		*recurse = false
 		return nil
