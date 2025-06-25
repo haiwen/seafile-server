@@ -115,9 +115,9 @@ func LoadFileServerOptions(centralDir string) {
 		}
 	}
 
-	notifServer := os.Getenv("NOTIFICATION_SERVER_URL")
+	notifServer := os.Getenv("INNER_NOTIFICATION_SERVER_URL")
 	if notifServer != "" {
-		NotificationURL = fmt.Sprintf("%s:8083", notifServer)
+		NotificationURL = notifServer
 		EnableNotification = true
 	}
 
