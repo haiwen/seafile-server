@@ -2186,7 +2186,7 @@ func notifRepoUpdate(repoID string, commitID string) error {
 		return err
 	}
 
-	url := fmt.Sprintf("http://%s/events", option.NotificationURL)
+	url := fmt.Sprintf("%s/events", option.NotificationURL)
 	exp := time.Now().Add(time.Second * 300).Unix()
 	token, err := utils.GenNotifJWTToken(repoID, "", exp)
 	if err != nil {
