@@ -1348,21 +1348,9 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 		return err
 	}
 
-	disposition := r.Header.Get("Content-Disposition")
-	if disposition == "" {
-		err := fmt.Errorf("missing content disposition")
-		return err
-	}
-
-	_, params, err := mime.ParseMediaType(disposition)
+	filename, err := getFileNameFromMimeHeader(r)
 	if err != nil {
-		err := fmt.Errorf("failed to parse Content-Disposition: %v", err)
-		return err
-	}
-	filename, err := url.QueryUnescape(params["filename"])
-	if err != nil {
-		err := fmt.Errorf("failed to get filename: %v", err)
-		return err
+		return fmt.Errorf("failed to get filename from mime header: %w", err)
 	}
 
 	handler := fileHeaders[0]
@@ -1374,7 +1362,6 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	defer file.Close()
 
 	var f *os.File
-	//filename := handler.Filename
 	filePath := filepath.Join("/", parentDir, filename)
 	tmpFile, err := repomgr.GetUploadTmpFile(repoID, filePath)
 	if err != nil || tmpFile == "" {
@@ -1393,8 +1380,7 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	}
 
 	if fsm.rend == fsm.fsize-1 {
-		fileName := filepath.Base(filename)
-		fsm.fileNames = append(fsm.fileNames, normalizeUTF8Path(fileName))
+		fsm.fileNames = append(fsm.fileNames, filepath.Base(filename))
 		fsm.files = append(fsm.files, tmpFile)
 	}
 
@@ -1403,6 +1389,27 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	f.Close()
 
 	return nil
+}
+
+func getFileNameFromMimeHeader(r *http.Request) (string, error) {
+	disposition := r.Header.Get("Content-Disposition")
+	if disposition == "" {
+		err := fmt.Errorf("missing content disposition")
+		return "", err
+	}
+
+	_, params, err := mime.ParseMediaType(disposition)
+	if err != nil {
+		err := fmt.Errorf("failed to parse Content-Disposition: %v", err)
+		return "", err
+	}
+	filename, err := url.QueryUnescape(params["filename"])
+	if err != nil {
+		err := fmt.Errorf("failed to get filename: %v", err)
+		return "", err
+	}
+
+	return normalizeUTF8Path(filename), nil
 }
 
 func createRelativePath(repoID, parentDir, relativePath, user string) *appError {
