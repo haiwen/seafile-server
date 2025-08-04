@@ -21,7 +21,7 @@ jobs:
         with:
           version: v1.59
           working-directory: ./fileserver
-          args: run
+          args: --timeout=5m
   golangci-notification-server:
     name: lint
     runs-on: ubuntu-latest
@@ -35,4 +35,4 @@ jobs:
         with:
           version: v1.59
           working-directory: ./notification-server
-          args: run
+          args: --timeout=5m
