@@ -14,7 +14,7 @@ static char *central_config_dir = NULL;
 
 SeafileSession *seaf;
 
-static const char *short_opts = "hvft:c:d:rE:F:";
+static const char *short_opts = "hvft:c:d:rE:F:C";
 static const struct option long_opts[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
@@ -25,6 +25,7 @@ static const struct option long_opts[] = {
     { "config-file", required_argument, NULL, 'c', },
     { "central-config-dir", required_argument, NULL, 'F' },
     { "seafdir", required_argument, NULL, 'd', },
+    { "check-corruption", no_argument, NULL, 'C' },
     { 0, 0, 0, 0, },
 };
 
@@ -91,6 +92,7 @@ main(int argc, char *argv[])
     int c;
     gboolean repair = FALSE;
     gboolean force = FALSE;
+    gboolean check_corrupt = FALSE;
     char *export_path = NULL;
     int max_thread_num = 0;
 
@@ -109,12 +111,12 @@ main(int argc, char *argv[])
         case 'v':
             exit(-1);
             break;
-	case 'f':
-	    force = TRUE;
-	    break;
-	case 't':
-	    max_thread_num = atoi(strdup(optarg));
-	    break;
+        case 'f':
+            force = TRUE;
+            break;
+        case 't':
+            max_thread_num = atoi(strdup(optarg));
+            break;
         case 'r':
             repair = TRUE;
             break;
@@ -129,6 +131,9 @@ main(int argc, char *argv[])
             break;
         case 'F':
             central_config_dir = strdup(optarg);
+            break;
+        case 'C':
+            check_corrupt = TRUE;
             break;
         default:
             usage();
@@ -173,7 +178,7 @@ main(int argc, char *argv[])
     if (export_path) {
         export_file (repo_id_list, seafile_dir, export_path);
     } else {
-        seaf_fsck (repo_id_list, repair, max_thread_num);
+        seaf_fsck (repo_id_list, repair, max_thread_num, check_corrupt);
     }
 
     return 0;
