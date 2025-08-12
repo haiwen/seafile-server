@@ -839,6 +839,14 @@ mysql_db_get_connection (SeafDB *vdb)
         // Set ssl_mode to SSL_MODE_PREFERRED to skip verify server cert.
         ssl_mode = SSL_MODE_PREFERRED;
         mysql_options(db_conn, MYSQL_OPT_SSL_MODE, &ssl_mode);
+#else
+        static my_bool verify= 0;
+        mysql_optionsv(db_conn, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, (void *)&verify);
+#endif
+    } else {
+#ifdef LIBMARIADB
+        static my_bool verify= 0;
+        mysql_optionsv(db_conn, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, (void *)&verify);
 #endif
     }
 
