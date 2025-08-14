@@ -14,7 +14,7 @@ static char *central_config_dir = NULL;
 
 SeafileSession *seaf;
 
-static const char *short_opts = "hvft:c:d:rE:F:C";
+static const char *short_opts = "hvft:c:d:rE:F:sS";
 static const struct option long_opts[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
@@ -25,7 +25,8 @@ static const struct option long_opts[] = {
     { "config-file", required_argument, NULL, 'c', },
     { "central-config-dir", required_argument, NULL, 'F' },
     { "seafdir", required_argument, NULL, 'd', },
-    { "check-corruption", no_argument, NULL, 'C' },
+    { "shallow", no_argument, NULL, 's', },
+    { "check-file-size", no_argument, NULL, 'S' },
     { 0, 0, 0, 0, },
 };
 
@@ -92,7 +93,8 @@ main(int argc, char *argv[])
     int c;
     gboolean repair = FALSE;
     gboolean force = FALSE;
-    gboolean check_corrupt = FALSE;
+    gboolean check_integrity = TRUE;
+    gboolean check_file_size = FALSE;
     char *export_path = NULL;
     int max_thread_num = 0;
 
@@ -132,8 +134,11 @@ main(int argc, char *argv[])
         case 'F':
             central_config_dir = strdup(optarg);
             break;
-        case 'C':
-            check_corrupt = TRUE;
+        case 'S':
+            check_file_size = TRUE;
+            break;
+        case 's':
+            check_integrity = FALSE;
             break;
         default:
             usage();
@@ -178,7 +183,13 @@ main(int argc, char *argv[])
     if (export_path) {
         export_file (repo_id_list, seafile_dir, export_path);
     } else {
-        seaf_fsck (repo_id_list, repair, max_thread_num, check_corrupt);
+        FsckOptions options;
+        memset (&options, 0, sizeof(FsckOptions));
+        options.max_thread_num = max_thread_num;
+        options.check_integrity = check_integrity;
+        options.check_file_size = check_file_size;
+        options.repair = repair;
+        seaf_fsck (repo_id_list, &options);
     }
 
     return 0;

@@ -9,8 +9,7 @@
 #include "fsck.h"
 
 typedef struct FsckData {
-    gboolean repair;
-    gboolean check_corrupt;
+    FsckOptions *options;
     SeafRepo *repo;
     GHashTable *existing_blocks;
     GList *repaired_files;
@@ -20,8 +19,7 @@ typedef struct FsckData {
 
 typedef struct CheckAndRecoverRepoObj {
     char *repo_id;
-    gboolean repair;
-    gboolean check_corrupt;
+    FsckOptions *options;
 } CheckAndRecoverRepoObj;
 
 typedef enum VerifyType {
@@ -102,27 +100,29 @@ check_blocks (const char *file_id, FsckData *fsck_data, gboolean *io_error)
             continue;
         }
 
-        // check block integrity, if not remove it
-        ok = seaf_block_manager_verify_block (seaf->block_mgr,
-                                              store_id, version,
-                                              block_id, io_error);
-        if (!ok) {
-            if (*io_error) {
-                if (ret < 0) {
-                    *io_error = FALSE;
-                }
-                ret = -1;
-                break;
-            } else {
-                if (fsck_data->repair) {
-                    seaf_message ("Repo[%.8s] block %s is damaged, remove it.\n", repo->id, block_id);
-                    seaf_block_manager_remove_block (seaf->block_mgr,
-                                                     store_id, version,
-                                                     block_id);
+        if (fsck_data->options->check_integrity) {
+            // check block integrity, if not remove it
+            ok = seaf_block_manager_verify_block (seaf->block_mgr,
+                                                  store_id, version,
+                                                  block_id, io_error);
+            if (!ok) {
+                if (*io_error) {
+                    if (ret < 0) {
+                        *io_error = FALSE;
+                    }
+                    ret = -1;
+                    break;
                 } else {
-                    seaf_message ("Repo[%.8s] block %s is damaged.\n", repo->id, block_id);
+                    if (fsck_data->options->repair) {
+                        seaf_message ("Repo[%.8s] block %s is damaged, remove it.\n", repo->id, block_id);
+                        seaf_block_manager_remove_block (seaf->block_mgr,
+                                                         store_id, version,
+                                                         block_id);
+                    } else {
+                        seaf_message ("Repo[%.8s] block %s is damaged.\n", repo->id, block_id);
+                    }
+                    ret = -1;
                 }
-                ret = -1;
             }
         }
 
@@ -143,12 +143,12 @@ typedef struct {
     gboolean traversed_head;
     GHashTable *visited_commits;
     gint64 truncate_time;
-} CorruptFileData;
+} CheckFileSizeData;
 
 static gboolean
 get_file_updated_commit (SeafCommit *commit, void *vdata, gboolean *stop)
 {
-    CorruptFileData *data = vdata;
+    CheckFileSizeData *data = vdata;
     SeafRepo *repo = data->repo;
     int ret;
 
@@ -204,7 +204,7 @@ get_file_updated_commit (SeafCommit *commit, void *vdata, gboolean *stop)
 }
 
 static int
-check_file_corruption (FsckData *fsck_data, SeafDirent *dent, const char *path)
+check_file_size (FsckData *fsck_data, SeafDirent *dent, const char *path)
 {
     int ret = 0;
     SeafRepo *repo = fsck_data->repo;
@@ -224,8 +224,8 @@ check_file_corruption (FsckData *fsck_data, SeafDirent *dent, const char *path)
         goto out;
     }
 
-    CorruptFileData data;
-    memset (&data, 0, sizeof(CorruptFileData));
+    CheckFileSizeData data;
+    memset (&data, 0, sizeof(CheckFileSizeData));
     data.repo = repo;
     data.file_path = path;
     data.file_id = dent->id;
@@ -246,8 +246,8 @@ check_file_corruption (FsckData *fsck_data, SeafDirent *dent, const char *path)
                                                  repo->version, data.commit_id);
     }
     if (commit) {
-        seaf_warning ("Repo[%s] file %s is damaged, as its size does not match the expected value. It was uploaded via %s (commit id is %s), commit desc is %s.\n",
-                      repo->id, path, commit->client_version, commit->commit_id, commit->desc);
+        seaf_warning ("Repo[%s] file %s is damaged, as its size does not match the expected value. It was uploaded via %s (commit id is %s), commit desc is %s, commit time is %d.\n",
+                      repo->id, path, commit->client_version, commit->commit_id, commit->desc, commit->ctime);
     } else {
         seaf_warning ("Repo[%s] file %s is damaged, as its size does not match the expected value.\n",
                       repo->id, path);
@@ -299,13 +299,13 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
             }
             if (!fsck_verify_seafobj (store_id, version,
                                       seaf_dent->id, &io_error,
-                                      VERIFY_FILE, fsck_data->repair)) {
+                                      VERIFY_FILE, fsck_data->options->repair)) {
                 if (io_error) {
                     g_free (path);
                     goto out;
                 }
                 is_corrupted = TRUE;
-                if (fsck_data->repair) {
+                if (fsck_data->options->repair) {
                     seaf_message ("Repo[%.8s] file %s(%.8s) is damaged, recreate an empty file.\n",
                                   fsck_data->repo->id, path, seaf_dent->id);
                 } else {
@@ -328,7 +328,7 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
                         goto out;
                     }
                     is_corrupted = TRUE;
-                    if (fsck_data->repair) {
+                    if (fsck_data->options->repair) {
                         seaf_message ("Repo[%.8s] file %s(%.8s) is damaged, recreate an empty file.\n",
                                       fsck_data->repo->id, path, seaf_dent->id);
                     } else {
@@ -342,8 +342,8 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
 
                     fsck_data->repaired_files = g_list_prepend (fsck_data->repaired_files,
                                                                 g_strdup(path));
-                } else if (fsck_data->check_corrupt) {
-                    check_file_corruption (fsck_data, seaf_dent, path);
+                } else if (fsck_data->options->check_file_size) {
+                    check_file_size (fsck_data, seaf_dent, path);
                 }
             }
 
@@ -357,12 +357,12 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
             }
             if (!fsck_verify_seafobj (store_id, version,
                                       seaf_dent->id, &io_error,
-                                      VERIFY_DIR, fsck_data->repair)) {
+                                      VERIFY_DIR, fsck_data->options->repair)) {
                 if (io_error) {
                     g_free (path);
                     goto out;
                 }
-                if (fsck_data->repair) {
+                if (fsck_data->options->repair) {
                     seaf_message ("Repo[%.8s] dir %s(%.8s) is damaged, recreate an empty dir.\n",
                                   fsck_data->repo->id, path, seaf_dent->id);
                 } else {
@@ -395,7 +395,7 @@ fsck_check_dir_recursive (const char *id, const char *parent_dir, FsckData *fsck
 
     if (is_corrupted) {
         new_dir = seaf_dir_new (NULL, dir->entries, version);
-        if (fsck_data->repair) {
+        if (fsck_data->options->repair) {
             if (seaf_dir_save (mgr, store_id, version, new_dir) < 0) {
                 seaf_warning ("Repo[%.8s] failed to save dir\n", fsck_data->repo->id);
                 seaf_dir_free (new_dir);
@@ -487,7 +487,7 @@ reset_commit_to_repair (SeafRepo *repo, SeafCommit *parent, char *new_root_id,
  * check and recover repo, for damaged file or folder set it empty
  */
 static void
-check_and_recover_repo (SeafRepo *repo, gboolean reset, gboolean repair, gboolean check_corrupt)
+check_and_recover_repo (SeafRepo *repo, gboolean reset, FsckOptions *options)
 {
     FsckData fsck_data;
     SeafCommit *rep_commit = NULL;
@@ -505,8 +505,7 @@ check_and_recover_repo (SeafRepo *repo, gboolean reset, gboolean repair, gboolea
     }
 
     memset (&fsck_data, 0, sizeof(fsck_data));
-    fsck_data.repair = repair;
-    fsck_data.check_corrupt = check_corrupt;
+    fsck_data.options = options;
     fsck_data.repo = repo;
     fsck_data.existing_blocks = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                        g_free, NULL);
@@ -519,7 +518,7 @@ check_and_recover_repo (SeafRepo *repo, gboolean reset, gboolean repair, gboolea
         goto out;
     }
 
-    if (repair) {
+    if (options->repair) {
         if (strcmp (root_id, rep_commit->root_id) != 0) {
             // some fs objects damaged for the head commit,
             // create new head commit using the new root_id
@@ -664,7 +663,7 @@ out:
 }
 
 static void
-repair_repo(char *repo_id, gboolean repair, gboolean check_corrupt)
+repair_repo(char *repo_id, FsckOptions *options)
 {
     gboolean exists;
     gboolean reset = FALSE;
@@ -689,7 +688,7 @@ repair_repo(char *repo_id, gboolean repair, gboolean check_corrupt)
         if (!repo) {
             seaf_message ("Repo %.8s HEAD commit is damaged, "
                           "need to restore to an old version.\n", repo_id);
-            repo = get_available_repo (repo_id, repair);
+            repo = get_available_repo (repo_id, options->repair);
             if (!repo) {
                 goto next;
             }
@@ -708,7 +707,7 @@ repair_repo(char *repo_id, gboolean repair, gboolean check_corrupt)
             io_error = FALSE;
             if (!fsck_verify_seafobj (repo->store_id, repo->version,
                                       commit->root_id,  &io_error,
-                                      VERIFY_DIR, repair)) {
+                                      VERIFY_DIR, options->repair)) {
                 if (io_error) {
                     seaf_commit_unref (commit);
                     seaf_repo_unref (repo);
@@ -719,7 +718,7 @@ repair_repo(char *repo_id, gboolean repair, gboolean check_corrupt)
                                   "need to restore to an old version.\n", repo_id);
                     seaf_commit_unref (commit);
                     seaf_repo_unref (repo);
-                    repo = get_available_repo (repo_id, repair);
+                    repo = get_available_repo (repo_id, options->repair);
                     if (!repo) {
                         goto next;
                     }
@@ -731,7 +730,7 @@ repair_repo(char *repo_id, gboolean repair, gboolean check_corrupt)
             }
         }
 
-        check_and_recover_repo (repo, reset, repair, check_corrupt);
+        check_and_recover_repo (repo, reset, options);
 
         seaf_repo_unref (repo);
 next:
@@ -743,21 +742,21 @@ repair_repo_with_thread_pool(gpointer data, gpointer user_data)
 {
     CheckAndRecoverRepoObj *obj = data;
 
-    repair_repo(obj->repo_id, obj->repair, obj->check_corrupt);
+    repair_repo(obj->repo_id, obj->options);
 
     g_free(obj);
 }
 
 static void
-repair_repos (GList *repo_id_list, gboolean repair, int max_thread_num, gboolean check_corrupt)
+repair_repos (GList *repo_id_list, FsckOptions *options)
 {
     GList *ptr;
     char *repo_id;
     GThreadPool *pool;
 
-    if (max_thread_num) {
+    if (options->max_thread_num) {
         pool = g_thread_pool_new(
-            (GFunc)repair_repo_with_thread_pool, NULL, max_thread_num, FALSE, NULL);
+            (GFunc)repair_repo_with_thread_pool, NULL, options->max_thread_num, FALSE, NULL);
         if (!pool) {
             seaf_warning ("Failed to create check and recover repo thread pool.\n");
             return;
@@ -767,29 +766,28 @@ repair_repos (GList *repo_id_list, gboolean repair, int max_thread_num, gboolean
     for (ptr = repo_id_list; ptr; ptr = ptr->next) {
         repo_id = ptr->data;
 
-        if (max_thread_num) {
+        if (options->max_thread_num) {
             CheckAndRecoverRepoObj *obj = g_new0(CheckAndRecoverRepoObj, 1);
             obj->repo_id = repo_id;
-            obj->repair = repair;
-            obj->check_corrupt = check_corrupt;
+            obj->options = options;
             g_thread_pool_push(pool, obj, NULL);
         } else {
-            repair_repo(repo_id, repair, check_corrupt);
+            repair_repo(repo_id, options);
         }
      }
 
-    if (max_thread_num) {
+    if (options->max_thread_num) {
         g_thread_pool_free(pool, FALSE, TRUE);
     }
 }
 
 int
-seaf_fsck (GList *repo_id_list, gboolean repair, int max_thread_num, gboolean check_corrupt)
+seaf_fsck (GList *repo_id_list, FsckOptions *options)
 {
     if (!repo_id_list)
         repo_id_list = seaf_repo_manager_get_repo_id_list (seaf->repo_mgr);
 
-    repair_repos (repo_id_list, repair, max_thread_num, check_corrupt);
+    repair_repos (repo_id_list, options);
 
     while (repo_id_list) {
         g_free (repo_id_list->data);
