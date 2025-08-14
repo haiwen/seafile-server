@@ -32,6 +32,13 @@ type FolderPermEvent struct {
 	Perm        string `json:"perm"`
 }
 
+type CommentEvent struct {
+	RepoID   string `json:"repo_id"`
+	Type     string `json:"type"`
+	FileUUID string `json:"file_uuid"`
+	FilePath string `json:"file_path"`
+}
+
 func Notify(msg *Message) {
 	var repoID string
 	// userList is the list of users who need to be notified, if it is nil, all subscribed users will be notified.
@@ -69,6 +76,14 @@ func Notify(msg *Message) {
 		} else if event.Group != -1 {
 			userList = getGroupMembers(event.Group)
 		}
+	case "comment-update":
+		var event CommentEvent
+		err := json.Unmarshal(content, &event)
+		if err != nil {
+			log.Warn(err)
+			return
+		}
+		repoID = event.RepoID
 	default:
 		return
 	}
