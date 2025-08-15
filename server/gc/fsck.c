@@ -246,8 +246,10 @@ check_file_size (FsckData *fsck_data, SeafDirent *dent, const char *path)
                                                  repo->version, data.commit_id);
     }
     if (commit) {
-        seaf_warning ("Repo[%s] file %s is damaged, as its size does not match the expected value. It was uploaded via %s (commit id is %s), commit desc is %s, commit time is %d.\n",
-                      repo->id, path, commit->client_version, commit->commit_id, commit->desc, commit->ctime);
+        char time_buf[64];
+        strftime (time_buf, 64, "%Y-%m-%d %H:%M:%S", localtime((time_t *)&commit->ctime));
+        seaf_warning ("Repo[%s] file %s is damaged, as its size does not match the expected value. It was uploaded via %s (commit id is %s), commit desc is %s, commit time is %s.\n",
+                      repo->id, path, commit->client_version, commit->commit_id, commit->desc, time_buf);
     } else {
         seaf_warning ("Repo[%s] file %s is damaged, as its size does not match the expected value.\n",
                       repo->id, path);
