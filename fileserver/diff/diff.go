@@ -442,11 +442,19 @@ func diffResolveRenames(des *[]*DiffEntry) error {
 				results = append(results, de)
 				continue
 			}
+			if _, ok := deletedFiles[de.Sha1]; ok {
+				results = append(results, de)
+				continue
+			}
 			deletedFiles[de.Sha1] = de
 		}
 
 		if de.Status == DiffStatusDirDeleted {
 			if de.Sha1 == EmptySha1 && !checkEmptyDir {
+				results = append(results, de)
+				continue
+			}
+			if _, ok := deletedDirs[de.Sha1]; ok {
 				results = append(results, de)
 				continue
 			}
