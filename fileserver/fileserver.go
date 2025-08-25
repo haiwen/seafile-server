@@ -200,7 +200,7 @@ func loadDBOptionFromFile() (*DBOption, error) {
 
 	section, err := config.GetSection("database")
 	if err != nil {
-		return nil, fmt.Errorf("no database section in seafile.conf.")
+		return dbOpt, nil
 	}
 
 	dbEngine := ""

@@ -43,14 +43,6 @@ load_fileserver_config (SeafileSession *session)
     session->go_fileserver = g_key_file_get_boolean (session->config,
                                                      "fileserver", "use_go_fileserver",
                                                      NULL);
-    if (session->go_fileserver) {
-        char *type = NULL;
-        type = g_key_file_get_string (session->config, "database", "type", NULL);
-        if (!type || g_strcmp0 (type, "mysql") != 0) {
-            session->go_fileserver = FALSE;
-        }
-        g_free (type);
-    }
 
     web_token_expire_time = g_key_file_get_integer (session->config,
                                                     "fileserver", "web_token_expire_time",
