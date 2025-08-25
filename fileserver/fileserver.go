@@ -117,7 +117,7 @@ func loadCcnetDB() {
 	ccnetDB.SetMaxIdleConns(8)
 }
 
-func loadDBOption() (*DBOption, error) {
+func loadDBOption() (*option.DBOption, error) {
 	dbOpt, err := loadDBOptionFromFile()
 	if err != nil {
 		log.Warnf("failed to load database config: %v", err)
@@ -137,20 +137,7 @@ func loadDBOption() (*DBOption, error) {
 	return dbOpt, nil
 }
 
-type DBOption struct {
-	User          string
-	Password      string
-	Host          string
-	Port          int
-	CcnetDbName   string
-	SeafileDbName string
-	CaPath        string
-	UseTLS        bool
-	SkipVerify    bool
-	Charset       string
-}
-
-func loadDBOptionFromEnv(dbOpt *DBOption) *DBOption {
+func loadDBOptionFromEnv(dbOpt *option.DBOption) *option.DBOption {
 	user := os.Getenv("SEAFILE_MYSQL_DB_USER")
 	password := os.Getenv("SEAFILE_MYSQL_DB_PASSWORD")
 	host := os.Getenv("SEAFILE_MYSQL_DB_HOST")
@@ -158,7 +145,7 @@ func loadDBOptionFromEnv(dbOpt *DBOption) *DBOption {
 	seafileDbName := os.Getenv("SEAFILE_MYSQL_DB_SEAFILE_DB_NAME")
 
 	if dbOpt == nil {
-		dbOpt = new(DBOption)
+		dbOpt = new(option.DBOption)
 	}
 	if user != "" {
 		dbOpt.User = user
@@ -187,8 +174,9 @@ func loadDBOptionFromEnv(dbOpt *DBOption) *DBOption {
 	return dbOpt
 }
 
-func loadDBOptionFromFile() (*DBOption, error) {
-	dbOpt := new(DBOption)
+func loadDBOptionFromFile() (*option.DBOption, error) {
+	dbOpt := new(option.DBOption)
+	dbOpt.DBEngine = "mysql"
 
 	seafileConfPath := filepath.Join(centralDir, "seafile.conf")
 	opts := ini.LoadOptions{}
@@ -203,7 +191,7 @@ func loadDBOptionFromFile() (*DBOption, error) {
 		return dbOpt, nil
 	}
 
-	dbEngine := ""
+	dbEngine := "mysql"
 	key, err := section.GetKey("type")
 	if err == nil {
 		dbEngine = key.String()
@@ -211,6 +199,7 @@ func loadDBOptionFromFile() (*DBOption, error) {
 	if dbEngine != "mysql" {
 		return nil, fmt.Errorf("unsupported database %s.", dbEngine)
 	}
+	dbOpt.DBEngine = dbEngine
 	if key, err = section.GetKey("host"); err == nil {
 		dbOpt.Host = key.String()
 	}
@@ -293,6 +282,7 @@ func loadSeafileDB() {
 	seafileDB.SetConnMaxLifetime(5 * time.Minute)
 	seafileDB.SetMaxOpenConns(8)
 	seafileDB.SetMaxIdleConns(8)
+	option.DBType = dbOpt.DBEngine
 }
 
 func writePidFile(pid_file_path string) error {
@@ -336,7 +326,6 @@ func main() {
 	if os.IsNotExist(err) {
 		log.Fatalf("central config directory %s doesn't exist: %v.", centralDir, err)
 	}
-	loadCcnetDB()
 
 	if dataDir == "" {
 		log.Fatal("seafile data directory must be specified.")
@@ -349,8 +338,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to convert seafile data dir to absolute path: %v.", err)
 	}
-	loadSeafileDB()
-	option.LoadFileServerOptions(centralDir)
 
 	if logToStdout {
 		// Use default output (StdOut)
@@ -380,16 +367,20 @@ func main() {
 	}
 	// When logFile is "-", use default output (StdOut)
 
+	if err := option.LoadSeahubConfig(); err != nil {
+		log.Fatalf("Failed to read seahub config: %v", err)
+	}
+
+	option.LoadFileServerOptions(centralDir)
+	loadCcnetDB()
+	loadSeafileDB()
+
 	level, err := log.ParseLevel(option.LogLevel)
 	if err != nil {
 		log.Info("use the default log level: info")
 		log.SetLevel(log.InfoLevel)
 	} else {
 		log.SetLevel(level)
-	}
-
-	if err := option.LoadSeahubConfig(); err != nil {
-		log.Fatalf("Failed to read seahub config: %v", err)
 	}
 
 	repomgr.Init(seafileDB)

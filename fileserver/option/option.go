@@ -73,10 +73,27 @@ var (
 	// DB default timeout
 	DBOpTimeout time.Duration
 
+	// database
+	DBType string
+
 	// seahub
 	SeahubURL     string
 	JWTPrivateKey string
 )
+
+type DBOption struct {
+	User          string
+	Password      string
+	Host          string
+	Port          int
+	CcnetDbName   string
+	SeafileDbName string
+	CaPath        string
+	UseTLS        bool
+	SkipVerify    bool
+	Charset       string
+	DBEngine      string
+}
 
 func initDefaultOptions() {
 	Host = "0.0.0.0"

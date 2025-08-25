@@ -40,10 +40,6 @@ load_fileserver_config (SeafileSession *session)
     int fixed_block_size_mb;
     int max_indexing_threads;
 
-    session->go_fileserver = g_key_file_get_boolean (session->config,
-                                                     "fileserver", "use_go_fileserver",
-                                                     NULL);
-
     web_token_expire_time = g_key_file_get_integer (session->config,
                                                     "fileserver", "web_token_expire_time",
                                                     NULL);
@@ -121,6 +117,10 @@ load_config (SeafileSession *session, const char *config_file_path)
     session->cloud_mode = g_key_file_get_boolean (config,
                                                   "general", "cloud_mode",
                                                   NULL);
+
+    session->go_fileserver = g_key_file_get_boolean (config,
+                                                     "fileserver", "use_go_fileserver",
+                                                     NULL);
 
     session->obj_cache = objcache_new ();
 
