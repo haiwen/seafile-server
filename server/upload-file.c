@@ -2554,8 +2554,9 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     RecvFSM *fsm = NULL;
     Progress *progress = NULL;
     int error_code = EVHTP_RES_BADREQ;
+    htp_method method = evhtp_request_get_method(req);
 
-    if (evhtp_request_get_method(req) == htp_method_OPTIONS) {
+    if (method == htp_method_OPTIONS) {
          return EVHTP_RES_OK;
     }
 
@@ -2577,6 +2578,19 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     if (check_access_token (token, url_op, &repo_id, &parent_dir, &user, &token_type, &err_msg) < 0) {
         error_code = EVHTP_RES_FORBIDDEN;
         goto err;
+    }
+
+    if (method == htp_method_POST || method == htp_method_PUT) {
+        gint64 content_len = get_content_length (req);
+        // Check whether the file to be uploaded would exceed the quota before receiving the body, in order to avoid unnecessarily receiving the body.
+        // After receiving the body, the quota is checked again to handle cases where the Content-Length in the request header is missing, which could make the initial quota check inaccurate.
+        if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
+                                                       repo_id,
+                                                       content_len) != 0) {
+            error_code = SEAF_HTTP_RES_NOQUOTA;
+            err_msg = "Out of quota.\n";
+            goto err;
+        }
     }
 
     boundary = get_boundary (hdr);
