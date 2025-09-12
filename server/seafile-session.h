@@ -91,6 +91,7 @@ struct _SeafileSession {
     int max_index_processing_threads;
     gint64 fixed_block_size;
     int max_indexing_threads;
+    gint64 max_upload_size;
 
     // For notification server
     NotifManager *notif_mgr;

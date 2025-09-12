@@ -1126,6 +1126,7 @@ func uploadAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	fsm, err := parseUploadHeaders(r)
 	if err != nil {
+		formatJSONError(rsp, err)
 		return err
 	}
 
@@ -1153,6 +1154,7 @@ func uploadAjaxCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	fsm, err := parseUploadHeaders(r)
 	if err != nil {
+		formatJSONError(rsp, err)
 		return err
 	}
 
@@ -1671,7 +1673,57 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 		parseContentRange(ranges, fsm)
 	}
 
+	var contentLen int64
+	lenstr := r.Header.Get("Content-Length")
+	if lenstr != "" {
+		conLen, _ := strconv.ParseInt(lenstr, 10, 64)
+		contentLen = conLen
+		if contentLen < 0 {
+			contentLen = 0
+		}
+	}
+	if err := checkQuotaByContentLength(r, repoID, contentLen); err != nil {
+		return nil, err
+	}
+	if err := checkFileSizeByContentLength(r, contentLen); err != nil {
+		return nil, err
+	}
+
 	return fsm, nil
+}
+
+// Check whether the file to be uploaded would exceed the quota before receiving the body, in order to avoid unnecessarily receiving the body.
+// After receiving the body, the quota is checked again to handle cases where the Content-Length in the request header is missing, which could make the initial quota check inaccurate.
+func checkQuotaByContentLength(r *http.Request, repoID string, contentLen int64) *appError {
+	if r.Method != "PUT" && r.Method != "POST" {
+		return nil
+	}
+
+	ret, err := checkQuota(repoID, contentLen)
+	if err != nil {
+		msg := "Internal error.\n"
+		err := fmt.Errorf("failed to check quota: %v", err)
+		return &appError{err, msg, http.StatusInternalServerError}
+	}
+	if ret == 1 {
+		msg := "Out of quota.\n"
+		return &appError{nil, msg, seafHTTPResNoQuota}
+	}
+
+	return nil
+}
+
+func checkFileSizeByContentLength(r *http.Request, contentLen int64) *appError {
+	if r.Method != "PUT" && r.Method != "POST" {
+		return nil
+	}
+
+	if option.MaxUploadSize > 0 && uint64(contentLen) > option.MaxUploadSize {
+		msg := "File size is too large.\n"
+		return &appError{nil, msg, seafHTTPResTooLarge}
+	}
+
+	return nil
 }
 
 func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user string, fsm *recvData, replace bool, lastModify int64, isAjax bool) *appError {
@@ -2972,6 +3024,7 @@ func updateAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	fsm, err := parseUploadHeaders(r)
 	if err != nil {
+		formatJSONError(rsp, err)
 		return err
 	}
 
@@ -2992,6 +3045,7 @@ func updateAjaxCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	fsm, err := parseUploadHeaders(r)
 	if err != nil {
+		formatJSONError(rsp, err)
 		return err
 	}
 
@@ -3323,6 +3377,7 @@ func checkFileExists(storeID, rootID, parentDir, fileName string) (bool, error) 
 func uploadBlksAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
 	fsm, err := parseUploadHeaders(r)
 	if err != nil {
+		formatJSONError(rsp, err)
 		return err
 	}
 
@@ -3560,6 +3615,7 @@ func indexExistedFileBlocks(repoID string, version int, blkIDs []string, fileSiz
 func uploadRawBlksAPICB(rsp http.ResponseWriter, r *http.Request) *appError {
 	fsm, err := parseUploadHeaders(r)
 	if err != nil {
+		formatJSONError(rsp, err)
 		return err
 	}
 
