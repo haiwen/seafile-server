@@ -1673,7 +1673,19 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 		parseContentRange(ranges, fsm)
 	}
 
-	if err := checkQuotaByContentLength(r, repoID); err != nil {
+	var contentLen int64
+	lenstr := r.Header.Get("Content-Length")
+	if lenstr != "" {
+		conLen, _ := strconv.ParseInt(lenstr, 10, 64)
+		contentLen = conLen
+		if contentLen < 0 {
+			contentLen = 0
+		}
+	}
+	if err := checkQuotaByContentLength(r, repoID, contentLen); err != nil {
+		return nil, err
+	}
+	if err := checkFileSizeByContentLength(r, contentLen); err != nil {
 		return nil, err
 	}
 
@@ -1682,16 +1694,9 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 
 // Check whether the file to be uploaded would exceed the quota before receiving the body, in order to avoid unnecessarily receiving the body.
 // After receiving the body, the quota is checked again to handle cases where the Content-Length in the request header is missing, which could make the initial quota check inaccurate.
-func checkQuotaByContentLength(r *http.Request, repoID string) *appError {
+func checkQuotaByContentLength(r *http.Request, repoID string, contentLen int64) *appError {
 	if r.Method != "PUT" && r.Method != "POST" {
 		return nil
-	}
-
-	var contentLen int64
-	lenstr := r.Header.Get("Content-Length")
-	if lenstr != "" {
-		conLen, _ := strconv.ParseInt(lenstr, 10, 64)
-		contentLen = conLen
 	}
 
 	ret, err := checkQuota(repoID, contentLen)
@@ -1703,6 +1708,19 @@ func checkQuotaByContentLength(r *http.Request, repoID string) *appError {
 	if ret == 1 {
 		msg := "Out of quota.\n"
 		return &appError{nil, msg, seafHTTPResNoQuota}
+	}
+
+	return nil
+}
+
+func checkFileSizeByContentLength(r *http.Request, contentLen int64) *appError {
+	if r.Method != "PUT" && r.Method != "POST" {
+		return nil
+	}
+
+	if option.MaxUploadSize > 0 && uint64(contentLen) > option.MaxUploadSize {
+		msg := "File size is too large.\n"
+		return &appError{nil, msg, seafHTTPResTooLarge}
 	}
 
 	return nil

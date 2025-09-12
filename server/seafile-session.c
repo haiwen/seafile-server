@@ -39,6 +39,7 @@ load_fileserver_config (SeafileSession *session)
     int max_index_processing_threads;
     int fixed_block_size_mb;
     int max_indexing_threads;
+    gint64 max_upload_size;
 
     web_token_expire_time = g_key_file_get_integer (session->config,
                                                     "fileserver", "web_token_expire_time",
@@ -88,6 +89,19 @@ load_fileserver_config (SeafileSession *session)
 
     seaf_message ("fileserver: max_indexing_threads = %d\n",
                   session->max_indexing_threads);
+
+    GError *err = NULL;
+    max_upload_size = g_key_file_get_int64(session->config, "fileserver", "max_upload_size", &err);
+    if (err) {
+        max_upload_size = -1;
+        g_clear_error(&err);
+    } else if (max_upload_size > 0) {
+        max_upload_size = max_upload_size * 1000000;
+    }
+    session->max_upload_size = max_upload_size;
+
+    seaf_message ("fileserver: max_upload_size = %d\n",
+                  session->max_upload_size);
 
     return;
 }

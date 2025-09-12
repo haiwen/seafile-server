@@ -224,7 +224,6 @@ check_tmp_file_list (GList *tmp_files, int *error_code)
     char *tmp_file;
     SeafStat st;
     gint64 total_size = 0;
-    gint64 max_upload_size;
 
     for (ptr = tmp_files; ptr; ptr = ptr->next) {
         tmp_file = ptr->data;
@@ -237,15 +236,8 @@ check_tmp_file_list (GList *tmp_files, int *error_code)
 
         total_size += (gint64)st.st_size;
     }
-    /* default is MB */
-    max_upload_size = seaf_cfg_manager_get_config_int64 (seaf->cfg_mgr, "fileserver",
-                                                         "max_upload_size");
-    if (max_upload_size > 0)
-        max_upload_size = max_upload_size * 1000000;
-    else
-        max_upload_size = -1;
     
-    if (max_upload_size > 0 && total_size > max_upload_size) {
+    if (seaf->max_upload_size > 0 && total_size > seaf->max_upload_size) {
         seaf_debug ("[upload] File size is too large.\n");
         *error_code = ERROR_SIZE;
         return FALSE;
@@ -2589,6 +2581,12 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
                                                        content_len) != 0) {
             error_code = SEAF_HTTP_RES_NOQUOTA;
             err_msg = "Out of quota.\n";
+            goto err;
+        }
+
+        if (seaf->max_upload_size > 0 && content_len > seaf->max_upload_size) {
+            error_code = ERROR_SIZE;
+            err_msg = "File size is too large.\n";
             goto err;
         }
     }
