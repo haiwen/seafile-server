@@ -2585,7 +2585,7 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
         }
 
         if (seaf->max_upload_size > 0 && content_len > seaf->max_upload_size) {
-            error_code = ERROR_SIZE;
+            error_code = SEAF_HTTP_RES_TOOLARGE;
             err_msg = "File size is too large.\n";
             goto err;
         }
