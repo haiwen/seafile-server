@@ -2572,8 +2572,20 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
         goto err;
     }
 
+    gint64 rstart = -1;
+    gint64 rend = -1;
+    gint64 fsize = -1;
+    if (!parse_range_val (hdr, &rstart, &rend, &fsize)) {
+        seaf_warning ("Invalid Seafile-Content-Range value.\n");
+        err_msg = "Invalid Seafile-Content-Range";
+        goto err;
+    }
+
     if (method == htp_method_POST || method == htp_method_PUT) {
         gint64 content_len = get_content_length (req);
+        if (fsize > 0) {
+            content_len = fsize;
+        }
         // Check whether the file to be uploaded would exceed the quota before receiving the body, in order to avoid unnecessarily receiving the body.
         // After receiving the body, the quota is checked again to handle cases where the Content-Length in the request header is missing, which could make the initial quota check inaccurate.
         if (seaf_quota_manager_check_quota_with_delta (seaf->quota_mgr,
@@ -2610,15 +2622,6 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
             goto err;
         }
         pthread_mutex_unlock (&pg_lock);
-    }
-
-    gint64 rstart = -1;
-    gint64 rend = -1;
-    gint64 fsize = -1;
-    if (!parse_range_val (hdr, &rstart, &rend, &fsize)) {
-        seaf_warning ("Invalid Seafile-Content-Range value.\n");
-        err_msg = "Invalid Seafile-Content-Range";
-        goto err;
     }
 
     fsm = g_new0 (RecvFSM, 1);
