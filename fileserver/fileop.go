@@ -1681,6 +1681,9 @@ func parseUploadHeaders(r *http.Request) (*recvData, *appError) {
 		if contentLen < 0 {
 			contentLen = 0
 		}
+		if fsm.fsize > 0 {
+			contentLen = fsm.fsize
+		}
 	}
 	if err := checkQuotaByContentLength(r, repoID, contentLen); err != nil {
 		return nil, err
