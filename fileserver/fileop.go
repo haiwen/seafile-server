@@ -398,7 +398,10 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 
 	rsp.Header().Set("Access-Control-Allow-Origin", "*")
 
-	rsp.Header().Set("Content-Security-Policy", "sandbox")
+	fileType := parseContentType(fileName)
+	if fileType == "image/svg+xml" {
+		rsp.Header().Set("Content-Security-Policy", "sandbox")
+	}
 
 	setCommonHeaders(rsp, r, operation, fileName)
 
@@ -484,7 +487,10 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 
 	rsp.Header().Set("Accept-Ranges", "bytes")
 
-	rsp.Header().Set("Content-Security-Policy", "sandbox")
+	fileType := parseContentType(fileName)
+	if fileType == "image/svg+xml" {
+		rsp.Header().Set("Content-Security-Policy", "sandbox")
+	}
 
 	setCommonHeaders(rsp, r, operation, fileName)
 
