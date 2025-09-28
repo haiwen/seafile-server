@@ -591,10 +591,6 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
                              evhtp_header_new("Access-Control-Allow-Origin",
                                               "*", 1, 1));
 
-    evhtp_headers_add_header(req->headers_out,
-                             evhtp_header_new("Content-Security-Policy",
-                                              policy, 1, 1));
-
     type = parse_content_type(filename);
     if (type != NULL) {
         if (strstr(type, "text")) {
@@ -607,6 +603,12 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
                                  evhtp_header_new("Content-Type",
                                                   content_type, 1, 1));
         g_free (content_type);
+
+        if (g_strcmp0 (type, "image/svg+xml") == 0) {
+            evhtp_headers_add_header(req->headers_out,
+                                     evhtp_header_new("Content-Security-Policy",
+                                                      policy, 1, 1));
+        }
     } else
         evhtp_headers_add_header (req->headers_out,
                                   evhtp_header_new("Content-Type",
@@ -962,10 +964,6 @@ do_file_range (evhtp_request_t *req, SeafRepo *repo, const char *file_id,
     evhtp_headers_add_header (req->headers_out,
                               evhtp_header_new ("Accept-Ranges", "bytes", 0, 0));
 
-    evhtp_headers_add_header(req->headers_out,
-                             evhtp_header_new("Content-Security-Policy",
-                                              policy, 1, 1));
-
     char *content_type = NULL;
     char *type = parse_content_type (filename);
     if (type != NULL) {
@@ -973,6 +971,12 @@ do_file_range (evhtp_request_t *req, SeafRepo *repo, const char *file_id,
             content_type = g_strjoin("; ", type, "charset=gbk", NULL);
         } else {
             content_type = g_strdup (type);
+        }
+
+        if (g_strcmp0 (type, "image/svg+xml") == 0) {
+            evhtp_headers_add_header(req->headers_out,
+                                     evhtp_header_new("Content-Security-Policy",
+                                                      policy, 1, 1));
         }
     } else {
         content_type = g_strdup ("application/octet-stream");
