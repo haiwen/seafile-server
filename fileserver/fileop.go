@@ -398,6 +398,8 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 
 	rsp.Header().Set("Access-Control-Allow-Origin", "*")
 
+	rsp.Header().Set("Content-Security-Policy", "sandbox")
+
 	setCommonHeaders(rsp, r, operation, fileName)
 
 	//filesize string
@@ -481,6 +483,8 @@ func doFileRange(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, f
 	}
 
 	rsp.Header().Set("Accept-Ranges", "bytes")
+
+	rsp.Header().Set("Content-Security-Policy", "sandbox")
 
 	setCommonHeaders(rsp, r, operation, fileName)
 
