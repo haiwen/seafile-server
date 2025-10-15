@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS EmailUser (
   passwd VARCHAR(256),
   is_staff BOOL NOT NULL,
   is_active BOOL NOT NULL,
-  is_department_owner BOOL NOT NULL,
+  is_department_owner BOOL NOT NULL DEFAULT 0,
   ctime BIGINT,
   reference_id VARCHAR(255),
   UNIQUE INDEX (email),
