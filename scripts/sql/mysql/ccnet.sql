@@ -12,10 +12,13 @@ CREATE TABLE IF NOT EXISTS EmailUser (
   passwd VARCHAR(256),
   is_staff BOOL NOT NULL,
   is_active BOOL NOT NULL,
+  is_department_owner BOOL NOT NULL,
   ctime BIGINT,
   reference_id VARCHAR(255),
   UNIQUE INDEX (email),
-  UNIQUE INDEX (reference_id)
+  UNIQUE INDEX (reference_id),
+  INDEX (is_active),
+  INDEX (is_department_owner)
 ) ENGINE=INNODB;
 
 CREATE TABLE IF NOT EXISTS `Group` (
@@ -101,4 +104,11 @@ CREATE TABLE IF NOT EXISTS UserRole (
   role VARCHAR(255),
   is_manual_set INTEGER DEFAULT 0,
   UNIQUE INDEX (email)
+) ENGINE=INNODB;
+
+CREATE TABLE IF NOT EXISTS OrgFileExtWhiteList (
+  id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  org_id INTEGER,
+  white_list TEXT,
+  UNIQUE INDEX (org_id)
 ) ENGINE=INNODB;
