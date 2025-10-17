@@ -2655,8 +2655,8 @@ upload_headers_cb (evhtp_request_t *req, evhtp_headers_t *hdr, void *arg)
     seaf_metric_manager_in_flight_request_inc (seaf->metric_mgr);
 
     /* Set up per-request hooks, so that we can read file data piece by piece. */
-    evhtp_set_hook (&req->hooks, evhtp_hook_on_read, upload_read_cb, fsm);
-    evhtp_set_hook (&req->hooks, evhtp_hook_on_request_fini, upload_finish_cb, fsm);
+    evhtp_set_hook (&req->hooks, evhtp_hook_on_read, (evhtp_hook)upload_read_cb, fsm);
+    evhtp_set_hook (&req->hooks, evhtp_hook_on_request_fini, (evhtp_hook)upload_finish_cb, fsm);
     /* Set arg for upload_cb or update_cb. */
     req->cbarg = fsm;
 
@@ -2904,6 +2904,7 @@ int
 upload_file_init (evhtp_t *htp, const char *http_temp_dir)
 {
     evhtp_callback_t *cb;
+    evhtp_hook upload_headers_cb = (evhtp_hook)upload_headers_cb;
 
     if (g_mkdir_with_parents (http_temp_dir, 0777) < 0) {
         seaf_warning ("Failed to create temp file dir %s.\n",
