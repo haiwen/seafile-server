@@ -511,8 +511,10 @@ check_and_recover_repo (SeafRepo *repo, gboolean reset, FsckOptions *options)
     fsck_data.repo = repo;
     fsck_data.existing_blocks = g_hash_table_new_full (g_str_hash, g_str_equal,
                                                        g_free, NULL);
-    fsck_data.truncate_time = seaf_repo_manager_get_repo_truncate_time (seaf->repo_mgr,
-                                                                        repo->id);
+    if (options->check_file_size) {
+        fsck_data.truncate_time = seaf_repo_manager_get_repo_truncate_time (seaf->repo_mgr,
+                                                                            repo->id);
+    }
 
     root_id = fsck_check_dir_recursive (rep_commit->root_id, "/", &fsck_data);
     g_hash_table_destroy (fsck_data.existing_blocks);
