@@ -99,6 +99,7 @@ publish_in_flight_request (SeafMetricManager *mgr)
     json_object_set_new (obj, "metric_type", json_string("gauge"));
     json_object_set_new (obj, "component_name", json_string(COMPONENT_NAME));
     json_object_set_new (obj, "metric_help", json_string("The number of currently running http requests."));
+    json_object_set_new (obj, "node_name", json_string(seaf->node_name));
 
     msg = json_dumps (obj, JSON_COMPACT);
 

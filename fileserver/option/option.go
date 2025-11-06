@@ -79,6 +79,9 @@ var (
 	// seahub
 	SeahubURL     string
 	JWTPrivateKey string
+
+	// metric
+	NodeName string
 )
 
 type DBOption struct {
@@ -158,6 +161,11 @@ func LoadFileServerOptions(centralDir string) {
 	GroupTableName = os.Getenv("SEAFILE_MYSQL_DB_GROUP_TABLE_NAME")
 	if GroupTableName == "" {
 		GroupTableName = "Group"
+	}
+
+	NodeName = os.Getenv("NODE_NAME")
+	if NodeName == "" {
+		NodeName = "default"
 	}
 }
 

@@ -100,6 +100,7 @@ struct _SeafileSession {
 
     // For metric
     SeafMetricManager *metric_mgr; 
+    char              *node_name;
 
     ObjCache *obj_cache;
 
