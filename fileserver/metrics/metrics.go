@@ -140,6 +140,7 @@ func publishMetrics() error {
 		MetricType:    "gauge",
 		ComponentName: ComponentName,
 		MetricHelp:    "The number of currently running http requests.",
+		NodeName:      option.NodeName,
 	}
 
 	data, err := json.Marshal(msg)
