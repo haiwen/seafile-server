@@ -1200,9 +1200,6 @@ class CcnetAPI(object):
     def get_primary_id (self, email):
         return ccnet_threaded_rpc.get_primary_id(email)
 
-    def set_reference_id (self, primary_id, reference_id):
-        return ccnet_threaded_rpc.set_reference_id(primary_id, reference_id)
-
     def get_groups_members(self, group_ids):
         """
         @group_ids: json '[id1, id2, id3,...]'
