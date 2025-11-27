@@ -57,6 +57,9 @@ USE_GO_FILESERVER = False
 if config.has_option('fileserver', 'use_go_fileserver'):
     USE_GO_FILESERVER = config.getboolean('fileserver', 'use_go_fileserver')
 
+if "ENABLE_GO_FILESERVER" in os.environ and os.environ["ENABLE_GO_FILESERVER"] == "true":
+    USE_GO_FILESERVER = True
+
 MAX_UPLOAD_FILE_SIZE = None # Defaults to no limit
 try:
     max_upload_size_mb = int(get_fileserver_option('max_upload_size', 0))

@@ -118,6 +118,7 @@ load_config (SeafileSession *session, const char *config_file_path)
     const char *site_root = NULL;
     const char *log_to_stdout = NULL;
     const char *node_name = NULL;
+    const char *use_go_fileserver = NULL;
 
     config = g_key_file_new ();
     if (!g_key_file_load_from_file (config, config_file_path,
@@ -146,6 +147,7 @@ load_config (SeafileSession *session, const char *config_file_path)
     notif_server = g_getenv("INNER_NOTIFICATION_SERVER_URL");
     enable_notif_server = g_getenv("ENABLE_NOTIFICATION_SERVER");
     node_name = g_getenv("NODE_NAME");
+    use_go_fileserver = g_getenv("ENABLE_GO_FILESERVER");
 
     if (!private_key) {
         seaf_warning ("Failed to read JWT_PRIVATE_KEY.\n");
@@ -172,6 +174,10 @@ load_config (SeafileSession *session, const char *config_file_path)
         node_name = "default";
     }
     session->node_name = g_strdup (node_name);
+
+    if (use_go_fileserver && g_strcmp0 (use_go_fileserver, "true") == 0) {
+        session->go_fileserver = TRUE; 
+    }
 
 out:
     if (ret < 0) {
