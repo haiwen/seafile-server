@@ -1098,10 +1098,6 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def set_org_name(self, org_id, org_name):
         pass
 
-    @searpc_func("int", ["string", "string"])
-    def set_reference_id(self, primary_id, reference_id):
-        pass
-
     @searpc_func("string", ["string"])
     def get_primary_id(self, email):
         pass

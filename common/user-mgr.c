@@ -1781,6 +1781,7 @@ ccnet_user_manager_get_superusers(CcnetUserManager *manager)
         return NULL;
     }
 
+#ifdef HAVE_LDAP
     if (seaf_db_foreach_selected_row (db,
                                        "SELECT t1.id, t1.email, "
                                        "t1.is_staff, t1.is_active, "
@@ -1795,6 +1796,7 @@ ccnet_user_manager_get_superusers(CcnetUserManager *manager)
         }
         return NULL;
     }
+#endif
 
     return g_list_reverse (ret);
 }
