@@ -185,7 +185,7 @@ ccnet_user_manager_set_max_users (CcnetUserManager *manager, gint64 max_users)
 
 static int try_load_ldap_settings (CcnetUserManager *manager)
 {
-    GKeyFile *config = manager->session->ccnet_config;
+    GKeyFile *config = manager->session->config;
     manager->ldap_host = ccnet_key_file_get_string (config, "LDAP", "HOST");
     if (!manager->ldap_host)
         return 0;
