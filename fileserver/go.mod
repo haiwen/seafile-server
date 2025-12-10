@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/json-iterator/go v1.1.12
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/text v0.3.8
 	gopkg.in/ini.v1 v1.55.0
 )
