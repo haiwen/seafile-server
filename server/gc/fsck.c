@@ -3,6 +3,7 @@
 #include <fcntl.h>
 
 #include "seafile-session.h"
+#include "seaf-utils.h"
 #include "log.h"
 #include "utils.h"
 
