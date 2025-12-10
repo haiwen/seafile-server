@@ -841,10 +841,15 @@ static gboolean
 parse_range_val (const char *byte_ranges, guint64 *pstart, guint64 *pend,
                  guint64 fsize)
 {
+    char *ranges = strchr(byte_ranges, '=');
+    if (!ranges) {
+        return FALSE;
+    }
+
     char *minus;
     char *end_ptr;
     gboolean error = FALSE;
-    char *ranges_dup = g_strdup (strchr(byte_ranges, '=') + 1);
+    char *ranges_dup = g_strdup (ranges + 1);
     char *tmp = ranges_dup;
     guint64 start;
     guint64 end;
