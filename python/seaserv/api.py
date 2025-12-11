@@ -969,12 +969,6 @@ class CcnetAPI(object):
     def get_ancestor_groups(self, group_id):
         return ccnet_threaded_rpc.get_ancestor_groups(group_id)
 
-    def search_ldapusers(self, keyword, start, limit):
-        """
-        Search for users whose name contains @keyword directly from LDAP server.
-        """
-        return ccnet_threaded_rpc.search_ldapusers(keyword, start, limit)
-    
     def count_emailusers(self, source):
         """
         Return the number of active users by source.
