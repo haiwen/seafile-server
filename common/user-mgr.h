@@ -109,11 +109,6 @@ ccnet_user_manager_search_emailusers (CcnetUserManager *manager,
                                       const char *keyword,
                                       int start, int limit);
 
-GList*
-ccnet_user_manager_search_ldapusers (CcnetUserManager *manager,
-                                     const char *keyword,
-                                     int start, int limit);
-
 gint64
 ccnet_user_manager_count_emailusers (CcnetUserManager *manager, const char *source);
 
@@ -137,35 +132,7 @@ ccnet_user_manager_update_role_emailuser (CcnetUserManager *manager,
 GList*
 ccnet_user_manager_get_superusers(CcnetUserManager *manager);
 
-int
-ccnet_user_manager_add_binding (CcnetUserManager *manager, const char *email,
-                                const char *peer_id);
-
-/* Remove all bindings to an email */
-int
-ccnet_user_manager_remove_binding (CcnetUserManager *manager, const char *email);
-
 /* Remove one specific peer-id binding to an email */
-int
-ccnet_user_manager_remove_one_binding (CcnetUserManager *manager,
-                                       const char *email,
-                                       const char *peer_id);
-
-char *
-ccnet_user_manager_get_binding_email (CcnetUserManager *manager, const char *peer_id);
-
-GList *
-ccnet_user_manager_get_binding_peerids (CcnetUserManager *manager, const char *email);
-
-int
-ccnet_user_manager_set_reference_id (CcnetUserManager *manager,
-                                     const char *primary_id,
-                                     const char *reference_id,
-                                     GError **error);
-
-char *
-ccnet_user_manager_get_primary_id (CcnetUserManager *manager,
-                                   const char *email);
 
 char *
 ccnet_user_manager_get_login_id (CcnetUserManager *manager,
