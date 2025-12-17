@@ -197,7 +197,7 @@ func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
 }
 
 // GetEx return repo object even if it's corrupted.
-func GetEx(id string) *Repo {
+func GetEx(id string) (*Repo, error) {
 	query := `SELECT r.repo_id, b.commit_id, v.origin_repo, v.path, v.base_commit FROM ` +
 		`Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id ` +
 		`LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id ` +
@@ -207,15 +207,15 @@ func GetEx(id string) *Repo {
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
-		log.Errorf("failed to prepare sql : %s ：%v", query, err)
-		return nil
+		err := fmt.Errorf("failed to prepare sql : %s ：%w", query, err)
+		return nil, err
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.QueryContext(ctx, id)
 	if err != nil {
-		log.Errorf("failed to query sql : %v", err)
-		return nil
+		err := fmt.Errorf("failed to query sql : %w", err)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -227,11 +227,13 @@ func GetEx(id string) *Repo {
 	if rows.Next() {
 		err := rows.Scan(&repo.ID, &repo.HeadCommitID, &originRepoID, &path, &baseCommitID)
 		if err != nil {
-			log.Errorf("failed to scan sql rows : %v", err)
-			return nil
+			err := fmt.Errorf("failed to scan sql rows : %w", err)
+			return nil, err
 		}
+	} else if rows.Err() != nil {
+		return nil, rows.Err()
 	} else {
-		return nil
+		return nil, nil
 	}
 	if originRepoID.Valid {
 		repo.VirtualInfo = new(VRepoInfo)
@@ -252,14 +254,14 @@ func GetEx(id string) *Repo {
 
 	if repo.HeadCommitID == "" {
 		repo.IsCorrupted = true
-		return repo
+		return repo, nil
 	}
 
 	commit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
 		log.Errorf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
 		repo.IsCorrupted = true
-		return nil
+		return repo, nil
 	}
 
 	repo.Name = commit.RepoName
@@ -291,7 +293,7 @@ func GetEx(id string) *Repo {
 		}
 	}
 
-	return repo
+	return repo, nil
 }
 
 // GetVirtualRepoInfo return virtual repo info by repo id.
