@@ -198,6 +198,7 @@ func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
 
 // GetEx return repo object even if it's corrupted.
 func GetEx(id string) *Repo {
+	repo := new(Repo)
 	query := `SELECT r.repo_id, b.commit_id, v.origin_repo, v.path, v.base_commit FROM ` +
 		`Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id ` +
 		`LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id ` +
@@ -207,19 +208,17 @@ func GetEx(id string) *Repo {
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
-		log.Errorf("failed to prepare sql : %s ：%v", query, err)
-		return nil
+		repo.IsCorrupted = true
+		return repo
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.QueryContext(ctx, id)
 	if err != nil {
-		log.Errorf("failed to query sql : %v", err)
-		return nil
+		repo.IsCorrupted = true
+		return repo
 	}
 	defer rows.Close()
-
-	repo := new(Repo)
 
 	var originRepoID sql.NullString
 	var path sql.NullString
@@ -227,9 +226,13 @@ func GetEx(id string) *Repo {
 	if rows.Next() {
 		err := rows.Scan(&repo.ID, &repo.HeadCommitID, &originRepoID, &path, &baseCommitID)
 		if err != nil {
-			log.Errorf("failed to scan sql rows : %v", err)
-			return nil
+			repo.IsCorrupted = true
+			return repo
+
 		}
+	} else if rows.Err() != nil {
+		repo.IsCorrupted = true
+		return repo
 	} else {
 		return nil
 	}
@@ -259,7 +262,7 @@ func GetEx(id string) *Repo {
 	if err != nil {
 		log.Errorf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
 		repo.IsCorrupted = true
-		return nil
+		return repo
 	}
 
 	repo.Name = commit.RepoName
