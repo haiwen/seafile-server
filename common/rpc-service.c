@@ -5017,19 +5017,6 @@ ccnet_rpc_get_descendants_groups(int group_id, GError **error)
     return groups;
 }
 
-GList*
-ccnet_rpc_search_ldapusers (const char *keyword,
-                            int start, int limit,
-                            GError **error)
-{
-    GList *ldapusers = NULL;
-    CcnetUserManager *user_mgr = seaf->user_mgr;
-
-    ldapusers = ccnet_user_manager_search_ldapusers (user_mgr, keyword,
-                                                     start, limit);
-    return ldapusers;
-}
-
 gint64
 ccnet_rpc_count_emailusers (const char *source, GError **error)
 {
@@ -5798,22 +5785,6 @@ ccnet_rpc_set_org_name (int org_id, const char *org_name, GError **error)
     }
 
     return ccnet_org_manager_set_org_name (org_mgr, org_id, org_name, error);
-}
-
-int
-ccnet_rpc_set_reference_id (const char *primary_id, const char *reference_id, GError **error)
-{
-    CcnetUserManager *user_mgr = seaf->user_mgr;
-
-    return ccnet_user_manager_set_reference_id (user_mgr, primary_id, reference_id, error);
-}
-
-char *
-ccnet_rpc_get_primary_id (const char *email, GError **error)
-{
-    CcnetUserManager *user_mgr = seaf->user_mgr;
-
-    return ccnet_user_manager_get_primary_id (user_mgr, email);
 }
 
 #endif  /* SEAFILE_SERVER */
