@@ -197,7 +197,8 @@ func RepoToCommit(repo *Repo, commit *commitmgr.Commit) {
 }
 
 // GetEx return repo object even if it's corrupted.
-func GetEx(id string) (*Repo, error) {
+func GetEx(id string) *Repo {
+	repo := new(Repo)
 	query := `SELECT r.repo_id, b.commit_id, v.origin_repo, v.path, v.base_commit FROM ` +
 		`Repo r LEFT JOIN Branch b ON r.repo_id = b.repo_id ` +
 		`LEFT JOIN VirtualRepo v ON r.repo_id = v.repo_id ` +
@@ -207,19 +208,17 @@ func GetEx(id string) (*Repo, error) {
 	defer cancel()
 	stmt, err := seafileDB.PrepareContext(ctx, query)
 	if err != nil {
-		err := fmt.Errorf("failed to prepare sql : %s ：%w", query, err)
-		return nil, err
+		repo.IsCorrupted = true
+		return repo
 	}
 	defer stmt.Close()
 
 	rows, err := stmt.QueryContext(ctx, id)
 	if err != nil {
-		err := fmt.Errorf("failed to query sql : %w", err)
-		return nil, err
+		repo.IsCorrupted = true
+		return repo
 	}
 	defer rows.Close()
-
-	repo := new(Repo)
 
 	var originRepoID sql.NullString
 	var path sql.NullString
@@ -227,13 +226,15 @@ func GetEx(id string) (*Repo, error) {
 	if rows.Next() {
 		err := rows.Scan(&repo.ID, &repo.HeadCommitID, &originRepoID, &path, &baseCommitID)
 		if err != nil {
-			err := fmt.Errorf("failed to scan sql rows : %w", err)
-			return nil, err
+			repo.IsCorrupted = true
+			return repo
+
 		}
 	} else if rows.Err() != nil {
-		return nil, rows.Err()
+		repo.IsCorrupted = true
+		return repo
 	} else {
-		return nil, nil
+		return nil
 	}
 	if originRepoID.Valid {
 		repo.VirtualInfo = new(VRepoInfo)
@@ -254,14 +255,14 @@ func GetEx(id string) (*Repo, error) {
 
 	if repo.HeadCommitID == "" {
 		repo.IsCorrupted = true
-		return repo, nil
+		return repo
 	}
 
 	commit, err := commitmgr.Load(repo.ID, repo.HeadCommitID)
 	if err != nil {
 		log.Errorf("failed to load commit %s/%s : %v", repo.ID, repo.HeadCommitID, err)
 		repo.IsCorrupted = true
-		return repo, nil
+		return repo
 	}
 
 	repo.Name = commit.RepoName
@@ -293,7 +294,7 @@ func GetEx(id string) (*Repo, error) {
 		}
 	}
 
-	return repo, nil
+	return repo
 }
 
 // GetVirtualRepoInfo return virtual repo info by repo id.

@@ -222,10 +222,7 @@ func permissionCheckCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	vars := mux.Vars(r)
 	repoID := vars["repoid"]
-	repo, dbErr := repomgr.GetEx(repoID)
-	if dbErr != nil {
-		return &appError{dbErr, "", http.StatusInternalServerError}
-	}
+	repo := repomgr.GetEx(repoID)
 	if repo == nil {
 		msg := "repo was deleted"
 		return &appError{nil, msg, seafHTTPResRepoDeleted}
