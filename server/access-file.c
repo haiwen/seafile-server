@@ -135,6 +135,7 @@ static struct file_type_map ftmap[] = {
     { "ogv", "video/ogg" },
     { "mov", "video/mp4" },
     { "webm", "video/webm" },
+    { "mkv", "video/x-matroska" },
     { "jpg", "image/jpeg" },
     { "JPG", "image/jpeg" },
     { "jpeg", "image/jpeg" },
