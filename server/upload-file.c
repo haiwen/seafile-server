@@ -319,14 +319,27 @@ static gboolean
 is_parent_matched (const char *upload_dir,
                    const char *parent_dir)
 {
+    // parent_dir must be under upload_dir
     gboolean ret = TRUE;
     char *upload_dir_canon = NULL;
     char *parent_dir_canon = NULL;
 
     upload_dir_canon = get_canonical_path (upload_dir);
     parent_dir_canon = get_canonical_path (parent_dir);
+    size_t upload_dir_len = strlen (upload_dir_canon);
+    size_t parent_dir_len = strlen (parent_dir_canon);
 
-    if (strcmp (upload_dir_canon,parent_dir_canon) != 0) {
+    // If this were real unix path name, care needs to be taken about `..`
+    // However, I believe `..` is not handled in any special way on the server
+    // so it can be ignored for now.
+    if (parent_dir_len < upload_dir_len ||
+        strncmp (upload_dir_canon, parent_dir_canon, upload_dir_len) != 0) {
+        // Prefix mismatches
+        ret = FALSE;
+    } else if (parent_dir_canon[upload_dir_len] != '/' &&
+               parent_dir_canon[upload_dir_len] != 0) {
+        // `0` is exact match and `'/'` is true subdirectory.
+        // Anything else is forbidden.
         ret = FALSE;
     }
 
