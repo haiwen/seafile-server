@@ -51,7 +51,7 @@
 #define HTTP_SCAN_INTERVAL "http_temp_scan_interval"
 
 #define INIT_INFO "If you see this page, Seafile HTTP syncing component works."
-#define PROTO_VERSION "{\"version\": 2}"
+#define PROTO_VERSION "{\"version\": 3}"
 
 #define CLEANING_INTERVAL_SEC 300	/* 5 minutes */
 #define TOKEN_EXPIRE_TIME 7200	    /* 2 hours */
@@ -1775,6 +1775,57 @@ out:
     return ret;
 }
 
+#define MAX_DIR_OBJECT 1000
+
+typedef struct CalResult {
+    int num;
+    GList *results;
+    GList *next_root_ids;
+} CalResult;
+
+static int
+get_fs_id_list_recursive (SeafRepo *repo,
+                          const char *root_id,
+                          CalResult *result)
+{
+    int ret = 0;
+    SeafDir *root = NULL;
+    GList *ptr;
+    SeafDirent *dent;
+
+    root = seaf_fs_manager_get_seafdir (seaf->fs_mgr,
+                                        repo->store_id,
+                                        repo->version,
+                                        root_id);
+    if (!root) {
+        seaf_warning ("Failed to find dir %s:%s.\n", repo->store_id, root_id);
+        return -1;
+    }
+
+    result->results  = g_list_prepend (result->results, g_strdup(root_id));
+    result->num++;
+
+    for (ptr = root->entries; ptr; ptr = ptr->next) {
+        dent = ptr->data;
+        if (result->num < MAX_DIR_OBJECT) {
+            if (S_ISDIR(dent->mode)) {
+                ret = get_fs_id_list_recursive (repo, dent->id, result);
+                if (ret < 0) {
+                    goto out;
+                }
+            }
+        } else {
+            if (S_ISDIR(dent->mode)) {
+                result->next_root_ids = g_list_prepend (result->next_root_ids, g_strdup(dent->id));
+            }
+        }
+    }
+
+out:
+    seaf_dir_free (root);
+    return ret;
+}
+
 static void
 get_fs_obj_id_cb (evhtp_request_t *req, void *arg)
 {
@@ -1797,6 +1848,15 @@ get_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     const char *client_head = evhtp_kv_find (req->uri->query, "client-head");
     if (client_head && !is_object_id_valid (client_head)) {
         char *error = "Invalid client-head parameter.\n";
+        seaf_warning ("%s", error);
+        evbuffer_add (req->buffer_out, error, strlen (error));
+        evhtp_send_reply (req, EVHTP_RES_BADREQ);
+        return;
+    }
+
+    const char *root_id = evhtp_kv_find (req->uri->query, "root-id");
+    if (root_id && !is_object_id_valid (root_id)) {
+        char *error = "Invalid root-id parameter.\n";
         seaf_warning ("%s", error);
         evbuffer_add (req->buffer_out, error, strlen (error));
         evhtp_send_reply (req, EVHTP_RES_BADREQ);
@@ -1829,6 +1889,48 @@ get_fs_obj_id_cb (evhtp_request_t *req, void *arg)
     if (!repo) {
         seaf_warning ("Failed to find repo %.8s.\n", repo_id);
         evhtp_send_reply (req, EVHTP_RES_SERVERR);
+        goto out;
+    }
+
+    // When root_id is not NULL, traverse a limited number of directory objects from the root_id.
+    if (root_id) {
+        CalResult *result = g_new0 (CalResult, 1);
+
+        if (get_fs_id_list_recursive (repo, root_id, result) < 0) {
+            string_list_free (result->results);
+            string_list_free (result->next_root_ids);
+            g_free (result);
+            evhtp_send_reply (req, EVHTP_RES_SERVERR);
+            goto out;
+        }
+
+        json_t *result_array = json_array ();
+        json_t *next_root_id_array = json_array ();
+
+        for (ptr = result->results; ptr; ptr = ptr->next) {
+            json_array_append_new (result_array, json_string (ptr->data));
+            g_free (ptr->data);
+        }
+        g_list_free (result->results);
+
+        for (ptr = result->next_root_ids; ptr; ptr = ptr->next) {
+            json_array_append_new (next_root_id_array, json_string (ptr->data));
+            g_free (ptr->data);
+        }
+        g_list_free (result->next_root_ids);
+
+        json_t *obj = json_object ();
+        json_object_set_new (obj, "results", result_array);
+        json_object_set_new (obj, "next_root_ids", next_root_id_array);
+
+        char *obj_str = json_dumps (obj, JSON_COMPACT);
+        evbuffer_add (req->buffer_out, obj_str, strlen (obj_str));
+        evhtp_send_reply (req, EVHTP_RES_OK);
+
+        g_free (obj_str);
+        json_decref (obj);
+        g_free (result);
+
         goto out;
     }
 
