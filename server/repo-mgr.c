@@ -5051,6 +5051,17 @@ seaf_repo_manager_get_repo_status(SeafRepoManager *mgr,
 {
     char *sql = "SELECT status FROM RepoInfo WHERE repo_id=?";
 
-    return seaf_db_statement_get_int (mgr->seaf->db, sql,
-                                      1, "string", repo_id);
+    int status = seaf_db_statement_get_int (mgr->seaf->db, sql,
+                                            1, "string", repo_id);
+    if (status == REPO_STATUS_READ_ONLY) {
+        return status;
+    }
+
+    // check origin repo's status
+    sql = "SELECT i.status FROM VirtualRepo v LEFT JOIN RepoInfo i "
+          "ON i.repo_id=v.origin_repo WHERE v.repo_id=? "
+          "AND i.repo_id IS NOT NULL";
+    status = seaf_db_statement_get_int (mgr->seaf->db, sql,
+                                        1, "string", repo_id);
+    return status;
 }
