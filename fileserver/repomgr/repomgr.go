@@ -368,6 +368,20 @@ func GetRepoStatus(repoID string) (int, error) {
 			return status, err
 		}
 	}
+	if status == RepoStatusReadOnly {
+		return status, nil
+	}
+
+	// check origin repo's status
+	sqlStr = "SELECT i.status FROM VirtualRepo v LEFT JOIN RepoInfo i " +
+		"ON i.repo_id=v.origin_repo WHERE v.repo_id=? " +
+		"AND i.repo_id IS NOT NULL"
+	row = seafileDB.QueryRowContext(ctx, sqlStr, repoID)
+	if err := row.Scan(&status); err != nil {
+		if err != sql.ErrNoRows {
+			return status, err
+		}
+	}
 	return status, nil
 }
 
