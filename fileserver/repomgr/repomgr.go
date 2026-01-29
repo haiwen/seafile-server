@@ -357,8 +357,12 @@ func GetEmailByToken(repoID string, token string) (string, error) {
 
 // GetRepoStatus return repo status by repo id.
 func GetRepoStatus(repoID string) (int, error) {
-	var status int
-	sqlStr := "SELECT status FROM RepoInfo WHERE repo_id=?"
+	var status int = -1
+
+	// First, check origin repo's status.
+	sqlStr := "SELECT i.status FROM VirtualRepo v LEFT JOIN RepoInfo i " +
+		"ON i.repo_id=v.origin_repo WHERE v.repo_id=? " +
+		"AND i.repo_id IS NOT NULL"
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
@@ -366,16 +370,16 @@ func GetRepoStatus(repoID string) (int, error) {
 	if err := row.Scan(&status); err != nil {
 		if err != sql.ErrNoRows {
 			return status, err
+		} else {
+			status = -1
 		}
 	}
-	if status == RepoStatusReadOnly {
+	if status >= 0 {
 		return status, nil
 	}
 
-	// check origin repo's status
-	sqlStr = "SELECT i.status FROM VirtualRepo v LEFT JOIN RepoInfo i " +
-		"ON i.repo_id=v.origin_repo WHERE v.repo_id=? " +
-		"AND i.repo_id IS NOT NULL"
+	// Then, check repo's own status.
+	sqlStr = "SELECT status FROM RepoInfo WHERE repo_id=?"
 	row = seafileDB.QueryRowContext(ctx, sqlStr, repoID)
 	if err := row.Scan(&status); err != nil {
 		if err != sql.ErrNoRows {
