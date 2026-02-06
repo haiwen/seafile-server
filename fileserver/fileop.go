@@ -51,7 +51,7 @@ const (
 
 var (
 	blockMapCacheTable sync.Map
-	indexBlocksPool    *workerpool.WorkPool
+	indexFilePool      *workerpool.WorkPool
 )
 
 // Dirents is an alias for slice of SeafDirent.
@@ -76,7 +76,7 @@ func fileopInit() {
 		}
 	})
 
-	indexBlocksPool = workerpool.CreateWorkerPool(indexBlocksWorker, int(option.IndexBlocksMaxThreads))
+	indexFilePool = workerpool.CreateWorkerPool(indexFileWorker, int(option.MaxIndexingFiles))
 }
 
 func initUpload() {
@@ -2478,7 +2478,7 @@ func shouldIgnoreFile(fileName string) bool {
 }
 
 func indexBlocks(ctx context.Context, repoID string, version int, filePath string, handler *multipart.FileHeader, cryptKey *seafileCrypt) (string, int64, error) {
-	req := &indexBlocksRequest{
+	req := &indexFileRequest{
 		ctx:      ctx,
 		repoID:   repoID,
 		version:  version,
@@ -2487,14 +2487,14 @@ func indexBlocks(ctx context.Context, repoID string, version int, filePath strin
 		cryptKey: cryptKey,
 	}
 
-	recvChan := make(chan *indexBlocksResult)
+	recvChan := make(chan *indexFileResult)
 
-	indexBlocksPool.AddTask(recvChan, req)
+	indexFilePool.AddTask(recvChan, req)
 	result := <-recvChan
 	return result.fileID, result.size, result.err
 }
 
-type indexBlocksRequest struct {
+type indexFileRequest struct {
 	ctx      context.Context
 	repoID   string
 	version  int
@@ -2503,15 +2503,15 @@ type indexBlocksRequest struct {
 	cryptKey *seafileCrypt
 }
 
-type indexBlocksResult struct {
+type indexFileResult struct {
 	fileID string
 	size   int64
 	err    error
 }
 
-func indexBlocksWorker(args ...any) error {
-	resChan := args[0].(chan *indexBlocksResult)
-	req := args[1].(*indexBlocksRequest)
+func indexFileWorker(args ...any) error {
+	resChan := args[0].(chan *indexFileResult)
+	req := args[1].(*indexFileRequest)
 
 	ctx := req.ctx
 	repoID := req.repoID
@@ -2527,21 +2527,21 @@ func indexBlocksWorker(args ...any) error {
 		f, err := os.Open(filePath)
 		if err != nil {
 			err := fmt.Errorf("failed to open file: %s: %v", filePath, err)
-			resChan <- &indexBlocksResult{err: err}
+			resChan <- &indexFileResult{err: err}
 			return nil
 		}
 		defer f.Close()
 		fileInfo, err := f.Stat()
 		if err != nil {
 			err := fmt.Errorf("failed to stat file %s: %v", filePath, err)
-			resChan <- &indexBlocksResult{err: err}
+			resChan <- &indexFileResult{err: err}
 			return nil
 		}
 		size = fileInfo.Size()
 	}
 
 	if size == 0 {
-		resChan <- &indexBlocksResult{fileID: fsmgr.EmptySha1, size: 0}
+		resChan <- &indexFileResult{fileID: fsmgr.EmptySha1, size: 0}
 		return nil
 	}
 
@@ -2577,7 +2577,7 @@ func indexBlocksWorker(args ...any) error {
 							_ = result
 						}
 					})
-					resChan <- &indexBlocksResult{err: result.err}
+					resChan <- &indexFileResult{err: result.err}
 					return nil
 				}
 				blkIDs[result.idx] = result.blkID
@@ -2591,7 +2591,7 @@ func indexBlocksWorker(args ...any) error {
 							_ = result
 						}
 					})
-					resChan <- &indexBlocksResult{err: result.err}
+					resChan <- &indexFileResult{err: result.err}
 					return nil
 				}
 				blkIDs[result.idx] = result.blkID
@@ -2603,11 +2603,11 @@ func indexBlocksWorker(args ...any) error {
 	fileID, err := writeSeafile(repoID, version, size, blkIDs)
 	if err != nil {
 		err := fmt.Errorf("failed to write seafile: %v", err)
-		resChan <- &indexBlocksResult{err: err}
+		resChan <- &indexFileResult{err: err}
 		return nil
 	}
 
-	resChan <- &indexBlocksResult{fileID: fileID, size: size}
+	resChan <- &indexFileResult{fileID: fileID, size: size}
 	return nil
 }
 

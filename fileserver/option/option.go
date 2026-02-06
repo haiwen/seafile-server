@@ -40,7 +40,7 @@ var (
 	SkipBlockHash             bool
 	FsCacheLimit              int64
 	VerifyClientBlocks        bool
-	IndexBlocksMaxThreads     uint32
+	MaxIndexingFiles          uint32
 
 	// general options
 	CloudMode bool
@@ -116,7 +116,7 @@ func initDefaultOptions() {
 	RedisExpiry = 24 * 3600
 	RedisMaxConn = 100
 	RedisTimeout = 1 * time.Second
-	IndexBlocksMaxThreads = 10
+	MaxIndexingFiles = 10
 }
 
 func LoadFileServerOptions(centralDir string) {
@@ -243,10 +243,10 @@ func parseFileServerSection(section *ini.Section) {
 	if key, err := section.GetKey("verify_client_blocks_after_sync"); err == nil {
 		VerifyClientBlocks, _ = key.Bool()
 	}
-	if key, err := section.GetKey("index_blocks_max_threads"); err == nil {
+	if key, err := section.GetKey("max_indexing_files"); err == nil {
 		threads, err := key.Uint()
 		if err == nil && threads > 0 {
-			IndexBlocksMaxThreads = uint32(threads)
+			MaxIndexingFiles = uint32(threads)
 		}
 	}
 }
