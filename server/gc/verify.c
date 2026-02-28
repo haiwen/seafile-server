@@ -8,6 +8,8 @@ typedef struct VerifyData {
     gboolean traversed_head;
     GHashTable *exist_blocks;
     gboolean traverse_base_commit;
+    GHashTable *visited;
+    GHashTable *visited_commits;
 } VerifyData;
 
 static int
@@ -48,6 +50,16 @@ fs_callback (SeafFSManager *mgr,
 {
     VerifyData *data = user_data;
 
+    if (data->visited != NULL) {
+        if (g_hash_table_lookup (data->visited, obj_id) != NULL) {
+            *stop = TRUE;
+            return TRUE;
+        }
+
+        char *key = g_strdup(obj_id);
+        g_hash_table_replace (data->visited, key, key);
+    }
+
     if (data->traverse_base_commit) {
         return TRUE;
     }
@@ -64,6 +76,14 @@ traverse_commit (SeafCommit *commit, void *vdata, gboolean *stop)
     VerifyData *data = vdata;
     SeafRepo *repo = data->repo;
     int ret;
+
+    if (data->visited_commits != NULL) {
+        if (g_hash_table_lookup (data->visited_commits, commit->commit_id)) {
+            // Has traversed on prev head commit, stop traverse from this branch
+            *stop = TRUE;
+            return TRUE;
+        }
+    }
 
     if (data->truncate_time == 0)
     {
@@ -93,6 +113,10 @@ traverse_commit (SeafCommit *commit, void *vdata, gboolean *stop)
                                          vdata, FALSE);
     if (ret < 0)
         return FALSE;
+
+    int dummy;
+    g_hash_table_replace (data->visited_commits,
+                          g_strdup (commit->commit_id), &dummy);
 
     return TRUE;
 }
@@ -162,6 +186,9 @@ verify_repo (SeafRepo *repo)
     SeafBranch *branch;
     int ret = 0;
     VerifyData data = {0};
+    data.visited = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+    data.visited_commits = g_hash_table_new_full (g_str_hash, g_str_equal,
+                                                   g_free, NULL);
 
     data.repo = repo;
     data.truncate_time = seaf_repo_manager_get_repo_truncate_time (repo->manager,
@@ -203,12 +230,16 @@ verify_repo (SeafRepo *repo)
     g_list_free (branches);
 
     if (ret < 0) {
+        g_hash_table_destroy (data.visited);
+        g_hash_table_destroy (data.visited_commits);
         g_hash_table_destroy (data.exist_blocks);
         return ret;
     }
 
     ret = verify_virtual_repos (&data);
 
+    g_hash_table_destroy (data.visited);
+    g_hash_table_destroy (data.visited_commits);
     g_hash_table_destroy (data.exist_blocks);
     return ret;
 }

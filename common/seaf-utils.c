@@ -530,7 +530,6 @@ seaf_delete_repo_tokens (SeafRepo *repo)
 
     for (ptr = token_list; ptr; ptr = ptr->next) {
         const char *token = (char *)ptr->data;
-        seaf_message ("delete token: %s\n", token);
         if (token_list_str->len == 0)
             g_string_append_printf (token_list_str, "'%s'", token);
         else
