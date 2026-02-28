@@ -64,10 +64,20 @@ func (b *fsBackend) write(repoID string, objID string, r io.Reader, sync bool) e
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tFile.Name())
-	defer tFile.Close()
+	success := false
+	defer func() {
+		if !success {
+			os.Remove(tFile.Name())
+		}
+	}()
 
 	_, err = io.Copy(tFile, r)
+	if err != nil {
+		tFile.Close()
+		return err
+	}
+
+	err = tFile.Close()
 	if err != nil {
 		return err
 	}
@@ -77,6 +87,7 @@ func (b *fsBackend) write(repoID string, objID string, r io.Reader, sync bool) e
 		return err
 	}
 
+	success = true
 	return nil
 }
 
