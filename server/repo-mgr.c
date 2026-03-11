@@ -580,8 +580,8 @@ seaf_repo_manager_del_repo (SeafRepoManager *mgr,
         return -1;
     }
     if (!head_commit) {
-        // head commit is missing, del repo directly
-        goto del_repo;
+        // head commit is missing, repo has beed deleted.
+        return 0;
     }
 
     if (add_deleted_repo_to_trash (mgr, repo_id, head_commit) < 0) {
