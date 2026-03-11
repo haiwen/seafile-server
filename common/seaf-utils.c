@@ -92,11 +92,12 @@ db_option_free (DBOption *option)
 static int
 load_db_option_from_env (DBOption *option)
 {
-    const char *env_user, *env_passwd, *env_host, *env_ccnet_db, *env_seafile_db;
+    const char *env_user, *env_passwd, *env_host, *env_ccnet_db, *env_seafile_db, *env_port;
 
     env_user = g_getenv("SEAFILE_MYSQL_DB_USER");
     env_passwd = g_getenv("SEAFILE_MYSQL_DB_PASSWORD");
     env_host = g_getenv("SEAFILE_MYSQL_DB_HOST");
+    env_port = g_getenv("SEAFILE_MYSQL_DB_PORT");
     env_ccnet_db = g_getenv("SEAFILE_MYSQL_DB_CCNET_DB_NAME");
     env_seafile_db = g_getenv("SEAFILE_MYSQL_DB_SEAFILE_DB_NAME");
 
@@ -112,19 +113,25 @@ load_db_option_from_env (DBOption *option)
         g_free (option->host);
         option->host = g_strdup (env_host);
     }
+    if (env_port && g_strcmp0(env_port, "") != 0) {
+        int port = atoi(env_port);
+        if (port > 0) {
+            option->port = port;
+        }
+    }
     if (env_ccnet_db && g_strcmp0 (env_ccnet_db, "") != 0) {
         g_free (option->ccnet_db_name);
         option->ccnet_db_name = g_strdup (env_ccnet_db);
     } else if (!option->ccnet_db_name) {
         option->ccnet_db_name = g_strdup ("ccnet_db");
-        seaf_message ("Failed to read SEAFILE_MYSQL_DB_CCNET_DB_NAME, use ccnet_db by default");
+        seaf_message ("Failed to read SEAFILE_MYSQL_DB_CCNET_DB_NAME, use ccnet_db by default\n");
     }
     if (env_seafile_db && g_strcmp0 (env_seafile_db, "") != 0) {
         g_free (option->seafile_db_name);
         option->seafile_db_name = g_strdup (env_seafile_db);
     } else if (!option->seafile_db_name) {
         option->seafile_db_name = g_strdup ("seafile_db");
-		seaf_message ("Failed to read SEAFILE_MYSQL_DB_SEAFILE_DB_NAME, use seafile_db by default");
+		seaf_message ("Failed to read SEAFILE_MYSQL_DB_SEAFILE_DB_NAME, use seafile_db by default\n");
     }
 
     return 0;
