@@ -121,6 +121,14 @@ func loadDBOptionFromEnv() (*DBOption, error) {
 	if host == "" {
 		return nil, fmt.Errorf("failed to read SEAFILE_MYSQL_DB_HOST")
 	}
+	port := 3306
+	portStr := os.Getenv("SEAFILE_MYSQL_DB_PORT")
+	if portStr != "" {
+		p, _ := strconv.ParseUint(portStr, 10, 32)
+		if p > 0 {
+			port = int(p)
+		}
+	}
 	ccnetDbName := os.Getenv("SEAFILE_MYSQL_DB_CCNET_DB_NAME")
 	if ccnetDbName == "" {
 		ccnetDbName = "ccnet_db"
@@ -134,6 +142,7 @@ func loadDBOptionFromEnv() (*DBOption, error) {
 
 	log.Infof("Database: user = %s", user)
 	log.Infof("Database: host = %s", host)
+	log.Infof("Database: port = %d", port)
 	log.Infof("Database: ccnet_db_name = %s", ccnetDbName)
 	log.Infof("Database: seafile_db_name = %s", seafileDbName)
 
@@ -141,7 +150,7 @@ func loadDBOptionFromEnv() (*DBOption, error) {
 	option.User = user
 	option.Password = password
 	option.Host = host
-	option.Port = 3306
+	option.Port = port
 	option.CcnetDbName = ccnetDbName
 	option.SeafileDbName = seafileDbName
 	return option, nil
