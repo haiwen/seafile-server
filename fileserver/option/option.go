@@ -432,6 +432,7 @@ func loadDBOptionFromEnv(dbOpt *DBOption) *DBOption {
 	user := os.Getenv("SEAFILE_MYSQL_DB_USER")
 	password := os.Getenv("SEAFILE_MYSQL_DB_PASSWORD")
 	host := os.Getenv("SEAFILE_MYSQL_DB_HOST")
+	portStr := os.Getenv("SEAFILE_MYSQL_DB_PORT")
 	ccnetDbName := os.Getenv("SEAFILE_MYSQL_DB_CCNET_DB_NAME")
 	seafileDbName := os.Getenv("SEAFILE_MYSQL_DB_SEAFILE_DB_NAME")
 
@@ -446,6 +447,12 @@ func loadDBOptionFromEnv(dbOpt *DBOption) *DBOption {
 	}
 	if host != "" {
 		dbOpt.Host = host
+	}
+	if portStr != "" {
+		port, _ := strconv.ParseUint(portStr, 10, 32)
+		if port > 0 {
+			dbOpt.Port = int(port)
+		}
 	}
 	if dbOpt.Port == 0 {
 		dbOpt.Port = 3306
