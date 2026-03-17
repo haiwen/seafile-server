@@ -12,7 +12,7 @@ from pysearpc import SearpcError
 
 _DEBUG = 'SEAFILE_DEBUG' in os.environ
 
-ENVIRONMENT_VARIABLES = ('SEAFILE_CONF_DIR', )
+ENVIRONMENT_VARIABLES = ('SEAFILE_CONF_DIR','SEAFILE_DATA_DIR', )
 
 # Used to fix bug in some rpc calls, will be removed in near future.
 MAX_INT = 2147483647
@@ -21,13 +21,23 @@ def _load_path_from_env(key, check=True):
     v = os.environ.get(key, '')
     if not v:
         if check:
-            raise ImportError("Seaserv cannot be imported, because environment variable %s is undefined." % key)
+            raise ImportError(
+                "Seaserv cannot be imported, because environment variable %s is undefined." % key
+            )
         return None
     if _DEBUG:
         print("Loading %s from %s" % (key, v))
     return os.path.normpath(os.path.expanduser(v))
 
-SEAFILE_CONF_DIR = _load_path_from_env('SEAFILE_CONF_DIR')
+def _load_data_dir():
+    data_dir = _load_path_from_env('SEAFILE_DATA_DIR', check=False)
+    if data_dir:
+        return data_dir
+
+    return _load_path_from_env('SEAFILE_CONF_DIR')
+
+SEAFILE_DATA_DIR = _load_data_dir()
+SEAFILE_CONF_DIR = SEAFILE_DATA_DIR
 SEAFILE_CENTRAL_CONF_DIR = _load_path_from_env('SEAFILE_CENTRAL_CONF_DIR', check=False)
 SEAFILE_RPC_PIPE_PATH = _load_path_from_env ("SEAFILE_RPC_PIPE_PATH", check=False)
 
