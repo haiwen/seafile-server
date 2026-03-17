@@ -12,7 +12,7 @@ from pysearpc import SearpcError
 
 _DEBUG = 'SEAFILE_DEBUG' in os.environ
 
-ENVIRONMENT_VARIABLES = ('SEAFILE_CONF_DIR','SEAFILE_DATA_DIR', )
+ENVIRONMENT_VARIABLES = ('SEAFILE_DATA_DIR', )
 
 # Used to fix bug in some rpc calls, will be removed in near future.
 MAX_INT = 2147483647
@@ -37,11 +37,11 @@ def _load_data_dir():
     return _load_path_from_env('SEAFILE_CONF_DIR')
 
 SEAFILE_DATA_DIR = _load_data_dir()
-SEAFILE_CONF_DIR = SEAFILE_DATA_DIR
-SEAFILE_CENTRAL_CONF_DIR = _load_path_from_env('SEAFILE_CENTRAL_CONF_DIR', check=False)
+# SEAFILE_CENTRAL_CONF_DIR is required
+SEAFILE_CENTRAL_CONF_DIR = _load_path_from_env('SEAFILE_CENTRAL_CONF_DIR', check=True)
 SEAFILE_RPC_PIPE_PATH = _load_path_from_env ("SEAFILE_RPC_PIPE_PATH", check=False)
 
-seafile_pipe_path = os.path.join(SEAFILE_RPC_PIPE_PATH if SEAFILE_RPC_PIPE_PATH else SEAFILE_CONF_DIR,
+seafile_pipe_path = os.path.join(SEAFILE_RPC_PIPE_PATH if SEAFILE_RPC_PIPE_PATH else SEAFILE_DATA_DIR,
                                  'seafile.sock')
 seafserv_threaded_rpc = seafile.ServerThreadedRpcClient(seafile_pipe_path)
 ccnet_threaded_rpc = seafserv_threaded_rpc
@@ -50,8 +50,7 @@ ccnet_threaded_rpc = seafserv_threaded_rpc
 # 'addr:port' is used when downloading a repo
 config = configparser.ConfigParser()
 
-config.read(os.path.join(SEAFILE_CENTRAL_CONF_DIR if SEAFILE_CENTRAL_CONF_DIR else SEAFILE_CONF_DIR,
-                         'seafile.conf'))
+config.read(os.path.join(SEAFILE_CENTRAL_CONF_DIR, 'seafile.conf'))
 
 def get_fileserver_option(key, default):
     '''
