@@ -345,7 +345,7 @@ func rpcClientInit() {
 	} else {
 		pipePath = filepath.Join(absDataDir, "seafile.sock")
 	}
-	rpcclient = searpc.Init(pipePath, "seafserv-threaded-rpcserver")
+	rpcclient = searpc.Init(pipePath, "seafserv-threaded-rpcserver", 10)
 }
 
 func newHTTPRouter() *mux.Router {
