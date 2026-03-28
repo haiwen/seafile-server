@@ -57,7 +57,7 @@ func delRepo() {
 }
 
 func TestMain(m *testing.M) {
-	client = searpc.Init(pipePath, service)
+	client = searpc.Init(pipePath, service, 10)
 	repoID = createRepo()
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=%t", user, password, host, port, dbName, useTLS)
 	seafDB, err := sql.Open("mysql", dsn)

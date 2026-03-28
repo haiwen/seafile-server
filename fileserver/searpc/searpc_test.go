@@ -16,7 +16,7 @@ const (
 var client *Client
 
 func TestMain(m *testing.M) {
-	client = Init(pipePath, service)
+	client = Init(pipePath, service, 10)
 	code := m.Run()
 	os.Exit(code)
 }
