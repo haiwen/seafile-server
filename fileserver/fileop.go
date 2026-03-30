@@ -1824,7 +1824,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes, lastModify, gcID)
 	if err != nil {
 		if errors.Is(err, ErrGCConflict) {
-			return &appError{nil, "GC Conflict.\n", http.StatusConflict}
+			return &appError{err, "GC Conflict.\n", http.StatusConflict}
 		} else {
 			err := fmt.Errorf("failed to post files and gen commit: %v", err)
 			return &appError{err, "", http.StatusInternalServerError}
@@ -2129,6 +2129,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		return false, err
 	}
 	if err != nil {
+		log.Warnf("failed to update branch for repo %s: %w", repoID, err)
 		return true, nil
 	}
 
@@ -3384,7 +3385,7 @@ func putFile(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user, 
 	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, gcID, true)
 	if err != nil {
 		if errors.Is(err, ErrGCConflict) {
-			return &appError{nil, "GC Conflict.\n", http.StatusConflict}
+			return &appError{err, "GC Conflict.\n", http.StatusConflict}
 		} else {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
 			return &appError{err, "", http.StatusInternalServerError}
@@ -3627,7 +3628,7 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 	_, err = genNewCommit(repo, headCommit, rootID, user, desc, true, gcID, true)
 	if err != nil {
 		if errors.Is(err, ErrGCConflict) {
-			return "", &appError{nil, "GC Conflict.\n", http.StatusConflict}
+			return "", &appError{err, "GC Conflict.\n", http.StatusConflict}
 		} else {
 			err := fmt.Errorf("failed to generate new commit: %v", err)
 			return "", &appError{err, "", http.StatusInternalServerError}

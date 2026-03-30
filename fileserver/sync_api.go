@@ -1078,7 +1078,7 @@ func putUpdateBranchCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	}
 	if err := fastForwardOrMerge(user, token, repo, base, newCommit); err != nil {
 		if errors.Is(err, ErrGCConflict) {
-			return &appError{nil, "GC Conflict.\n", http.StatusConflict}
+			return &appError{err, "GC Conflict.\n", http.StatusConflict}
 		} else {
 			err := fmt.Errorf("Fast forward merge for repo %s is failed: %v", repoID, err)
 			return &appError{err, "", http.StatusInternalServerError}

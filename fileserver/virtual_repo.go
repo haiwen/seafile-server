@@ -364,6 +364,7 @@ func editRepoNeedRetry(repoID, name, desc, user string) (bool, error) {
 
 	_, err = updateBranch(repoID, repo.StoreID, commit.CommitID, parent.CommitID, "", false, "")
 	if err != nil {
+		log.Warnf("failed to update branch for repo %s: %w", repoID, err)
 		return true, nil
 	}
 
