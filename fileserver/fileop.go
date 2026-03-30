@@ -2129,7 +2129,7 @@ func genCommitNeedRetry(repo *repomgr.Repo, base *commitmgr.Commit, commit *comm
 		return false, err
 	}
 	if err != nil {
-		log.Warnf("failed to update branch for repo %s: %w", repoID, err)
+		log.Warnf("failed to update branch for repo %s: %v", repoID, err)
 		return true, nil
 	}
 
