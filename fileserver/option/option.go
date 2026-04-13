@@ -60,6 +60,7 @@ var (
 	RedisHost       string
 	RedisPasswd     string
 	RedisPort       uint32
+	RedisDb         int
 	RedisExpiry     uint32
 	RedisMaxConn    uint32
 	RedisTimeout    time.Duration
@@ -308,7 +309,7 @@ func loadCacheOptionFromEnv() {
 	redisPort := os.Getenv("REDIS_PORT")
 	if redisPort != "" {
 		port, err := strconv.ParseUint(redisPort, 10, 32)
-		if err != nil {
+		if err == nil {
 			RedisPort = uint32(port)
 		}
 	}
@@ -316,17 +317,24 @@ func loadCacheOptionFromEnv() {
 	if redisPasswd != "" {
 		RedisPasswd = redisPasswd
 	}
+	redisDb := os.Getenv("REDIS_DB")
+	if redisDb != "" {
+		db, err := strconv.ParseInt(redisDb, 10, 32)
+		if err == nil {
+			RedisDb = int(db)
+		}
+	}
 	redisMaxConn := os.Getenv("REDIS_MAX_CONNECTIONS")
 	if redisMaxConn != "" {
 		maxConn, err := strconv.ParseUint(redisMaxConn, 10, 32)
-		if err != nil {
+		if err == nil {
 			RedisMaxConn = uint32(maxConn)
 		}
 	}
 	redisExpiry := os.Getenv("REDIS_EXPIRY")
 	if redisExpiry != "" {
 		expiry, err := strconv.ParseUint(redisExpiry, 10, 32)
-		if err != nil {
+		if err == nil {
 			RedisExpiry = uint32(expiry)
 		}
 	}

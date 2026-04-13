@@ -55,6 +55,7 @@ func sizeSchedulerInit() {
 	opt := &redis.Options{
 		Addr:     server,
 		Password: option.RedisPasswd,
+		DB:       option.RedisDb,
 	}
 	opt.PoolSize = n
 
