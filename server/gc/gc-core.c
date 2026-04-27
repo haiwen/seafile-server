@@ -737,6 +737,13 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
     GCData *data;
     SeafDBTrans *trans = NULL;
 
+    if (seaf_repo_manager_get_repo_truncate_time (repo->manager,
+                                                  repo->id) < 0) {
+        seaf_message ("Repo %.8s keeps all history, skip GC.\n\n", repo->id);
+        g_hash_table_destroy (exist_blocks);
+        return 0;
+    }
+
     ret = seaf_block_manager_foreach_block (seaf->block_mgr,
                                             repo->store_id, repo->version,
                                             collect_exist_blocks,
