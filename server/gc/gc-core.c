@@ -503,7 +503,7 @@ check_block_liveness (gpointer data, gpointer user_data)
         pthread_mutex_lock (&param->counter_lock);
         param->removed_blocks ++;
         removed_blocks = param->removed_blocks;
-        if (removed_blocks % PROGRESS_INTERVAL == 0) {
+        if (!param->dry_run && removed_blocks % PROGRESS_INTERVAL == 0) {
             seaf_message ("Removed %"G_GINT64_FORMAT" blocks for repo %.8s.\n",
                           removed_blocks, param->store_id);
         }
@@ -598,7 +598,7 @@ check_fs_liveness (gpointer data, gpointer user_data)
         pthread_mutex_lock (&param->counter_lock);
         param->removed_fs ++;
         removed_fs = param->removed_fs;
-        if (removed_fs % PROGRESS_INTERVAL == 0) {
+        if (!param->dry_run && removed_fs % PROGRESS_INTERVAL == 0) {
             seaf_message ("Removed %"G_GINT64_FORMAT" fs objects for repo %.8s.\n",
                           removed_fs, param->store_id);
         }
