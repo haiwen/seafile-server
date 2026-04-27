@@ -137,7 +137,9 @@ seaf_block_manager_copy_block (SeafBlockManager *mgr,
 /* Remove all blocks for a repo. Only valid for version 1 repo. */
 int
 seaf_block_manager_remove_store (SeafBlockManager *mgr,
-                                 const char *store_id);
+                                 const char *store_id,
+                                 SeafBlockManagerProgressFunc progress_cb,
+                                 void *user_data);
 
 guint64
 seaf_block_manager_get_block_number (SeafBlockManager *mgr,

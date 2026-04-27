@@ -364,13 +364,17 @@ block_backend_fs_copy (BlockBackend *bend,
 }
 
 static int
-block_backend_fs_remove_store (BlockBackend *bend, const char *store_id)
+block_backend_fs_remove_store (BlockBackend *bend,
+                               const char *store_id,
+                               SeafBlockManagerProgressFunc progress_cb,
+                               void *user_data)
 {
     FsPriv *priv = bend->be_priv;
     char *block_dir = NULL;
     GDir *dir1, *dir2;
     const char *dname1, *dname2;
     char *path1, *path2;
+    guint64 removed_count = 0;
 
     block_dir = g_build_filename (priv->block_dir, store_id, NULL);
 
@@ -395,6 +399,9 @@ block_backend_fs_remove_store (BlockBackend *bend, const char *store_id)
         while ((dname2 = g_dir_read_name(dir2)) != NULL) {
             path2 = g_build_filename (path1, dname2, NULL);
             g_unlink (path2);
+            ++removed_count;
+            if (progress_cb)
+                progress_cb (store_id, removed_count, user_data);
             g_free (path2);
         }
         g_dir_close (dir2);
