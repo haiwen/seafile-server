@@ -138,7 +138,7 @@ seaf_block_manager_copy_block (SeafBlockManager *mgr,
 int
 seaf_block_manager_remove_store (SeafBlockManager *mgr,
                                  const char *store_id,
-                                 SeafBlockManagerProgressFunc progress_cb,
+                                 SeafBlockProgressFunc progress_cb,
                                  void *user_data);
 
 guint64

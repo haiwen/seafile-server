@@ -196,7 +196,7 @@ seaf_commit_manager_commit_exists (SeafCommitManager *mgr,
 int
 seaf_commit_manager_remove_store (SeafCommitManager *mgr,
                                   const char *store_id,
-                                  SeafObjStoreProgressFunc progress_cb,
+                                  SeafObjProgressFunc progress_cb,
                                   void *user_data);
 
 #endif

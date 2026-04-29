@@ -52,9 +52,9 @@ struct BlockBackend {
 
     /* Only valid for version 1 repo. Remove all blocks for the repo. */
     int      (*remove_store) (BlockBackend *bend,
-                               const char *store_id,
-                               SeafBlockManagerProgressFunc progress_cb,
-                               void *user_data);
+                              const char *store_id,
+                              SeafBlockProgressFunc progress_cb,
+                              void *user_data);
 
     void*    be_priv;           /* backend private field */
 

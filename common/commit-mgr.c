@@ -942,7 +942,7 @@ delete_commit (SeafCommitManager *mgr,
 int
 seaf_commit_manager_remove_store (SeafCommitManager *mgr,
                                   const char *store_id,
-                                  SeafObjStoreProgressFunc progress_cb,
+                                  SeafObjProgressFunc progress_cb,
                                   void *user_data)
 {
     return seaf_obj_store_remove_store (mgr->obj_store, store_id,

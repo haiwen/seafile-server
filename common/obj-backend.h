@@ -47,7 +47,7 @@ struct ObjBackend {
 
     int        (*remove_store) (ObjBackend *bend,
                                 const char *store_id,
-                                SeafObjStoreProgressFunc progress_cb,
+                                SeafObjProgressFunc progress_cb,
                                 void *user_data);
 
     void *priv;

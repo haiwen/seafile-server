@@ -450,7 +450,7 @@ obj_backend_fs_copy (ObjBackend *bend,
 static int
 obj_backend_fs_remove_store (ObjBackend *bend,
                              const char *store_id,
-                             SeafObjStoreProgressFunc progress_cb,
+                             SeafObjProgressFunc progress_cb,
                              void *user_data)
 {
     FsPriv *priv = bend->priv;

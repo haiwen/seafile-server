@@ -49,9 +49,9 @@ typedef gboolean (*SeafObjFunc) (const char *repo_id,
                                  const char *obj_id,
                                  void *user_data);
 
-typedef void (*SeafObjStoreProgressFunc) (const char *store_id,
-                                          guint64 removed_count,
-                                          void *user_data);
+typedef void (*SeafObjProgressFunc) (const char *store_id,
+                                     guint64 removed_count,
+                                     void *user_data);
 
 int
 seaf_obj_store_foreach_obj (struct SeafObjStore *obj_store,
@@ -71,7 +71,7 @@ seaf_obj_store_copy_obj (struct SeafObjStore *obj_store,
 int
 seaf_obj_store_remove_store (struct SeafObjStore *obj_store,
                              const char *store_id,
-                             SeafObjStoreProgressFunc progress_cb,
+                             SeafObjProgressFunc progress_cb,
                              void *user_data);
 
 #endif

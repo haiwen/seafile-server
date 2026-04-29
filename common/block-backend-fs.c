@@ -366,7 +366,7 @@ block_backend_fs_copy (BlockBackend *bend,
 static int
 block_backend_fs_remove_store (BlockBackend *bend,
                                const char *store_id,
-                               SeafBlockManagerProgressFunc progress_cb,
+                               SeafBlockProgressFunc progress_cb,
                                void *user_data)
 {
     FsPriv *priv = bend->be_priv;
