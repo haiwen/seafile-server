@@ -26,4 +26,8 @@ typedef gboolean (*SeafBlockFunc) (const char *store_id,
                                    const char *block_id,
                                    void *user_data);
 
+typedef void (*SeafBlockProgressFunc) (const char *store_id,
+                                       guint64 removed_count,
+                                       void *user_data);
+
 #endif

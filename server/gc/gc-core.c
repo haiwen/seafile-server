@@ -16,6 +16,8 @@
 #define KEEP_ALIVE_PER_OBJS 100
 #define KEEP_ALIVE_PER_SECOND 1
 
+#define PROGRESS_INTERVAL 1000
+
 /*
  * The number of bits in the bloom filter is 4 times the number of all blocks.
  * Let m be the bits in the bf, n be the number of blocks to be added to the bf
@@ -460,6 +462,7 @@ typedef struct CheckBlockParam {
     int repo_version;
     Bloom *index;
     int dry_run;
+    int verbose;
     GAsyncQueue *async_queue;
     pthread_mutex_t counter_lock;
     gint64 removed_blocks;
@@ -470,20 +473,33 @@ typedef struct CheckFSParam {
     int repo_version;
     Bloom *index;
     int dry_run;
+    int verbose;
     GAsyncQueue *async_queue;
     pthread_mutex_t counter_lock;
     gint64 removed_fs;
 } CheckFSParam;
+
+typedef struct CollectExistObjsData {
+    GHashTable *objs;
+    guint64 count;
+    int verbose;
+} CollectExistObjsData;
 
 static void
 check_block_liveness (gpointer data, gpointer user_data)
 {
     char *block_id = data;
     CheckBlockParam *param = user_data;
+    gint64 removed_blocks;
 
     if (!bloom_test (param->index, block_id)) {
         pthread_mutex_lock (&param->counter_lock);
         param->removed_blocks ++;
+        removed_blocks = param->removed_blocks;
+        if (param->verbose && !param->dry_run && removed_blocks % PROGRESS_INTERVAL == 0) {
+            seaf_message ("Removed %"G_GINT64_FORMAT" blocks for repo %.8s.\n",
+                          removed_blocks, param->store_id);
+        }
         pthread_mutex_unlock (&param->counter_lock);
         if (!param->dry_run)
             seaf_block_manager_remove_block (seaf->block_mgr,
@@ -496,7 +512,7 @@ check_block_liveness (gpointer data, gpointer user_data)
 
 static gint64
 check_existing_blocks (char *store_id, int repo_version, GHashTable *exist_blocks,
-                       Bloom *blocks_index, int dry_run)
+                       Bloom *blocks_index, int dry_run, int verbose)
 {
     char *block_id;
     GThreadPool *tpool = NULL;
@@ -512,6 +528,7 @@ check_existing_blocks (char *store_id, int repo_version, GHashTable *exist_block
     param->repo_version = repo_version;
     param->index = blocks_index;
     param->dry_run = dry_run;
+    param->verbose = verbose;
     param->async_queue = async_queue;
     pthread_mutex_init (&param->counter_lock, NULL);
 
@@ -550,10 +567,16 @@ static gboolean
 collect_exist_blocks (const char *store_id, int version,
                       const char *block_id, void *vdata)
 {
-    GHashTable *exist_blocks = vdata;
+    CollectExistObjsData *data = vdata;
     int dummy;
 
-    g_hash_table_replace (exist_blocks, g_strdup (block_id), &dummy);
+    g_hash_table_replace (data->objs, g_strdup (block_id), &dummy);
+
+    ++data->count;
+    if (data->verbose && data->count % PROGRESS_INTERVAL == 0) {
+        seaf_message ("Collected %"G_GUINT64_FORMAT" blocks for repo %.8s.\n",
+                      data->count, store_id);
+    }
 
     return TRUE;
 }
@@ -563,10 +586,16 @@ check_fs_liveness (gpointer data, gpointer user_data)
 {
     char *fs_id = data;
     CheckFSParam *param = user_data;
+    gint64 removed_fs;
 
     if (!bloom_test (param->index, fs_id)) {
         pthread_mutex_lock (&param->counter_lock);
         param->removed_fs ++;
+        removed_fs = param->removed_fs;
+        if (param->verbose && !param->dry_run && removed_fs % PROGRESS_INTERVAL == 0) {
+            seaf_message ("Removed %"G_GINT64_FORMAT" fs objects for repo %.8s.\n",
+                          removed_fs, param->store_id);
+        }
         pthread_mutex_unlock (&param->counter_lock);
         if (!param->dry_run)
             seaf_fs_manager_delete_object(seaf->fs_mgr,
@@ -579,7 +608,7 @@ check_fs_liveness (gpointer data, gpointer user_data)
 
 static gint64
 check_existing_fs (char *store_id, int repo_version, GHashTable *exist_fs,
-                   Bloom *fs_index, int dry_run)
+                   Bloom *fs_index, int dry_run, int verbose)
 {
     char *fs_id;
     GThreadPool *tpool = NULL;
@@ -595,6 +624,7 @@ check_existing_fs (char *store_id, int repo_version, GHashTable *exist_fs,
     param->repo_version = repo_version;
     param->index = fs_index;
     param->dry_run = dry_run;
+    param->verbose = verbose;
     param->async_queue = async_queue;
     pthread_mutex_init (&param->counter_lock, NULL);
 
@@ -633,10 +663,16 @@ static gboolean
 collect_exist_fs (const char *store_id, int version,
                    const char *fs_id, void *vdata)
 {
-    GHashTable *exist_fs = vdata;
+    CollectExistObjsData *data = vdata;
     int dummy;
 
-    g_hash_table_replace (exist_fs, g_strdup (fs_id), &dummy);
+    g_hash_table_replace (data->objs, g_strdup (fs_id), &dummy);
+
+    ++data->count;
+    if (data->verbose && data->count % PROGRESS_INTERVAL == 0) {
+        seaf_message ("Collected %"G_GUINT64_FORMAT" fs objects for repo %.8s.\n",
+                      data->count, store_id);
+    }
 
     return TRUE;
 }
@@ -728,6 +764,8 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
     Bloom *fs_index = NULL;
     GHashTable *exist_blocks = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
     GHashTable *exist_fs = NULL;
+    CollectExistObjsData blocks_data = { 0 };
+    CollectExistObjsData fs_data = { 0 };
     GList *virtual_repos = NULL;
     guint64 total_blocks = 0;
     guint64 total_fs = 0;
@@ -744,10 +782,12 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
         return 0;
     }
 
+    blocks_data.objs = exist_blocks;
+    blocks_data.verbose = verbose;
     ret = seaf_block_manager_foreach_block (seaf->block_mgr,
                                             repo->store_id, repo->version,
                                             collect_exist_blocks,
-                                            exist_blocks);
+                                            &blocks_data);
     if (ret < 0) {
         seaf_warning ("Failed to collect existing blocks for repo %.8s, stop GC.\n\n",
                       repo->id);
@@ -764,10 +804,12 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
 
      if (rm_fs) {
         exist_fs = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+        fs_data.objs = exist_fs;
+        fs_data.verbose = verbose;
         ret = seaf_obj_store_foreach_obj (seaf->fs_mgr->obj_store,
                                           repo->store_id, repo->version,
                                           collect_exist_fs,
-                                          exist_fs);
+                                          &fs_data);
         if (ret < 0) {
             seaf_warning ("Failed to collect existing fs for repo %.8s, stop GC.\n\n",
                         repo->id);
@@ -864,7 +906,7 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
         seaf_message ("Scanning unused blocks for repo %.8s.\n", repo->id);
 
     ret = check_existing_blocks (repo->store_id, repo->version, exist_blocks,
-                                 blocks_index, dry_run);
+                                 blocks_index, dry_run, verbose);
     if (ret < 0) {
         if (online) {
             seaf_db_rollback (trans);
@@ -875,7 +917,7 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
 
     if (rm_fs && total_fs > 0) {
         removed_fs = check_existing_fs(repo->store_id, repo->version, exist_fs,
-                                       fs_index, dry_run);
+                                       fs_index, dry_run, verbose);
         if (removed_fs < 0) {
             if (online) {
                 seaf_db_rollback (trans);
@@ -890,8 +932,11 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
             seaf_message ("GC finished for repo %.8s. %"G_GUINT64_FORMAT" blocks total, "
                           "about %"G_GUINT64_FORMAT" reachable blocks, "
                           "%"G_GUINT64_FORMAT" blocks are removed. "
+                          "%"G_GUINT64_FORMAT" fs total, "
+                          "about %d reachable fs,"
                           "%"G_GUINT64_FORMAT" fs are removed.\n",
-                          repo->id, total_blocks, reachable_blocks, ret, removed_fs);
+                          repo->id, total_blocks, reachable_blocks, ret,
+                          total_fs, g_hash_table_size(data->visited), removed_fs);
         else
             seaf_message ("GC finished for repo %.8s. %"G_GUINT64_FORMAT" blocks total, "
                           "about %"G_GUINT64_FORMAT" reachable blocks, "
@@ -902,8 +947,11 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
             seaf_message ("GC finished for repo %.8s. %"G_GUINT64_FORMAT" blocks total, "
                           "about %"G_GUINT64_FORMAT" reachable blocks, "
                           "%"G_GUINT64_FORMAT" blocks can be removed. "
+                          "%"G_GUINT64_FORMAT" fs total, "
+                          "about %d reachable fs,"
                           "%"G_GUINT64_FORMAT" fs can be removed.\n",
-                          repo->id, total_blocks, reachable_blocks, ret, removed_fs);
+                          repo->id, total_blocks, reachable_blocks, ret,
+                          total_fs, g_hash_table_size(data->visited), removed_fs);
         else
             seaf_message ("GC finished for repo %.8s. %"G_GUINT64_FORMAT" blocks total, "
                           "about %"G_GUINT64_FORMAT" reachable blocks, "
@@ -943,7 +991,39 @@ typedef struct RemoveTask {
     const char *repo_id;
     RemoveType remove_type;
     gboolean success;
+    int verbose;
 } RemoveTask;
+
+static void
+remove_store_progress (const char *store_id,
+                       guint64 removed_count,
+                       void *user_data)
+{
+    RemoveTask *task = user_data;
+
+    if (!task->verbose) {
+        return;
+    }
+    if (removed_count % PROGRESS_INTERVAL != 0)
+        return;
+
+    switch (task->remove_type) {
+        case COMMIT:
+            seaf_message ("Removed %"G_GUINT64_FORMAT" commit objects for repo %.8s.\n",
+                          removed_count, store_id);
+            break;
+        case FS:
+            seaf_message ("Removed %"G_GUINT64_FORMAT" fs objects for repo %.8s.\n",
+                          removed_count, store_id);
+            break;
+        case BLOCK:
+            seaf_message ("Removed %"G_GUINT64_FORMAT" blocks for repo %.8s.\n",
+                          removed_count, store_id);
+            break;
+        default:
+            break;
+    }
+}
 
 static void
 remove_store (gpointer data, gpointer user_data)
@@ -955,21 +1035,27 @@ remove_store (gpointer data, gpointer user_data)
     switch (task->remove_type) {
         case COMMIT:
             seaf_message ("Deleting commits for repo %s.\n", task->repo_id);
-            ret = seaf_commit_manager_remove_store (seaf->commit_mgr, task->repo_id);
+            ret = seaf_commit_manager_remove_store (seaf->commit_mgr, task->repo_id,
+                                                    remove_store_progress,
+                                                    task);
             if (ret == 0) {
                 task->success = TRUE;
             }
             break;
         case FS:
             seaf_message ("Deleting fs objects for repo %s.\n", task->repo_id);
-            ret = seaf_fs_manager_remove_store (seaf->fs_mgr, task->repo_id);
+            ret = seaf_fs_manager_remove_store (seaf->fs_mgr, task->repo_id,
+                                                remove_store_progress,
+                                                task);
             if (ret == 0) {
                 task->success = TRUE;
             }
             break;
         case BLOCK:
             seaf_message ("Deleting blocks for repo %s.\n", task->repo_id);
-            ret = seaf_block_manager_remove_store (seaf->block_mgr, task->repo_id);
+            ret = seaf_block_manager_remove_store (seaf->block_mgr, task->repo_id,
+                                                   remove_store_progress,
+                                                   task);
             if (ret == 0) {
                 task->success = TRUE;
             }
@@ -982,7 +1068,7 @@ remove_store (gpointer data, gpointer user_data)
 }
 
 void
-delete_garbaged_repos (int dry_run, int thread_num)
+delete_garbaged_repos (int dry_run, int thread_num, int verbose)
 {
     GList *del_repos = NULL;
     GList *ptr;
@@ -1031,18 +1117,21 @@ delete_garbaged_repos (int dry_run, int thread_num)
                 task = g_new0 (RemoveTask, 1);
                 task->repo_id = repo_id;
                 task->remove_type = COMMIT;
+                task->verbose = verbose;
                 g_thread_pool_push (tpool, task, NULL);
 
                 // Remove fs
                 task = g_new0 (RemoveTask, 1);
                 task->repo_id = repo_id;
                 task->remove_type = FS;
+                task->verbose = verbose;
                 g_thread_pool_push (tpool, task, NULL);
 
                 // Remove block
                 task = g_new0 (RemoveTask, 1);
                 task->repo_id = repo_id;
                 task->remove_type = BLOCK;
+                task->verbose = verbose;
                 g_thread_pool_push (tpool, task, NULL);
 
                 n_tasks += 3;
@@ -1217,7 +1306,7 @@ gc_core_run (GList *repo_id_list, const char *id_prefix,
     }
 
     if (del_garbage) {
-        delete_garbaged_repos (dry_run, tnum);
+        delete_garbaged_repos (dry_run, tnum, verbose);
     }
 
     seaf_message ("=== GC is finished ===\n");

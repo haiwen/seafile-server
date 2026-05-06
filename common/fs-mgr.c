@@ -3076,9 +3076,12 @@ seafile_version_from_repo_version (int repo_version)
 
 int
 seaf_fs_manager_remove_store (SeafFSManager *mgr,
-                              const char *store_id)
+                              const char *store_id,
+                              SeafObjProgressFunc progress_cb,
+                              void *user_data)
 {
-    return seaf_obj_store_remove_store (mgr->obj_store, store_id);
+    return seaf_obj_store_remove_store (mgr->obj_store, store_id,
+                                        progress_cb, user_data);
 }
 
 GObject *

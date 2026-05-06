@@ -46,7 +46,9 @@ struct ObjBackend {
                          const char *obj_id);
 
     int        (*remove_store) (ObjBackend *bend,
-                                const char *store_id);
+                                const char *store_id,
+                                SeafObjProgressFunc progress_cb,
+                                void *user_data);
 
     void *priv;
 };

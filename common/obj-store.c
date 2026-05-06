@@ -136,9 +136,11 @@ seaf_obj_store_copy_obj (struct SeafObjStore *obj_store,
 
 int
 seaf_obj_store_remove_store (struct SeafObjStore *obj_store,
-                             const char *store_id)
+                             const char *store_id,
+                             SeafObjProgressFunc progress_cb,
+                             void *user_data)
 {
     ObjBackend *bend = obj_store->bend;
 
-    return bend->remove_store (bend, store_id);
+    return bend->remove_store (bend, store_id, progress_cb, user_data);
 }

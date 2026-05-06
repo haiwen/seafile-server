@@ -265,7 +265,10 @@ seaf_block_manager_verify_block (SeafBlockManager *mgr,
 
 int
 seaf_block_manager_remove_store (SeafBlockManager *mgr,
-                                 const char *store_id)
+                                 const char *store_id,
+                                 SeafBlockProgressFunc progress_cb,
+                                 void *user_data)
 {
-    return mgr->backend->remove_store (mgr->backend, store_id);
+    return mgr->backend->remove_store (mgr->backend, store_id,
+                                       progress_cb, user_data);
 }
