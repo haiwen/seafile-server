@@ -162,7 +162,7 @@ main(int argc, char *argv[])
     }
 
     if (rm_garbage) {
-        delete_garbaged_repos (dry_run, thread_num);
+        delete_garbaged_repos (dry_run, thread_num, verbose);
         return 0;
     }
 
