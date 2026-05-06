@@ -308,7 +308,7 @@ func loadCacheOptionFromEnv() {
 	redisPort := os.Getenv("REDIS_PORT")
 	if redisPort != "" {
 		port, err := strconv.ParseUint(redisPort, 10, 32)
-		if err != nil {
+		if err == nil {
 			RedisPort = uint32(port)
 		}
 	}
@@ -319,14 +319,14 @@ func loadCacheOptionFromEnv() {
 	redisMaxConn := os.Getenv("REDIS_MAX_CONNECTIONS")
 	if redisMaxConn != "" {
 		maxConn, err := strconv.ParseUint(redisMaxConn, 10, 32)
-		if err != nil {
+		if err == nil {
 			RedisMaxConn = uint32(maxConn)
 		}
 	}
 	redisExpiry := os.Getenv("REDIS_EXPIRY")
 	if redisExpiry != "" {
 		expiry, err := strconv.ParseUint(redisExpiry, 10, 32)
-		if err != nil {
+		if err == nil {
 			RedisExpiry = uint32(expiry)
 		}
 	}
