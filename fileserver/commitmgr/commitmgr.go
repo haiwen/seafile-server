@@ -162,6 +162,11 @@ func Load(repoID string, commitID string) (*Commit, error) {
 
 // Save commit to storage backend.
 func Save(commit *Commit) error {
+	exist, _ := store.Exists(commit.RepoID, commit.CommitID)
+	if exist {
+		return nil
+	}
+
 	var buf bytes.Buffer
 	err := commit.ToData(&buf)
 	if err != nil {
