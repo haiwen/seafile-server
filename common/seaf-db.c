@@ -809,7 +809,7 @@ static DBConnection *
 mysql_db_get_connection (SeafDB *vdb)
 {
     MySQLDB *db = (MySQLDB *)vdb;
-    int conn_timeout = 1;
+    int conn_timeout = 5;
     int read_write_timeout = 60;
     MYSQL *db_conn;
     MySQLDBConnection *conn = NULL;
