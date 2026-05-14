@@ -2526,7 +2526,7 @@ seaf_repo_manager_search_repos_by_name (SeafRepoManager *mgr, const char *name)
             "LEFT JOIN RepoFileCount fc ON i.repo_id = fc.repo_id "
             "LEFT JOIN Repo r ON i.repo_id = r.repo_id "
             "LEFT JOIN VirtualRepo v ON i.repo_id = v.repo_id "
-            "WHERE i.name COLLATE UTF8_GENERAL_CI LIKE ? AND "
+            "WHERE CONVERT(i.name USING utf8mb4) COLLATE UTF8MB4_GENERAL_CI LIKE ? AND "
             "r.repo_id IS NOT NULL AND "
             "v.repo_id IS NULL "
             "ORDER BY i.update_time DESC, i.repo_id";
