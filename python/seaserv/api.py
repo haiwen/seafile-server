@@ -684,7 +684,7 @@ class SeafileAPI(object):
         """
         return seafserv_threaded_rpc.check_permission_by_path(repo_id, path, user)
 
-    def is_repo_syncable(self, repo_id, user, repo_perm):
+    def is_repo_syncable(self, repo_id, user, repo_perm, client=None):
         """
         Check if the permission of the repo is syncable.
         """
