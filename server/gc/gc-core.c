@@ -808,12 +808,13 @@ populate_gc_index_for_base_commit (GCData *data)
                                                         traverse_base_commit,
                                                         data,
                                                         FALSE);
-        seaf_virtual_repo_info_free (vinfo);
         if (!res) {
             seaf_warning ("Failed to traverse base commit %s for virtual repo %s.\n", vinfo->base_commit, repo_id);
             string_list_free (vrepo_ids);
+            seaf_virtual_repo_info_free (vinfo);
             return -1;
         }
+        seaf_virtual_repo_info_free (vinfo);
     }
     string_list_free (vrepo_ids);
 
