@@ -465,6 +465,9 @@ typedef struct CheckBlockParam {
     GAsyncQueue *async_queue;
     pthread_mutex_t counter_lock;
     gint64 removed_blocks;
+    SeafDBTrans *trans;
+    gint64 keep_alive_obj_counter;
+    gint64 keep_alive_last_time;
 } CheckBlockParam;
 
 typedef struct CheckFSParam {
@@ -476,6 +479,9 @@ typedef struct CheckFSParam {
     GAsyncQueue *async_queue;
     pthread_mutex_t counter_lock;
     gint64 removed_fs;
+    SeafDBTrans *trans;
+    gint64 keep_alive_obj_counter;
+    gint64 keep_alive_last_time;
 } CheckFSParam;
 
 typedef struct CollectExistObjsData {
@@ -499,6 +505,17 @@ check_block_liveness (gpointer data, gpointer user_data)
             seaf_message ("Removed %"G_GINT64_FORMAT" blocks for repo %.8s.\n",
                           removed_blocks, param->store_id);
         }
+        if (param->trans) {
+            ++(param->keep_alive_obj_counter);
+
+            if (param->keep_alive_obj_counter >= KEEP_ALIVE_PER_OBJS &&
+                ((gint64)time(NULL) - param->keep_alive_last_time) >= KEEP_ALIVE_PER_SECOND)
+            {
+                param->keep_alive_last_time = (gint64)time(NULL);
+                param->keep_alive_obj_counter = 0;
+                seaf_db_trans_query(param->trans, "SELECT 1;", 0);
+            }
+        }
         pthread_mutex_unlock (&param->counter_lock);
         if (!param->dry_run)
             seaf_block_manager_remove_block (seaf->block_mgr,
@@ -511,7 +528,7 @@ check_block_liveness (gpointer data, gpointer user_data)
 
 static gint64
 check_existing_blocks (char *store_id, int repo_version, GHashTable *exist_blocks,
-                       Bloom *blocks_index, int dry_run, int verbose)
+                       Bloom *blocks_index, int dry_run, int verbose, SeafDBTrans *trans)
 {
     char *block_id;
     GThreadPool *tpool = NULL;
@@ -528,6 +545,7 @@ check_existing_blocks (char *store_id, int repo_version, GHashTable *exist_block
     param->index = blocks_index;
     param->dry_run = dry_run;
     param->verbose = verbose;
+    param->trans = trans;
     param->async_queue = async_queue;
     pthread_mutex_init (&param->counter_lock, NULL);
 
@@ -595,6 +613,17 @@ check_fs_liveness (gpointer data, gpointer user_data)
             seaf_message ("Removed %"G_GINT64_FORMAT" fs objects for repo %.8s.\n",
                           removed_fs, param->store_id);
         }
+        if (param->trans) {
+            ++(param->keep_alive_obj_counter);
+
+            if (param->keep_alive_obj_counter >= KEEP_ALIVE_PER_OBJS &&
+                ((gint64)time(NULL) - param->keep_alive_last_time) >= KEEP_ALIVE_PER_SECOND)
+            {
+                param->keep_alive_last_time = (gint64)time(NULL);
+                param->keep_alive_obj_counter = 0;
+                seaf_db_trans_query(param->trans, "SELECT 1;", 0);
+            }
+        }
         pthread_mutex_unlock (&param->counter_lock);
         if (!param->dry_run)
             seaf_fs_manager_delete_object(seaf->fs_mgr,
@@ -607,7 +636,7 @@ check_fs_liveness (gpointer data, gpointer user_data)
 
 static gint64
 check_existing_fs (char *store_id, int repo_version, GHashTable *exist_fs,
-                   Bloom *fs_index, int dry_run, int verbose)
+                   Bloom *fs_index, int dry_run, int verbose, SeafDBTrans *trans)
 {
     char *fs_id;
     GThreadPool *tpool = NULL;
@@ -624,6 +653,7 @@ check_existing_fs (char *store_id, int repo_version, GHashTable *exist_fs,
     param->index = fs_index;
     param->dry_run = dry_run;
     param->verbose = verbose;
+    param->trans = trans;
     param->async_queue = async_queue;
     pthread_mutex_init (&param->counter_lock, NULL);
 
@@ -953,7 +983,7 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
         seaf_message ("Scanning unused blocks for repo %.8s.\n", repo->id);
 
     ret = check_existing_blocks (repo->store_id, repo->version, exist_blocks,
-                                 blocks_index, dry_run, verbose);
+                                 blocks_index, dry_run, verbose, trans);
     if (ret < 0) {
         if (online) {
             seaf_db_rollback (trans);
@@ -964,7 +994,7 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
 
     if (rm_fs && total_fs > 0) {
         removed_fs = check_existing_fs(repo->store_id, repo->version, exist_fs,
-                                       fs_index, dry_run, verbose);
+                                       fs_index, dry_run, verbose, trans);
         if (removed_fs < 0) {
             if (online) {
                 seaf_db_rollback (trans);
