@@ -1482,6 +1482,12 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 		parentDirCan = getCanonPath(parentDir)
 	}
 
+	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
+	if err != nil {
+		err := fmt.Errorf("failed to get current gc id: %v", err)
+		return err
+	}
+
 	absPath, dirID, err := checkAndCreateDir(repo, headCommit.RootID, parentDirCan, subFolders)
 	if err != nil {
 		err := fmt.Errorf("failed to check and create dir: %v", err)
@@ -1503,7 +1509,7 @@ func mkdirWithParents(repoID, parentDir, newDirPath, user string) error {
 	}
 
 	buf := fmt.Sprintf("Added directory \"%s\"", relativeDirCan)
-	_, err = genNewCommit(repo, headCommit, rootID, user, buf, true, "", false)
+	_, err = genNewCommit(repo, headCommit, rootID, user, buf, true, gcID, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return err
@@ -2965,6 +2971,12 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 
 	newDent := fsmgr.NewDirent(newDirID, dirName, (syscall.S_IFDIR | 0644), time.Now().Unix(), "", 0)
 
+	gcID, err := repomgr.GetCurrentGCID(repo.StoreID)
+	if err != nil {
+		err := fmt.Errorf("failed to get current gc id: %v", err)
+		return "", err
+	}
+
 	rootID, err := doPutFile(repo, headCommit.RootID, canonPath, newDent)
 	if err != nil || rootID == "" {
 		err := fmt.Errorf("failed to put file")
@@ -2976,7 +2988,7 @@ func updateDir(repoID, dirPath, newDirID, user, headID string) (string, error) {
 		commitDesc = "Auto merge by system"
 	}
 
-	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc, true, "", false)
+	newCommitID, err := genNewCommit(repo, headCommit, rootID, user, commitDesc, true, gcID, true)
 	if err != nil {
 		err := fmt.Errorf("failed to generate new commit: %v", err)
 		return "", err
