@@ -97,8 +97,6 @@ typedef struct {
     SeafDBTrans *trans;
     gint64 keep_alive_last_time;
     gint64 keep_alive_obj_counter;
-
-    gboolean traverse_base_commit;
 } GCData;
 
 static int
@@ -170,12 +168,6 @@ fs_callback (SeafFSManager *mgr,
 
     add_fs_to_index(data, obj_id);
 
-    // If traversing the base_commit, only the fs objects need to be retained, while the block does not.
-    // This is because only the fs objects are needed when merging virtual repo.
-    if (data->traverse_base_commit) {
-        return TRUE;
-    }
-
     if (type == SEAF_METADATA_TYPE_FILE &&
         add_blocks_to_index (mgr, data, obj_id) < 0)
         return FALSE;
@@ -214,6 +206,45 @@ traverse_commit (SeafCommit *commit, void *vdata, gboolean *stop)
 
     if (!data->traversed_head)
         data->traversed_head = TRUE;
+
+    if (data->verbose)
+        seaf_message ("Traversing commit %.8s for repo %.8s.\n",
+                      commit->commit_id, data->repo->id);
+
+    ++data->traversed_commits;
+
+    data->traversed_fs_objs = 0;
+
+    ret = seaf_fs_manager_traverse_tree (seaf->fs_mgr,
+                                         data->repo->store_id, data->repo->version,
+                                         commit->root_id,
+                                         fs_callback,
+                                         data, FALSE);
+    if (ret < 0)
+        return FALSE;
+
+    int dummy;
+    g_hash_table_replace (data->visited_commits,
+                          g_strdup (commit->commit_id), &dummy);
+
+    if (data->verbose)
+        seaf_message ("Traversed %"G_GINT64_FORMAT" fs objects for repo %.8s.\n",
+                      data->traversed_fs_objs, data->repo->id);
+
+    return TRUE;
+}
+
+static gboolean
+traverse_base_commit (SeafCommit *commit, void *vdata, gboolean *stop)
+{
+    GCData *data = vdata;
+    int ret;
+
+    // If traversing the base_commit, only the current commit need to be traverse.
+    *stop = TRUE;
+    if (g_hash_table_lookup (data->visited_commits, commit->commit_id)) {
+        return TRUE;
+    }
 
     if (data->verbose)
         seaf_message ("Traversing commit %.8s for repo %.8s.\n",
@@ -418,38 +449,6 @@ populate_gc_index_for_repo (GCData *data, SeafDBTrans *trans)
         return -1;
     }
 
-    // Traverse the base commit of the virtual repo. Otherwise, if the virtual repo has not been updated for a long time,
-    // the fs object corresponding to the base commit will be removed by mistake.
-    if (!repo->is_virtual) {
-        GList *vrepo_ids = NULL, *ptr;
-        char *repo_id = NULL;
-        SeafVirtRepo *vinfo = NULL;
-        vrepo_ids = seaf_repo_manager_get_virtual_repo_ids_by_origin (seaf->repo_mgr,
-                                                                      repo->id);
-        for (ptr = vrepo_ids; ptr; ptr = ptr->next) {
-            repo_id = ptr->data;
-            vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr, repo_id);
-            if (!vinfo) {
-                continue;
-            }
-            data->traverse_base_commit = TRUE;
-            res = seaf_commit_manager_traverse_commit_tree (seaf->commit_mgr,
-                                                            repo->store_id, repo->version,
-                                                            vinfo->base_commit,
-                                                            traverse_commit,
-                                                            data,
-                                                            FALSE);
-            data->traverse_base_commit = FALSE;
-            seaf_virtual_repo_info_free (vinfo);
-            if (!res) {
-                seaf_warning ("Failed to traverse base commit %s for virtual repo %s.\n", vinfo->base_commit, repo_id);
-                string_list_free (vrepo_ids);
-                return -1;
-            }
-        }
-        string_list_free (vrepo_ids);
-    }
-
     ret = data->traversed_blocks;
 
     return ret;
@@ -466,6 +465,9 @@ typedef struct CheckBlockParam {
     GAsyncQueue *async_queue;
     pthread_mutex_t counter_lock;
     gint64 removed_blocks;
+    SeafDBTrans *trans;
+    gint64 keep_alive_obj_counter;
+    gint64 keep_alive_last_time;
 } CheckBlockParam;
 
 typedef struct CheckFSParam {
@@ -477,6 +479,9 @@ typedef struct CheckFSParam {
     GAsyncQueue *async_queue;
     pthread_mutex_t counter_lock;
     gint64 removed_fs;
+    SeafDBTrans *trans;
+    gint64 keep_alive_obj_counter;
+    gint64 keep_alive_last_time;
 } CheckFSParam;
 
 typedef struct CollectExistObjsData {
@@ -500,6 +505,17 @@ check_block_liveness (gpointer data, gpointer user_data)
             seaf_message ("Removed %"G_GINT64_FORMAT" blocks for repo %.8s.\n",
                           removed_blocks, param->store_id);
         }
+        if (param->trans) {
+            ++(param->keep_alive_obj_counter);
+
+            if (param->keep_alive_obj_counter >= KEEP_ALIVE_PER_OBJS &&
+                ((gint64)time(NULL) - param->keep_alive_last_time) >= KEEP_ALIVE_PER_SECOND)
+            {
+                param->keep_alive_last_time = (gint64)time(NULL);
+                param->keep_alive_obj_counter = 0;
+                seaf_db_trans_query(param->trans, "SELECT 1;", 0);
+            }
+        }
         pthread_mutex_unlock (&param->counter_lock);
         if (!param->dry_run)
             seaf_block_manager_remove_block (seaf->block_mgr,
@@ -512,7 +528,7 @@ check_block_liveness (gpointer data, gpointer user_data)
 
 static gint64
 check_existing_blocks (char *store_id, int repo_version, GHashTable *exist_blocks,
-                       Bloom *blocks_index, int dry_run, int verbose)
+                       Bloom *blocks_index, int dry_run, int verbose, SeafDBTrans *trans)
 {
     char *block_id;
     GThreadPool *tpool = NULL;
@@ -529,6 +545,7 @@ check_existing_blocks (char *store_id, int repo_version, GHashTable *exist_block
     param->index = blocks_index;
     param->dry_run = dry_run;
     param->verbose = verbose;
+    param->trans = trans;
     param->async_queue = async_queue;
     pthread_mutex_init (&param->counter_lock, NULL);
 
@@ -596,6 +613,17 @@ check_fs_liveness (gpointer data, gpointer user_data)
             seaf_message ("Removed %"G_GINT64_FORMAT" fs objects for repo %.8s.\n",
                           removed_fs, param->store_id);
         }
+        if (param->trans) {
+            ++(param->keep_alive_obj_counter);
+
+            if (param->keep_alive_obj_counter >= KEEP_ALIVE_PER_OBJS &&
+                ((gint64)time(NULL) - param->keep_alive_last_time) >= KEEP_ALIVE_PER_SECOND)
+            {
+                param->keep_alive_last_time = (gint64)time(NULL);
+                param->keep_alive_obj_counter = 0;
+                seaf_db_trans_query(param->trans, "SELECT 1;", 0);
+            }
+        }
         pthread_mutex_unlock (&param->counter_lock);
         if (!param->dry_run)
             seaf_fs_manager_delete_object(seaf->fs_mgr,
@@ -608,7 +636,7 @@ check_fs_liveness (gpointer data, gpointer user_data)
 
 static gint64
 check_existing_fs (char *store_id, int repo_version, GHashTable *exist_fs,
-                   Bloom *fs_index, int dry_run, int verbose)
+                   Bloom *fs_index, int dry_run, int verbose, SeafDBTrans *trans)
 {
     char *fs_id;
     GThreadPool *tpool = NULL;
@@ -625,6 +653,7 @@ check_existing_fs (char *store_id, int repo_version, GHashTable *exist_fs,
     param->index = fs_index;
     param->dry_run = dry_run;
     param->verbose = verbose;
+    param->trans = trans;
     param->async_queue = async_queue;
     pthread_mutex_init (&param->counter_lock, NULL);
 
@@ -752,6 +781,48 @@ out:
     return ret;
 }
 
+static gint64
+populate_gc_index_for_base_commit (GCData *data)
+{
+    gboolean res;
+    gint64 ret = 0;
+    SeafRepo *repo = data->repo;
+
+    // Traverse the base commit of the virtual repo. Otherwise, if the virtual repo has not been updated for a long time,
+    // the fs object corresponding to the base commit will be removed by mistake.
+    GList *vrepo_ids = NULL, *ptr;
+    char *repo_id = NULL;
+    SeafVirtRepo *vinfo = NULL;
+    vrepo_ids = seaf_repo_manager_get_virtual_repo_ids_by_origin (seaf->repo_mgr,
+                                                                  repo->id);
+    for (ptr = vrepo_ids; ptr; ptr = ptr->next) {
+        repo_id = ptr->data;
+        vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr, repo_id);
+        if (!vinfo) {
+            continue;
+        }
+        seaf_message ("Populating index for base commit of sub-repo %.8s.\n", repo->id);
+        res = seaf_commit_manager_traverse_commit_tree (seaf->commit_mgr,
+                                                        repo->store_id, repo->version,
+                                                        vinfo->base_commit,
+                                                        traverse_base_commit,
+                                                        data,
+                                                        FALSE);
+        if (!res) {
+            seaf_warning ("Failed to traverse base commit %s for virtual repo %s.\n", vinfo->base_commit, repo_id);
+            string_list_free (vrepo_ids);
+            seaf_virtual_repo_info_free (vinfo);
+            return -1;
+        }
+        seaf_virtual_repo_info_free (vinfo);
+    }
+    string_list_free (vrepo_ids);
+
+    ret = data->traversed_blocks;
+
+    return ret;
+}
+
 /*
  * @keep_days: explicitly sepecify how many days of history to keep after GC.
  *             This has higher priority than the history limit set in database.
@@ -869,6 +940,13 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
 
     reachable_blocks += ret;
 
+    if (rm_fs) {
+        ret = populate_gc_index_for_base_commit (data);
+        if (ret < 0) {
+            goto out;
+        }
+    }
+
     if (online) {
         trans = seaf_db_begin_transaction (seaf->db);
         if (!trans)
@@ -906,7 +984,7 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
         seaf_message ("Scanning unused blocks for repo %.8s.\n", repo->id);
 
     ret = check_existing_blocks (repo->store_id, repo->version, exist_blocks,
-                                 blocks_index, dry_run, verbose);
+                                 blocks_index, dry_run, verbose, trans);
     if (ret < 0) {
         if (online) {
             seaf_db_rollback (trans);
@@ -917,7 +995,7 @@ gc_v1_repo (SeafRepo *repo, int dry_run, int online, int verbose, int rm_fs)
 
     if (rm_fs && total_fs > 0) {
         removed_fs = check_existing_fs(repo->store_id, repo->version, exist_fs,
-                                       fs_index, dry_run, verbose);
+                                       fs_index, dry_run, verbose, trans);
         if (removed_fs < 0) {
             if (online) {
                 seaf_db_rollback (trans);
