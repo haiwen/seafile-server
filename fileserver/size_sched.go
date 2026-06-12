@@ -208,7 +208,11 @@ func setRepoSizeAndFileCount(repoID, newHeadID string, size, fileCount int64) er
 		}
 	}
 
-	trans.Commit()
+	err = trans.Commit()
+	if err != nil {
+		trans.Rollback()
+		return err
+	}
 
 	return nil
 }

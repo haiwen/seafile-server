@@ -429,7 +429,13 @@ func doFile(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileID
 	if cryptKey != nil {
 		for _, blkID := range file.BlkIDs {
 			var buf bytes.Buffer
-			blockmgr.Read(repo.StoreID, blkID, &buf)
+			err := blockmgr.Read(repo.StoreID, blkID, &buf)
+			if err != nil {
+				if !isNetworkErr(err) {
+					log.Errorf("failed to read block %s: %v", blkID, err)
+				}
+				return nil
+			}
 			decoded, err := cryptKey.decrypt(buf.Bytes())
 			if err != nil {
 				err := fmt.Errorf("failed to decrypt block %s: %v", blkID, err)
@@ -1098,7 +1104,11 @@ func packFiles(ar *zip.Writer, dirent *fsmgr.SeafDirent, repo *repomgr.Repo, par
 	if cryptKey != nil {
 		for _, blkID := range file.BlkIDs {
 			var buf bytes.Buffer
-			blockmgr.Read(repo.StoreID, blkID, &buf)
+			err := blockmgr.Read(repo.StoreID, blkID, &buf)
+			if err != nil {
+				err := fmt.Errorf("failed to read block %s: %v", blkID, err)
+				return err
+			}
 			decoded, err := cryptKey.decrypt(buf.Bytes())
 			if err != nil {
 				err := fmt.Errorf("failed to decrypt block %s: %v", blkID, err)
@@ -1404,9 +1414,15 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 		fsm.files = append(fsm.files, tmpFile)
 	}
 
-	f.Seek(fsm.rstart, 0)
-	io.Copy(f, file)
-	f.Close()
+	defer f.Close()
+	_, err = f.Seek(fsm.rstart, 0)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(f, file)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -2213,7 +2229,11 @@ func updateBranch(repoID, originRepoID, newCommitID, oldCommitID, secondParentID
 		return false, err
 	}
 
-	trans.Commit()
+	err = trans.Commit()
+	if err != nil {
+		trans.Rollback()
+		return false, err
+	}
 
 	if secondParentID != "" {
 		if err := onBranchUpdated(repoID, secondParentID, false); err != nil {
