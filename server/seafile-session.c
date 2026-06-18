@@ -443,38 +443,38 @@ seafile_session_init (SeafileSession *session)
         return -1;
 
     if (seaf_branch_manager_init (session->branch_mgr) < 0) {
-        seaf_warning ("Failed to init branch manager.\n");
+        seaf_error ("Failed to init branch manager.\n");
         return -1;
     }
 
     if (seaf_repo_manager_init (session->repo_mgr) < 0) {
-        seaf_warning ("Failed to init repo manager.\n");
+        seaf_error ("Failed to init repo manager.\n");
         return -1;
     }
 
     if (seaf_quota_manager_init (session->quota_mgr) < 0) {
-        seaf_warning ("Failed to init quota manager.\n");
+        seaf_error ("Failed to init quota manager.\n");
         return -1;
     }
 
     if (ccnet_user_manager_prepare (session->user_mgr) < 0) {
-        seaf_warning ("Failed to init user manager.\n");
+        seaf_error ("Failed to init user manager.\n");
         return -1;
     }
 
     if (ccnet_group_manager_prepare (session->group_mgr) < 0) {
-        seaf_warning ("Failed to init group manager.\n");
+        seaf_error ("Failed to init group manager.\n");
         return -1;
     }
 
     if (ccnet_org_manager_prepare (session->org_mgr) < 0) {
-        seaf_warning ("Failed to init org manager.\n");
+        seaf_error ("Failed to init org manager.\n");
         return -1;
     }
 
     if ((session->create_tables || seaf_db_type(session->db) == SEAF_DB_TYPE_PGSQL)
         && seaf_cfg_manager_init (session->cfg_mgr) < 0) {
-        seaf_warning ("Failed to init config manager.\n");
+        seaf_error ("Failed to init config manager.\n");
         return -1;
     }
 
