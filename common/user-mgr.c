@@ -95,8 +95,8 @@ check_user_number (CcnetUserManager *manager, gboolean allow_equal)
 
     if ((allow_equal && cur_num > manager->priv->max_users) ||
         (!allow_equal && cur_num >= manager->priv->max_users)) {
-        ccnet_warning ("The number of users exceeds limit, max %d, current %d\n",
-                       manager->priv->max_users, cur_num);
+        seaf_error ("The number of users exceeds limit, max %d, current %d\n",
+                    manager->priv->max_users, cur_num);
         return FALSE;
     }
 
