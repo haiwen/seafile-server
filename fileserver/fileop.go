@@ -1394,7 +1394,10 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	var f *os.File
 	filePath := filepath.Join("/", parentDir, filename)
 	tmpFile, err := repomgr.GetUploadTmpFile(repoID, filePath)
-	if err != nil || tmpFile == "" {
+	if err != nil {
+		return fmt.Errorf("failed to get upload tmp file: %w", err)
+	}
+	if tmpFile == "" {
 		tmpDir := filepath.Join(httpTempDir, "cluster-shared")
 		f, err = os.CreateTemp(tmpDir, filename)
 		if err != nil {
@@ -1403,7 +1406,7 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 		repomgr.AddUploadTmpFile(repoID, filePath, f.Name())
 		tmpFile = f.Name()
 	} else {
-		f, err = os.OpenFile(tmpFile, os.O_WRONLY|os.O_CREATE, 0666)
+		f, err = os.OpenFile(tmpFile, os.O_WRONLY, 0666)
 		if err != nil {
 			return err
 		}
@@ -1633,7 +1636,7 @@ func genDirRecursive(repo *repomgr.Repo, toPath []string) (string, error) {
 }
 
 func clearTmpFile(fsm *recvData, parentDir string) {
-	if fsm.rstart >= 0 && fsm.rend == fsm.fsize-1 {
+	if fsm.rstart >= 0 && fsm.rend == fsm.fsize-1 && len(fsm.fileNames) > 0 {
 		filePath := filepath.Join("/", parentDir, fsm.fileNames[0])
 		tmpFile, err := repomgr.GetUploadTmpFile(fsm.repoID, filePath)
 		if err == nil && tmpFile != "" {
