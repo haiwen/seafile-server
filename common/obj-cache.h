@@ -43,7 +43,7 @@ struct ObjCache {
 };
 
 ObjCache *
-objcache_new ();
+objcache_new (void);
 
 void *
 objcache_get_object (struct ObjCache *cache, const char *obj_id, size_t *len);
