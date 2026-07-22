@@ -14,7 +14,7 @@ static char *central_config_dir = NULL;
 
 SeafileSession *seaf;
 
-static const char *short_opts = "hvft:c:d:rE:F:sS";
+static const char *short_opts = "hvft:c:d:rE:F:sSi:";
 static const struct option long_opts[] = {
     { "help", no_argument, NULL, 'h', },
     { "version", no_argument, NULL, 'v', },
@@ -27,13 +27,23 @@ static const struct option long_opts[] = {
     { "seafdir", required_argument, NULL, 'd', },
     { "shallow", no_argument, NULL, 's', },
     { "check-file-size", no_argument, NULL, 'S' },
+    { "id-prefix", required_argument, NULL, 'i', },
     { 0, 0, 0, 0, },
 };
 
 static void usage ()
 {
-    fprintf (stderr, "usage: seaf-fsck [-r] [-E exported_path] [-c config_dir] [-d seafile_dir] "
-                     "[repo_id_1 [repo_id_2 ...]]\n");
+    fprintf (stderr,
+            "usage: seaf-fsck [-r] [-E exported_path] [-F config_dir] [-d seafile_dir] "
+            "[repo_id_1 [repo_id_2 ...]]\n"
+            "Additional options:\n"
+            "-f, --force: run fsck without user ownership check\n"
+            "-r, --repair: repair corrupted libraries\n"
+            "-t, --threads: thread number for fsck\n"
+            "-E, --export: export libraries to the specified path\n"
+            "-S, --check-file-size: check whether file size matches the actual file content\n"
+            "-s, --shallow: skip checking file contents and only check object existence\n"
+            "-i, --id-prefix: run fsck for repos with this repo id prefix\n");
 }
 
 #ifdef WIN32
@@ -97,6 +107,7 @@ main(int argc, char *argv[])
     gboolean check_file_size = FALSE;
     char *export_path = NULL;
     int max_thread_num = 0;
+    char *id_prefix = NULL;
 
 #ifdef WIN32
     argv = get_argv_utf8 (&argc);
@@ -139,6 +150,9 @@ main(int argc, char *argv[])
             break;
         case 's':
             check_integrity = FALSE;
+            break;
+        case 'i':
+            id_prefix = g_strdup(optarg);
             break;
         default:
             usage();
@@ -189,8 +203,10 @@ main(int argc, char *argv[])
         options.check_integrity = check_integrity;
         options.check_file_size = check_file_size;
         options.repair = repair;
-        seaf_fsck (repo_id_list, &options);
+        seaf_fsck (repo_id_list, id_prefix, &options);
     }
+
+    g_free (id_prefix);
 
     return 0;
 }

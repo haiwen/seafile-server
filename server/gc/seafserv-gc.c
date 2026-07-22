@@ -36,7 +36,7 @@ static const struct option long_opts[] = {
 static void usage ()
 {
     fprintf (stderr,
-             "usage: seafserv-gc [-c config_dir] [-d seafile_dir] "
+             "usage: seafserv-gc [-F config_dir] [-d seafile_dir] "
              "[repo_id_1 [repo_id_2 ...]]\n"
              "Additional options:\n"
              "-r, --rm-deleted: remove garbaged repos\n"
@@ -44,7 +44,8 @@ static void usage ()
              "-D, --dry-run: report blocks that can be remove, but not remove them\n"
              "-V, --verbose: verbose output messages\n"
              "-C, --check: check data integrity\n"
-             "-t, --thread-num: thread number for gc repos\n");
+             "-t, --thread-num: thread number for gc repos\n"
+             "-i, --id-prefix: only gc repos with this repo id prefix\n");
 }
 
 #ifdef WIN32

@@ -787,9 +787,13 @@ repair_repos (GList *repo_id_list, FsckOptions *options)
 }
 
 int
-seaf_fsck (GList *repo_id_list, FsckOptions *options)
+seaf_fsck (GList *repo_id_list, const char *id_prefix, FsckOptions *options)
 {
-    if (!repo_id_list)
+    if (id_prefix) {
+        if (repo_id_list)
+            g_list_free (repo_id_list);
+        repo_id_list = seaf_repo_manager_get_repo_id_list_by_prefix (seaf->repo_mgr, id_prefix);
+    } else if (!repo_id_list)
         repo_id_list = seaf_repo_manager_get_repo_id_list (seaf->repo_mgr);
 
     repair_repos (repo_id_list, options);
