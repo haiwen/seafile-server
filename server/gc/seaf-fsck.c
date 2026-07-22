@@ -34,7 +34,7 @@ static const struct option long_opts[] = {
 static void usage ()
 {
     fprintf (stderr,
-            "usage: seaf-fsck [-r] [-E exported_path] [-F config_dir] [-d seafile_dir] "
+            "usage: seaf-fsck [-r] [-E exported_path] [-F central-config-dir] [-d seafile_dir] "
             "[repo_id_1 [repo_id_2 ...]]\n"
             "Additional options:\n"
             "-f, --force: run fsck without user ownership check\n"

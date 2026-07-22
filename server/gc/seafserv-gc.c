@@ -36,7 +36,7 @@ static const struct option long_opts[] = {
 static void usage ()
 {
     fprintf (stderr,
-             "usage: seafserv-gc [-F config_dir] [-d seafile_dir] "
+             "usage: seafserv-gc [-F central-config-dir] [-d seafile_dir] "
              "[repo_id_1 [repo_id_2 ...]]\n"
              "Additional options:\n"
              "-r, --rm-deleted: remove garbaged repos\n"
