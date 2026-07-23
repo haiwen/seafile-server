@@ -702,7 +702,7 @@ get_corrupted_repo (char *repo_id)
 }
 
 static SeafCommit*
-get_available_repair_commit (SeafRepo *repo, gboolean repair)
+get_available_repair_commit (SeafRepo *repo)
 {
     GList *commit_list = NULL;
     GList *temp_list = NULL;
@@ -728,7 +728,7 @@ get_available_repair_commit (SeafRepo *repo, gboolean repair)
         io_error = FALSE;
 
         if (!fsck_verify_seafobj (repo->store_id, 1, temp_commit->root_id,
-                                  &io_error, VERIFY_DIR, repair)) {
+                                  &io_error, VERIFY_DIR, TRUE)) {
             if (io_error) {
                 goto out;
             }
@@ -753,6 +753,11 @@ out:
         seaf_commit_unref (temp_commit);
     }
     g_list_free (commit_list);
+
+    if (rep_commit == NULL) {
+        seaf_warning ("No available commits for repo %.8s, can't be repaired.\n",
+                      repo->id);
+    }
 
     return rep_commit;
 }
@@ -789,7 +794,7 @@ repair_repo(char *repo_id, FsckOptions *options)
         }
         seaf_message ("Repo %.8s HEAD commit is damaged, "
                       "need to restore to an old version.\n", repo_id);
-        rep_commit = get_available_repair_commit (repo, options->repair);
+        rep_commit = get_available_repair_commit (repo);
         if (!rep_commit) {
             goto out;
         }
@@ -818,7 +823,7 @@ repair_repo(char *repo_id, FsckOptions *options)
                 seaf_message ("Repo %.8s HEAD commit is damaged, "
                               "need to restore to an old version.\n", repo_id);
                 seaf_commit_unref (commit);
-                rep_commit = get_available_repair_commit (repo, options->repair);
+                rep_commit = get_available_repair_commit (repo);
                 if (!rep_commit) {
                     goto out;
                 }
