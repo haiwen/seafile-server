@@ -9,7 +9,7 @@ typedef struct FsckOptions {
 } FsckOptions;
 
 int
-seaf_fsck (GList *repo_id_list, FsckOptions *options);
+seaf_fsck (GList *repo_id_list, const char *id_prefix, FsckOptions *options);
 
 void export_file (GList *repo_id_list, const char *seafile_dir, char *export_path);
 
