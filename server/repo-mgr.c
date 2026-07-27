@@ -23,8 +23,8 @@
 #include "seaf-db.h"
 #include "seaf-utils.h"
 
-#define REAP_TOKEN_INTERVAL 300 /* 5 mins */
-#define DECRYPTED_TOKEN_TTL 3600 /* 1 hour */
+#define REAP_TOKEN_INTERVAL 60 /* 1 min */
+#define DECRYPTED_TOKEN_TTL 900 /* 15 mins */
 #define SCAN_TRASH_DAYS 1 /* one day */
 #define TRASH_EXPIRE_DAYS 30 /* one month */
 
