@@ -4338,6 +4338,34 @@ seafile_get_virtual_repo (const char *origin_repo,
     return repo_obj;
 }
 
+int
+seafile_set_base_commit (const char *repo_id,
+                         const char *base_commit,
+                         GError **error)
+{
+    if (!repo_id || !base_commit || !is_uuid_valid (repo_id) ||
+        !is_object_id_valid (base_commit)) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                     "Invalid arguments");
+        return -1;
+    }
+
+    SeafVirtRepo *vinfo = seaf_repo_manager_get_virtual_repo_info (seaf->repo_mgr,
+                                                                    repo_id);
+    if (!vinfo) {
+        g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                     "Virtual repo not found");
+        return -1;
+    }
+
+    seaf_repo_manager_set_virtual_repo_base_commit_path (seaf->repo_mgr,
+                                                         repo_id, base_commit,
+                                                         vinfo->path);
+
+    seaf_virtual_repo_info_free (vinfo);
+    return ret;
+}
+
 /* System default library */
 
 char *

@@ -768,6 +768,9 @@ class SeafileAPI(object):
     def get_virtual_repo(self, origin_repo, path, owner):
         return seafserv_threaded_rpc.get_virtual_repo(origin_repo, path, owner)
 
+    def set_base_commit(self, repo_id, base_commit):
+        return seafserv_threaded_rpc.set_base_commit(repo_id, base_commit)
+
     # Clean trash
 
     def clean_up_repo_history(self, repo_id, keep_days):
