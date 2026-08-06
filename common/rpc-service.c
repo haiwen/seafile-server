@@ -4363,7 +4363,7 @@ seafile_set_base_commit (const char *repo_id,
                                                          vinfo->path);
 
     seaf_virtual_repo_info_free (vinfo);
-    return ret;
+    return 0;
 }
 
 /* System default library */

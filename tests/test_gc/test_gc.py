@@ -177,10 +177,11 @@ def test_gc_when_origin_deletes_file_before_virtual_repo_merge(repo, rm_fs):
     v_repo_id = api.share_subdir_to_user(repo.id, '/subdir', USER, USER2, 'rw')
     assert v_repo_id is not None
 
-    assert api.post_file(repo.id, second_path, '/', second_name, USER) == 0
-
     t_repo = api.get_repo(repo.id)
     base_commit_id = t_repo.head_cmmt_id
+
+    assert api.post_file(repo.id, second_path, '/', second_name, USER) == 0
+
     # Set an invalid base commit so that the virtual repo will not merge with the origin repo.
     assert api.set_base_commit(v_repo_id, '0' * 40) == 0
 
@@ -189,7 +190,7 @@ def test_gc_when_origin_deletes_file_before_virtual_repo_merge(repo, rm_fs):
     assert api.post_file(repo.id, second_path, '/', second_name, USER) == 0
     assert api.post_file(v_repo_id, second_path, '/', second_name, USER2) == 0
 
-    time.sleep(1.5)
+    time.sleep(2.5)
 
     assert api.set_base_commit(v_repo_id, base_commit_id) == 0
     run_gc(repo.id, rm_fs, '')
