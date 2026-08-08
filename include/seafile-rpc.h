@@ -1024,6 +1024,11 @@ seafile_get_virtual_repo (const char *origin_repo,
                           const char *owner,
                           GError **error);
 
+int
+seafile_set_base_commit (const char *repo_id,
+                         const char *base_commit,
+                         GError **error);
+
 char *
 seafile_get_system_default_repo_id (GError **error);
 

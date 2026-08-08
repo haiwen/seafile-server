@@ -600,6 +600,15 @@ set_virtual_repo_base_commit_path (const char *vrepo_id, const char *base_commit
                              "string", vrepo_id);
 }
 
+void
+seaf_repo_manager_set_virtual_repo_base_commit_path (SeafRepoManager *mgr,
+                                                     const char *vrepo_id,
+                                                     const char *base_commit_id,
+                                                     const char *new_path)
+{
+    set_virtual_repo_base_commit_path (vrepo_id, base_commit_id, new_path);
+}
+
 int
 seaf_repo_manager_merge_virtual_repo (SeafRepoManager *mgr,
                                       const char *repo_id,

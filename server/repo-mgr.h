@@ -788,6 +788,12 @@ SeafVirtRepo *
 seaf_repo_manager_get_virtual_repo_info (SeafRepoManager *mgr,
                                          const char *repo_id);
 
+void
+seaf_repo_manager_set_virtual_repo_base_commit_path (SeafRepoManager *mgr,
+                                                     const char *repo_id,
+                                                     const char *base_commit,
+                                                     const char *path);
+
 GList *
 seaf_repo_manager_get_virtual_info_by_origin (SeafRepoManager *mgr,
                                               const char *origin_repo);
