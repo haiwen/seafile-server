@@ -205,7 +205,13 @@ redis_cache_get_object (ObjCache *cache, const char *obj_id, size_t *len)
     }
 
     *len = reply->len;
-    object = g_memdup (reply->str, reply->len);
+
+    if (reply->len > 0) {
+        // Keep the cached byte length, but provide a NUL-terminated buffer
+        // for string consumers. This also keeps C and Go fileservers compatible.
+        object = g_new0 (char, reply->len + 1);
+        memcpy (object, reply->str, reply->len);
+    }
 
 out:
     freeReplyObject(reply);
