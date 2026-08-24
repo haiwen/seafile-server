@@ -74,7 +74,7 @@ def upload_gc_test_file(url):
                     large_file_size - 1, large_file_size),
                 'Content-Disposition': 'attachment; filename="{}"'.format(large_file_name)
         }
-        return requests.post(url, data=m, headers=headers)
+        return requests.post(url, data=m, headers=headers, timeout=300)
 
 @pytest.mark.parametrize('rm_fs', ['', '--rm-fs'])
 def test_gc_full_history(repo, rm_fs):
@@ -332,49 +332,47 @@ def test_gc_when_origin_deletes_file_before_virtual_repo_merge(repo):
 @pytest.mark.parametrize('rm_fs', ['', '--rm-fs'])
 def test_gc_during_file_upload(repo, rm_fs):
     create_gc_test_file()
+    try:
+        api.set_repo_valid_since(repo.id, 0)
 
-    api.set_repo_valid_since(repo.id, 0)
+        obj_id = '{"parent_dir":"/"}'
+        token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+        upload_url = 'http://127.0.0.1:8082/upload-aj/' + token
 
-    obj_id = '{"parent_dir":"/"}'
-    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
-    upload_url = 'http://127.0.0.1:8082/upload-aj/' + token
+        index_finished = False
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(upload_gc_test_file, upload_url)
 
-    indexFinished = False
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(upload_gc_test_file, upload_url)
+            # The upload handler starts indexing only after the temporary file is complete.
+            deadline = time.monotonic() + upload_timeout
+            is_uploading = False
+            while True:
+                offset = api.get_upload_tmp_file_offset(repo.id, '/' + large_file_name)
+                if offset > 0:
+                    is_uploading = True
 
-        start = time.monotonic()
-        # The upload handler starts indexing only after the temporary file is complete.
-        deadline = time.monotonic() + 10
-        isUploading = False
-        while True:
-            offset = api.get_upload_tmp_file_offset(repo.id, '/' + large_file_name)
-            if offset > 0:
-                isUploading = True
+                if offset >= large_file_size:
+                    break
 
-            if offset >= large_file_size:
-                break
+                # Indexing has finished.
+                if offset == 0 and is_uploading:
+                    index_finished = True
+                    break
 
-            # index has been finished.
-            if offset == 0 and isUploading:
-                indexFinished = True
-                break
-                    
-            time.sleep(0.1)
+                assert time.monotonic() < deadline, 'large file upload did not finish'
+                time.sleep(0.1)
 
-            assert time.monotonic() < deadline, 'large file upload did not finish'
+            time.sleep(0.5)
+            run_gc(repo.id, rm_fs, '')
+            response = future.result(timeout=upload_timeout)
 
-        time.sleep(0.5)
-        run_gc(repo.id, rm_fs, '')
-        response = future.result(timeout=10)
+        if index_finished:
+            assert response.status_code == 200
+        else:
+            # GC returns 409 only if it removes a block that indexing has written.
+            assert response.status_code in (200, 409)
 
-    if indexFinished:
-        assert response.status_code == 200
-    else:
-        # When GC is running, it returns 409 if any block has already been written; otherwise, it returns 200.
-        assert (response.status_code == 409 or response.status_code == 200)
-
-    api.set_repo_valid_since (repo.id, 0)
-    run_gc(repo.id, '', '--check')
-
-    del_gc_test_file()
+        api.set_repo_valid_since(repo.id, 0)
+        run_gc(repo.id, '', '--check')
+    finally:
+        del_gc_test_file()
