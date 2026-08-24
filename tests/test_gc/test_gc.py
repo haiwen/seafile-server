@@ -23,7 +23,7 @@ third_path = os.getcwd() + '/' + third_name
 third_content = 'Third file content.\r\n'
 
 large_file_name = 'large.txt'
-large_file_size = 500 * 1024 * 1024
+large_file_size = 1024 * 1024 * 1024
 large_file_path = os.getcwd() + '/' + large_file_name
 
 def create_test_file():
@@ -364,6 +364,7 @@ def test_gc_during_file_upload(repo, rm_fs):
 
             assert time.monotonic() < deadline, 'large file upload did not finish'
 
+        time.sleep(0.5)
         run_gc(repo.id, rm_fs, '')
         response = future.result(timeout=10)
 
