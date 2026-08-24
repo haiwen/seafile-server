@@ -26,6 +26,8 @@ large_file_name = 'large.txt'
 large_file_size = 1024 * 1024 * 1024
 large_file_path = os.getcwd() + '/' + large_file_name
 
+upload_timeout = 300
+
 def create_test_file():
     fp = open(first_path, 'w')
     fp.write(first_content)
@@ -74,7 +76,7 @@ def upload_gc_test_file(url):
                     large_file_size - 1, large_file_size),
                 'Content-Disposition': 'attachment; filename="{}"'.format(large_file_name)
         }
-        return requests.post(url, data=m, headers=headers, timeout=300)
+        return requests.post(url, data=m, headers=headers, timeout=upload_timeout)
 
 @pytest.mark.parametrize('rm_fs', ['', '--rm-fs'])
 def test_gc_full_history(repo, rm_fs):
