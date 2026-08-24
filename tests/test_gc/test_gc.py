@@ -371,8 +371,10 @@ def test_gc_during_file_upload(repo, rm_fs):
     if indexFinished:
         assert response.status_code == 200
     else:
+        # When GC is running, it returns 409 if any block has already been written; otherwise, it returns 200.
         assert (response.status_code == 409 or response.status_code == 200)
 
+    api.set_repo_valid_since (repo.id, 0)
     run_gc(repo.id, '', '--check')
 
     del_gc_test_file()
