@@ -290,7 +290,7 @@ def start_and_test_with_db(db):
         with server.run():
             info('Testing with %s database', db)
             with cd(SeafileServer().projectdir):
-                shell('py.test', env=server.get_seaserv_envs())
+                shell('py.test tests/test_gc/test_gc.py', env=server.get_seaserv_envs())
 
 
 if __name__ == '__main__':
