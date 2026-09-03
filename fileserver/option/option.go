@@ -432,6 +432,9 @@ func loadDBOptionFromFile(centralDir string) (*DBOption, error) {
 	if key, err = section.GetKey("connection_charset"); err == nil {
 		dbOpt.Charset = key.String()
 	}
+	if dbOpt.Charset == "" {
+		dbOpt.Charset = "utf8mb4"
+	}
 
 	return dbOpt, nil
 }

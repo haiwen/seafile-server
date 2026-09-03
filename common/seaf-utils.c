@@ -176,6 +176,10 @@ load_db_option (SeafileSession *session)
 
     option->charset = seaf_key_file_get_string (session->config,
                                      "database", "connection_charset", NULL);
+    if (!option->charset || g_strcmp0 (option->charset, "") == 0) {
+        g_free (option->charset);
+        option->charset = g_strdup("utf8mb4");
+    }
 
     option->max_connections = g_key_file_get_integer (session->config,
                                               "database", "max_connections",
