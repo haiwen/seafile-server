@@ -22,6 +22,12 @@ third_name = 'third.txt'
 third_path = os.getcwd() + '/' + third_name
 third_content = 'Third file content.\r\n'
 
+large_file_name = 'large.txt'
+large_file_size = 1024 * 1024 * 1024
+large_file_path = os.getcwd() + '/' + large_file_name
+
+upload_timeout = 300
+
 def create_test_file():
     fp = open(first_path, 'w')
     fp.write(first_content)
@@ -32,6 +38,15 @@ def create_test_file():
     fp = open(third_path, 'w')
     fp.write(third_content)
     fp.close()
+
+def create_gc_test_file():
+    with open(large_file_path, 'wb') as fp:
+        for _ in range(large_file_size // (1024 * 1024)):
+            fp.write(os.urandom(1024 * 1024))
+
+def del_gc_test_file():
+    if os.path.exists(large_file_path):
+        os.remove(large_file_path)
 
 def del_local_files():
     os.remove(first_path)
@@ -47,6 +62,21 @@ def run_gc(repo_id, rm_fs, check):
     cmd=cmdStr.split(' ')
     ret = run (cmd)
     assert ret.returncode == 0
+
+def upload_gc_test_file(url):
+    with open(large_file_path, 'rb') as fp:
+        m = MultipartEncoder(
+                fields={
+                        'parent_dir': '/',
+                        'file': (large_file_name, fp, 'application/octet-stream')
+                })
+        headers = {
+                'Content-Type': m.content_type,
+                'Content-Range': 'bytes 0-{}/{}'.format(
+                    large_file_size - 1, large_file_size),
+                'Content-Disposition': 'attachment; filename="{}"'.format(large_file_name)
+        }
+        return requests.post(url, data=m, headers=headers, timeout=upload_timeout)
 
 @pytest.mark.parametrize('rm_fs', ['', '--rm-fs'])
 def test_gc_full_history(repo, rm_fs):
@@ -300,3 +330,51 @@ def test_gc_when_origin_deletes_file_before_virtual_repo_merge(repo):
 
     assert api.unshare_subdir_for_user(repo.id, '/subdir', USER, USER2) == 0
     del_local_files()
+
+@pytest.mark.parametrize('rm_fs', ['', '--rm-fs'])
+def test_gc_during_file_upload(repo, rm_fs):
+    create_gc_test_file()
+    try:
+        api.set_repo_valid_since(repo.id, 0)
+
+        obj_id = '{"parent_dir":"/"}'
+        token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+        upload_url = 'http://127.0.0.1:8082/upload-aj/' + token
+
+        index_finished = False
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(upload_gc_test_file, upload_url)
+
+            # The upload handler starts indexing only after the temporary file is complete.
+            deadline = time.monotonic() + upload_timeout
+            is_uploading = False
+            while True:
+                offset = api.get_upload_tmp_file_offset(repo.id, '/' + large_file_name)
+                if offset > 0:
+                    is_uploading = True
+
+                if offset >= large_file_size:
+                    break
+
+                # Indexing has finished.
+                if offset == 0 and is_uploading:
+                    index_finished = True
+                    break
+
+                assert time.monotonic() < deadline, 'large file upload did not finish'
+                time.sleep(0.1)
+
+            time.sleep(0.5)
+            run_gc(repo.id, rm_fs, '')
+            response = future.result(timeout=upload_timeout)
+
+        if index_finished:
+            assert response.status_code == 200
+        else:
+            # GC returns 409 only if it removes a block that indexing has written.
+            assert response.status_code in (200, 409)
+
+        api.set_repo_valid_since(repo.id, 0)
+        run_gc(repo.id, '', '--check')
+    finally:
+        del_gc_test_file()
