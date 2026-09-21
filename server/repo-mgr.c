@@ -1076,8 +1076,8 @@ create_tables_mysql (SeafRepoManager *mgr)
 
     sql = "CREATE TABLE IF NOT EXISTS VirtualRepo (id BIGINT NOT NULL PRIMARY KEY AUTO_INCREMENT, "
         "repo_id CHAR(36),"
-        "origin_repo CHAR(36), path TEXT, base_commit CHAR(40), UNIQUE INDEX(repo_id), INDEX(origin_repo))"
-        "ENGINE=INNODB";
+        "origin_repo CHAR(36), path TEXT, base_commit CHAR(40), UNIQUE INDEX(repo_id), INDEX(origin_repo)), "
+	"UNIQUE INDEX(origin_repo,path) ENGINE=INNODB";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 
@@ -1242,6 +1242,11 @@ create_tables_sqlite (SeafRepoManager *mgr)
 
     sql = "CREATE INDEX IF NOT EXISTS virtualrepo_origin_repo_idx "
         "ON VirtualRepo (origin_repo)";
+    if (seaf_db_query (db, sql) < 0)
+        return -1;
+
+    sql = "CREATE INDEX IF NOT EXISTS virtualrepo_unique_idx "
+        "ON VirtualRepo (origin_repo, path)";
     if (seaf_db_query (db, sql) < 0)
         return -1;
 

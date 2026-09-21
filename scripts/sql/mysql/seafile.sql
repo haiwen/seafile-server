@@ -310,7 +310,8 @@ CREATE TABLE IF NOT EXISTS VirtualRepo (
   path TEXT,
   base_commit CHAR(40),
   UNIQUE INDEX(repo_id),
-  INDEX(origin_repo)
+  INDEX(origin_repo),
+  UNIQUE INDEX(origin_repo,path)
 ) ENGINE=INNODB;
 
 CREATE TABLE IF NOT EXISTS WebAP (
