@@ -2500,7 +2500,7 @@ post_recv_fs_cb (evhtp_request_t *req, void *arg)
             break;
         }
 
-        if (con_len > fs_con_len - sizeof(FsHdr)) {
+        if (con_len > guint32(fs_con_len) - sizeof(FsHdr)) {
             seaf_warning ("Bad fs object content size from %.8s:%s.\n",
                           repo_id, username);
             evhtp_send_reply (req, EVHTP_RES_BADREQ);
