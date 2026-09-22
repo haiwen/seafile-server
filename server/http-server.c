@@ -2480,7 +2480,7 @@ post_recv_fs_cb (evhtp_request_t *req, void *arg)
 
     char obj_id[41];
     void *obj_con = NULL;
-    int con_len;
+    guint32 con_len;
 
     while (fs_con_len > 0) {
         if (fs_con_len < sizeof(FsHdr)) {
@@ -2496,6 +2496,13 @@ post_recv_fs_cb (evhtp_request_t *req, void *arg)
         obj_id[40] = 0;
 
         if (!is_object_id_valid (obj_id)) {
+            evhtp_send_reply (req, EVHTP_RES_BADREQ);
+            break;
+        }
+
+        if (con_len > (guint32)fs_con_len - sizeof(FsHdr)) {
+            seaf_warning ("Bad fs object content size from %.8s:%s.\n",
+                          repo_id, username);
             evhtp_send_reply (req, EVHTP_RES_BADREQ);
             break;
         }
