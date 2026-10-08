@@ -1274,11 +1274,8 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 
-		err := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, newParentDir)
-		if err != nil {
-			msg := "Internal error.\n"
-			err := fmt.Errorf("failed to write block data to tmp file: %v", err)
-			return &appError{err, msg, http.StatusInternalServerError}
+		if err := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, newParentDir); err != nil {
+			return mt.Errorf("failed to write block data to tmp file: %w", err)
 		}
 
 		if fsm.rend != fsm.fsize-1 {
@@ -1369,25 +1366,25 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 }
 
 func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[string][]*multipart.FileHeader,
-	repoID, parentDir string) error {
+	repoID, parentDir string) *appError {
 	httpTempDir := filepath.Join(absDataDir, "httptemp")
 
 	fileHeaders, ok := formFiles["file"]
 	if !ok {
 		err := fmt.Errorf("failed to get file from multipart form")
-		return err
+		return &appError{err, "No file in multipart form.\n", http.StatusBadRequest}
 	}
 
 	filename, err := getFileNameFromMimeHeader(r)
 	if err != nil {
-		return fmt.Errorf("failed to get filename from mime header: %w", err)
+		return &appError{err, "Invalid filename in mime header.\n", http.StatusBadRequest}
 	}
 
 	handler := fileHeaders[0]
 	file, err := handler.Open()
 	if err != nil {
 		err := fmt.Errorf("failed to open file for read: %v", err)
-		return err
+		return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 	}
 	defer file.Close()
 
@@ -1395,24 +1392,34 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	filePath := filepath.Join("/", parentDir, filename)
 	tmpFile, err := repomgr.GetUploadTmpFile(repoID, filePath)
 	if err != nil {
-		return fmt.Errorf("failed to get upload tmp file: %w", err)
+		err := fmt.Errorf("failed to get upload tmp file: %w", err)
+		return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 	}
 	if tmpFile == "" {
 		if fsm.rstart != 0 {
-			return fmt.Errorf("block upload order is invalid")
+			return &appError{nil, "Block upload order is invalid.\n", http.StatusBadRequest}
 		}
 
 		tmpDir := filepath.Join(httpTempDir, "cluster-shared")
 		f, err = os.CreateTemp(tmpDir, filename)
 		if err != nil {
-			return err
+			return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 		}
 		repomgr.AddUploadTmpFile(repoID, filePath, f.Name())
 		tmpFile = f.Name()
 	} else {
 		f, err = os.OpenFile(tmpFile, os.O_WRONLY, 0666)
 		if err != nil {
-			return err
+			return &appError{err, "Internal error.\n", http.StatusInternalServerError}
+		}
+		fi, err := f.Stat()
+		if err != nil {
+			f.Close()
+			return &appError{err, "Internal error.\n", http.StatusInternalServerError}
+		}
+		if fsm.rstart > fi.Size() {
+			f.Close()
+			return &appError{nil, "Block upload order is invalid.\n", http.StatusBadRequest}
 		}
 	}
 
@@ -1424,11 +1431,11 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	defer f.Close()
 	_, err = f.Seek(fsm.rstart, 0)
 	if err != nil {
-		return err
+		return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 	}
 	_, err = io.Copy(f, file)
 	if err != nil {
-		return err
+		return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 	}
 
 	return nil
@@ -3215,11 +3222,8 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 
-		err := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, parentDir)
-		if err != nil {
-			msg := "Internal error.\n"
-			err := fmt.Errorf("failed to write block data to tmp file: %v", err)
-			return &appError{err, msg, http.StatusInternalServerError}
+		if err := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, parentDir); err != nil {
+			return mt.Errorf("failed to write block data to tmp file: %w", err)
 		}
 
 		if fsm.rend != fsm.fsize-1 {

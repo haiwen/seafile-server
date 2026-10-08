@@ -47,6 +47,7 @@ enum UploadError {
     ERROR_RECV,
     ERROR_BLOCK_MISSING,
     ERROR_INTERNAL,
+    ERROR_UPLOAD_ORDER,
 };
 
 typedef struct Progress {
@@ -93,7 +94,8 @@ static GHashTable *upload_progress;
 static pthread_mutex_t pg_lock;
 static int
 write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
-                              const char *file_name);
+                              const char *file_name,
+                              int *error_code);
 
 /* IE8 will set filename to the full path of the uploaded file.
  * So we need to strip out the basename from it.
@@ -209,6 +211,9 @@ send_reply_by_error_code (evhtp_request_t *req, int error_code)
         break;
     case ERROR_FORBIDDEN:
         send_error_reply (req, SEAF_HTTP_RES_FORBIDDEN, "Permission denied.");
+        break;
+    case ERROR_UPLOAD_ORDER:
+        send_error_reply (req, EVHTP_RES_BADREQ, "Block upload order is invalid.\n");
         break;
     case ERROR_RECV:
     case ERROR_INTERNAL:
@@ -531,8 +536,8 @@ upload_api_cb(evhtp_request_t *req, void *arg)
             fsm->resumable_tmp_file = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
 
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
-                                          (char *)fsm->filenames->data) < 0) {
-            error_code = ERROR_INTERNAL;
+                                          (char *)fsm->filenames->data,
+                                          &error_code) < 0) {
             goto out;
         }
         if (fsm->rend != fsm->fsize - 1) {
@@ -989,7 +994,8 @@ copy_block_to_tmp_file (int blk_fd, int tmp_fd, gint64 offset)
 
 static int
 write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
-                              const char *file_name)
+                              const char *file_name,
+                              int *error_code)
 {
     char *abs_path;
     char *temp_file = NULL;
@@ -1007,6 +1013,7 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
     if (error) {
         seaf_warning ("%s\n", error->message);
         g_clear_error (&error);
+        *error_code = ERROR_INTERNAL;
         ret = -1;
         goto out;
     }
@@ -1014,6 +1021,7 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
     if (!temp_file) {
         if (fsm->rstart != 0) {
             seaf_warning ("Block upload order is invalid.\n");
+            *error_code = ERROR_UPLOAD_ORDER;
             ret = -1;
             goto out;
         }
@@ -1024,6 +1032,7 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
         tmp_fd = g_mkstemp_full (temp_file, O_RDWR, cluster_shared_temp_file_mode);
         if (tmp_fd < 0) {
             seaf_warning ("Failed to create upload temp file: %s.\n", strerror(errno));
+            *error_code = ERROR_INTERNAL;
             ret = -1;
             goto out;
         }
@@ -1037,6 +1046,7 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
             close (tmp_fd);
             g_unlink (temp_file);
             tmp_fd = -1;
+            *error_code = ERROR_INTERNAL;
             ret = -1;
             goto out;
         }
@@ -1050,12 +1060,30 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
                 seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id,
                                                        abs_path, &error);
             }
+            *error_code = ERROR_INTERNAL;
+            ret = -1;
+            goto out;
+        }
+
+        SeafStat st;
+        if (seaf_fstat (tmp_fd, &st) < 0) {
+            seaf_warning ("Failed to stat upload temp file %s: %s.\n",
+                          temp_file, strerror(errno));
+            *error_code = ERROR_INTERNAL;
+            ret = -1;
+            goto out;
+        }
+
+        if (fsm->rstart > (gint64)st.st_size) {
+            seaf_warning ("Block upload order is invalid.\n");
+            *error_code = ERROR_UPLOAD_ORDER;
             ret = -1;
             goto out;
         }
     }
 
     if (copy_block_to_tmp_file (fsm->fd, tmp_fd, fsm->rstart) < 0) {
+        *error_code = ERROR_INTERNAL;
         ret = -1;
         goto out;
     }
@@ -1173,8 +1201,8 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
             fsm->resumable_tmp_file = g_build_path ("/", new_parent_dir, (char *)fsm->filenames->data, NULL);
 
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
-                                          (char *)fsm->filenames->data) < 0) {
-            error_code = ERROR_INTERNAL;
+                                          (char *)fsm->filenames->data,
+                                          &error_code) < 0) {
             goto out;
         }
         if (fsm->rend != fsm->fsize - 1) {
@@ -1356,8 +1384,8 @@ update_api_cb(evhtp_request_t *req, void *arg)
         if (!fsm->resumable_tmp_file)
             fsm->resumable_tmp_file = g_build_path ("/", parent_dir, filename, NULL);
 
-        if (write_block_data_to_tmp_file (fsm, parent_dir, filename) < 0) {
-            send_error_reply (req, EVHTP_RES_SERVERR, "Internal error.\n");
+        if (write_block_data_to_tmp_file (fsm, parent_dir, filename,
+                                          &error_code) < 0) {
             goto out;
         }
 
