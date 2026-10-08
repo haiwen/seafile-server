@@ -1398,6 +1398,10 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 		return fmt.Errorf("failed to get upload tmp file: %w", err)
 	}
 	if tmpFile == "" {
+		if fsm.rstart != 0 {
+			return fmt.Errorf("block upload order is invalid")
+		}
+
 		tmpDir := filepath.Join(httpTempDir, "cluster-shared")
 		f, err = os.CreateTemp(tmpDir, filename)
 		if err != nil {

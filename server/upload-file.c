@@ -1012,6 +1012,12 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
     }
 
     if (!temp_file) {
+        if (fsm->rstart != 0) {
+            seaf_warning ("Block upload order is invalid.\n");
+            ret = -1;
+            goto out;
+        }
+
         temp_file = g_strdup_printf ("%s/cluster-shared/%sXXXXXX",
                                      seaf->http_server->http_temp_dir,
                                      file_name);
