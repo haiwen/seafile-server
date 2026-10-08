@@ -1274,8 +1274,8 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 
-		if err := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, newParentDir); err != nil {
-			return mt.Errorf("failed to write block data to tmp file: %w", err)
+		if appErr := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, newParentDir); appErr != nil {
+			return appErr
 		}
 
 		if fsm.rend != fsm.fsize-1 {
@@ -3222,8 +3222,8 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 
-		if err := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, parentDir); err != nil {
-			return mt.Errorf("failed to write block data to tmp file: %w", err)
+		if appErr := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, parentDir); appErr != nil {
+			return appErr
 		}
 
 		if fsm.rend != fsm.fsize-1 {
