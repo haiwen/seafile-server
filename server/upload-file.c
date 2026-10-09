@@ -1074,7 +1074,7 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
             goto out;
         }
 
-        if (fsm->rstart > (gint64)st.st_size) {
+        if (fsm->rstart != (gint64)st.st_size) {
             seaf_warning ("Block upload order is invalid.\n");
             *error_code = ERROR_UPLOAD_ORDER;
             ret = -1;

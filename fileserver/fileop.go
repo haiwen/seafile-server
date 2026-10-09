@@ -1417,7 +1417,7 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 			f.Close()
 			return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 		}
-		if fsm.rstart > fi.Size() {
+		if fsm.rstart != fi.Size() {
 			f.Close()
 			return &appError{nil, "Block upload order is invalid.\n", http.StatusBadRequest}
 		}
