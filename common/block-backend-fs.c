@@ -388,7 +388,7 @@ block_backend_fs_remove_store (BlockBackend *bend,
     GList *dir_list = NULL;
     GList *ptr1;
     while ((dname1 = g_dir_read_name(dir1)) != NULL) {
-        dir_list = g_list_append(dir_list, g_strdup(dname1));
+        dir_list = g_list_prepend(dir_list, g_strdup(dname1));
     }
     g_dir_close (dir1);
 
@@ -406,7 +406,7 @@ block_backend_fs_remove_store (BlockBackend *bend,
         GList *file_list = NULL;
         GList  *ptr2;
         while ((dname2 = g_dir_read_name(dir2)) != NULL) {
-            file_list = g_list_append(file_list, g_strdup(dname2));
+            file_list = g_list_prepend(file_list, g_strdup(dname2));
         }
         g_dir_close (dir2);
 
