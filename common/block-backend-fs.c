@@ -375,6 +375,7 @@ block_backend_fs_remove_store (BlockBackend *bend,
     const char *dname1, *dname2;
     char *path1, *path2;
     guint64 removed_count = 0;
+    int ret = 0;
 
     block_dir = g_build_filename (priv->block_dir, store_id, NULL);
 
@@ -384,37 +385,58 @@ block_backend_fs_remove_store (BlockBackend *bend,
         return 0;
     }
 
+    GList *dir_list = NULL;
+    GList *ptr1;
     while ((dname1 = g_dir_read_name(dir1)) != NULL) {
-        path1 = g_build_filename (block_dir, dname1, NULL);
+        dir_list = g_list_append(dir_list, g_strdup(dname1));
+    }
+    g_dir_close (dir1);
+
+    for (ptr1 = dir_list; ptr1; ptr1 = ptr1->next) {
+        path1 = g_build_filename (block_dir, (char *)(ptr1->data), NULL);
 
         dir2 = g_dir_open (path1, 0, NULL);
         if (!dir2) {
             seaf_warning ("Failed to open block dir %s.\n", path1);
-            g_dir_close (dir1);
             g_free (path1);
-            g_free (block_dir);
-            return -1;
+            ret = -1;
+            continue;
         }
 
+        GList *file_list = NULL;
+        GList  *ptr2;
         while ((dname2 = g_dir_read_name(dir2)) != NULL) {
-            path2 = g_build_filename (path1, dname2, NULL);
-            g_unlink (path2);
+            file_list = g_list_append(file_list, g_strdup(dname2));
+        }
+        g_dir_close (dir2);
+
+        for (ptr2 = file_list; ptr2; ptr2 = ptr2->next) {
+            path2 = g_build_filename (path1, (char *)(ptr2->data), NULL);
+            if (g_unlink (path2) < 0) {
+                ret = -1;
+            }
             ++removed_count;
             if (progress_cb)
                 progress_cb (store_id, removed_count, user_data);
             g_free (path2);
         }
-        g_dir_close (dir2);
 
-        g_rmdir (path1);
+        if (g_rmdir (path1) < 0) {
+            ret = -1;
+        }
         g_free (path1);
+
+        string_list_free (file_list);
     }
 
-    g_dir_close (dir1);
-    g_rmdir (block_dir);
+    if (g_rmdir (block_dir) < 0) {
+        ret = -1;
+    }
     g_free (block_dir);
 
-    return 0;
+    string_list_free (dir_list);
+
+    return ret;
 }
 
 static char *
