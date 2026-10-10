@@ -481,7 +481,7 @@ obj_backend_fs_remove_store (ObjBackend *bend,
 
         dir2 = g_dir_open (path1, 0, NULL);
         if (!dir2) {
-            seaf_warning ("Failed to open block dir %s.\n", path1);
+            seaf_warning ("Failed to open obj dir %s.\n", path1);
             g_free (path1);
             ret = -1;
             continue;
@@ -521,8 +521,6 @@ obj_backend_fs_remove_store (ObjBackend *bend,
     string_list_free (dir_list);
 
     return ret;
-
-    return 0;
 }
 
 ObjBackend *
