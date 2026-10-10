@@ -420,6 +420,7 @@ block_backend_fs_remove_store (BlockBackend *bend,
         for (ptr2 = file_list; ptr2; ptr2 = ptr2->next) {
             path2 = g_build_filename (path1, (char *)(ptr2->data), NULL);
             if (g_unlink (path2) < 0) {
+                seaf_warning ("Failed to delete file %s.\n", path2);
                 ret = -1;
             }
             ++removed_count;
@@ -429,6 +430,7 @@ block_backend_fs_remove_store (BlockBackend *bend,
         }
 
         if (g_rmdir (path1) < 0) {
+            seaf_warning ("Failed to delete dir %s.\n", path1);
             ret = -1;
         }
         g_free (path1);
@@ -437,6 +439,7 @@ block_backend_fs_remove_store (BlockBackend *bend,
     }
 
     if (g_rmdir (block_dir) < 0) {
+        seaf_warning ("Failed to delete dir %s.\n", block_dir);
         ret = -1;
     }
     g_free (block_dir);
