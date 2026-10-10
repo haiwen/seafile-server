@@ -375,14 +375,21 @@ block_backend_fs_remove_store (BlockBackend *bend,
     const char *dname1, *dname2;
     char *path1, *path2;
     guint64 removed_count = 0;
+    GError *error = NULL;
     int ret = 0;
 
     block_dir = g_build_filename (priv->block_dir, store_id, NULL);
 
-    dir1 = g_dir_open (block_dir, 0, NULL);
+    dir1 = g_dir_open (block_dir, 0, &error);
     if (!dir1) {
         g_free (block_dir);
-        return 0;
+        if (error->code == G_FILE_ERROR_NOENT) {
+            g_clear_error (&error);
+            return 0;
+        }
+        seaf_warning ("Failed to open block dir: %s.\n", error->message);
+        g_clear_error (&error);
+        return -1;
     }
 
     GList *dir_list = NULL;
