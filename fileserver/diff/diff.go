@@ -34,12 +34,11 @@ type diffData struct {
 	results     *[]*DiffEntry
 }
 
-func DiffTrees(roots []string, opt *DiffOptions) error {
+func DiffTrees(n int, roots []string, opt *DiffOptions) error {
 	reader := fsmgr.GetOneZlibReader()
 	defer fsmgr.ReturnOneZlibReader(reader)
 	opt.Reader = reader
 
-	n := len(roots)
 	if n != 2 && n != 3 {
 		err := fmt.Errorf("the number of commit trees is illegal")
 		return err
@@ -54,11 +53,10 @@ func DiffTrees(roots []string, opt *DiffOptions) error {
 		trees[i] = root
 	}
 
-	return diffTreesRecursive(trees, "", opt)
+	return diffTreesRecursive(n, trees, "", opt)
 }
 
-func diffTreesRecursive(trees []*fsmgr.SeafDir, baseDir string, opt *DiffOptions) error {
-	n := len(trees)
+func diffTreesRecursive(n int, trees []*fsmgr.SeafDir, baseDir string, opt *DiffOptions) error {
 	ptrs := make([][]*fsmgr.SeafDirent, 3)
 
 	for i := 0; i < n; i++ {
@@ -114,18 +112,17 @@ func diffTreesRecursive(trees []*fsmgr.SeafDir, baseDir string, opt *DiffOptions
 			continue
 		}
 
-		if err := diffFiles(baseDir, dents, opt); err != nil {
+		if err := diffFiles(n, baseDir, dents, opt); err != nil {
 			return err
 		}
-		if err := diffDirectories(baseDir, dents, opt); err != nil {
+		if err := diffDirectories(n, baseDir, dents, opt); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func diffFiles(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions) error {
-	n := len(dents)
+func diffFiles(n int, baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions) error {
 	var nFiles int
 	files := make([]*fsmgr.SeafDirent, 3)
 	for i := 0; i < n; i++ {
@@ -142,8 +139,7 @@ func diffFiles(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions) erro
 	return opt.FileCB(opt.Ctx, baseDir, files, opt.Data)
 }
 
-func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions) error {
-	n := len(dents)
+func diffDirectories(n int, baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions) error {
 	dirs := make([]*fsmgr.SeafDirent, 3)
 	subDirs := make([]*fsmgr.SeafDir, 3)
 	var nDirs int
@@ -182,7 +178,7 @@ func diffDirectories(baseDir string, dents []*fsmgr.SeafDirent, opt *DiffOptions
 	}
 
 	newBaseDir := baseDir + dirName + "/"
-	return diffTreesRecursive(subDirs, newBaseDir, opt)
+	return diffTreesRecursive(n, subDirs, newBaseDir, opt)
 }
 
 func direntSame(dentA, dentB *fsmgr.SeafDirent) bool {
@@ -245,7 +241,7 @@ func DiffMergeRoots(storeID, mergedRoot, p1Root, p2Root string, results *[]*Diff
 	opt.DirCB = threewayDiffDirs
 	opt.Data = diffData{foldDirDiff, results}
 
-	err := DiffTrees(roots, opt)
+	err := DiffTrees(len(roots), roots, opt)
 	if err != nil {
 		err := fmt.Errorf("failed to diff trees: %v", err)
 		return err
@@ -307,7 +303,7 @@ func DiffCommitRoots(storeID, p1Root, p2Root string, results *[]*DiffEntry, fold
 	opt.DirCB = twowayDiffDirs
 	opt.Data = diffData{foldDirDiff, results}
 
-	err := DiffTrees(roots, opt)
+	err := DiffTrees(len(roots), roots, opt)
 	if err != nil {
 		err := fmt.Errorf("failed to diff trees: %v", err)
 		return err
@@ -332,7 +328,7 @@ func DiffCommits(commit1, commit2 *commitmgr.Commit, results *[]*DiffEntry, fold
 	opt.DirCB = twowayDiffDirs
 	opt.Data = diffData{foldDirDiff, results}
 
-	err := DiffTrees(roots, opt)
+	err := DiffTrees(len(roots), roots, opt)
 	if err != nil {
 		err := fmt.Errorf("failed to diff trees: %v", err)
 		return err
