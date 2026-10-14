@@ -121,7 +121,7 @@ func testDiffTrees1(t *testing.T) {
 		DirCB:  diffTestDirCB,
 		RepoID: diffTestRepoID}
 	opt.Data = &results
-	DiffTrees([]string{diffTestTree2, diffTestTree1}, opt)
+	DiffTrees(2, []string{diffTestTree2, diffTestTree1}, opt)
 	if len(results) != 1 {
 		t.Errorf("data length is %d not 1", len(results))
 	}
@@ -141,7 +141,7 @@ func testDiffTrees2(t *testing.T) {
 		DirCB:  diffTestDirCB,
 		RepoID: diffTestRepoID}
 	opt.Data = &results
-	DiffTrees([]string{diffTestTree3, diffTestTree1}, opt)
+	DiffTrees(2, []string{diffTestTree3, diffTestTree1}, opt)
 	if len(results) != 1 {
 		t.Errorf("data length is %d not 1", len(results))
 	}
@@ -162,7 +162,7 @@ func testDiffTrees3(t *testing.T) {
 		DirCB:  diffTestDirCB,
 		RepoID: diffTestRepoID}
 	opt.Data = &results
-	DiffTrees([]string{diffTestTree4, diffTestTree1}, opt)
+	DiffTrees(2, []string{diffTestTree4, diffTestTree1}, opt)
 	if len(results) != 2 {
 		t.Errorf("data length is %d not 1", len(results))
 	}
@@ -186,7 +186,7 @@ func testDiffTrees4(t *testing.T) {
 		DirCB:  diffTestDirCB,
 		RepoID: diffTestRepoID}
 	opt.Data = &results
-	DiffTrees([]string{diffTestTree4, diffTestTree3}, opt)
+	DiffTrees(2, []string{diffTestTree4, diffTestTree3}, opt)
 	if len(results) != 2 {
 		t.Errorf("data length is %d not 1", len(results))
 	}
@@ -210,7 +210,7 @@ func testDiffTrees5(t *testing.T) {
 		DirCB:  diffTestDirCB,
 		RepoID: diffTestRepoID}
 	opt.Data = &results
-	DiffTrees([]string{diffTestTree3, diffTestTree2}, opt)
+	DiffTrees(2, []string{diffTestTree3, diffTestTree2}, opt)
 	if len(results) != 1 {
 		t.Errorf("data length is %d not 1", len(results))
 	}
