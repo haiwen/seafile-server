@@ -459,46 +459,78 @@ obj_backend_fs_remove_store (ObjBackend *bend,
     const char *dname1, *dname2;
     char *path1, *path2;
     guint64 removed_count = 0;
+    GError *error = NULL;
+    int ret = 0;
 
     obj_dir = g_build_filename (priv->obj_dir, store_id, NULL);
 
-    dir1 = g_dir_open (obj_dir, 0, NULL);
+    dir1 = g_dir_open (obj_dir, 0, &error);
     if (!dir1) {
         g_free (obj_dir);
-        return 0;
+        if (error->code == G_FILE_ERROR_NOENT) {
+            g_clear_error (&error);
+            return 0;
+        }
+        seaf_warning ("Failed to open obj dir: %s.\n", error->message);
+        g_clear_error (&error);
+        return -1;
     }
 
+    GList *dir_list = NULL;
+    GList *ptr1;
     while ((dname1 = g_dir_read_name(dir1)) != NULL) {
-        path1 = g_build_filename (obj_dir, dname1, NULL);
+        dir_list = g_list_prepend(dir_list, g_strdup(dname1));
+    }
+    g_dir_close (dir1);
+
+    for (ptr1 = dir_list; ptr1; ptr1 = ptr1->next) {
+        path1 = g_build_filename (obj_dir, (char *)(ptr1->data), NULL);
 
         dir2 = g_dir_open (path1, 0, NULL);
         if (!dir2) {
             seaf_warning ("Failed to open obj dir %s.\n", path1);
-            g_dir_close (dir1);
             g_free (path1);
-            g_free (obj_dir);
-            return -1;
+            ret = -1;
+            continue;
         }
 
+        GList *file_list = NULL;
+        GList  *ptr2;
         while ((dname2 = g_dir_read_name(dir2)) != NULL) {
-            path2 = g_build_filename (path1, dname2, NULL);
-            g_unlink (path2);
+            file_list = g_list_prepend(file_list, g_strdup(dname2));
+        }
+        g_dir_close (dir2);
+
+        for (ptr2 = file_list; ptr2; ptr2 = ptr2->next) {
+            path2 = g_build_filename (path1, (char *)(ptr2->data), NULL);
+            if (g_unlink (path2) < 0) {
+                seaf_warning ("Failed to delete file %s.\n", path2);
+                ret = -1;
+            }
             ++removed_count;
             if (progress_cb)
                 progress_cb (store_id, removed_count, user_data);
             g_free (path2);
         }
-        g_dir_close (dir2);
 
-        g_rmdir (path1);
+        if (g_rmdir (path1) < 0) {
+            seaf_warning ("Failed to delete dir %s.\n", path1);
+            ret = -1;
+        }
         g_free (path1);
+
+        string_list_free (file_list);
     }
 
-    g_dir_close (dir1);
-    g_rmdir (obj_dir);
+    if (g_rmdir (obj_dir) < 0) {
+        seaf_warning ("Failed to delete dir %s.\n", obj_dir);
+        ret = -1;
+    }
     g_free (obj_dir);
 
-    return 0;
+    string_list_free (dir_list);
+
+    return ret;
 }
 
 ObjBackend *
