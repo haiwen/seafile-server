@@ -559,3 +559,91 @@ def test_api_mtime(repo):
 
     assert dent.mtime == 1695809905
 
+@pytest.mark.parametrize('is_ajax', [True, False])
+def test_resumable_upload_offset_invalid(repo, is_ajax):
+    create_test_file()
+    obj_id = '{"parent_dir":"/"}'
+    token = api.get_fileserver_access_token(repo.id, obj_id, 'upload', USER, False)
+    if is_ajax:
+        upload_url_base = 'http://127.0.0.1:8082/upload-aj/' + token
+    else:
+        upload_url_base = 'http://127.0.0.1:8082/upload-api/' + token
+    parent_dir = '/'
+
+    # 1. When temp file does not exist, upload chunk with offset != 0 (e.g. uploading chunk 2 first)
+    headers = {
+        'Content-Range': 'bytes {}-{}/{}'.format(
+            str(len(chunked_part1_content)), str(total_size - 1), str(total_size)
+        ),
+        'Content-Disposition': 'attachment; filename="{}"'.format(resumable_file_name),
+    }
+    response = request_resumable_upload(
+        chunked_part2_path, headers, upload_url_base, parent_dir, is_ajax
+    )
+    assert response.status_code == 400
+    assert 'Upload offset is invalid' in response.text
+
+    # 2. Upload first chunk normally (offset == 0)
+    headers = {
+        'Content-Range': 'bytes 0-{}/{}'.format(
+            str(len(chunked_part1_content) - 1), str(total_size)
+        ),
+        'Content-Disposition': 'attachment; filename="{}"'.format(resumable_file_name),
+    }
+    response = request_resumable_upload(
+        chunked_part1_path, headers, upload_url_base, parent_dir, is_ajax
+    )
+    assert_resumable_upload_response(
+        response, repo.id, resumable_file_name, False
+    )
+
+    # 3. When temp file already exists, upload chunk with offset != temp file size.
+    # Re-upload chunk 1 (offset == 0, while temp file size == len(chunked_part1_content))
+    headers = {
+        'Content-Range': 'bytes 0-{}/{}'.format(
+            str(len(chunked_part1_content) - 1), str(total_size)
+        ),
+        'Content-Disposition': 'attachment; filename="{}"'.format(resumable_file_name),
+    }
+    response = request_resumable_upload(
+        chunked_part1_path, headers, upload_url_base, parent_dir, is_ajax
+    )
+    assert response.status_code == 400
+    assert 'Upload offset is invalid' in response.text
+
+    # 4. Upload chunk with offset > temp file size
+    headers = {
+        'Content-Range': 'bytes {}-{}/{}'.format(
+            str(len(chunked_part1_content) + 5), str(total_size - 1), str(total_size)
+        ),
+        'Content-Disposition': 'attachment; filename="{}"'.format(resumable_file_name),
+    }
+    response = request_resumable_upload(
+        chunked_part2_path, headers, upload_url_base, parent_dir, is_ajax
+    )
+    assert response.status_code == 400
+    assert 'Upload offset is invalid' in response.text
+
+    # 5. Upload second chunk with correct offset (offset == len(chunked_part1_content))
+    headers = {
+        'Content-Range': 'bytes {}-{}/{}'.format(
+            str(len(chunked_part1_content)), str(total_size - 1), str(total_size)
+        ),
+        'Content-Disposition': 'attachment; filename="{}"'.format(resumable_file_name),
+    }
+    response = request_resumable_upload(
+        chunked_part2_path, headers, upload_url_base, parent_dir, is_ajax
+    )
+    assert_resumable_upload_response(
+        response, repo.id, resumable_file_name, True
+    )
+
+    time.sleep(1.5)
+    repo_size = api.get_repo_size(repo.id)
+    assert repo_size == total_size
+
+    time.sleep(1)
+    del_repo_files(repo.id)
+    del_local_files()
+
+
