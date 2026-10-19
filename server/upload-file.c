@@ -47,7 +47,7 @@ enum UploadError {
     ERROR_RECV,
     ERROR_BLOCK_MISSING,
     ERROR_INTERNAL,
-    ERROR_UPLOAD_ORDER,
+    ERROR_UPLOAD_OFFSET,
 };
 
 typedef struct Progress {
@@ -212,8 +212,8 @@ send_reply_by_error_code (evhtp_request_t *req, int error_code)
     case ERROR_FORBIDDEN:
         send_error_reply (req, SEAF_HTTP_RES_FORBIDDEN, "Permission denied.");
         break;
-    case ERROR_UPLOAD_ORDER:
-        send_error_reply (req, EVHTP_RES_BADREQ, "Block upload order is invalid.\n");
+    case ERROR_UPLOAD_OFFSET:
+        send_error_reply (req, EVHTP_RES_BADREQ, "Upload offset is invalid.\n");
         break;
     case ERROR_RECV:
     case ERROR_INTERNAL:
@@ -1020,8 +1020,8 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
 
     if (!temp_file) {
         if (fsm->rstart != 0) {
-            seaf_warning ("Block upload order is invalid.\n");
-            *error_code = ERROR_UPLOAD_ORDER;
+            seaf_warning ("Upload offset is invalid.\n");
+            *error_code = ERROR_UPLOAD_OFFSET;
             ret = -1;
             goto out;
         }
@@ -1075,8 +1075,8 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
         }
 
         if (fsm->rstart != (gint64)st.st_size) {
-            seaf_warning ("Block upload order is invalid.\n");
-            *error_code = ERROR_UPLOAD_ORDER;
+            seaf_warning ("Upload offset is invalid.\n");
+            *error_code = ERROR_UPLOAD_OFFSET;
             ret = -1;
             goto out;
         }

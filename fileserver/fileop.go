@@ -1397,7 +1397,7 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	}
 	if tmpFile == "" {
 		if fsm.rstart != 0 {
-			return &appError{nil, "Block upload order is invalid.\n", http.StatusBadRequest}
+			return &appError{nil, "Upload offset is invalid.\n", http.StatusBadRequest}
 		}
 
 		tmpDir := filepath.Join(httpTempDir, "cluster-shared")
@@ -1419,7 +1419,7 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 		}
 		if fsm.rstart != fi.Size() {
 			f.Close()
-			return &appError{nil, "Block upload order is invalid.\n", http.StatusBadRequest}
+			return &appError{nil, "Upload offset is invalid.\n", http.StatusBadRequest}
 		}
 	}
 
