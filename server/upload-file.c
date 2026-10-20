@@ -1891,7 +1891,7 @@ upload_finish_cb (evhtp_request_t *req, void *arg)
     g_free (fsm->tmp_file);
 
     if (fsm->resumable_tmp_file) {
-        if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1) {
+        if (fsm->rstart >= 0 && fsm->rend == fsm->fsize - 1 && g_list_length (fsm->files) == 1) {
             seaf_repo_manager_del_upload_tmp_file (seaf->repo_mgr, fsm->repo_id, fsm->resumable_tmp_file, NULL);
         }
         g_free (fsm->resumable_tmp_file);
