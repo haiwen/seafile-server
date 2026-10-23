@@ -1197,8 +1197,13 @@ get_available_commit (const char *repo_id)
 
         if (memcmp (temp_commit->root_id, EMPTY_SHA1, 40) == 0) {
             strftime (time_buf, 64, "%Y-%m-%d %H:%M:%S", localtime((time_t *)&temp_commit->ctime));
-            seaf_message ("Find available commit %.8s(created at %s), which is an empty commit, will export an empty dir.\n",
-                          temp_commit->commit_id, time_buf);
+            if (temp_commit->encrypted) {
+                seaf_message ("Find available commit %.8s(created at %s), but the repo is encrypted and has not been exported.\n",
+                              temp_commit->commit_id, time_buf);
+            } else {
+                seaf_message ("Find available commit %.8s(created at %s), which is an empty commit, will export an empty dir.\n",
+                              temp_commit->commit_id, time_buf);
+            }
             temp_list = next_list;
             break;
         } else if (!fsck_verify_seafobj (repo_id, 1, temp_commit->root_id,
@@ -1216,8 +1221,13 @@ get_available_commit (const char *repo_id)
         }
 
         strftime (time_buf, 64, "%Y-%m-%d %H:%M:%S", localtime((time_t *)&temp_commit->ctime));
-        seaf_message ("Find available commit %.8s(created at %s), will export files from it.\n",
-                      temp_commit->commit_id, time_buf);
+        if (temp_commit->encrypted) {
+            seaf_message ("Find available commit %.8s(created at %s), but the repo is encrypted and has not been exported.\n",
+                          temp_commit->commit_id, time_buf);
+        } else {
+            seaf_message ("Find available commit %.8s(created at %s), will export files from it.\n",
+                          temp_commit->commit_id, time_buf);
+        }
         temp_list = next_list;
         break;
     }
