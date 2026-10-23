@@ -1175,6 +1175,7 @@ get_available_commit (const char *repo_id)
     GList *next_list = NULL;
     SeafCommit *temp_commit = NULL;
     gboolean io_error;
+    char time_buf[64];
 
     seaf_message ("Scanning available commits for repo %s...\n", repo_id);
 
@@ -1195,10 +1196,11 @@ get_available_commit (const char *repo_id)
         io_error = FALSE;
 
         if (memcmp (temp_commit->root_id, EMPTY_SHA1, 40) == 0) {
-            seaf_commit_unref (temp_commit);
-            temp_commit = NULL;
+            strftime (time_buf, 64, "%Y-%m-%d %H:%M:%S", localtime((time_t *)&temp_commit->ctime));
+            seaf_message ("Find available commit %.8s(created at %s), which is an empty commit, will export an empty dir.\n",
+                          temp_commit->commit_id, time_buf);
             temp_list = next_list;
-            continue;
+            break;
         } else if (!fsck_verify_seafobj (repo_id, 1, temp_commit->root_id,
                                          &io_error, VERIFY_DIR, FALSE)) {
             seaf_commit_unref (temp_commit);
@@ -1213,7 +1215,6 @@ get_available_commit (const char *repo_id)
             continue;
         }
 
-        char time_buf[64];
         strftime (time_buf, 64, "%Y-%m-%d %H:%M:%S", localtime((time_t *)&temp_commit->ctime));
         seaf_message ("Find available commit %.8s(created at %s), will export files from it.\n",
                       temp_commit->commit_id, time_buf);
@@ -1267,7 +1268,9 @@ export_repo_files (const char *repo_id,
         return;
     }
 
-    export_repo_files_recursive (repo_id, commit->root_id, export_path);
+    if (memcmp (commit->root_id, EMPTY_SHA1, 40) != 0) {
+        export_repo_files_recursive (repo_id, commit->root_id, export_path);
+    }
 
     seaf_message ("Finish exporting files for repo %.8s.\n\n", repo_id);
 
