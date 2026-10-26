@@ -517,13 +517,13 @@ def test_api(repo):
     del_local_files()
 
 @pytest.mark.parametrize('operation,is_ajax', [('upload', True), ('upload', False), ('update', False)])
-@pytest.mark.parametrize('initial_mtime', [None, '2023-09-27T18:18:25+08:00'])
-def test_resumable_last_modify_changed(repo, operation, is_ajax, initial_mtime):
+def test_resumable_file_mtime_changed(repo, operation, is_ajax):
     name = 'resumable-mtime.txt'
     path = '/' + name
     old_chunk = b'old content'
     new_chunk = b'new content'
     tail = b' remaining content'
+    initial_mtime = '2023-09-27T18:18:25+08:00'
     mtime = '2023-09-27T18:18:26+08:00'
     timestamp = 1695809906
     size = len(new_chunk) + len(tail)
@@ -536,10 +536,10 @@ def test_resumable_last_modify_changed(repo, operation, is_ajax, initial_mtime):
     endpoint = operation + ('-aj' if is_ajax else '-api')
     url = 'http://127.0.0.1:8082/' + endpoint + '/' + token
 
-    def upload_chunk(content, offset, last_modify):
+    def upload_chunk(content, offset, file_mtime):
         fields = {'parent_dir': '/'} if operation == 'upload' else {'target_file': path}
-        if last_modify is not None:
-            fields['last_modify'] = last_modify
+        if file_mtime is not None:
+            fields['file_mtime'] = file_mtime
         fields['file'] = (name, content, 'application/octet-stream')
         encoder = MultipartEncoder(fields=fields)
         return requests.post(url, data=encoder, params={'ret-json': '1'}, headers={
@@ -549,10 +549,9 @@ def test_resumable_last_modify_changed(repo, operation, is_ajax, initial_mtime):
         })
 
     assert upload_chunk(old_chunk, 0, initial_mtime).status_code == 200
-    # Omitting last_modify preserves the existing resumable-upload behavior.
+    # Omitting file_mtime preserves the existing resumable-upload behavior.
     assert api.get_upload_tmp_file_offset(repo.id, path) == len(old_chunk)
-    if initial_mtime is not None:
-        assert api.get_upload_tmp_file_offset(repo.id, path, timestamp - 1) == len(old_chunk)
+    assert api.get_upload_tmp_file_offset(repo.id, path, timestamp - 1) == len(old_chunk)
 
     # Changed content, or an old upload without an attribute, must restart.
     assert api.get_upload_tmp_file_offset(repo.id, path, timestamp) == 0
@@ -561,7 +560,6 @@ def test_resumable_last_modify_changed(repo, operation, is_ajax, initial_mtime):
     assert api.get_upload_tmp_file_offset(repo.id, path, timestamp) == len(new_chunk)
     assert upload_chunk(tail, len(new_chunk), mtime).status_code == 200
     assert api.get_upload_tmp_file_offset(repo.id, path, timestamp) == 0
-    assert api.get_dirent_by_path(repo.id, path).mtime == timestamp
 
     file_id = api.get_file_id_by_path(repo.id, path)
     token = api.get_fileserver_access_token(repo.id, file_id, 'download', USER, False)

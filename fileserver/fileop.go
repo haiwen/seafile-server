@@ -1426,6 +1426,10 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 	} else {
 		f, err = os.OpenFile(tmpFile, os.O_WRONLY, 0666)
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				log.Warnf("upload temp file %s doesn't exist, remove record from db", tmpFile)
+				repomgr.DelUploadTmpFile(repoID, filePath)
+			}
 			return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 		}
 		fi, err := f.Stat()
