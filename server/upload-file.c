@@ -96,7 +96,6 @@ static pthread_mutex_t pg_lock;
 static int
 write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
                               const char *file_name,
-                              gint64 mtime,
                               int *error_code);
 
 /* IE8 will set filename to the full path of the uploaded file.
@@ -539,7 +538,6 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data,
-                                          mtime,
                                           &error_code) < 0) {
             goto out;
         }
@@ -998,7 +996,6 @@ copy_block_to_tmp_file (int blk_fd, int tmp_fd, gint64 offset)
 static int
 write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
                               const char *file_name,
-                              gint64 mtime,
                               int *error_code)
 {
     char *abs_path;
@@ -1039,6 +1036,12 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
             *error_code = ERROR_INTERNAL;
             ret = -1;
             goto out;
+        }
+
+        gint64 mtime = 0;
+        char *file_mtime = g_hash_table_lookup (fsm->form_kvs, "file_mtime");
+        if (file_mtime) {
+            mtime = rfc3339_to_timestamp (file_mtime);
         }
 
         if (mtime > 0) {
@@ -1213,7 +1216,6 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data,
-                                          mtime,
                                           &error_code) < 0) {
             goto out;
         }
@@ -1397,7 +1399,6 @@ update_api_cb(evhtp_request_t *req, void *arg)
             fsm->resumable_tmp_file = g_build_path ("/", parent_dir, filename, NULL);
 
         if (write_block_data_to_tmp_file (fsm, parent_dir, filename,
-                                          mtime,
                                           &error_code) < 0) {
             goto out;
         }

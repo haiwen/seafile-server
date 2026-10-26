@@ -7,6 +7,8 @@
 #include "commit-mgr.h"
 #include "branch-mgr.h"
 
+#define UPLOAD_TMP_FILE_MTIME_ATTR "user.seafile.file_mtime"
+
 typedef enum RepoStatus {
     REPO_STATUS_NORMAL,
     REPO_STATUS_READ_ONLY,
@@ -884,8 +886,6 @@ seaf_repo_set_last_gc_id (SeafRepo *repo,
 int
 seaf_repo_remove_last_gc_id (SeafRepo *repo,
                              const char *client_id);
-
-#define UPLOAD_TMP_FILE_MTIME_ATTR "user.seafile.last_modify"
 
 int
 seaf_repo_manager_add_upload_tmp_file (SeafRepoManager *mgr,
