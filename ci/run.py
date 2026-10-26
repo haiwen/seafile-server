@@ -134,7 +134,7 @@ class Project(object):
     def compile_and_install(self):
         cmds = [
             './autogen.sh',
-            './configure --prefix={}'.format(PREFIX),
+            'CC="gcc -Wno-error=incompatible-pointer-types" ./configure --prefix={}'.format(PREFIX),
             'make -j{} V=0'.format(num_jobs()),
             'make install',
         ]
@@ -176,7 +176,7 @@ class Libevhtp(Project):
     @chdir
     def compile_and_install(self):
         cmds = [
-            'cmake -DEVHTP_DISABLE_SSL=ON -DEVHTP_BUILD_SHARED=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 .',
+            'cmake -DEVHTP_DISABLE_SSL=ON -DEVHTP_BUILD_SHARED=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DCMAKE_C_FLAGS="-std=gnu17" .',
             'make',
             'sudo make install',
             'sudo ldconfig',

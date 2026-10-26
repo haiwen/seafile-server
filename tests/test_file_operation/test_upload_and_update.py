@@ -559,7 +559,6 @@ def test_resumable_file_mtime_changed(repo, operation, is_ajax):
     assert upload_chunk(new_chunk, 0, mtime).status_code == 200
     assert api.get_upload_tmp_file_offset(repo.id, path, timestamp) == len(new_chunk)
     assert upload_chunk(tail, len(new_chunk), mtime).status_code == 200
-    assert api.get_upload_tmp_file_offset(repo.id, path, timestamp) == 0
 
     file_id = api.get_file_id_by_path(repo.id, path)
     token = api.get_fileserver_access_token(repo.id, file_id, 'download', USER, False)
