@@ -1142,6 +1142,7 @@ seafile_org_get_shared_users_by_repo (int org_id,
 
 gint64
 seafile_get_upload_tmp_file_offset (const char *repo_id, const char *file_path,
+                                    gint64 last_modify,
                                     GError **error);
 
 char *

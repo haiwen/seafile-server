@@ -885,6 +885,8 @@ int
 seaf_repo_remove_last_gc_id (SeafRepo *repo,
                              const char *client_id);
 
+#define UPLOAD_TMP_FILE_MTIME_ATTR "user.seafile.last_modify"
+
 int
 seaf_repo_manager_add_upload_tmp_file (SeafRepoManager *mgr,
                                        const char *repo_id,
@@ -908,6 +910,7 @@ gint64
 seaf_repo_manager_get_upload_tmp_file_offset (SeafRepoManager *mgr,
                                               const char *repo_id,
                                               const char *file_path,
+                                              gint64 last_modify,
                                               GError **error);
 
 void

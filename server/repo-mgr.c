@@ -3,6 +3,7 @@
 #include "common.h"
 
 #include <glib/gstdio.h>
+#include <sys/xattr.h>
 
 #include <openssl/sha.h>
 #include <openssl/rand.h>
@@ -4620,6 +4621,7 @@ gint64
 seaf_repo_manager_get_upload_tmp_file_offset (SeafRepoManager *mgr,
                                               const char *repo_id,
                                               const char *file_path,
+                                              gint64 last_modify,
                                               GError **error)
 {
     char *tmp_file_path = NULL;
@@ -4636,13 +4638,14 @@ seaf_repo_manager_get_upload_tmp_file_offset (SeafRepoManager *mgr,
 
     if (seaf_stat (tmp_file_path, &file_stat) < 0) {
         if (errno == ENOENT) {
-            seaf_message ("Temp file %s doesn't exist, remove reocrd from db.\n",
+            seaf_message ("Temp file %s doesn't exist, remove record from db.\n",
                           tmp_file_path);
             if (seaf_repo_manager_del_upload_tmp_file (mgr, repo_id,
                                                        file_path, error) < 0) {
                 g_free (tmp_file_path);
                 return -1;
             }
+            g_free (tmp_file_path);
             return 0;
         }
         seaf_warning ("Failed to stat temp file %s: %s.\n",
@@ -4651,6 +4654,35 @@ seaf_repo_manager_get_upload_tmp_file_offset (SeafRepoManager *mgr,
                      "Failed to stat temp file.");
         g_free (tmp_file_path);
         return -1;
+    }
+
+    if (last_modify > 0) {
+        char mtime1[32] = {0};
+        char mtime2[32];
+
+        ssize_t len = getxattr (tmp_file_path, UPLOAD_TMP_FILE_MTIME_ATTR,
+                               mtime1, sizeof(mtime1));
+        if (len >= 0) {
+            int expected_len = g_snprintf (mtime2, sizeof(mtime2),
+                                          "%" G_GINT64_FORMAT, last_modify);
+            if (len != expected_len || memcmp (mtime1, mtime2, expected_len) != 0) {
+                if (g_unlink (tmp_file_path) < 0 && errno != ENOENT) {
+                    seaf_warning ("Failed to remove temp file %s: %s.\n",
+                                  tmp_file_path, strerror(errno));
+                    g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                                 "Failed to remove temp file.");
+                    g_free (tmp_file_path);
+                    return -1;
+                }
+                g_free (tmp_file_path);
+
+                if (seaf_repo_manager_del_upload_tmp_file (mgr, repo_id,
+                            file_path, error) < 0) {
+                    return -1;
+                }
+                return 0;
+            }
+        }
     }
 
     g_free (tmp_file_path);

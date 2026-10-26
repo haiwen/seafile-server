@@ -4759,6 +4759,7 @@ seafile_org_get_shared_users_by_repo (int org_id,
 
 gint64
 seafile_get_upload_tmp_file_offset (const char *repo_id, const char *file_path,
+                                    gint64 last_modify,
                                     GError **error)
 {
     if (!repo_id || !is_uuid_valid(repo_id)) {
@@ -4776,7 +4777,7 @@ seafile_get_upload_tmp_file_offset (const char *repo_id, const char *file_path,
 
     char *rfile_path = format_dir_path (file_path);
     gint64 ret = seaf_repo_manager_get_upload_tmp_file_offset (seaf->repo_mgr, repo_id,
-                                                               rfile_path, error);
+                                                               rfile_path, last_modify, error);
     g_free (rfile_path);
 
     return ret;

@@ -6,6 +6,7 @@
 
 #include <getopt.h>
 #include <fcntl.h>
+#include <sys/xattr.h>
 
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
 #include <event2/event.h>
@@ -95,6 +96,7 @@ static pthread_mutex_t pg_lock;
 static int
 write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
                               const char *file_name,
+                              gint64 mtime,
                               int *error_code);
 
 /* IE8 will set filename to the full path of the uploaded file.
@@ -537,6 +539,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data,
+                                          mtime,
                                           &error_code) < 0) {
             goto out;
         }
@@ -995,6 +998,7 @@ copy_block_to_tmp_file (int blk_fd, int tmp_fd, gint64 offset)
 static int
 write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
                               const char *file_name,
+                              gint64 mtime,
                               int *error_code)
 {
     char *abs_path;
@@ -1035,6 +1039,13 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
             *error_code = ERROR_INTERNAL;
             ret = -1;
             goto out;
+        }
+
+        if (mtime > 0) {
+            char value[32];
+            int len = g_snprintf (value, sizeof(value), "%" G_GINT64_FORMAT, mtime);
+            // There is no need to check whether setxattr succeeds, as some file systems may not support extended attributes.
+            setxattr (temp_file, UPLOAD_TMP_FILE_MTIME_ATTR, value, len, 0);
         }
 
         if (seaf_repo_manager_add_upload_tmp_file (seaf->repo_mgr,
@@ -1202,6 +1213,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
         if (write_block_data_to_tmp_file (fsm, new_parent_dir,
                                           (char *)fsm->filenames->data,
+                                          mtime,
                                           &error_code) < 0) {
             goto out;
         }
@@ -1385,6 +1397,7 @@ update_api_cb(evhtp_request_t *req, void *arg)
             fsm->resumable_tmp_file = g_build_path ("/", parent_dir, filename, NULL);
 
         if (write_block_data_to_tmp_file (fsm, parent_dir, filename,
+                                          mtime,
                                           &error_code) < 0) {
             goto out;
         }

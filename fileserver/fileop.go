@@ -39,6 +39,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/utils"
 	"github.com/haiwen/seafile-server/fileserver/workerpool"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -1274,7 +1275,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 
-		if appErr := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, newParentDir); appErr != nil {
+		if appErr := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, newParentDir, lastModify); appErr != nil {
 			return appErr
 		}
 
@@ -1366,7 +1367,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 }
 
 func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[string][]*multipart.FileHeader,
-	repoID, parentDir string) *appError {
+	repoID, parentDir string, mtime int64) *appError {
 	httpTempDir := filepath.Join(absDataDir, "httptemp")
 
 	fileHeaders, ok := formFiles["file"]
@@ -1405,6 +1406,12 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 		if err != nil {
 			return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 		}
+		if mtime > 0 {
+			value := []byte(strconv.FormatInt(mtime, 10))
+			// There is no need to check whether setxattr succeeds, as some file systems may not support extended attributes.
+			unix.Setxattr(f.Name(), "user.seafile.last_modify", value, 0)
+		}
+
 		repomgr.AddUploadTmpFile(repoID, filePath, f.Name())
 		tmpFile = f.Name()
 	} else {
@@ -3222,7 +3229,7 @@ func doUpdate(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 
-		if appErr := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, parentDir); appErr != nil {
+		if appErr := writeBlockDataToTmpFile(r, fsm, formFiles, repoID, parentDir, lastModify); appErr != nil {
 			return appErr
 		}
 
