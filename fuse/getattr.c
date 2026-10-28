@@ -55,8 +55,9 @@ static int getattr_repo(SeafileSession *seaf,
     SeafRepo *repo = NULL;
     SeafBranch *branch;
     SeafCommit *commit = NULL;
-    guint32 mode = 0;
-    char *id = NULL;
+    SeafDirent *dirent = NULL;
+    const char *id;
+    guint32 mode;
     int ret = 0;
 
     repo = seaf_repo_manager_get_repo(seaf->repo_mgr, repo_id);
@@ -76,14 +77,24 @@ static int getattr_repo(SeafileSession *seaf,
         goto out;
     }
 
-    id = seaf_fs_manager_path_to_obj_id(seaf->fs_mgr,
-                                        repo->store_id, repo->version,
-                                        commit->root_id,
-                                        repo_path, &mode, NULL);
-    if (!id) {
-        seaf_warning ("Path %s doesn't exist in repo %s.\n", repo_path, repo_id);
-        ret = -ENOENT;
-        goto out;
+    if (repo_path[0] == '\0' || strcmp (repo_path, "/") == 0) {
+        id = commit->root_id;
+        mode = S_IFDIR;
+    } else {
+        dirent = seaf_fs_manager_get_dirent_by_path (seaf->fs_mgr,
+                                                     repo->store_id,
+                                                     repo->version,
+                                                     commit->root_id,
+                                                     repo_path, NULL);
+        if (!dirent || !is_object_id_valid (dirent->id)) {
+            seaf_warning ("Path %s doesn't exist in repo %s.\n", repo_path, repo_id);
+            ret = -ENOENT;
+            goto out;
+        }
+        id = dirent->id;
+        mode = dirent->mode;
+        if (repo->version != 0)
+            stbuf->st_mtime = dirent->mtime;
     }
 
     if (S_ISDIR(mode)) {
@@ -98,51 +109,31 @@ static int getattr_repo(SeafileSession *seaf,
                 cnt++;
         }
 
-        if (strcmp (repo_path, "/") != 0) {
-            // get dirent of the dir
-            SeafDirent *dirent = seaf_fs_manager_get_dirent_by_path (seaf->fs_mgr,
-                                                                     repo->store_id,
-                                                                     repo->version,
-                                                                     commit->root_id,
-                                                                     repo_path, NULL);
-            if (dirent && repo->version != 0)
-                stbuf->st_mtime = dirent->mtime;
-
-            seaf_dirent_free (dirent);
-        }
-
         stbuf->st_size += cnt * sizeof(SeafDirent);
         stbuf->st_mode = mode | 0755;
         stbuf->st_nlink = 2;
 
         seaf_dir_free (dir);
     } else if (S_ISREG(mode)) {
-        Seafile *file;
-
-        file = seaf_fs_manager_get_seafile(seaf->fs_mgr,
-                                           repo->store_id, repo->version, id);
-        if (file)
-            stbuf->st_size = file->file_size;
-
-        SeafDirent *dirent = seaf_fs_manager_get_dirent_by_path (seaf->fs_mgr,
-                                                                 repo->store_id,
-                                                                 repo->version,
-                                                                 commit->root_id,
-                                                                 repo_path, NULL);
-        if (dirent && repo->version != 0)
-            stbuf->st_mtime = dirent->mtime;
+        /* Version 0 dirents carry no size. */
+        if (repo->version != 0) {
+            stbuf->st_size = dirent->size;
+        } else {
+            Seafile *file = seaf_fs_manager_get_seafile(seaf->fs_mgr,
+                                                        repo->store_id, repo->version, id);
+            if (file)
+                stbuf->st_size = file->file_size;
+            seafile_unref (file);
+        }
 
         stbuf->st_mode = mode | 0644;
         stbuf->st_nlink = 1;
-
-        seaf_dirent_free (dirent);
-        seafile_unref (file);
     } else {
-        return -ENOENT;
+        ret = -ENOENT;
     }
 
 out:
-    g_free (id);
+    seaf_dirent_free (dirent);
     seaf_repo_unref (repo);
     seaf_commit_unref (commit);
     return ret;

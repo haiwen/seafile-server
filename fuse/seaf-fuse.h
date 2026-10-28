@@ -14,9 +14,17 @@ fuse_get_dirent_by_path (SeafFSManager *mgr,
                          const char *path);
 
 /* file.c */
-int read_file(SeafileSession *seaf, const char *store_id, int version,
-              Seafile *file, char *buf, size_t size,
-              off_t offset, struct fuse_file_info *info);
+typedef struct FuseFile FuseFile;
+
+FuseFile *
+fuse_file_open (SeafileSession *seaf, const char *store_id, int version,
+                const char *file_id);
+
+void
+fuse_file_free (SeafileSession *seaf, FuseFile *ff);
+
+int read_file(SeafileSession *seaf, FuseFile *ff, char *buf, size_t size,
+              off_t offset);
 
 /* getattr.c */
 int do_getattr(SeafileSession *seaf, const char *path, struct stat *stbuf);
