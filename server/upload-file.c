@@ -1039,9 +1039,9 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
         }
 
         gint64 mtime = 0;
-        char *file_mtime = g_hash_table_lookup (fsm->form_kvs, "file_mtime");
-        if (file_mtime) {
-            mtime = rfc3339_to_timestamp (file_mtime);
+        char *last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
+        if (last_modify) {
+            mtime = rfc3339_to_timestamp (last_modify);
         }
 
         if (mtime > 0) {

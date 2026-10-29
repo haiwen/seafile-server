@@ -517,7 +517,7 @@ def test_api(repo):
     del_local_files()
 
 @pytest.mark.parametrize('operation,is_ajax', [('upload', True), ('upload', False), ('update', False)])
-def test_resumable_file_mtime_changed(repo, operation, is_ajax):
+def test_resumable_last_modify_changed(repo, operation, is_ajax):
     name = 'resumable-mtime.txt'
     path = '/' + name
     old_chunk = b'old content'
@@ -536,10 +536,10 @@ def test_resumable_file_mtime_changed(repo, operation, is_ajax):
     endpoint = operation + ('-aj' if is_ajax else '-api')
     url = 'http://127.0.0.1:8082/' + endpoint + '/' + token
 
-    def upload_chunk(content, offset, file_mtime):
+    def upload_chunk(content, offset, last_modify):
         fields = {'parent_dir': '/'} if operation == 'upload' else {'target_file': path}
-        if file_mtime is not None:
-            fields['file_mtime'] = file_mtime
+        if last_modify is not None:
+            fields['last_modify'] = last_modify
         fields['file'] = (name, content, 'application/octet-stream')
         encoder = MultipartEncoder(fields=fields)
         return requests.post(url, data=encoder, params={'ret-json': '1'}, headers={
@@ -549,7 +549,7 @@ def test_resumable_file_mtime_changed(repo, operation, is_ajax):
         })
 
     assert upload_chunk(old_chunk, 0, initial_mtime).status_code == 200
-    # Omitting file_mtime preserves the existing resumable-upload behavior.
+    # Omitting last_modify preserves the existing resumable-upload behavior.
     assert api.get_upload_tmp_file_offset(repo.id, path) == len(old_chunk)
     assert api.get_upload_tmp_file_offset(repo.id, path, timestamp - 1) == len(old_chunk)
 
