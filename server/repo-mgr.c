@@ -4657,15 +4657,13 @@ seaf_repo_manager_get_upload_tmp_file_offset (SeafRepoManager *mgr,
     }
 
     if (last_modify > 0) {
-        char mtime1[32] = {0};
-        char mtime2[32];
+        char mtime_str[32] = {0};
 
         ssize_t len = getxattr (tmp_file_path, UPLOAD_TMP_FILE_MTIME_ATTR,
-                               mtime1, sizeof(mtime1));
+                               mtime_str, sizeof(mtime_str) - 1);
         if (len >= 0) {
-            int expected_len = g_snprintf (mtime2, sizeof(mtime2),
-                                          "%" G_GINT64_FORMAT, last_modify);
-            if (len != expected_len || memcmp (mtime1, mtime2, expected_len) != 0) {
+            gint64 mtime = strtoll (mtime_str, NULL, 10);
+            if (mtime != last_modify) {
                 if (g_unlink (tmp_file_path) < 0 && errno != ENOENT) {
                     seaf_warning ("Failed to remove temp file %s: %s.\n",
                                   tmp_file_path, strerror(errno));
