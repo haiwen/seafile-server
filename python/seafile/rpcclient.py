@@ -704,8 +704,8 @@ class SeafServerThreadedRpcClient(NamedPipeClient):
     def get_trash_repo_owner(repo_id):
         pass
 
-    @searpc_func("int64", ["string", "string"])
-    def seafile_get_upload_tmp_file_offset(repo_id, file_path):
+    @searpc_func("int64", ["string", "string", "int64"])
+    def seafile_get_upload_tmp_file_offset(repo_id, file_path, last_modify=0):
         pass
     get_upload_tmp_file_offset = seafile_get_upload_tmp_file_offset
 

@@ -7,6 +7,8 @@
 #include "commit-mgr.h"
 #include "branch-mgr.h"
 
+#define UPLOAD_TMP_FILE_MTIME_ATTR "user.seafile.file_mtime"
+
 typedef enum RepoStatus {
     REPO_STATUS_NORMAL,
     REPO_STATUS_READ_ONLY,
@@ -908,6 +910,7 @@ gint64
 seaf_repo_manager_get_upload_tmp_file_offset (SeafRepoManager *mgr,
                                               const char *repo_id,
                                               const char *file_path,
+                                              gint64 last_modify,
                                               GError **error);
 
 void

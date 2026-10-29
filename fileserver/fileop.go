@@ -39,6 +39,7 @@ import (
 	"github.com/haiwen/seafile-server/fileserver/utils"
 	"github.com/haiwen/seafile-server/fileserver/workerpool"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -1405,11 +1406,30 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 		if err != nil {
 			return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 		}
+
+		lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
+		var mtime int64
+		if lastModifyStr != "" {
+			t, err := time.Parse(time.RFC3339, lastModifyStr)
+			if err == nil {
+				mtime = t.Unix()
+			}
+		}
+		if mtime > 0 {
+			value := []byte(strconv.FormatInt(mtime, 10))
+			// There is no need to check whether setxattr succeeds, as some file systems may not support extended attributes.
+			unix.Setxattr(f.Name(), "user.seafile.file_mtime", value, 0)
+		}
+
 		repomgr.AddUploadTmpFile(repoID, filePath, f.Name())
 		tmpFile = f.Name()
 	} else {
 		f, err = os.OpenFile(tmpFile, os.O_WRONLY, 0666)
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				log.Warnf("upload temp file %s doesn't exist, remove record from db", tmpFile)
+				repomgr.DelUploadTmpFile(repoID, filePath)
+			}
 			return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 		}
 		fi, err := f.Stat()

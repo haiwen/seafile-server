@@ -572,7 +572,7 @@ static void start_rpc_service (const char *seafile_dir,
     searpc_server_register_function ("seafserv-threaded-rpcserver",
                                      seafile_get_upload_tmp_file_offset,
                                      "seafile_get_upload_tmp_file_offset",
-                                     searpc_signature_int64__string_string());
+                                     searpc_signature_int64__string_string_int64());
 
     /* Clean trash */
 

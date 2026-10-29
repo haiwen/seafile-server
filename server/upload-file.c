@@ -6,6 +6,7 @@
 
 #include <getopt.h>
 #include <fcntl.h>
+#include <sys/xattr.h>
 
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__)
 #include <event2/event.h>
@@ -1035,6 +1036,19 @@ write_block_data_to_tmp_file (RecvFSM *fsm, const char *parent_dir,
             *error_code = ERROR_INTERNAL;
             ret = -1;
             goto out;
+        }
+
+        gint64 mtime = 0;
+        char *last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
+        if (last_modify) {
+            mtime = rfc3339_to_timestamp (last_modify);
+        }
+
+        if (mtime > 0) {
+            char value[32];
+            int len = g_snprintf (value, sizeof(value), "%" G_GINT64_FORMAT, mtime);
+            // There is no need to check whether setxattr succeeds, as some file systems may not support extended attributes.
+            setxattr (temp_file, UPLOAD_TMP_FILE_MTIME_ATTR, value, len, 0);
         }
 
         if (seaf_repo_manager_add_upload_tmp_file (seaf->repo_mgr,
