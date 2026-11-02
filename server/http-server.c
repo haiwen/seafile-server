@@ -2507,6 +2507,12 @@ post_recv_fs_cb (evhtp_request_t *req, void *arg)
         }
         evbuffer_remove (req->buffer_in, obj_con, con_len);
 
+        if (seaf_fs_manager_object_exists (seaf->fs_mgr, store_id, 1, obj_id)) {
+            fs_con_len -= (con_len + sizeof(FsHdr));
+            g_free (obj_con);
+            continue;
+        }
+
         if (seaf_obj_store_write_obj (seaf->fs_mgr->obj_store,
                                       store_id, 1, obj_id, obj_con,
                                       con_len, FALSE) < 0) {
