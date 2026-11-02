@@ -493,6 +493,11 @@ func recvFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
 
+		if exists, _ := fsmgr.Exists(storeID, objID); exists {
+			fsBuf = fsBuf[44+objSize:]
+			continue
+		}
+
 		objBuffer := bytes.NewBuffer(fsBuf[44 : 44+objSize])
 		if err := fsmgr.WriteRaw(storeID, objID, objBuffer); err != nil {
 			err := fmt.Errorf("Failed to write fs obj %s:%s : %v", storeID, objID, err)
