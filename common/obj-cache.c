@@ -70,7 +70,7 @@ load_cache_option_from_env (CacheOption *option)
 }
 
 ObjCache *
-objcache_new (GKeyFile *config)
+objcache_new ()
 {
     ObjCache *cache = NULL;
     GError *error = NULL;
