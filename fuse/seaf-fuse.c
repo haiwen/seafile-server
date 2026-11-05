@@ -105,6 +105,8 @@ static int seaf_fuse_open(const char *path, struct fuse_file_info *info)
     SeafBranch *branch = NULL;
     SeafCommit *commit = NULL;
     guint32 mode = 0;
+    char *id = NULL;
+    FuseFile *ff;
     int ret = 0;
 
     /* Now we only support read-only mode */
@@ -140,21 +142,30 @@ static int seaf_fuse_open(const char *path, struct fuse_file_info *info)
         goto out;
     }
 
-    char *id = seaf_fs_manager_path_to_obj_id(seaf->fs_mgr,
-                                              repo->store_id, repo->version,
-                                              commit->root_id,
-                                              repo_path, &mode, NULL);
+    id = seaf_fs_manager_path_to_obj_id(seaf->fs_mgr,
+                                        repo->store_id, repo->version,
+                                        commit->root_id,
+                                        repo_path, &mode, NULL);
     if (!id) {
         seaf_warning ("Path %s doesn't exist in repo %s.\n", repo_path, repo_id);
         ret = -ENOENT;
         goto out;
     }
-    g_free (id);
 
-    if (!S_ISREG(mode))
-        return -EACCES;
+    if (!S_ISREG(mode)) {
+        ret = -EACCES;
+        goto out;
+    }
+
+    ff = fuse_file_open (seaf, repo->store_id, repo->version, id);
+    if (!ff) {
+        ret = -EIO;
+        goto out;
+    }
+    info->fh = (uint64_t)(uintptr_t)ff;
 
 out:
+    g_free (id);
     g_free (user);
     g_free (repo_id);
     g_free (repo_path);
@@ -166,77 +177,13 @@ out:
 static int seaf_fuse_read(const char *path, char *buf, size_t size,
                           off_t offset, struct fuse_file_info *info)
 {
-    int n_parts;
-    char *user, *repo_id, *repo_path;
-    SeafRepo *repo = NULL;
-    SeafBranch *branch = NULL;
-    SeafCommit *commit = NULL;
-    Seafile *file = NULL;
-    char *file_id = NULL;
-    int ret = 0;
+    return read_file (seaf, (FuseFile *)(uintptr_t)info->fh, buf, size, offset);
+}
 
-    /* Now we only support read-only mode */
-    if ((info->flags & 3) != O_RDONLY)
-        return -EACCES;
-
-    if (parse_fuse_path (path, &n_parts, &user, &repo_id, &repo_path) < 0) {
-        seaf_warning ("Invalid input path %s.\n", path);
-        return -ENOENT;
-    }
-
-    if (n_parts != 2 && n_parts != 3) {
-        seaf_warning ("Invalid input path for open: %s.\n", path);
-        ret = -EACCES;
-        goto out;
-    }
-
-    repo = seaf_repo_manager_get_repo(seaf->repo_mgr, repo_id);
-    if (!repo) {
-        seaf_warning ("Failed to get repo %s.\n", repo_id);
-        ret = -ENOENT;
-        goto out;
-    }
-
-    branch = repo->head;
-    commit = seaf_commit_manager_get_commit(seaf->commit_mgr,
-                                            repo->id,
-                                            repo->version,
-                                            branch->commit_id);
-    if (!commit) {
-        seaf_warning ("Failed to get commit %s:%.8s.\n", repo->id, branch->commit_id);
-        ret = -ENOENT;
-        goto out;
-    }
-
-    file_id = seaf_fs_manager_get_seafile_id_by_path(seaf->fs_mgr,
-                                                     repo->store_id, repo->version,
-                                                     commit->root_id,
-                                                     repo_path, NULL);
-    if (!file_id) {
-        seaf_warning ("Path %s doesn't exist in repo %s.\n", repo_path, repo_id);
-        ret = -ENOENT;
-        goto out;
-    }
-
-    file = seaf_fs_manager_get_seafile(seaf->fs_mgr,
-                                       repo->store_id, repo->version, file_id);
-    if (!file) {
-        ret = -ENOENT;
-        goto out;
-    }
-
-    ret = read_file(seaf, repo->store_id, repo->version,
-                    file, buf, size, offset, info);
-    seafile_unref (file);
-
-out:
-    g_free (user);
-    g_free (repo_id);
-    g_free (repo_path);
-    g_free (file_id);
-    seaf_repo_unref (repo);
-    seaf_commit_unref (commit);
-    return ret;
+static int seaf_fuse_release(const char *path, struct fuse_file_info *info)
+{
+    fuse_file_free (seaf, (FuseFile *)(uintptr_t)info->fh);
+    return 0;
 }
 
 struct options {
@@ -275,6 +222,7 @@ static struct fuse_operations seaf_fuse_ops = {
     .readdir = seaf_fuse_readdir,
     .open    = seaf_fuse_open,
     .read    = seaf_fuse_read,
+    .release = seaf_fuse_release,
 };
 
 int main(int argc, char *argv[])
