@@ -36,6 +36,7 @@ enum RecvState {
     RECV_HEADERS,
     RECV_CONTENT,
     RECV_ERROR,
+    RECV_END,
 };
 
 enum UploadError {
@@ -2198,7 +2199,8 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
                 }
                 g_free (fsm->input_name);
                 fsm->input_name = NULL;
-                fsm->state = RECV_HEADERS;
+                // Avoid empty MIME header line just before CRLF in RECV_HEADERS.
+                fsm->state = RECV_END;
             } else {
                 seaf_debug ("[upload] recv file data %d bytes.\n", size);
                 if (fsm->recved_crlf) {
@@ -2356,6 +2358,12 @@ upload_read_cb (evhtp_request_t *req, evbuf_t *buf, void *arg)
             if (res != EVHTP_RES_OK)
                 goto out;
 
+            break;
+        case RECV_END:
+            seaf_debug ("[upload] optional RECV_END.\n");
+            len = evbuffer_get_length (fsm->line);
+            evbuffer_drain (fsm->line, len);
+            no_line = TRUE;
             break;
         }
     }
