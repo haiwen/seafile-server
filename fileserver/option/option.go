@@ -460,8 +460,8 @@ func loadDBOptionFromEnv(dbOpt *DBOption) *DBOption {
 		dbOpt.Host = host
 	}
 	if portStr != "" {
-		port, _ := strconv.ParseUint(portStr, 10, 32)
-		if port > 0 {
+		port, err := strconv.ParseUint(portStr, 10, 16)
+		if err == nil && port > 0 {
 			dbOpt.Port = int(port)
 		}
 	}

@@ -53,9 +53,9 @@ func loadNotifConfig() {
 
 	port = 8083
 	if os.Getenv("NOTIFICATION_SERVER_PORT") != "" {
-		i, err := strconv.Atoi(os.Getenv("NOTIFICATION_SERVER_PORT"))
-		if err == nil {
-			port = uint32(i)
+		p, err := strconv.ParseUint(os.Getenv("NOTIFICATION_SERVER_PORT"), 10, 16)
+		if err == nil && p > 0 {
+			port = uint32(p)
 		}
 	}
 
@@ -124,8 +124,8 @@ func loadDBOptionFromEnv() (*DBOption, error) {
 	port := 3306
 	portStr := os.Getenv("SEAFILE_MYSQL_DB_PORT")
 	if portStr != "" {
-		p, _ := strconv.ParseUint(portStr, 10, 32)
-		if p > 0 {
+		p, err := strconv.ParseUint(portStr, 10, 16)
+		if err == nil && p > 0 {
 			port = int(p)
 		}
 	}

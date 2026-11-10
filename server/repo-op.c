@@ -745,10 +745,12 @@ retry:
         usleep (g_random_int_range(0, 30) * 100 * 1000);
 
         g_free (root_id);
+        root_id = NULL;
         g_clear_error (error);
 
         seaf_repo_unref (repo);
         seaf_commit_unref(head_commit);
+        head_commit = NULL;
 
         GET_REPO_OR_FAIL(repo, repo_id);
         GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);
@@ -1290,10 +1292,14 @@ retry:
         usleep (g_random_int_range(0, 30) * 100 * 1000);
 
         g_free (root_id);
+        root_id = NULL;
+        string_list_free (name_list);
+        name_list = NULL;
         g_clear_error (error);
 
         seaf_repo_unref (repo);
         seaf_commit_unref(head_commit);
+        head_commit = NULL;
 
         GET_REPO_OR_FAIL(repo, repo_id);
         GET_COMMIT_OR_FAIL(head_commit, repo->id, repo->version, repo->head->commit_id);

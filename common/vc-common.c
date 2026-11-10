@@ -486,7 +486,9 @@ get_file_modifier_mtime_v0 (const char *repo_id, const char *store_id, int versi
              * to the parent commit to traverse.
              */
             g_free (file_id);
+            file_id = NULL;
             seaf_commit_unref (commit);
+            commit = NULL;
         }
     }
 

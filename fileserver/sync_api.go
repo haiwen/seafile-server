@@ -626,6 +626,7 @@ func packFSCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		}
 	}
 
+	rsp.Header().Set("Content-Type", "application/octet-stream")
 	rsp.Header().Set("Content-Length", strconv.Itoa(data.Len()))
 	rsp.WriteHeader(http.StatusOK)
 	rsp.Write(data.Bytes())
@@ -641,26 +642,28 @@ func headCommitsMultiCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{nil, "", http.StatusBadRequest}
 	}
 
-	var repoIDs strings.Builder
+	var placeholders strings.Builder
+	args := make([]any, len(repoIDList))
 	for i := 0; i < len(repoIDList); i++ {
 		if !utils.IsValidUUID(repoIDList[i]) {
 			return &appError{nil, "", http.StatusBadRequest}
 		}
 		if i == 0 {
-			repoIDs.WriteString(fmt.Sprintf("'%s'", repoIDList[i]))
+			placeholders.WriteString("?")
 		} else {
-			repoIDs.WriteString(fmt.Sprintf(",'%s'", repoIDList[i]))
+			placeholders.WriteString(",?")
 		}
+		args[i] = repoIDList[i]
 	}
 
 	sqlStr := fmt.Sprintf(
 		"SELECT repo_id, commit_id FROM Branch WHERE name='master' AND "+
 			"repo_id IN (%s) LOCK IN SHARE MODE",
-		repoIDs.String())
+		placeholders.String())
 
 	ctx, cancel := context.WithTimeout(context.Background(), option.DBOpTimeout)
 	defer cancel()
-	rows, err := seafileDB.QueryContext(ctx, sqlStr)
+	rows, err := seafileDB.QueryContext(ctx, sqlStr, args...)
 	if err != nil {
 		err := fmt.Errorf("Failed to get commit id: %v", err)
 		return &appError{err, "", http.StatusInternalServerError}
@@ -967,6 +970,10 @@ func putCommitCB(rsp http.ResponseWriter, r *http.Request) *appError {
 
 	if commit.RepoID != repoID {
 		msg := "The repo id in commit does not match current repo id"
+		return &appError{nil, msg, http.StatusBadRequest}
+	}
+	if commit.CommitID != commitID {
+		msg := "The commit id in commit does not match current commit id"
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
@@ -1331,7 +1338,7 @@ func validateToken(r *http.Request, repoID string, skipCache bool) (string, *app
 
 	email, err := repomgr.GetEmailByToken(repoID, token)
 	if err != nil {
-		log.Errorf("Failed to get email by token %s: %v", token, err)
+		log.Errorf("Failed to get email by token for repo %s: %v", repoID, err)
 		tokenCache.Delete(token)
 		return email, &appError{err, "", http.StatusInternalServerError}
 	}
