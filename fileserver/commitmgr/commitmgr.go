@@ -92,6 +92,9 @@ func (commit *Commit) FromData(p []byte) error {
 		return err
 	}
 
+	if !utils.IsObjectIDValid(commit.CommitID) {
+		return fmt.Errorf("commit id %s is invalid", commit.CommitID)
+	}
 	if !utils.IsValidUUID(commit.RepoID) {
 		return fmt.Errorf("repo id %s is invalid", commit.RepoID)
 	}

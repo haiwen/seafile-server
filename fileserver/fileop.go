@@ -3657,6 +3657,13 @@ func commitFileBlocks(repoID, parentDir, fileName, blockIDsJSON, user string, fi
 		return "", &appError{err, "", http.StatusInternalServerError}
 	}
 
+	for _, blkID := range blkIDs {
+		if !utils.IsObjectIDValid(blkID) {
+			msg := fmt.Sprintf("block id %s is invalid.\n", blkID)
+			return "", &appError{nil, msg, http.StatusBadRequest}
+		}
+	}
+
 	appErr := checkQuotaBeforeCommitBlocks(repo.StoreID, blkIDs)
 	if appErr != nil {
 		return "", appErr
