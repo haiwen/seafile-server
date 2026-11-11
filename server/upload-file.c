@@ -2187,10 +2187,10 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
          */
         if (size >= strlen(fsm->boundary) + 4) {
             char *buf = g_new0 (char, size + 1);
-            evbuffer_remove (fsm->line, buf, size);
-            // strstr need a '\0'
+            evbuffer_copyout (fsm->line, buf, size); // strstr need a '\0'
             if (strstr(buf, fsm->boundary) != NULL) {
                 seaf_debug ("[upload] file data ends.\n");
+                evbuffer_drain (fsm->line, size);
                 evhtp_res res = add_uploaded_file (fsm);
                 if (res != EVHTP_RES_OK) {
                     g_free(buf);
@@ -2200,15 +2200,23 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
                 fsm->input_name = NULL;
                 fsm->state = RECV_HEADERS;
             } else {
-                seaf_debug ("[upload] recv file data %d bytes.\n", size);
+                size_t n_write = size;
+                // If the last byte is \r, it might be the start of CRLF before boundary.
+                // Retain it in the line buffer until next read.
+                if (buf[size - 1] == '\r') {
+                    n_write = size - 1;
+                }
+                evbuffer_drain (fsm->line, n_write);
+                seaf_debug ("[upload] recv file data %d bytes.\n", (int)n_write);
                 if (fsm->recved_crlf) {
                     if (writen (fsm->fd, "\r\n", 2) < 0) {
                         seaf_warning ("[upload] Failed to write temp file: %s.\n",
                                    strerror(errno));
+                        g_free (buf);
                         return EVHTP_RES_SERVERR;
                     }
                 }
-                if (writen (fsm->fd, buf, size) < 0) {
+                if (writen (fsm->fd, buf, n_write) < 0) {
                     seaf_warning ("[upload] Failed to write temp file: %s.\n",
                                strerror(errno));
                     g_free (buf);
