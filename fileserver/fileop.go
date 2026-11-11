@@ -1399,10 +1399,10 @@ func writeBlockDataToTmpFile(r *http.Request, fsm *recvData, formFiles map[strin
 			return &appError{err, "Internal error.\n", http.StatusInternalServerError}
 		}
 
-		lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
+		fileMtimeStr := normalizeUTF8Path(r.FormValue("file_mtime"))
 		var mtime int64
-		if lastModifyStr != "" {
-			t, err := time.Parse(time.RFC3339, lastModifyStr)
+		if fileMtimeStr != "" {
+			t, err := time.Parse(time.RFC3339, fileMtimeStr)
 			if err == nil {
 				mtime = t.Unix()
 			}
