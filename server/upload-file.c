@@ -2388,7 +2388,7 @@ upload_read_cb (evhtp_request_t *req, evbuf_t *buf, void *arg)
                 // Without a complete CRLF, only a single trailing CR may remain.
                 // Reject longer data to prevent unbounded buffering.
                 if (len > 1) {
-                    seaf_debug ("[upload] Invalid data %s after boundary without CRLF.\n", line);
+                    seaf_debug ("[upload] Invalid data after boundary without CRLF.\n");
                     res = EVHTP_RES_BADREQ;
                     goto out;
                 }
