@@ -2373,27 +2373,23 @@ upload_read_cb (evhtp_request_t *req, evbuf_t *buf, void *arg)
         case RECV_BOUNDARY:
             line = evbuffer_readln (fsm->line, &len, EVBUFFER_EOL_CRLF_STRICT);
             if (line != NULL) {
-                if (len == 0) {
+                // RFC 2046 permits SP/HTAB padding before CRLF.
+                if (strspn (line, " \t") != len) {
+                    seaf_debug ("[upload] Invalid padding after boundary.\n");
                     free (line);
-                    fsm->state = RECV_HEADERS;
-                    break;
-                } else {
-                    seaf_debug ("[upload] Recv unexpected line: %s.\n", line);
-                    free (line);
-                    res = EVHTP_RES_BADREQ;
-                    goto out;
-                }      
-            } else {
-                len = evbuffer_get_length (fsm->line);
-                // Without a complete CRLF, only a single trailing CR may remain.
-                // Reject longer data to prevent unbounded buffering.
-                if (len > 1) {
-                    seaf_debug ("[upload] Invalid data after boundary without CRLF.\n");
                     res = EVHTP_RES_BADREQ;
                     goto out;
                 }
-                // Keep partial CRLF until the next read. A final boundary
-                // without CRLF is already handled by add_uploaded_file().
+                free (line);
+                fsm->state = RECV_HEADERS;
+            } else {
+                if (evbuffer_get_length (fsm->line) > MAX_CONTENT_LINE) {
+                    seaf_debug ("[upload] Boundary padding exceeds %d bytes without CRLF.\n",
+                                MAX_CONTENT_LINE);
+                    res = EVHTP_RES_BADREQ;
+                    goto out;
+                }
+                // A final boundary may omit CRLF; The file is already added.
                 no_line = TRUE;
             }
             break;
