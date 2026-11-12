@@ -60,15 +60,14 @@ func (crypt *seafileCrypt) decrypt(input []byte) ([]byte, error) {
 		for bs, be := 0, size; bs < len(input); bs, be = bs+size, be+size {
 			block.Decrypt(out[bs:be], input[bs:be])
 		}
-		out = pkcs7UnPadding(out)
-		return out, nil
+
+		return pkcs7UnPadding(out, size)
 	}
 
 	blockMode := cipher.NewCBCDecrypter(block, crypt.iv)
 	blockMode.CryptBlocks(out, input)
-	out = pkcs7UnPadding(out)
 
-	return out, nil
+	return pkcs7UnPadding(out, size)
 }
 
 func pkcs7Padding(p []byte, blockSize int) []byte {
@@ -77,10 +76,24 @@ func pkcs7Padding(p []byte, blockSize int) []byte {
 	return append(p, padtext...)
 }
 
-func pkcs7UnPadding(p []byte) []byte {
+func pkcs7UnPadding(p []byte, blockSize int) ([]byte, error) {
 	length := len(p)
+	if blockSize <= 0 || length == 0 || length%blockSize != 0 {
+		return nil, errors.New("invalid data size")
+	}
+
 	paddLen := int(p[length-1])
-	return p[:(length - paddLen)]
+	if paddLen == 0 || paddLen > blockSize || paddLen > length {
+		return nil, errors.New("invalid padding size")
+	}
+
+	for _, b := range p[length-paddLen:] {
+		if b != byte(paddLen) {
+			return nil, errors.New("invalid padding bytes")
+		}
+	}
+
+	return p[:length-paddLen], nil
 }
 
 func to16Bytes(input []byte) []byte {
