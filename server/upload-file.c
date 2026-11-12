@@ -36,6 +36,7 @@ enum RecvState {
     RECV_HEADERS,
     RECV_CONTENT,
     RECV_ERROR,
+    RECV_BOUNDARY,
 };
 
 enum UploadError {
@@ -2190,7 +2191,11 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
             evbuffer_copyout (fsm->line, buf, size); // strstr need a '\0'
             if (strstr(buf, fsm->boundary) != NULL) {
                 seaf_debug ("[upload] file data ends.\n");
-                evbuffer_drain (fsm->line, size);
+                if (buf[size - 1] == '\r') {
+                    evbuffer_drain (fsm->line, size - 1);
+                } else {
+                    evbuffer_drain (fsm->line, size);
+                }
                 evhtp_res res = add_uploaded_file (fsm);
                 if (res != EVHTP_RES_OK) {
                     g_free(buf);
@@ -2198,7 +2203,7 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
                 }
                 g_free (fsm->input_name);
                 fsm->input_name = NULL;
-                fsm->state = RECV_HEADERS;
+                fsm->state = RECV_BOUNDARY;
             } else {
                 size_t n_write = size;
                 // If the last byte is \r, it might be the start of CRLF before boundary.
@@ -2364,6 +2369,33 @@ upload_read_cb (evhtp_request_t *req, evbuf_t *buf, void *arg)
             if (res != EVHTP_RES_OK)
                 goto out;
 
+            break;
+        case RECV_BOUNDARY:
+            line = evbuffer_readln (fsm->line, &len, EVBUFFER_EOL_CRLF_STRICT);
+            if (line != NULL) {
+                if (len == 0) {
+                    free (line);
+                    fsm->state = RECV_HEADERS;
+                    break;
+                } else {
+                    seaf_debug ("[upload] Recv unexpected line: %s.\n", line);
+                    free (line);
+                    res = EVHTP_RES_BADREQ;
+                    goto out;
+                }      
+            } else {
+                len = evbuffer_get_length (fsm->line);
+                // Without a complete CRLF, only a single trailing CR may remain.
+                // Reject longer data to prevent unbounded buffering.
+                if (len > 1) {
+                    seaf_debug ("[upload] Invalid data %s after boundary without CRLF.\n", line);
+                    res = EVHTP_RES_BADREQ;
+                    goto out;
+                }
+                // Keep partial CRLF until the next read. A final boundary
+                // without CRLF is already handled by add_uploaded_file().
+                no_line = TRUE;
+            }
             break;
         }
     }
