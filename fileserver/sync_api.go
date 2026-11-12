@@ -815,6 +815,10 @@ func putSendBlockCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
+	if blockmgr.Exists(storeID, blockID) {
+		return nil
+	}
+
 	if err := blockmgr.Write(storeID, blockID, r.Body); err != nil {
 		err := fmt.Errorf("Failed to write block %.8s:%s: %v", storeID, blockID, err)
 		return &appError{err, "", http.StatusInternalServerError}

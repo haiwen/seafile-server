@@ -3851,6 +3851,7 @@ func indexRawBlocks(repoID string, blockIDs []string, fileHeaders []*multipart.F
 			return err
 		}
 		_, err = buf.ReadFrom(f)
+		f.Close()
 		if err != nil {
 			err := fmt.Errorf("failed to read block: %v", err)
 			return err
@@ -3860,6 +3861,10 @@ func indexRawBlocks(repoID string, blockIDs []string, fileHeaders []*multipart.F
 		if blkID != blockIDs[i] {
 			err := fmt.Errorf("block id %s:%s doesn't match content", blkID, blockIDs[i])
 			return err
+		}
+
+		if blockmgr.Exists(repoID, blkID) {
+			continue
 		}
 
 		err = blockmgr.Write(repoID, blkID, &buf)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"errors"
 )
 
 type seafileCrypt struct {
@@ -47,8 +48,11 @@ func (crypt *seafileCrypt) decrypt(input []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]byte, len(input))
 	size := block.BlockSize()
+	if len(input) == 0 || len(input)%size != 0 {
+		return nil, errors.New("invalid encrypted data size")
+	}
+	out := make([]byte, len(input))
 
 	if crypt.version == 3 {
 		// Encryption repo v3 uses AES_128_ecb mode to encrypt and decrypt, each block is encrypted and decrypted independently,
