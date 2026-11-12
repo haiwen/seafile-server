@@ -546,8 +546,9 @@ func postCheckExistCB(rsp http.ResponseWriter, r *http.Request, existType checkE
 	}
 
 	var neededObjs []string
-	var ret bool
 	for i := 0; i < len(objIDList); i++ {
+		ret := false
+
 		if !utils.IsObjectIDValid(objIDList[i]) {
 			continue
 		}
