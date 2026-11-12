@@ -2183,19 +2183,16 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
         /* If we haven't read an entire line, but the line
          * buffer gets too long, flush the content to file,
          * or we reach the last boundary line (without CRLF at the end).
-         * Since the last boundary line starts with "--" and ends with "--"
-         * we have to add 4 bytes to the boundary size.
+         * Consume only "--boundary", leaving the suffix and CRLF
+         * for RECV_BOUNDARY.
          */
-        if (size >= strlen(fsm->boundary) + 4) {
+        size_t boundary_len = strlen (fsm->boundary);
+        if (size >= boundary_len + 2) {
             char *buf = g_new0 (char, size + 1);
             evbuffer_copyout (fsm->line, buf, size); // strstr need a '\0'
             if (strstr(buf, fsm->boundary) != NULL) {
                 seaf_debug ("[upload] file data ends.\n");
-                if (buf[size - 1] == '\r') {
-                    evbuffer_drain (fsm->line, size - 1);
-                } else {
-                    evbuffer_drain (fsm->line, size);
-                }
+                evbuffer_drain (fsm->line, boundary_len + 2);
                 evhtp_res res = add_uploaded_file (fsm);
                 if (res != EVHTP_RES_OK) {
                     g_free(buf);
@@ -2373,9 +2370,9 @@ upload_read_cb (evhtp_request_t *req, evbuf_t *buf, void *arg)
         case RECV_BOUNDARY:
             line = evbuffer_readln (fsm->line, &len, EVBUFFER_EOL_CRLF_STRICT);
             if (line != NULL) {
-                // RFC 2046 permits SP/HTAB padding before CRLF.
-                if (strspn (line, " \t") != len) {
-                    seaf_debug ("[upload] Invalid padding after boundary.\n");
+                // Allow closing dashes and SP/HTAB padding before CRLF.
+                if (strspn (line, " \t-") != len) {
+                    seaf_debug ("[upload] Invalid suffix after boundary.\n");
                     free (line);
                     res = EVHTP_RES_BADREQ;
                     goto out;
