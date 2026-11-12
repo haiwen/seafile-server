@@ -36,6 +36,7 @@ enum RecvState {
     RECV_HEADERS,
     RECV_CONTENT,
     RECV_ERROR,
+    RECV_BOUNDARY,
 };
 
 enum UploadError {
@@ -2182,15 +2183,16 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
         /* If we haven't read an entire line, but the line
          * buffer gets too long, flush the content to file,
          * or we reach the last boundary line (without CRLF at the end).
-         * Since the last boundary line starts with "--" and ends with "--"
-         * we have to add 4 bytes to the boundary size.
+         * Consume only "--boundary", leaving the suffix and CRLF
+         * for RECV_BOUNDARY.
          */
-        if (size >= strlen(fsm->boundary) + 4) {
+        size_t boundary_len = strlen (fsm->boundary);
+        if (size >= boundary_len + 2) {
             char *buf = g_new0 (char, size + 1);
             evbuffer_copyout (fsm->line, buf, size); // strstr need a '\0'
             if (strstr(buf, fsm->boundary) != NULL) {
                 seaf_debug ("[upload] file data ends.\n");
-                evbuffer_drain (fsm->line, size);
+                evbuffer_drain (fsm->line, boundary_len + 2);
                 evhtp_res res = add_uploaded_file (fsm);
                 if (res != EVHTP_RES_OK) {
                     g_free(buf);
@@ -2198,7 +2200,7 @@ recv_file_data (RecvFSM *fsm, gboolean *no_line)
                 }
                 g_free (fsm->input_name);
                 fsm->input_name = NULL;
-                fsm->state = RECV_HEADERS;
+                fsm->state = RECV_BOUNDARY;
             } else {
                 size_t n_write = size;
                 // If the last byte is \r, it might be the start of CRLF before boundary.
@@ -2364,6 +2366,29 @@ upload_read_cb (evhtp_request_t *req, evbuf_t *buf, void *arg)
             if (res != EVHTP_RES_OK)
                 goto out;
 
+            break;
+        case RECV_BOUNDARY:
+            line = evbuffer_readln (fsm->line, &len, EVBUFFER_EOL_CRLF_STRICT);
+            if (line != NULL) {
+                // Allow closing dashes and SP/HTAB padding before CRLF.
+                if (strspn (line, " \t-") != len) {
+                    seaf_debug ("[upload] Invalid suffix after boundary.\n");
+                    free (line);
+                    res = EVHTP_RES_BADREQ;
+                    goto out;
+                }
+                free (line);
+                fsm->state = RECV_HEADERS;
+            } else {
+                if (evbuffer_get_length (fsm->line) > MAX_CONTENT_LINE) {
+                    seaf_debug ("[upload] Boundary padding exceeds %d bytes without CRLF.\n",
+                                MAX_CONTENT_LINE);
+                    res = EVHTP_RES_BADREQ;
+                    goto out;
+                }
+                // A final boundary may omit CRLF; The file is already added.
+                no_line = TRUE;
+            }
             break;
         }
     }
