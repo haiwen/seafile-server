@@ -552,9 +552,13 @@ func postCheckExistCB(rsp http.ResponseWriter, r *http.Request, existType checkE
 			continue
 		}
 		if existType == checkFSExist {
-			ret, _ = fsmgr.Exists(storeID, objIDList[i])
+			if exists, err := fsmgr.Exists(storeID, objIDList[i]); err == nil && exists {
+				ret = true
+			}
 		} else if existType == checkBlockExist {
-			ret = blockmgr.Exists(storeID, objIDList[i])
+			if exists, err := blockmgr.Exists(storeID, objIDList[i]); err == nil && exists {
+				ret = true
+			}
 		}
 		if !ret {
 			neededObjs = append(neededObjs, objIDList[i])
@@ -815,7 +819,7 @@ func putSendBlockCB(rsp http.ResponseWriter, r *http.Request) *appError {
 		return &appError{err, "", http.StatusInternalServerError}
 	}
 
-	if blockmgr.Exists(storeID, blockID) {
+	if exists, err := blockmgr.Exists(storeID, blockID); err == nil && exists {
 		return nil
 	}
 
@@ -1165,7 +1169,7 @@ func checkFileBlocks(ctx context.Context, baseDir string, files []*fsmgr.SeafDir
 		return err
 	}
 	for _, blkID := range file.BlkIDs {
-		if !blockmgr.Exists(aux.storeID, blkID) {
+		if exists, _ := blockmgr.Exists(aux.storeID, blkID); !exists {
 			aux.fileList = append(aux.fileList, file2.Name)
 			return nil
 		}
