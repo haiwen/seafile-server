@@ -713,6 +713,7 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
     char *blockids_json;
     gint64 file_size = -1;
     int replace = 0;
+    char *new_file_id = NULL;
 
     /* After upload_headers_cb() returns an error, libevhtp may still
      * receive data from the web browser and call into this cb.
@@ -755,7 +756,11 @@ upload_blks_api_cb(evhtp_request_t *req, void *arg)
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         return;
 
-    char *new_file_id = NULL;
+    if (!fsm->parent_dir || !is_parent_matched (fsm->parent_dir, parent_dir)){
+        error_code = ERROR_FORBIDDEN;
+        goto out;
+    }
+
     int rc = 0;
     /* if (!commitonly_str) { */
     /*     gint64 content_len = get_content_length (req); */
