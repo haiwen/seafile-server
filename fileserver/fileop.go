@@ -787,7 +787,7 @@ func doBlock(rsp http.ResponseWriter, r *http.Request, repo *repomgr.Repo, fileI
 		return nil
 	}
 
-	exists := blockmgr.Exists(repo.StoreID, blkID)
+	exists, _ := blockmgr.Exists(repo.StoreID, blkID)
 	if !exists {
 		rsp.WriteHeader(http.StatusBadRequest)
 		return nil
@@ -2799,7 +2799,7 @@ func writeChunk(repoID string, input []byte, blkSize int64, cryptKey *seafileCry
 		}
 		checkSum := sha1.Sum(encoded)
 		blkID = hex.EncodeToString(checkSum[:])
-		if blockmgr.Exists(repoID, blkID) {
+		if exists, err := blockmgr.Exists(repoID, blkID); err == nil && exists {
 			return blkID, nil
 		}
 		reader := bytes.NewReader(encoded)
@@ -2811,7 +2811,7 @@ func writeChunk(repoID string, input []byte, blkSize int64, cryptKey *seafileCry
 	} else {
 		checkSum := sha1.Sum(input)
 		blkID = hex.EncodeToString(checkSum[:])
-		if blockmgr.Exists(repoID, blkID) {
+		if exists, err := blockmgr.Exists(repoID, blkID); err == nil && exists {
 			return blkID, nil
 		}
 		reader := bytes.NewReader(input)
@@ -3737,7 +3737,7 @@ func indexExistedFileBlocks(repoID string, version int, blkIDs []string, fileSiz
 	}
 
 	for _, blkID := range blkIDs {
-		if !blockmgr.Exists(repoID, blkID) {
+		if exists, _ := blockmgr.Exists(repoID, blkID); !exists {
 			err := fmt.Errorf("failed to check block: %s", blkID)
 			return "", &appError{err, "", seafHTTPResBlockMissing}
 		}
@@ -3851,6 +3851,7 @@ func indexRawBlocks(repoID string, blockIDs []string, fileHeaders []*multipart.F
 			return err
 		}
 		_, err = buf.ReadFrom(f)
+		f.Close()
 		if err != nil {
 			err := fmt.Errorf("failed to read block: %v", err)
 			return err
@@ -3860,6 +3861,10 @@ func indexRawBlocks(repoID string, blockIDs []string, fileHeaders []*multipart.F
 		if blkID != blockIDs[i] {
 			err := fmt.Errorf("block id %s:%s doesn't match content", blkID, blockIDs[i])
 			return err
+		}
+
+		if exists, err := blockmgr.Exists(repoID, blkID); err == nil && exists {
+			continue
 		}
 
 		err = blockmgr.Write(repoID, blkID, &buf)

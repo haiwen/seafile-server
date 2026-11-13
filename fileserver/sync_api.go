@@ -546,15 +546,20 @@ func postCheckExistCB(rsp http.ResponseWriter, r *http.Request, existType checkE
 	}
 
 	var neededObjs []string
-	var ret bool
 	for i := 0; i < len(objIDList); i++ {
+		ret := false
+
 		if !utils.IsObjectIDValid(objIDList[i]) {
 			continue
 		}
 		if existType == checkFSExist {
-			ret, _ = fsmgr.Exists(storeID, objIDList[i])
+			if exists, err := fsmgr.Exists(storeID, objIDList[i]); err == nil && exists {
+				ret = true
+			}
 		} else if existType == checkBlockExist {
-			ret = blockmgr.Exists(storeID, objIDList[i])
+			if exists, err := blockmgr.Exists(storeID, objIDList[i]); err == nil && exists {
+				ret = true
+			}
 		}
 		if !ret {
 			neededObjs = append(neededObjs, objIDList[i])
@@ -813,6 +818,10 @@ func putSendBlockCB(rsp http.ResponseWriter, r *http.Request) *appError {
 	if err != nil {
 		err := fmt.Errorf("Failed to get repo store id by repo id %s: %v", repoID, err)
 		return &appError{err, "", http.StatusInternalServerError}
+	}
+
+	if exists, err := blockmgr.Exists(storeID, blockID); err == nil && exists {
+		return nil
 	}
 
 	if err := blockmgr.Write(storeID, blockID, r.Body); err != nil {
@@ -1161,7 +1170,7 @@ func checkFileBlocks(ctx context.Context, baseDir string, files []*fsmgr.SeafDir
 		return err
 	}
 	for _, blkID := range file.BlkIDs {
-		if !blockmgr.Exists(aux.storeID, blkID) {
+		if exists, _ := blockmgr.Exists(aux.storeID, blkID); !exists {
 			aux.fileList = append(aux.fileList, file2.Name)
 			return nil
 		}

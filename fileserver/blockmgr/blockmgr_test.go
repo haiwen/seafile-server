@@ -82,7 +82,7 @@ func testBlockWrite(t *testing.T) {
 }
 
 func testBlockExists(t *testing.T) {
-	ret := Exists(repoID, blockID)
+	ret, _ := Exists(repoID, blockID)
 	if !ret {
 		t.Errorf("Block is not exist\n")
 	}
