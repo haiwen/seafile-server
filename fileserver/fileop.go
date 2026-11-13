@@ -3550,6 +3550,11 @@ func doUploadBlks(rsp http.ResponseWriter, r *http.Request, fsm *recvData) *appE
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	if !isParentMatched(fsm.parentDir, parentDir) {
+		msg := "Parent dir doesn't match."
+		return &appError{nil, msg, http.StatusForbidden}
+	}
+
 	lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
 	var lastModify int64
 	if lastModifyStr != "" {
