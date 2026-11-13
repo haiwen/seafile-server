@@ -2265,6 +2265,11 @@ put_send_block_cb (evhtp_request_t *req, void *arg)
         goto out;
     }
 
+    if (seaf_block_manager_block_exists (seaf->block_mgr, store_id, 1, block_id)) {
+        evhtp_send_reply (req, EVHTP_RES_OK);
+        goto out;
+    }
+
     blk_con = g_new0 (char, blk_len);
     if (!blk_con) {
         evhtp_send_reply (req, EVHTP_RES_SERVERR);

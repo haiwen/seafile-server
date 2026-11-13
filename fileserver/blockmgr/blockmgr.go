@@ -34,9 +34,8 @@ func Write(repoID string, blockID string, r io.Reader) error {
 }
 
 // Exists checks block if exists.
-func Exists(repoID string, blockID string) bool {
-	ret, _ := store.Exists(repoID, blockID)
-	return ret
+func Exists(repoID string, blockID string) (bool, error) {
+	return store.Exists(repoID, blockID)
 }
 
 // Stat calculates block size.
