@@ -437,14 +437,49 @@ rfc3339_to_timestamp (const char *last_modify)
     return mtime;
 }
 
+static gint64 *
+parse_upload_mtimes (RecvFSM *fsm)
+{
+    guint count = g_list_length (fsm->filenames);
+    gint64 *mtimes = g_new0 (gint64, count);
+    const char *value;
+
+    if (count == 1) {
+        value = g_hash_table_lookup (fsm->form_kvs, "last_modify");
+        if (value)
+            mtimes[0] = rfc3339_to_timestamp (value);
+        return mtimes;
+    }
+
+    value = g_hash_table_lookup (fsm->form_kvs, "last_modify_list");
+    if (!value)
+        return mtimes;
+
+    json_error_t error;
+    json_t *array = json_loads (value, 0, &error);
+    if (!json_is_array (array) || json_array_size (array) != count)
+        goto out;
+
+    size_t i;
+    json_t *item;
+    json_array_foreach (array, i, item) {
+        if (json_is_null (item) || !json_is_string (item))
+            continue;
+        mtimes[count-i-1] = rfc3339_to_timestamp (json_string_value (item));
+    }
+
+out:
+    json_decref (array);
+    return mtimes;
+}
+
 static void
 upload_api_cb(evhtp_request_t *req, void *arg)
 {
     RecvFSM *fsm = arg;
     char *parent_dir, *replace_str;
     char *relative_path = NULL, *new_parent_dir = NULL;
-    char *last_modify = NULL;
-    gint64 mtime = 0;
+    gint64 *mtimes = NULL;
     GError *error = NULL;
     int error_code = -1;
     char *filenames_json, *tmp_files_json;
@@ -483,11 +518,6 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         seaf_debug ("[upload] No file uploaded.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "No file uploaded.\n");
         return;
-    }
-
-    last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
-    if (last_modify) {
-        mtime = rfc3339_to_timestamp (last_modify);
     }
 
     replace_str = g_hash_table_lookup (fsm->form_kvs, "replace");
@@ -556,6 +586,8 @@ upload_api_cb(evhtp_request_t *req, void *arg)
         goto out;
     }
 
+    mtimes = parse_upload_mtimes (fsm);
+
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;
 
@@ -597,7 +629,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
                                              tmp_files_json,
                                              fsm->user,
                                              replace,
-                                             mtime,
+                                             mtimes,
                                              &ret_json,
                                              fsm->need_idx_progress ? &task_id : NULL,
                                              &error);
@@ -645,6 +677,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
 
 out:
     g_free(new_parent_dir);
+    g_free (mtimes);
     send_reply_by_error_code (req, error_code);
 
     return;
@@ -1135,8 +1168,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 {
     RecvFSM *fsm = arg;
     char *parent_dir = NULL, *relative_path = NULL, *new_parent_dir = NULL;
-    char *last_modify = NULL;
-    gint64 mtime = 0;
+    gint64 *mtimes = NULL;
     GError *error = NULL;
     int error_code = -1;
     char *filenames_json, *tmp_files_json;
@@ -1175,11 +1207,6 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
         seaf_debug ("[upload] No parent dir given.\n");
         send_error_reply (req, EVHTP_RES_BADREQ, "Invalid parent dir.");
         return;
-    }
-
-    last_modify = g_hash_table_lookup (fsm->form_kvs, "last_modify");
-    if (last_modify) {
-        mtime = rfc3339_to_timestamp (last_modify);
     }
 
     if (!fsm->filenames) {
@@ -1239,6 +1266,8 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
         goto out;
     }
 
+    mtimes = parse_upload_mtimes (fsm);
+
     if (!check_parent_dir (req, fsm->repo_id, parent_dir))
         goto out;
 
@@ -1281,7 +1310,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
                                              tmp_files_json,
                                              fsm->user,
                                              0,
-                                             mtime,
+                                             mtimes,
                                              &ret_json,
                                              fsm->need_idx_progress ? &task_id : NULL,
                                              &error);
@@ -1321,6 +1350,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
 out:
     g_free (new_parent_dir);
+    g_free (mtimes);
     send_reply_by_error_code (req, error_code);
 
     return;
