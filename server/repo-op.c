@@ -3725,7 +3725,7 @@ seaf_repo_manager_mkdir_with_parents (SeafRepoManager *mgr,
     int ret = 0; 
     char *gc_id = NULL;
 
-    if (new_dir_path[0] == '/' || new_dir_path[0] == '\\') {
+    if (new_dir_path[0] == '/') {
         seaf_warning ("[mkdir with parent] Invalid relative path %s.\n", new_dir_path);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                      "Invalid relative path");

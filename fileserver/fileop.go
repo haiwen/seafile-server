@@ -1248,7 +1248,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 
 	relativePath := normalizeUTF8Path(r.FormValue("relative_path"))
 	if relativePath != "" {
-		if relativePath[0] == '/' || relativePath[0] == '\\' {
+		if relativePath[0] == '/' {
 			msg := "Invalid relative path"
 			return &appError{nil, msg, http.StatusBadRequest}
 		}

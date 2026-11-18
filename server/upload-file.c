@@ -108,7 +108,7 @@ get_basename (const char *path)
     int i = strlen(path) - 1;
 
     while (i >= 0) {
-        if (path[i] == '/' || path[i] == '\\')
+        if (path[i] == '/')
             break;
         --i;
     }
@@ -487,7 +487,7 @@ upload_api_cb(evhtp_request_t *req, void *arg)
     }
     relative_path = g_hash_table_lookup (fsm->form_kvs, "relative_path");
     if (relative_path != NULL) {
-        if (relative_path[0] == '/' || relative_path[0] == '\\') {
+        if (relative_path[0] == '/') {
             seaf_warning ("Invalid relative path %s.\n", relative_path);
             send_error_reply (req, EVHTP_RES_BADREQ, "Invalid relative path.");
             return;
@@ -1170,7 +1170,7 @@ upload_ajax_cb(evhtp_request_t *req, void *arg)
 
     relative_path = g_hash_table_lookup (fsm->form_kvs, "relative_path");
     if (relative_path != NULL) {
-        if (relative_path[0] == '/' || relative_path[0] == '\\') {
+        if (relative_path[0] == '/') {
             seaf_warning ("Invalid relative path %s.\n", relative_path);
             send_error_reply (req, EVHTP_RES_BADREQ, "Invalid relative path.");
             return;
