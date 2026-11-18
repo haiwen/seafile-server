@@ -371,5 +371,5 @@ func editRepoNeedRetry(repoID, name, desc, user string) (bool, error) {
 		log.Warnf("failed to update repo info %s: %v", repoID, err)
 	}
 
-	return true, nil
+	return false, nil
 }
