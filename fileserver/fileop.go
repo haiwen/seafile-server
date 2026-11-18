@@ -2041,7 +2041,12 @@ func formatJSONRet(nameList, idList []string, sizeList []int64) ([]byte, error) 
 }
 
 func getCanonPath(p string) string {
-	return strings.TrimRight(p, "/")
+	canon := strings.TrimRight(p, "/")
+	if canon == "" {
+		return "/"
+	} else {
+		return canon
+	}
 }
 
 var (
