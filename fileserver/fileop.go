@@ -2270,14 +2270,10 @@ func updateBranch(repoID, originRepoID, newCommitID, oldCommitID, secondParentID
 	}
 
 	if secondParentID != "" {
-		if err := onBranchUpdated(repoID, secondParentID, false); err != nil {
-			return false, err
-		}
+		onBranchUpdated(repoID, secondParentID, false)
 	}
 
-	if err := onBranchUpdated(repoID, newCommitID, true); err != nil {
-		return false, err
-	}
+	onBranchUpdated(repoID, newCommitID, true)
 
 	return false, nil
 }
@@ -2285,7 +2281,7 @@ func updateBranch(repoID, originRepoID, newCommitID, oldCommitID, secondParentID
 func onBranchUpdated(repoID string, commitID string, updateRepoInfo bool) error {
 	if updateRepoInfo {
 		if err := repomgr.UpdateRepoInfo(repoID, commitID); err != nil {
-			return err
+			log.Warnf("failed to update repo info %s: %v", repoID, err)
 		}
 	}
 
