@@ -253,26 +253,6 @@ check_tmp_file_list (GList *tmp_files, int *error_code)
     return TRUE;
 }
 
-static char *
-get_canonical_path (const char *path)
-{
-    char *ret = g_strdup (path);
-    char *p;
-
-    for (p = ret; *p != 0; ++p) {
-        if (*p == '\\')
-            *p = '/';
-    }
-
-    /* Remove trailing slashes from dir path. */
-    int len = strlen(ret);
-    int i = len - 1;
-    while (i >= 0 && ret[i] == '/')
-        ret[i--] = 0;
-
-    return ret;
-}
-
 static gboolean
 check_parent_dir (evhtp_request_t *req, const char *repo_id,
                   const char *parent_dir)
