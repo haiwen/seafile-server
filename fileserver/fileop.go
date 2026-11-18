@@ -2041,12 +2041,17 @@ func formatJSONRet(nameList, idList []string, sizeList []int64) ([]byte, error) 
 }
 
 func getCanonPath(p string) string {
-	canon := strings.TrimRight(p, "/")
+	parts := strings.FieldsFunc(p, func(c rune) bool {
+		return c == '/'
+	})
+	canon := strings.Join(parts, "/")
 	if canon == "" {
 		return "/"
-	} else {
-		return canon
 	}
+	if strings.HasPrefix(p, "/") {
+		return "/" + canon
+	}
+	return canon
 }
 
 var (
