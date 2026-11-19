@@ -3033,6 +3033,8 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
 
         dirent_hash = get_sub_dirents_hash_map (src_repo, src_path);
         if (!dirent_hash) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "Failed to get dir %s", src_path);
             ret = -1;
             goto out;
         }
@@ -3048,6 +3050,8 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
             if (!src_dents[i]) {
                 ret = -1;
                 seaf_warning ("[copy files] File %s not Found.\n", name);
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                             "File %s does not exist", name);
                 goto out;
             }
             file_sizes[i] = (src_dents[i]->version > 0) ? src_dents[i]->size : -1;
@@ -3078,9 +3082,9 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
                                    FALSE,
                                    NULL,
                                    error) < 0) {
-            if (!error)
+            if (error && !*error)
                 g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                             "failed to put dirents");
+                             "Failed to put dirents");
             ret = -1;
             goto out;
         }
@@ -3121,9 +3125,9 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
                                  dst_filenames,
                                  0,
                                  user,
-                                 NULL) < 0) { 
+                                 NULL) < 0) {
                 g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                             "Failed to move");
+                             "Failed to copy");
                 ret = -1;
                 goto out; 
             }
@@ -3571,6 +3575,8 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
 
         dirent_hash = get_sub_dirents_hash_map (src_repo, src_path);
         if (!dirent_hash) {
+            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                         "Failed to get dir %s", src_path);
             ret = -1;
             goto out;
         }
@@ -3586,6 +3592,8 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
             if (!src_dents[i]) {
                 ret = -1;
                 seaf_warning ("[move files] File %s not Found.\n", name);
+                g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
+                             "File %s does not exist", name);
                 goto out;
             }
             file_sizes[i] = (src_dents[i]->version > 0) ? src_dents[i]->size : -1;
@@ -3614,6 +3622,9 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
                                      src_canon_path, src_dents,
                                      dst_canon_path, dst_dents,
                                      file_num, replace, user, error) < 0) {
+                if (error && !*error)
+                    g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                                 "Failed to move files within the same repo");
                 ret = -1;
                 goto out;
             }
@@ -3627,7 +3638,10 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
                                        user,
                                        FALSE,
                                        NULL,
-                                       NULL) < 0) {
+                                       error) < 0) {
+                if (error && !*error)
+                    g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                                 "Failed to put dirents");
                 ret = -1;
                 goto out;
             }
@@ -3635,6 +3649,9 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
 
             if (seaf_repo_manager_del_file (mgr, src_repo->id, src_path,
                                             src_filenames, user, error) < 0) {
+                if (error && !*error)
+                    g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
+                                 "Failed to delete file");
                 ret = -1;
                 goto out;
             }
