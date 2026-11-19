@@ -2452,17 +2452,16 @@ copy_recursive (SeafRepo *src_repo, SeafRepo *dst_repo,
 }
 
 static GHashTable *
-get_sub_dirents_hash_map(SeafRepo *repo, const char *parent_dir)
+get_sub_dirents_hash_map(SeafRepo *repo, const char *parent_dir, GError **error)
 {
-    GError *error;
     GList *p;
     SeafDir *dir = seaf_fs_manager_get_seafdir_by_path (seaf->fs_mgr, repo->store_id,
-                                               repo->version, repo->root_id, parent_dir, &error);
+                                               repo->version, repo->root_id, parent_dir, error);
     if (!dir) {
-        if (error) {
+        if (error && *error &&
+            g_error_matches (*error, SEAFILE_DOMAIN, SEAF_ERR_PATH_NO_EXIST)) {
             seaf_warning ("Failed to get dir %s repo %.8s: %s.\n",
-                          parent_dir, repo->store_id, error->message);
-            g_clear_error(&error);
+                          parent_dir, repo->store_id, (*error)->message);
         } else {
             seaf_warning ("dir %s doesn't exist in repo %.8s.\n",
                           parent_dir, repo->store_id);
@@ -2595,8 +2594,11 @@ cross_repo_copy (const char *src_repo_id,
     src_dents = g_new0 (SeafDirent *, file_num);
     dst_dents = g_new0 (SeafDirent *, file_num);
 
-    dirent_hash = get_sub_dirents_hash_map (src_repo, src_path);
+    GError *error = NULL;
+    dirent_hash = get_sub_dirents_hash_map (src_repo, src_path, &error);
     if (!dirent_hash) {
+        if (error)
+            g_clear_error (&error);
         err_str = COPY_ERR_INTERNAL;
         ret = -1;
         goto out;
@@ -3031,10 +3033,8 @@ seaf_repo_manager_copy_multiple_files (SeafRepoManager *mgr,
         src_dents = g_new0 (SeafDirent *, file_num);
         file_sizes = g_new0 (gint64, file_num);
 
-        dirent_hash = get_sub_dirents_hash_map (src_repo, src_path);
+        dirent_hash = get_sub_dirents_hash_map (src_repo, src_path, error);
         if (!dirent_hash) {
-            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                         "Failed to get dir %s", src_path);
             ret = -1;
             goto out;
         }
@@ -3317,8 +3317,11 @@ cross_repo_move (const char *src_repo_id,
     src_dents = g_new0 (SeafDirent *, file_num);
     dst_dents = g_new0 (SeafDirent *, file_num);
 
-    dirent_hash = get_sub_dirents_hash_map (src_repo, src_path);
+    GError *error = NULL;
+    dirent_hash = get_sub_dirents_hash_map (src_repo, src_path, &error);
     if (!dirent_hash) {
+        if (error)
+            g_clear_error (&error);
         err_str = COPY_ERR_INTERNAL;
         ret = -1;
         goto out;
@@ -3573,10 +3576,8 @@ seaf_repo_manager_move_multiple_files (SeafRepoManager *mgr,
         src_dents = g_new0 (SeafDirent *, file_num);
         file_sizes = g_new0 (gint64, file_num);
 
-        dirent_hash = get_sub_dirents_hash_map (src_repo, src_path);
+        dirent_hash = get_sub_dirents_hash_map (src_repo, src_path, error);
         if (!dirent_hash) {
-            g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_GENERAL,
-                         "Failed to get dir %s", src_path);
             ret = -1;
             goto out;
         }
