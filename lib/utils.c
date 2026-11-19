@@ -2512,3 +2512,17 @@ ccnet_key_file_get_string (GKeyFile *keyf,
 
     return g_strchomp(v);
 }
+
+char *
+get_canonical_path (const char *path)
+{
+    char *ret = g_strdup (path);
+
+    /* Remove trailing slashes from dir path. */
+    int len = strlen(ret);
+    int i = len - 1;
+    while (i >= 0 && ret[i] == '/')
+        ret[i--] = 0;
+
+    return ret;
+}

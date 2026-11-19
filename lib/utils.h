@@ -409,4 +409,7 @@ gchar* ccnet_key_file_get_string (GKeyFile *keyf,
                                   const char *category,
                                   const char *key);
 
+char *
+get_canonical_path (const char *path);
+
 #endif
