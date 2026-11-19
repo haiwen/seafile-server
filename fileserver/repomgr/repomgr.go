@@ -718,7 +718,9 @@ func UpdateRepoInfo(repoID, commitID string) error {
 		return err
 	}
 
-	setRepoCommitToDb(repoID, head.RepoName, head.Ctime, head.Version, head.Encrypted, head.CreatorName)
+	if err := setRepoCommitToDb(repoID, head.RepoName, head.Ctime, head.Version, head.Encrypted, head.CreatorName); err != nil {
+		return err
+	}
 
 	return nil
 }

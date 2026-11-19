@@ -367,7 +367,9 @@ func editRepoNeedRetry(repoID, name, desc, user string) (bool, error) {
 		return true, nil
 	}
 
-	repomgr.UpdateRepoInfo(repoID, commit.CommitID)
+	if err := repomgr.UpdateRepoInfo(repoID, commit.CommitID); err != nil {
+		log.Warnf("failed to update repo info %s: %v", repoID, err)
+	}
 
-	return true, nil
+	return false, nil
 }
