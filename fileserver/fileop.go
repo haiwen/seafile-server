@@ -1237,15 +1237,6 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
-	lastModifyStr := normalizeUTF8Path(r.FormValue("last_modify"))
-	var lastModify int64
-	if lastModifyStr != "" {
-		t, err := time.Parse(time.RFC3339, lastModifyStr)
-		if err == nil {
-			lastModify = t.Unix()
-		}
-	}
-
 	relativePath := normalizeUTF8Path(r.FormValue("relative_path"))
 	if relativePath != "" {
 		if relativePath[0] == '/' {
@@ -1305,6 +1296,22 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 		return &appError{nil, msg, http.StatusBadRequest}
 	}
 
+	lastModifyStrs := make([]string, len(fsm.fileNames))
+	if len(fsm.fileNames) == 1 {
+		lastModifyStrs[0] = r.FormValue("last_modify")
+	} else if value := r.FormValue("last_modify_list"); value != "" {
+		json.Unmarshal([]byte(value), &lastModifyStrs)
+		if len(lastModifyStrs) != len(fsm.fileNames) {
+			lastModifyStrs = make([]string, len(fsm.fileNames))
+		}
+	}
+	mtimes := make([]int64, len(fsm.fileNames))
+	for i, value := range lastModifyStrs {
+		if t, err := time.Parse(time.RFC3339, value); err == nil {
+			mtimes[i] = t.Unix()
+		}
+	}
+
 	if err := checkParentDir(repoID, parentDir); err != nil {
 		return err
 	}
@@ -1352,7 +1359,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	}
 
 	if err := postMultiFiles(rsp, r, repoID, newParentDir, user, fsm,
-		replaceExisted, lastModify, isAjax); err != nil {
+		replaceExisted, mtimes, isAjax); err != nil {
 		return err
 	}
 
@@ -1803,7 +1810,7 @@ func checkFileSizeByContentLength(r *http.Request, contentLen int64) *appError {
 	return nil
 }
 
-func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user string, fsm *recvData, replace bool, lastModify int64, isAjax bool) *appError {
+func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir, user string, fsm *recvData, replace bool, mtimes []int64, isAjax bool) *appError {
 
 	fileNames := fsm.fileNames
 	files := fsm.files
@@ -1877,7 +1884,7 @@ func postMultiFiles(rsp http.ResponseWriter, r *http.Request, repoID, parentDir,
 		}
 	}
 
-	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes, lastModify, gcID)
+	retStr, err := postFilesAndGenCommit(fileNames, repo.ID, user, canonPath, replace, ids, sizes, mtimes, gcID)
 	if err != nil {
 		if errors.Is(err, ErrGCConflict) {
 			return &appError{nil, "GC Conflict.\n", http.StatusConflict}
@@ -1937,7 +1944,7 @@ func checkFilesWithSameName(repo *repomgr.Repo, canonPath string, fileNames []st
 	return false
 }
 
-func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64, lastModify int64, lastGCID string) (string, error) {
+func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath string, replace bool, ids []string, sizes []int64, mtimes []int64, lastGCID string) (string, error) {
 	handleConncurrentUpdate := true
 	if !replace {
 		handleConncurrentUpdate = false
@@ -1961,7 +1968,7 @@ func postFilesAndGenCommit(fileNames []string, repoID string, user, canonPath st
 			break
 		}
 		mode := (syscall.S_IFREG | 0644)
-		mtime := lastModify
+		mtime := mtimes[i]
 		if mtime <= 0 {
 			mtime = time.Now().Unix()
 		}

@@ -45,6 +45,7 @@ typedef struct IndexBlksMgrPriv {
 typedef struct IndexPara {
     GList *filenames;
     GList *paths;
+    gint64 *mtimes;
     SeafRepo *repo;
     char *user;
     char *canon_path;
@@ -130,6 +131,7 @@ free_index_para (IndexPara *idx_para)
 
     string_list_free (idx_para->filenames);
     string_list_free (idx_para->paths);
+    g_free (idx_para->mtimes);
     seaf_repo_unref (idx_para->repo);
     g_free (idx_para->user);
     g_free (idx_para->canon_path);
@@ -180,7 +182,7 @@ start_index_task (gpointer data, gpointer user_data)
                                      idx_para->canon_path,
                                      id_list,
                                      size_list,
-                                     0,
+                                     idx_para->mtimes,
                                      gc_id,
                                      NULL);
     progress->status = ret;
@@ -250,6 +252,7 @@ index_blocks_mgr_start_index (IndexBlksMgr *mgr,
                               gboolean ret_json,
                               const char *canon_path,
                               SeafileCrypt *crypt,
+                              const gint64 *mtimes,
                               char **task_id)
 {
     GList *ptr = NULL;
@@ -281,6 +284,11 @@ index_blocks_mgr_start_index (IndexBlksMgr *mgr,
     IndexPara *idx_para = g_new0 (IndexPara, 1);
     idx_para->filenames = g_list_copy_deep (filenames, (GCopyFunc)g_strdup, NULL);
     idx_para->paths = g_list_copy_deep (paths, (GCopyFunc)g_strdup, NULL);
+    if (mtimes) {
+        int count = g_list_length (filenames);
+        idx_para->mtimes = g_new (gint64, count);
+        memcpy (idx_para->mtimes, mtimes, count * sizeof(gint64));
+    }
     idx_para->repo = repo;
     idx_para->user = g_strdup (user);
     idx_para->canon_path = g_strdup(canon_path);

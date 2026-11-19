@@ -53,7 +53,7 @@ post_files_and_gen_commit (GList *filenames,
                           const char *canon_path,
                           GList *id_list,
                           GList *size_list,
-                          gint64 mtime,
+                          const gint64 *mtimes,
                           char *last_gc_id,
                           GError **error);
 
@@ -904,17 +904,18 @@ do_post_multi_files (SeafRepo *repo,
                      GList *size_list,
                      const char *user,
                      int replace_existed,
-                     gint64 mtime,
+                     const gint64 *mtimes,
                      GList **name_list)
 {
     SeafDirent *dent;
     GList *dents = NULL;
     GList *ptr1, *ptr2, *ptr3;
     char *ret;
+    int i = 0;
 
     for (ptr1 = filenames, ptr2 = id_list, ptr3 = size_list;
          ptr1 && ptr2 && ptr3;
-         ptr1 = ptr1->next, ptr2 = ptr2->next, ptr3 = ptr3->next) {
+         ptr1 = ptr1->next, ptr2 = ptr2->next, ptr3 = ptr3->next, ++i) {
 
         char *name = ptr1->data;
         char *id = ptr2->data;
@@ -926,8 +927,8 @@ do_post_multi_files (SeafRepo *repo,
         dent->id[40] = '\0';
         dent->size = *size;
         dent->mode = STD_FILE_MODE;
-        if (mtime > 0) {
-            dent->mtime = mtime;
+        if (mtimes && mtimes[i] > 0) {
+            dent->mtime = mtimes[i];
         } else {
             dent->mtime = (gint64)time(NULL);
         }
@@ -1074,7 +1075,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                     const char *paths_json,
                                     const char *user,
                                     int replace_existed,
-                                    gint64 mtime,
+                                    const gint64 *mtimes,
                                     char **ret_json,
                                     char **task_id,
                                     GError **error)
@@ -1177,7 +1178,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                          canon_path,
                                          id_list,
                                          size_list,
-                                         mtime,
+                                         mtimes,
                                          gc_id,
                                          error);
     } else {
@@ -1190,6 +1191,7 @@ seaf_repo_manager_post_multi_files (SeafRepoManager *mgr,
                                             ret_json == NULL ? FALSE : TRUE,
                                             canon_path,
                                             crypt,
+                                            mtimes,
                                             task_id);
     }
 
@@ -1218,7 +1220,7 @@ post_files_and_gen_commit (GList *filenames,
                            const char *canon_path,
                            GList *id_list,
                            GList *size_list,
-                           gint64 mtime,
+                           const gint64 *mtimes,
                            char *last_gc_id,
                            GError **error)
 {
@@ -1242,7 +1244,7 @@ retry:
     /* Add the files to parent dir and commit. */
     root_id = do_post_multi_files (repo, head_commit->root_id, canon_path,
                                    filenames, id_list, size_list, user,
-                                   replace_existed, mtime, &name_list);
+                                   replace_existed, mtimes, &name_list);
     if (!root_id) {
         seaf_warning ("[post multi-file] Failed to post files to %s in repo %s.\n",
                       canon_path, repo->id);
@@ -6944,4 +6946,3 @@ seaf_repo_diff (SeafRepo *repo, const char *old, const char *new, int fold_dir_r
 
     return diff_entries;
 }
-

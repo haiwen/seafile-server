@@ -36,6 +36,7 @@ index_blocks_mgr_start_index (IndexBlksMgr *mgr,
                               gboolean ret_json,
                               const char *canon_path,
                               SeafileCrypt *crypt,
+                              const gint64 *mtimes,
                               char **task_id);
 
 #endif
