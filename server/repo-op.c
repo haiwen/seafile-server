@@ -270,26 +270,6 @@ do_post_file (SeafRepo *repo,
     return do_post_file_replace(repo, root_id, parent_dir, 0, dent);
 }
 
-static char *
-get_canonical_path (const char *path)
-{
-    char *ret = g_strdup (path);
-    char *p;
-
-    for (p = ret; *p != 0; ++p) {
-        if (*p == '\\')
-            *p = '/';
-    }
-
-    /* Remove trailing slashes from dir path. */
-    int len = strlen(ret);
-    int i = len - 1;
-    while (i >= 0 && ret[i] == '/')
-        ret[i--] = 0;
-
-    return ret;
-}
-
 /* Return TRUE if @filename already existing in @parent_dir. If exists, and
    @mode is not NULL, set its value to the mode of the dirent.
 */
@@ -3745,7 +3725,7 @@ seaf_repo_manager_mkdir_with_parents (SeafRepoManager *mgr,
     int ret = 0; 
     char *gc_id = NULL;
 
-    if (new_dir_path[0] == '/' || new_dir_path[0] == '\\') {
+    if (new_dir_path[0] == '/') {
         seaf_warning ("[mkdir with parent] Invalid relative path %s.\n", new_dir_path);
         g_set_error (error, SEAFILE_DOMAIN, SEAF_ERR_BAD_ARGS,
                      "Invalid relative path");

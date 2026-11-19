@@ -1248,7 +1248,7 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 
 	relativePath := normalizeUTF8Path(r.FormValue("relative_path"))
 	if relativePath != "" {
-		if relativePath[0] == '/' || relativePath[0] == '\\' {
+		if relativePath[0] == '/' {
 			msg := "Invalid relative path"
 			return &appError{nil, msg, http.StatusBadRequest}
 		}
@@ -2041,8 +2041,17 @@ func formatJSONRet(nameList, idList []string, sizeList []int64) ([]byte, error) 
 }
 
 func getCanonPath(p string) string {
-	formatPath := strings.Replace(p, "\\", "/", -1)
-	return filepath.Join(formatPath)
+	parts := strings.FieldsFunc(p, func(c rune) bool {
+		return c == '/'
+	})
+	canon := strings.Join(parts, "/")
+	if canon == "" {
+		return "/"
+	}
+	if strings.HasPrefix(p, "/") {
+		return "/" + canon
+	}
+	return canon
 }
 
 var (
