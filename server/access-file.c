@@ -554,6 +554,7 @@ test_firefox (evhtp_request_t *req)
 
 // sanitize_header_filename replaces bytes disallowed in RFC 9110 field values and
 // quoted-string qdtext (CTL except HTAB, DEL, DQUOTE, and backslash) with '_'.
+// Refer to https://www.rfc-editor.org/info/rfc9110/#name-quoted-strings.
 static char *
 sanitize_header_filename (const char *filename)
 {

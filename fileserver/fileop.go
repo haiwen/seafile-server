@@ -719,6 +719,7 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 
 // sanitizeHeaderFilename replaces bytes disallowed in RFC 9110 field values and
 // quoted-string qdtext (CTL except HTAB, DEL, DQUOTE, and backslash) with '_'.
+// Refer to https://www.rfc-editor.org/info/rfc9110/#name-quoted-strings.
 func sanitizeHeaderFilename(name string) string {
 	sanitized := []byte(name)
 	for i := 0; i < len(sanitized); i++ {
