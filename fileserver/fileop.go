@@ -1330,7 +1330,10 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	if len(fsm.fileNames) == 1 {
 		lastModifyStrs[0] = r.FormValue("last_modify")
 	} else if value := r.FormValue("last_modify_list"); value != "" {
-		json.Unmarshal([]byte(value), &lastModifyStrs)
+		lastModifyStrs = strings.Split(value, ",")
+		for i := range lastModifyStrs {
+			lastModifyStrs[i] = strings.Trim(lastModifyStrs[i], " \t")
+		}
 		if len(lastModifyStrs) != len(fsm.fileNames) {
 			lastModifyStrs = make([]string, len(fsm.fileNames))
 		}

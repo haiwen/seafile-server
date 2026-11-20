@@ -611,6 +611,58 @@ def test_api_mtime(repo):
     assert dent.mtime == 1695809905
 
 @pytest.mark.parametrize('is_ajax', [True, False])
+@pytest.mark.parametrize('mtime_list,expected_mtimes', [
+    pytest.param(
+        '2023-09-27T18:18:25+08:00,2023-09-27T18:18:26+08:00',
+        [1695809905, 1695809906], id='comma-separated'),
+    pytest.param(
+        ' \t2023-09-27T18:18:25+08:00 ,\t2023-09-27T18:18:26+08:00 ',
+        [1695809905, 1695809906], id='optional-whitespace'),
+    pytest.param(
+        ',2023-09-27T18:18:26+08:00',
+        [None, 1695809906], id='empty-first-item'),
+    pytest.param(
+        '2023-09-27T18:18:25+08:00,',
+        [1695809905, None], id='empty-last-item'),
+    pytest.param(
+        'invalid,2023-09-27T18:18:26+08:00',
+        [None, 1695809906], id='invalid-item'),
+    pytest.param(
+        '2023-09-27T18:18:25+08:00',
+        [None, None], id='count-mismatch'),
+    pytest.param(
+        '["2023-09-27T18:18:25+08:00","2023-09-27T18:18:26+08:00"]',
+        [None, None], id='json-not-supported'),
+])
+def test_multi_upload_mtime_list(repo, is_ajax, mtime_list, expected_mtimes):
+    names = ['first.txt', 'second.txt']
+    token = api.get_fileserver_access_token(
+        repo.id, '{"parent_dir":"/"}', 'upload', USER, False)
+    endpoint = 'upload-aj' if is_ajax else 'upload-api'
+    url = 'http://127.0.0.1:8082/{}/{}'.format(endpoint, token)
+    encoder = MultipartEncoder(fields=[
+        ('parent_dir', '/'),
+        ('last_modify_list', mtime_list),
+        ('file', (names[0], b'first content', 'application/octet-stream')),
+        ('file', (names[1], b'second content', 'application/octet-stream')),
+    ])
+    started = int(time.time())
+    response = requests.post(url, params={'ret-json': '1'}, data=encoder,
+                             headers={'Content-Type': encoder.content_type},
+                             timeout=30)
+    finished = int(time.time())
+    assert response.status_code == 200, response.text
+    assert {item['name'] for item in response.json()} == set(names)
+    for name, expected in zip(names, expected_mtimes):
+        dent = api.get_dirent_by_path(repo.id, '/' + name)
+        assert dent is not None
+        if expected is None:
+            assert started <= dent.mtime <= finished
+        else:
+            assert dent.mtime == expected
+
+
+@pytest.mark.parametrize('is_ajax', [True, False])
 def test_resumable_upload_offset_invalid(repo, is_ajax):
     create_test_file()
     obj_id = '{"parent_dir":"/"}'
