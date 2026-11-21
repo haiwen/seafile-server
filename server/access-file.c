@@ -552,8 +552,8 @@ test_firefox (evhtp_request_t *req)
     }
 }
 
-// sanitize_header_filename replaces bytes disallowed in RFC 9110 field values and
-// quoted-string qdtext (CTL except HTAB, DEL, DQUOTE, and backslash) with '_'.
+// sanitize_header_filename uses download plus an ASCII extension for non-ASCII names.
+// It replaces bytes disallowed in RFC 9110 quoted-string qdtext with '_'.
 // Refer to https://www.rfc-editor.org/info/rfc9110/#name-quoted-strings.
 static char *
 sanitize_header_filename (const char *filename)
@@ -565,14 +565,20 @@ sanitize_header_filename (const char *filename)
     if (!filename)
         return g_strdup ("");
 
-    len = strlen (filename);
-    sanitized = g_malloc (len + 1);
+    if (!g_str_is_ascii (filename)) {
+        const char *ext = strrchr (filename, '.');
+        if (!ext || !g_str_is_ascii (ext))
+            ext = "";
+        sanitized = g_strconcat ("download", ext, NULL);
+    } else {
+        sanitized = g_strdup (filename);
+    }
+
+    len = strlen (sanitized);
     for (i = 0; i < len; i++) {
-        unsigned char c = (unsigned char)filename[i];
+        unsigned char c = (unsigned char)sanitized[i];
         if ((c < 0x20 && c != '\t') || c == 0x7f || c == '"' || c == '\\') {
             sanitized[i] = '_';
-        } else {
-            sanitized[i] = (char)c;
         }
     }
     sanitized[len] = '\0';

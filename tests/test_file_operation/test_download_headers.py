@@ -15,6 +15,12 @@ from tests.config import USER
     pytest.param('line\r\nbreak.txt', 'line__break.txt', id='crlf'),
     pytest.param('delete\x7fname.txt', 'delete_name.txt', id='del'),
     pytest.param("space ;,='().txt", "space ;,='().txt", id='allowed-qdtext'),
+    pytest.param('\u4e2d\u6587.txt', 'download.txt', id='chinese'),
+    pytest.param('caf\u00e9.PDF', 'download.PDF', id='non-ascii-latin'),
+    pytest.param('\u4e2d\u6587.tar.gz', 'download.gz', id='multiple-extensions'),
+    pytest.param('\u4e2d\u6587', 'download', id='no-extension'),
+    pytest.param('\u4e2d\u6587.\u6587\u672c', 'download', id='non-ascii-extension'),
+    pytest.param('\u4e2d\u6587.tx"t', 'download.tx_t', id='unsafe-ascii-extension'),
 ])
 @pytest.mark.parametrize('byte_range', [False, True], ids=['full', 'range'])
 def test_download_header_filename(repo, tmp_path, filename, expected_filename,
@@ -36,6 +42,7 @@ def test_download_header_filename(repo, tmp_path, filename, expected_filename,
     assert response.status_code == (206 if byte_range else 200)
     assert response.content == (content[:4] if byte_range else content)
     disposition = response.headers['Content-Disposition']
+    assert disposition.isascii()
     assert disposition.startswith('attachment;')
     # Inspect the fallback parameter directly: parsers may prefer filename*.
     assert re.findall(r';\s*filename="([^"]*)"', disposition) == [expected_filename]
