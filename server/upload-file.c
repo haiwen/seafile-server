@@ -435,21 +435,26 @@ parse_upload_mtimes (RecvFSM *fsm)
     if (!value)
         return mtimes;
 
-    json_error_t error;
-    json_t *array = json_loads (value, 0, &error);
-    if (!json_is_array (array) || json_array_size (array) != count)
+    char **values = g_strsplit (value, ",", -1);
+    if (g_strv_length (values) != count)
         goto out;
 
-    size_t i;
-    json_t *item;
-    json_array_foreach (array, i, item) {
-        if (json_is_null (item) || !json_is_string (item))
-            continue;
-        mtimes[count-i-1] = rfc3339_to_timestamp (json_string_value (item));
+    guint i;
+    for (i = 0; i < count; i++) {
+        char *item = values[i];
+        while (*item == ' ' || *item == '\t')
+            item++;
+
+        char *end = item + strlen (item);
+        while (end > item && (end[-1] == ' ' || end[-1] == '\t'))
+            *--end = '\0';
+
+        // Multipart filenames are prepended, reversing the upload order.
+        mtimes[count-i-1] = rfc3339_to_timestamp (item);
     }
 
 out:
-    json_decref (array);
+    g_strfreev (values);
     return mtimes;
 }
 

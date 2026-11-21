@@ -552,6 +552,40 @@ test_firefox (evhtp_request_t *req)
     }
 }
 
+// sanitize_header_filename uses download plus an ASCII extension for non-ASCII names.
+// It replaces bytes disallowed in RFC 9110 quoted-string qdtext with '_'.
+// Refer to https://www.rfc-editor.org/info/rfc9110/#name-quoted-strings.
+static char *
+sanitize_header_filename (const char *filename)
+{
+    char *sanitized = NULL;
+    size_t len;
+    size_t i;
+
+    if (!filename)
+        return g_strdup ("");
+
+    if (!g_str_is_ascii (filename)) {
+        const char *ext = strrchr (filename, '.');
+        if (!ext || !g_str_is_ascii (ext))
+            ext = "";
+        sanitized = g_strconcat ("download", ext, NULL);
+    } else {
+        sanitized = g_strdup (filename);
+    }
+
+    len = strlen (sanitized);
+    for (i = 0; i < len; i++) {
+        unsigned char c = (unsigned char)sanitized[i];
+        if ((c < 0x20 && c != '\t') || c == 0x7f || c == '"' || c == '\\') {
+            sanitized[i] = '_';
+        }
+    }
+    sanitized[len] = '\0';
+
+    return sanitized;
+}
+
 static int
 do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
         const char *filename, const char *operation,
@@ -620,16 +654,18 @@ do_file(evhtp_request_t *req, SeafRepo *repo, const char *file_id,
                               evhtp_header_new("Content-Length", file_size, 1, 1));
 
     char *esc_filename = g_uri_escape_string(filename, NULL, FALSE);
+    char *safe_name = sanitize_header_filename (filename);
     if (strcmp(operation, "download") == 0 ||
         strcmp(operation, "download-link") == 0) {
         /* Safari doesn't support 'utf8', 'utf-8' is compatible with most of browsers. */
         snprintf(cont_filename, SEAF_PATH_MAX,
-                 "attachment;filename*=utf-8''%s;filename=\"%s\"", esc_filename, filename);
+                 "attachment;filename*=utf-8''%s;filename=\"%s\"", esc_filename, safe_name);
     } else {
         snprintf(cont_filename, SEAF_PATH_MAX,
-                 "inline;filename*=utf-8''%s;filename=\"%s\"", esc_filename, filename);
+                 "inline;filename*=utf-8''%s;filename=\"%s\"", esc_filename, safe_name);
     }
     g_free (esc_filename);
+    g_free (safe_name);
     evhtp_headers_add_header(req->headers_out,
                              evhtp_header_new("Content-Disposition", cont_filename,
                                               1, 1));
@@ -917,19 +953,21 @@ set_resp_disposition (evhtp_request_t *req, const char *operation,
 {
     char *cont_filename = NULL;
     char *esc_filename = g_uri_escape_string(filename, NULL, FALSE);
+    char *safe_name = sanitize_header_filename (filename);
 
     if (strcmp(operation, "download") == 0) {
         cont_filename = g_strdup_printf("attachment;filename*=utf-8''%s;filename=\"%s\"",
-                                        esc_filename, filename);
+                                        esc_filename, safe_name);
     } else {
         cont_filename = g_strdup_printf("inline;filename*=utf-8''%s;filename=\"%s\"",
-                                        esc_filename, filename);
+                                        esc_filename, safe_name);
     }
 
     evhtp_headers_add_header(req->headers_out,
                              evhtp_header_new("Content-Disposition", cont_filename,
                                               0, 1));
     g_free (esc_filename);
+    g_free (safe_name);
     g_free (cont_filename);
 }
 
@@ -1078,12 +1116,14 @@ start_download_zip_file (evhtp_request_t *req, const char *token,
 
     char *zippath = g_strdup_printf("%s.zip", zipname);
     char *esc_zippath = g_uri_escape_string(zippath, NULL, FALSE);
+    char *safe_name = sanitize_header_filename (zippath);
 
     snprintf(cont_filename, SEAF_PATH_MAX,
-             "attachment;filename*=utf-8''%s;filename=\"%s\"", esc_zippath, zippath);
+             "attachment;filename*=utf-8''%s;filename=\"%s\"", esc_zippath, safe_name);
 
     g_free (zippath);
     g_free (esc_zippath);
+    g_free (safe_name);
 
     evhtp_headers_add_header(req->headers_out,
             evhtp_header_new("Content-Disposition", cont_filename, 1, 1));

@@ -706,15 +706,59 @@ func setCommonHeaders(rsp http.ResponseWriter, r *http.Request, operation, fileN
 		operation == "downloadblks" {
 		// Since the file name downloaded by safari will be garbled, we need to encode the filename.
 		// Safari cannot parse unencoded utf8 characters.
-		contFileName = fmt.Sprintf("attachment;filename*=utf-8''%s;filename=\"%s\"", url.PathEscape(fileName), fileName)
+		contFileName = fmt.Sprintf("attachment;filename*=utf-8''%s;filename=\"%s\"", url.PathEscape(fileName), sanitizeHeaderFilename(fileName))
 	} else {
-		contFileName = fmt.Sprintf("inline;filename*=utf-8''%s;filename=\"%s\"", url.PathEscape(fileName), fileName)
+		contFileName = fmt.Sprintf("inline;filename*=utf-8''%s;filename=\"%s\"", url.PathEscape(fileName), sanitizeHeaderFilename(fileName))
 	}
 	rsp.Header().Set("Content-Disposition", contFileName)
 
 	if fileType != "image/jpg" {
 		rsp.Header().Set("X-Content-Type-Options", "nosniff")
 	}
+}
+
+// sanitizeHeaderFilename uses download plus an ASCII extension for non-ASCII names.
+// It replaces bytes disallowed in RFC 9110 quoted-string qdtext with '_'.
+// Refer to https://www.rfc-editor.org/info/rfc9110/#name-quoted-strings.
+func sanitizeHeaderFilename(name string) string {
+	for i := 0; i < len(name); i++ {
+		if name[i] >= 0x80 {
+			ext := filepath.Ext(name)
+			for j := 0; j < len(ext); j++ {
+				if ext[j] >= 0x80 {
+					ext = ""
+					break
+				}
+			}
+			name = "download" + ext
+			break
+		}
+	}
+
+	sanitized := []byte(name)
+	for i := 0; i < len(sanitized); i++ {
+		if !isAllowedHeaderQuotedByte(sanitized[i]) {
+			sanitized[i] = '_'
+		}
+	}
+
+	return string(sanitized)
+}
+
+func isAllowedHeaderQuotedByte(b byte) bool {
+	if b == '\t' {
+		return true
+	}
+
+	if b < 0x20 || b == 0x7f {
+		return false
+	}
+
+	if b == '"' || b == '\\' {
+		return false
+	}
+
+	return true
 }
 
 func accessBlksCB(rsp http.ResponseWriter, r *http.Request) *appError {
@@ -904,7 +948,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 
 		// The zip name downloaded by safari will be garbled if we encode the zip name,
 		// because we download zip file using chunk encoding.
-		contFileName := fmt.Sprintf("attachment;filename=\"%s\";filename*=utf-8''%s", zipName, url.PathEscape(zipName))
+		contFileName := fmt.Sprintf("attachment;filename=\"%s\";filename*=utf-8''%s", sanitizeHeaderFilename(zipName), url.PathEscape(zipName))
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 
@@ -923,7 +967,7 @@ func downloadZipFile(rsp http.ResponseWriter, r *http.Request, data, repoID, use
 		zipName := fmt.Sprintf("documents-export-%d-%d-%d.zip", now.Year(), now.Month(), now.Day())
 
 		setCommonHeaders(rsp, r, "download", zipName)
-		contFileName := fmt.Sprintf("attachment;filename=\"%s\";filename*=utf8''%s", zipName, url.PathEscape(zipName))
+		contFileName := fmt.Sprintf("attachment;filename=\"%s\";filename*=utf8''%s", sanitizeHeaderFilename(zipName), url.PathEscape(zipName))
 		rsp.Header().Set("Content-Disposition", contFileName)
 		rsp.Header().Set("Content-Type", "application/octet-stream")
 
@@ -1300,7 +1344,10 @@ func doUpload(rsp http.ResponseWriter, r *http.Request, fsm *recvData, isAjax bo
 	if len(fsm.fileNames) == 1 {
 		lastModifyStrs[0] = r.FormValue("last_modify")
 	} else if value := r.FormValue("last_modify_list"); value != "" {
-		json.Unmarshal([]byte(value), &lastModifyStrs)
+		lastModifyStrs = strings.Split(value, ",")
+		for i := range lastModifyStrs {
+			lastModifyStrs[i] = strings.Trim(lastModifyStrs[i], " \t")
+		}
 		if len(lastModifyStrs) != len(fsm.fileNames) {
 			lastModifyStrs = make([]string, len(fsm.fileNames))
 		}
